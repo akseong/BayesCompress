@@ -1,0 +1,1203 @@
+---
+title: "Bayesian Compression - walking through code"
+author: "Arnie Seong"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+header-includes:
+  - \usepackage{bm}
+  - \usepackage{xcolor}
+  - \usepackage{amssymb}
+output: 
+  html_document:
+    df_print: paged
+    theme: cerulean
+    highlight: tango
+    toc: yes
+    toc_depth: 4
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
+    code_fold: hide
+urlcolor: blue
+params:
+  retrain_mnist: FALSE
+  retrain_fashion: FALSE
+---
+
+
+```{r setup, include=FALSE, message=F, echo=F, warning=F}
+# LIBRARIES----
+
+#### python
+library(reticulate)
+
+#### plotting:
+library(ggplot2)
+library(gridExtra)
+
+# #### Misc:
+library(here)
+library(tidyr)
+library(knitr)
+library(kableExtra)
+library(dplyr)
+
+# DOCUMENT SETUP ----
+# detect pdf/html output, set chunk options, sci.notation 
+latex_out <- knitr::is_latex_output()
+knitr::opts_chunk$set(
+  cache = FALSE, 
+  message = FALSE, 
+  echo = !knitr::is_latex_output(), 
+  warning = FALSE
+)
+
+
+if (knitr::is_latex_output()) {
+  knitr::opts_chunk$set(fig.height=4, 
+                        fig.width=6)
+} else {
+  knitr::opts_chunk$set(out.width = "100%")
+}
+
+options(scipen=10)
+
+
+# TEXT/TABLE FORMATTING----
+
+custom_purple <- ifelse(
+  knitr::is_latex_output(),
+  "purple",
+  "#b51ced"
+)
+
+custom_blue <- ifelse(
+  knitr::is_latex_output(),
+  "blue",
+  "#11579e"
+)
+
+colorize <- function(x, color=custom_purple) {
+  # text color conditional on latex/html output
+  # from rmarkdown cookbook
+  if (knitr::is_latex_output()) {
+    sprintf("\\textcolor{ %s}{ %s}", color, x)
+  } else if (knitr::is_html_output()) {
+    sprintf("<span style='color: %s;'>%s</span>", color, x)
+  } else x
+}
+
+# kable NA handling
+options(knitr.kable.NA = '')
+
+# mykable function
+mykable <- function(tab, cap,
+                    latex_options=c("hold_position", "scale_down", "striped"), 
+                    bootstrap_options=c("striped", "hover", "condensed"), 
+                    full_width=F, position="center", ...){
+  # kable formatting conditional on latex or html output
+  if (knitr::is_latex_output()){
+    kable(x=tab, caption=cap, ...) %>%
+      kableExtra::kable_styling(latex_options = latex_options)
+  } else if (knitr::is_html_output()){
+    kable(x=tab, caption=cap, ...) %>%
+      kableExtra::kable_styling(bootstrap_options = bootstrap_options, full_width=full_width, position=position)
+  }
+}
+```
+
+
+
+
+
+
+
+
+
+# Bayesian Compression
+
+
++ [Bayesian Compression paper](https://github.com/KarenUllrich/Tutorial_BayesianCompressionForDL)
+
+
+
++ before running, install the `reticulate` package and miniconda:
+
+```
+install.packages("reticulate")
+library(reticulate)
+install_miniconda()
+```
+
+
+```{r }
+# create conda environment and install dependencies
+if (!virtualenv_exists("r-reticulate")){
+  conda_create("r-reticulate")
+  use_condaenv("r-reticulate")
+  conda_install("r-reticulate", "matplotlib", pip=TRUE)
+  conda_install("r-reticulate", "scipy", pip=TRUE)
+  conda_install("r-reticulate", "scikit-learn", pip=TRUE)
+  conda_install("r-reticulate", "sklearn", pip=TRUE)
+  conda_install("r-reticulate", "torch", pip=TRUE)
+  conda_install("r-reticulate", "torchvision", pip = TRUE)
+  conda_install("r-reticulate", "imageio", pip = TRUE)
+  conda_install("r-reticulate", "seaborn", pip=TRUE)
+  conda_install("r-reticulate", "numpy", pip = TRUE)
+}
+use_condaenv("r-reticulate")
+
+FPpath <- here::here("walkthrough")
+setwd(FPpath)
+FPres <- here::here("walkthrough", "results")
+KUpath <- here::here("walkthrough", "kullrich_files")
+```
+
+
+
+## working through example code
+
+__Code from [Karen Ullrich's Github](https://github.com/KarenUllrich/Tutorial_BayesianCompressionForDL/blob/master/example.py)__
+
++ minor modifications made
+
++ imports & setup
+
+```{python}
+# py chunk
+import os
+# set directory
+os.chdir(r.FPpath)
+
+import sys
+sys.path.append(r.KUpath)
+
+from __future__ import print_function
+import numpy as np
+import matplotlib.pyplot as plt
+plt.switch_backend('tkagg')
+import torch as torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
+from torchvision import datasets, transforms
+from torch.autograd import Variable
+
+
+# source Bayesian Compression .py files
+import BayesianLayers
+from compression import compute_compression_rate, compute_reduced_weights
+from utils import visualize_pixel_importance, generate_gif, visualise_weights
+import compression
+import utils
+
+N = 60000.  # number of data points in the training set; used to compute KL Divergence
+plt.close("all")
+
+```
+
+
+
+
+
+```{python model-def}
+
+def main():
+    kwargs = {'num_workers': 1, 'pin_memory': True} if FLAGS.cuda else {}
+    
+    train_loader = torch.utils.data.DataLoader(
+        datasets.MNIST('./data', train=True, download=True,
+                       transform=transforms.Compose([
+                           transforms.ToTensor(),lambda x: 2 * (x - 0.5),
+                       ])),
+        batch_size=FLAGS.batchsize, shuffle=True, **kwargs)
+    
+    test_loader = torch.utils.data.DataLoader(
+        datasets.MNIST('./data', train=False, transform=transforms.Compose([
+            transforms.ToTensor(), lambda x: 2 * (x - 0.5),
+        ])),
+        batch_size=FLAGS.batchsize, shuffle=True, **kwargs)
+    
+    # for later analysis we take some sample digits
+    mask = 255. * (np.ones((1, 28, 28)))
+    examples = train_loader.sampler.data_source.train_data[0:5].numpy()
+    images = np.vstack([mask, examples])
+    
+    
+    
+    
+    # build a simple MLP
+    class Net(nn.Module):
+        def __init__(self):
+            super(Net, self).__init__()
+            # activation
+            self.relu = nn.ReLU()
+            # layers
+            self.fc1 = BayesianLayers.LinearGroupNJ(28 * 28, 300, clip_var=0.04, cuda=FLAGS.cuda)
+            self.fc2 = BayesianLayers.LinearGroupNJ(300, 100, cuda=FLAGS.cuda)
+            self.fc3 = BayesianLayers.LinearGroupNJ(100, 10, cuda=FLAGS.cuda)
+            # layers including kl_divergence
+            self.kl_list = [self.fc1, self.fc2, self.fc3]
+    
+        def forward(self, x):
+            x = x.view(-1, 28 * 28)
+            x = self.relu(self.fc1(x))
+            x = self.relu(self.fc2(x))
+            return self.fc3(x)
+    
+        def get_masks(self,thresholds):
+            weight_masks = []
+            mask = None
+            for i, (layer, threshold) in enumerate(zip(self.kl_list, thresholds)):
+                # compute dropout mask
+                if mask is None:
+                    log_alpha = layer.get_log_dropout_rates().cpu().data.numpy()
+                    mask = log_alpha < threshold
+                else:
+                    mask = np.copy(next_mask)
+                try:
+                    log_alpha = layers[i + 1].get_log_dropout_rates().cpu().data.numpy()
+                    next_mask = log_alpha < thresholds[i + 1]
+                except:
+                    # must be the last mask
+                    next_mask = np.ones(10)
+    
+                weight_mask = np.expand_dims(mask, axis=0) * np.expand_dims(next_mask, axis=1)
+                weight_masks.append(weight_mask.astype(np.float))
+            return weight_masks
+    
+        def kl_divergence(self):
+            KLD = 0
+            for layer in self.kl_list:
+                KLD += layer.kl_divergence()
+            return KLD
+    
+    # init model
+    model = Net()
+    if FLAGS.cuda:
+        model.cuda()
+    
+    # init optimizer
+    optimizer = optim.Adam(model.parameters())
+    
+    # we optimize the variational lower bound scaled by the number of data
+    # points (so we can keep our intuitions about hyper-params such as the learning rate)
+    discrimination_loss = nn.functional.cross_entropy
+    
+    def objective(output, target, kl_divergence):
+        discrimination_error = discrimination_loss(output, target)
+        variational_bound = discrimination_error + kl_divergence / N
+        if FLAGS.cuda:
+            variational_bound = variational_bound.cuda()
+        return variational_bound
+    
+    def train(epoch):
+        model.train()
+        for batch_idx, (data, target) in enumerate(train_loader):
+            if FLAGS.cuda:
+                data, target = data.cuda(), target.cuda()
+            data, target = Variable(data), Variable(target)
+            optimizer.zero_grad()
+            output = model(data)
+            loss = objective(output, target, model.kl_divergence())
+            loss.backward()
+            optimizer.step()
+            # clip the variances after each step
+            for layer in model.kl_list:
+                layer.clip_variances()
+        print('Epoch: {} \tTrain loss: {:.6f} \t'.format(
+            epoch, loss.data))
+    
+    def test():
+        model.eval()
+        test_loss = 0
+        correct = 0
+        for data, target in test_loader:
+            if FLAGS.cuda:
+                data, target = data.cuda(), target.cuda()
+            data, target = Variable(data, volatile=True), Variable(target)
+            output = model(data)
+            test_loss += discrimination_loss(output, target, size_average=False).data
+            pred = output.data.max(1, keepdim=True)[1]
+            correct += pred.eq(target.data.view_as(pred)).cpu().sum()
+        test_loss /= len(test_loader.dataset)
+        print('Test loss: {:.4f}, Accuracy: {}/{} ({:.2f}%)\n'.format(
+            test_loss, correct, len(test_loader.dataset),
+            100. * correct / len(test_loader.dataset)))
+    
+    
+    
+    # train the model and save some visualisations on the way
+    print("--start training--")
+    for epoch in range(1, FLAGS.epochs + 1):
+        print("--epoch" + str(epoch) + "--")
+        train(epoch)
+        test()
+        # visualizations
+        weight_mus = [model.fc1.weight_mu, model.fc2.weight_mu]
+        log_alphas = [model.fc1.get_log_dropout_rates(), model.fc2.get_log_dropout_rates(),
+                      model.fc3.get_log_dropout_rates()]
+        visualise_weights(weight_mus, log_alphas, epoch=epoch)
+        log_alpha = model.fc1.get_log_dropout_rates().cpu().data.numpy()
+        visualize_pixel_importance(images, log_alpha=log_alpha, epoch=str(epoch))
+    
+    generate_gif(save='pixel', epochs=FLAGS.epochs)
+    generate_gif(save='weight0_e', epochs=FLAGS.epochs)
+    generate_gif(save='weight1_e', epochs=FLAGS.epochs)
+    
+    # compute compression rate and new model accuracy
+    layers = [model.fc1, model.fc2, model.fc3]
+    thresholds = FLAGS.thresholds
+    compute_compression_rate(layers, model.get_masks(thresholds))
+    
+    print("Test error after with reduced bit precision:")
+    
+    weights = compute_reduced_weights(layers, model.get_masks(thresholds))
+    for layer, weight in zip(layers, weights):
+        if FLAGS.cuda:
+            layer.post_weight_mu.data = torch.Tensor(weight).cuda()
+        else:
+            layer.post_weight_mu.data = torch.Tensor(weight)
+    for layer in layers: layer.deterministic = True
+    test()
+    torch.save(model.state_dict(), 'model_weights.pth')
+
+
+
+```
+
+
+```{python train_mnist}
+if r.params["retrain_mnist"]:
+  if __name__ == '__main__':
+      import argparse
+      parser = argparse.ArgumentParser()
+      parser.add_argument('--epochs', type=int, default=100)
+      parser.add_argument('--batchsize', type=int, default=128)
+      parser.add_argument('--thresholds', type=float, nargs='*', default=[-2.8, -3., -5.])
+  
+      FLAGS = parser.parse_args()
+      FLAGS.cuda = torch.cuda.is_available()  # check if we can put the net on the GPU
+      main()
+  
+  print("--done--")
+
+
+```
+
+```{r}
+if (params$retrain_mnist){
+    
+  # move files
+  dir.create(file.path(here::here("walkthrough"), "mnist_saved"), showWarnings = FALSE)
+  file.copy(from = here::here("walkthrough", "figures", "weight0_e.gif"),
+            to   = here::here("walkthrough", "mnist_saved", "weight0_e.gif"))
+  file.copy(from = here::here("walkthrough", "figures", "weight1_e.gif"),
+            to   = here::here("walkthrough", "mnist_saved", "weight1_e.gif"))
+  file.copy(from = here::here("walkthrough", "figures", "pixel.gif"),
+            to   = here::here("walkthrough", "mnist_saved", "pixel.gif"))
+}
+```
+
+
+## results
+
+### sparsity
+
++ Weight layer sparsity over epochs (first layer on left)
+
+```{r layer_vis, echo=FALSE, out.width="49%", out.height="100%", fig.cap="layer sparsity over training epochs", fig.show='hold', fig.align='center'}
+
+layer1path <- here::here("walkthrough", "mnist_saved", "weight0_e.gif")
+layer2path <- here::here("walkthrough", "mnist_saved", "weight1_e.gif")
+knitr::include_graphics(c(layer1path, layer2path))
+```
+
+
+### pixel importance
++ pixel importance
+
+```{r pixel-vis, echo=FALSE, out.width="100%", fig.cap="pixel importance", fig.show='hold', fig.align='center'}
+pixelpath <- here::here("walkthrough", "mnist_saved", "pixel.gif")
+knitr::include_graphics(pixelpath)
+```
+
+
+
+```{python redefine-mainfuncs-and-load, echo = FALSE, results = "hide"}
+import argparse
+import torch as torch
+parser = argparse.ArgumentParser()
+parser.add_argument('--epochs', type=int, default=100)
+parser.add_argument('--batchsize', type=int, default=128)
+parser.add_argument('--thresholds', type=float, nargs='*', default=[-2.8, -3., -5.])
+FLAGS = parser.parse_args()
+FLAGS.cuda = torch.cuda.is_available()  # check if we can put the net on the GPU
+
+# build a simple MLP
+class Net(nn.Module):
+    def __init__(self):
+        super(Net, self).__init__()
+        # activation
+        self.relu = nn.ReLU()
+        # layers
+        self.fc1 = BayesianLayers.LinearGroupNJ(28 * 28, 300, clip_var=0.04, cuda=FLAGS.cuda)
+        self.fc2 = BayesianLayers.LinearGroupNJ(300, 100, cuda=FLAGS.cuda)
+        self.fc3 = BayesianLayers.LinearGroupNJ(100, 10, cuda=FLAGS.cuda)
+        # layers including kl_divergence
+        self.kl_list = [self.fc1, self.fc2, self.fc3]
+
+    def forward(self, x):
+        x = x.view(-1, 28 * 28)
+        x = self.relu(self.fc1(x))
+        x = self.relu(self.fc2(x))
+        return self.fc3(x)
+
+    def get_masks(self,thresholds):
+        weight_masks = []
+        mask = None
+        for i, (layer, threshold) in enumerate(zip(self.kl_list, thresholds)):
+            # compute dropout mask
+            if mask is None:
+                log_alpha = layer.get_log_dropout_rates().cpu().data.numpy()
+                mask = log_alpha < threshold
+            else:
+                mask = np.copy(next_mask)
+            try:
+                log_alpha = layers[i + 1].get_log_dropout_rates().cpu().data.numpy()
+                next_mask = log_alpha < thresholds[i + 1]
+            except:
+                # must be the last mask
+                next_mask = np.ones(10)
+
+            weight_mask = np.expand_dims(mask, axis=0) * np.expand_dims(next_mask, axis=1)
+            weight_masks.append(weight_mask.astype(np.float))
+        return weight_masks
+
+    def kl_divergence(self):
+        KLD = 0
+        for layer in self.kl_list:
+            KLD += layer.kl_divergence()
+        return KLD
+      
+
+```
+
+
+
+
+```{python load-saved-model}
+model = Net()
+model.load_state_dict(torch.load('model_weights.pth'))
+
+# compute compression rate and new model accuracy
+layers = [model.fc1, model.fc2, model.fc3]
+thresholds = FLAGS.thresholds
+compression.compute_compression_rate(layers, model.get_masks(thresholds))
+weight_mus, weight_vars = compression.extract_pruned_params(layers, model.get_masks(thresholds))
+vars = [compression.compress_matrix(v) for v in weight_vars]
+
+```
+
+
+
++ compression of layers (rows/columns deleted)
+
+```{python matrix-sizes, results = "hold"}
+# originally specified
+print("input (FC) layer compression: " + str(weight_mus[0].shape) + " --> " + str(vars[0].shape))
+print("2nd FC layer compression: " + str(weight_mus[1].shape) + " --> " + str(vars[1].shape))
+print("output (FC) layer compression: " + str(weight_mus[2].shape) + " --> " + str(vars[2].shape))
+
+# compression.compute_reduced_weights(layers, model.get_masks(thresholds))
+# 
+# layers[0]
+# 
+# weight_mus[0].shape
+# vars[0].shape
+# 
+# compression._compute_compression_rate(weight_vars, dist_fun=lambda x: np.mean(x), overflow=10e38)
+# 
+# weight_vars[0][1:20 , 1:20]
+
+
+```
+
+
+```{python makeplts}
+if r.params["retrain_mnist"]:
+  fig_wm = plt.figure(figsize=(8, 8))
+  rows, cols = 3,1
+  for i in range(1, cols * rows+1):
+      img = weight_mus[i-1]
+      fig_wm.add_subplot(rows, cols, i)
+      plt.title("layer " + str(i))
+      plt.imshow(img.squeeze(), 'RdBu')
+      plt.colorbar()
+  fig_wm.suptitle('weight matrices before compression', fontsize=16)
+  plt.savefig("mnist_saved/fig_wm.png")
+  plt.show(fig_wm)
+  plt.close(fig_wm)
+  
+  
+  
+  fig_wv = plt.figure(figsize=(8, 8))
+  rows, cols = 3,1
+  for i in range(1, cols * rows+1):
+      img = weight_vars[i-1]
+      fig_wv.add_subplot(rows, cols, i)
+      plt.title("layer " + str(i))
+      plt.imshow(img.squeeze(), 'Blues')
+      plt.colorbar()
+  fig_wv.suptitle('weight variances', fontsize=16)    
+  plt.savefig("mnist_saved/fig_wv.png")
+  plt.show(fig_wv)
+  plt.close(fig_wv)
+
+
+
+```
+
+
+### weight matrices
+
+```{r mu_vis, echo=FALSE, out.width="100%", out.height="100%", fig.show='hold', fig.align='center'}
+mupath <- here::here("walkthrough", "mnist_saved", "fig_wm.png")
+knitr::include_graphics(mupath)
+```
+
+
+### weight variances
+
+```{r var_vis, echo=FALSE, out.width="100%", out.height="100%", fig.show='hold', fig.align='center'}
+varpath <- here::here("walkthrough", "mnist_saved", "fig_wv.png")
+knitr::include_graphics(varpath)
+```
+
+
+
+
+### training summary
+
+
+```{r, out.width = "100%"}
+
+library(readr)
+library(tidyr)
+library(forcats)
+library(stringr)
+lf <- read_file(here::here("walkthrough", "mnist_saved", "examplelog.txt"))
+lf_vec <- unlist(strsplit(lf, split = "epoch"))[-1]
+train_loss <- as.numeric(str_match(lf_vec, "Train loss:\\s*(.*?)\\s")[,2])
+test_loss <- as.numeric(str_match(lf_vec, "Test loss:\\s*(.*?),")[,2])
+acc_pct <- as.numeric(str_match(lf_vec, "\\((.*?)\\%")[,2])
+
+metrics_df <- data.frame("epoch" = 1:length(train_loss),
+  train_loss,
+  test_loss,
+  acc_pct
+) 
+
+train_p <- ggplot(metrics_df) + 
+  geom_line(aes(y = train_loss, x = epoch), color = "blue") +
+  labs(title = "training loss")
+
+test_p <- ggplot(metrics_df) + 
+  geom_line(aes(y = test_loss, x = epoch), color = "orange") +
+  labs(title = "test loss")
+
+acc_p <- ggplot(metrics_df) + 
+  geom_line(aes(y = acc_pct, x = epoch), color = "pink") +
+  labs(title = "accuracy (%)")
+
+grid.arrange(train_p, test_p, acc_p, ncol = 1)
+
+
+```
+
+
+
+
+<!-- ```{python} -->
+<!-- # build weight matrices -->
+
+
+<!-- def relu(X): -->
+<!--   return np.maximum(0, X) -->
+
+<!-- # softmax code -->
+<!-- from sklearn.utils.extmath import softmax -->
+<!-- x = np.array([[ 0.50839931,  0.49767588,  -0.51260159]]) -->
+<!-- softmax(x) -->
+
+<!-- relu(x) -->
+
+
+<!-- ``` -->
+
+
+
+
+
+
+
+
+
+# new model - Fashion mnist
+
+## train
+```{r}
+dir.create(file.path(here::here("walkthrough"), "fashion_mnist_saved"), showWarnings = FALSE)
+```
+
+```{python load-fmnist}
+
+from torch.utils.data import Dataset, DataLoader
+from torchvision import datasets
+from torchvision.transforms import ToTensor
+
+
+training_data = datasets.FashionMNIST(
+    root="data",
+    train=True,
+    download=True,
+    transform=ToTensor()
+)
+
+test_data = datasets.FashionMNIST(
+    root="data",
+    train=False,
+    download=True,
+    transform=ToTensor()
+)
+
+labels_map = {
+    0: "T-Shirt",
+    1: "Trouser",
+    2: "Pullover",
+    3: "Dress",
+    4: "Coat",
+    5: "Sandal",
+    6: "Shirt",
+    7: "Sneaker",
+    8: "Bag",
+    9: "Ankle Boot",
+}
+
+```
+
+```{python fmnist_makeplt, eval = FALSE}
+figure = plt.figure(figsize=(8, 8))
+cols, rows = 3, 3
+for i in range(1, cols * rows + 1):
+    sample_idx = torch.randint(len(training_data), size=(1,)).item()
+    img, label = training_data[sample_idx]
+    figure.add_subplot(rows, cols, i)
+    plt.title(labels_map[label])
+    plt.axis("off")
+    plt.imshow(img.squeeze(), cmap="gray")
+    
+figure.savefig("fashion_mnist_saved/sample.png")
+plt.show(figure)
+plt.close(figure)
+
+```
+
+
+```{r fm_sample_vis, echo=FALSE, out.width="100%", out.height="100%", fig.cap="weights & variances", fig.show='hold', fig.align='center'}
+samplepath <- here::here("walkthrough", "fashion_mnist_saved", "sample.png")
+knitr::include_graphics(samplepath)
+```
+
+
+
+
+```{python def-model}
+
+train_dataloader = DataLoader(training_data, batch_size=64, shuffle=True)
+test_dataloader = DataLoader(test_data, batch_size=64, shuffle=True)
+
+# training_data.data.shape
+
+def main():
+    kwargs = {'num_workers': 1, 'pin_memory': True} if FLAGS.cuda else {}
+    
+    mask = 255. * (np.ones((1, 28, 28)))
+    
+    examples = train_dataloader.sampler.data_source.train_data[0:9].numpy()
+    images = np.vstack([mask, examples])
+    
+    # build a simple MLP
+    class Net(nn.Module):
+        def __init__(self):
+            super(Net, self).__init__()
+            # activation
+            self.relu = nn.ReLU()
+            # layers
+            self.fc1 = BayesianLayers.LinearGroupNJ(28 * 28, 300, clip_var=0.04, cuda=FLAGS.cuda)
+            self.fc2 = BayesianLayers.LinearGroupNJ(300, 200, cuda=FLAGS.cuda)
+            self.fc3 = BayesianLayers.LinearGroupNJ(200, 10, cuda=FLAGS.cuda)
+            # layers including kl_divergence
+            self.kl_list = [self.fc1, self.fc2, self.fc3]
+    
+        def forward(self, x):
+            x = x.view(-1, 28 * 28)
+            x = self.relu(self.fc1(x))
+            x = self.relu(self.fc2(x))
+            return self.fc3(x)
+    
+        def get_masks(self,thresholds):
+            weight_masks = []
+            mask = None
+            for i, (layer, threshold) in enumerate(zip(self.kl_list, thresholds)):
+                # compute dropout mask
+                if mask is None:
+                    log_alpha = layer.get_log_dropout_rates().cpu().data.numpy()
+                    mask = log_alpha < threshold
+                else:
+                    mask = np.copy(next_mask)
+                try:
+                    log_alpha = layers[i + 1].get_log_dropout_rates().cpu().data.numpy()
+                    next_mask = log_alpha < thresholds[i + 1]
+                except:
+                    # must be the last mask
+                    next_mask = np.ones(10)
+    
+                weight_mask = np.expand_dims(mask, axis=0) * np.expand_dims(next_mask, axis=1)
+                weight_masks.append(weight_mask.astype(np.float))
+            return weight_masks
+    
+        def kl_divergence(self):
+            KLD = 0
+            for layer in self.kl_list:
+                KLD += layer.kl_divergence()
+            return KLD
+    
+    # init model
+    model = Net()
+    if FLAGS.cuda:
+        model.cuda()
+    
+    # init optimizer
+    optimizer = optim.Adam(model.parameters())
+    
+    # we optimize the variational lower bound scaled by the number of data
+    # points (so we can keep our intuitions about hyper-params such as the learning rate)
+    discrimination_loss = nn.functional.cross_entropy
+    
+    def objective(output, target, kl_divergence):
+        discrimination_error = discrimination_loss(output, target)
+        variational_bound = discrimination_error + kl_divergence / N
+        if FLAGS.cuda:
+            variational_bound = variational_bound.cuda()
+        return variational_bound
+    
+    def train(epoch):
+        model.train()
+        for batch_idx, (data, target) in enumerate(train_dataloader):
+            if FLAGS.cuda:
+                data, target = data.cuda(), target.cuda()
+            data, target = Variable(data), Variable(target)
+            optimizer.zero_grad()
+            output = model(data)
+            loss = objective(output, target, model.kl_divergence())
+            loss.backward()
+            optimizer.step()
+            # clip the variances after each step
+            for layer in model.kl_list:
+                layer.clip_variances()
+        print('Epoch: {} \tTrain loss: {:.6f} \t'.format(
+            epoch, loss.data))
+    
+    def test():
+        model.eval()
+        test_loss = 0
+        correct = 0
+        for data, target in test_dataloader:
+            if FLAGS.cuda:
+                data, target = data.cuda(), target.cuda()
+            data, target = Variable(data, volatile=True), Variable(target)
+            output = model(data)
+            test_loss += discrimination_loss(output, target, size_average=False).data
+            pred = output.data.max(1, keepdim=True)[1]
+            correct += pred.eq(target.data.view_as(pred)).cpu().sum()
+        test_loss /= len(test_dataloader.dataset)
+        print('Test loss: {:.4f}, Accuracy: {}/{} ({:.2f}%)\n'.format(
+            test_loss, correct, len(test_dataloader.dataset),
+            100. * correct / len(test_dataloader.dataset)))
+    
+    
+    
+    # train the model and save some visualisations on the way
+    print("--start training--")
+    for epoch in range(1, FLAGS.epochs + 1):
+        print("--epoch" + str(epoch) + "--")
+        train(epoch)
+        test()
+        # visualizations
+        weight_mus = [model.fc1.weight_mu, model.fc2.weight_mu]
+        log_alphas = [model.fc1.get_log_dropout_rates(), model.fc2.get_log_dropout_rates(),
+                      model.fc3.get_log_dropout_rates()]
+        visualise_weights(weight_mus, log_alphas, epoch=epoch)
+        log_alpha = model.fc1.get_log_dropout_rates().cpu().data.numpy()
+        visualize_pixel_importance(images, log_alpha=log_alpha, epoch=str(epoch))
+    
+    generate_gif(save='pixel', epochs=FLAGS.epochs)
+    generate_gif(save='weight0_e', epochs=FLAGS.epochs)
+    generate_gif(save='weight1_e', epochs=FLAGS.epochs)
+    
+    # compute compression rate and new model accuracy
+    layers = [model.fc1, model.fc2, model.fc3]
+    thresholds = FLAGS.thresholds
+    compute_compression_rate(layers, model.get_masks(thresholds))
+    
+    print("Test error after with reduced bit precision:")
+    
+    weights = compute_reduced_weights(layers, model.get_masks(thresholds))
+    for layer, weight in zip(layers, weights):
+        if FLAGS.cuda:
+            layer.post_weight_mu.data = torch.Tensor(weight).cuda()
+        else:
+            layer.post_weight_mu.data = torch.Tensor(weight)
+    for layer in layers: layer.deterministic = True
+    test()
+    torch.save(model.state_dict(), 'fmnist_model.pth')
+
+
+
+```
+
+
+```{python train_fashion}
+if r.params['retrain_fashion']:
+# fit the model
+  if __name__ == '__main__':
+      import argparse
+      parser = argparse.ArgumentParser()
+      parser.add_argument('--epochs', type=int, default=100)
+      parser.add_argument('--batchsize', type=int, default=128)
+      parser.add_argument('--thresholds', type=float, nargs='*', default=[-2.8, -3., -5.])
+  
+      FLAGS = parser.parse_args()
+      FLAGS.cuda = torch.cuda.is_available()  # check if we can put the net on the GPU
+      main()
+
+  print("--done--")
+print("")
+
+```
+
+
+```{r}
+if (params$retrain_fashion){
+  # move files
+  file.copy(from = here::here("walkthrough", "figures", "weight0_e.gif"),
+            to = here::here("walkthrough", "fashion_mnist_saved", "weight0_e.gif"))
+  file.copy(from = here::here("walkthrough", "figures", "weight1_e.gif"),
+            to   = here::here("walkthrough", "fashion_mnist_saved", "weight1_e.gif"))
+  file.copy(from = here::here("walkthrough", "figures", "pixel.gif"),
+            to   = here::here("walkthrough", "fashion_mnist_saved", "pixel.gif"))
+}
+```
+
+
+
+
+### sparsity
+
++ Weight layer sparsity over epochs (first layer on left)
+
+```{r fm_layer_vis, echo=FALSE, out.width="49%", out.height="100%", fig.cap="layer sparsity over training epochs", fig.show='hold', fig.align='center'}
+fm_layer1path <- here::here("walkthrough", "fashion_mnist_saved", "weight0_e.gif")
+fm_layer2path <- here::here("walkthrough", "fashion_mnist_saved", "weight1_e.gif")
+knitr::include_graphics(c(fm_layer1path, fm_layer2path))
+```
+
+
+### pixel importance
++ pixel importance
+
+```{r fm_pixel-vis, echo=FALSE, out.width="100%", fig.cap="pixel importance", fig.show='hold', fig.align='center'}
+fm_pixelpath <- here::here("walkthrough", "fashion_mnist_saved", "pixel.gif")
+knitr::include_graphics(fm_pixelpath)
+```
+
+
+
+
+```{python}
+#  MLP for fashion_mnist
+class Net(nn.Module):
+    def __init__(self):
+        super(Net, self).__init__()
+        # activation
+        self.relu = nn.ReLU()
+        # layers
+        self.fc1 = BayesianLayers.LinearGroupNJ(28 * 28, 300, clip_var=0.04, cuda=FLAGS.cuda)
+        self.fc2 = BayesianLayers.LinearGroupNJ(300, 200, cuda=FLAGS.cuda)
+        self.fc3 = BayesianLayers.LinearGroupNJ(200, 10, cuda=FLAGS.cuda)
+        # layers including kl_divergence
+        self.kl_list = [self.fc1, self.fc2, self.fc3]
+
+    def forward(self, x):
+        x = x.view(-1, 28 * 28)
+        x = self.relu(self.fc1(x))
+        x = self.relu(self.fc2(x))
+        return self.fc3(x)
+
+    def get_masks(self,thresholds):
+        weight_masks = []
+        mask = None
+        for i, (layer, threshold) in enumerate(zip(self.kl_list, thresholds)):
+            # compute dropout mask
+            if mask is None:
+                log_alpha = layer.get_log_dropout_rates().cpu().data.numpy()
+                mask = log_alpha < threshold
+            else:
+                mask = np.copy(next_mask)
+            try:
+                log_alpha = layers[i + 1].get_log_dropout_rates().cpu().data.numpy()
+                next_mask = log_alpha < thresholds[i + 1]
+            except:
+                # must be the last mask
+                next_mask = np.ones(10)
+
+            weight_mask = np.expand_dims(mask, axis=0) * np.expand_dims(next_mask, axis=1)
+            weight_masks.append(weight_mask.astype(np.float))
+        return weight_masks
+
+    def kl_divergence(self):
+        KLD = 0
+        for layer in self.kl_list:
+            KLD += layer.kl_divergence()
+        return KLD
+
+
+model = Net()
+model.load_state_dict(torch.load('fmnist_model.pth'))
+
+# compute compression rate and new model accuracy
+layers = [model.fc1, model.fc2, model.fc3]
+thresholds = FLAGS.thresholds
+compression.compute_compression_rate(layers, model.get_masks(thresholds))
+weight_mus, weight_vars = compression.extract_pruned_params(layers, model.get_masks(thresholds))
+vars = [compression.compress_matrix(v) for v in weight_vars]
+
+```
+
+
+
+
+
+
+
+```{python fm-matrix-sizes, results = "hold"}
+# originally specified
+print("input (FC) layer compression: " + str(weight_mus[0].shape) + " --> " + str(vars[0].shape))
+print("2nd FC layer compression: " + str(weight_mus[1].shape) + " --> " + str(vars[1].shape))
+print("output (FC) layer compression: " + str(weight_mus[2].shape) + " --> " + str(vars[2].shape))
+
+```
+
+```{python fm-makeplts}
+if r.params["retrain_fashion"]:
+  fig_fwm = plt.figure(figsize=(8, 8))
+  rows, cols = 3,1
+  for i in range(1, cols * rows+1):
+    img = weight_mus[i-1]
+    fig_fwm.add_subplot(rows, cols, i)
+    plt.title("layer " + str(i))
+    plt.imshow(img.squeeze(), 'RdBu')
+    plt.colorbar()
+  fig_fwm.suptitle('weight matrices before compression', fontsize=16)   
+  plt.savefig("fashion_mnist_saved/fig_fwm.png")
+  plt.show(fig_fwm)
+  plt.close(fig_fwm)
+
+  
+  fig_fwv = plt.figure(figsize=(8, 8))
+  rows, cols = 3,1
+  for i in range(1, cols * rows+1):
+    img = weight_vars[i-1]
+    fig_fwv.add_subplot(rows, cols, i)
+    plt.title("layer " + str(i))
+    plt.imshow(img.squeeze(), 'Blues')
+    plt.colorbar()
+  fig_fwv.suptitle('weight variances', fontsize=16) 
+  plt.savefig("fashion_mnist_saved/fig_fwv.png")
+  plt.show(fig_fwv)
+  plt.close(fig_figure)
+
+print("")
+```
+
+
+### weight matrices
+
+```{r fm_mu_vis, echo=FALSE, out.width="100%", out.height="100%", fig.show='hold', fig.align='center'}
+mupath <- here::here("walkthrough", "fashion_mnist_saved", "fig_fwm.png")
+knitr::include_graphics(mupath)
+
+```
+
+
+### weight variances
+
+```{r fm_var_vis, echo=FALSE, out.width="100%", out.height="100%", fig.show='hold', fig.align='center'}
+varpath <- here::here("walkthrough", "fashion_mnist_saved", "fig_fwv.png")
+knitr::include_graphics(varpath)
+
+```
+
+
+
+
+### training summary
+
+
+```{r, out.width = "100%"}
+
+library(readr)
+library(tidyr)
+library(forcats)
+library(stringr)
+lf <- read_file(here::here("walkthrough", "fashion_mnist_saved", "fmnistlog.txt"))
+lf_vec <- unlist(strsplit(lf, split = "epoch"))[-1]
+train_loss <- as.numeric(str_match(lf_vec, "Train loss:\\s*(.*?)\\s")[,2])
+test_loss <- as.numeric(str_match(lf_vec, "Test loss:\\s*(.*?),")[,2])
+acc_pct <- as.numeric(str_match(lf_vec, "\\((.*?)\\%")[,2])
+
+metrics_df <- data.frame("epoch" = 1:length(train_loss),
+  train_loss,
+  test_loss,
+  acc_pct
+) 
+
+train_p <- ggplot(metrics_df) + 
+  geom_line(aes(y = train_loss, x = epoch), color = "blue") +
+  labs(title = "training loss")
+
+test_p <- ggplot(metrics_df) + 
+  geom_line(aes(y = test_loss, x = epoch), color = "orange") +
+  labs(title = "test loss")
+
+acc_p <- ggplot(metrics_df) + 
+  geom_line(aes(y = acc_pct, x = epoch), color = "pink") +
+  labs(title = "accuracy (%)")
+
+grid.arrange(train_p, test_p, acc_p, ncol = 1)
+
+
+```
+
+
+
+
+
+```{python}
+plt.close("all")
+
+```
+
+
+
+# quantization
+
+```{python understanding-quantization}
+#variance of first weight in first layer
+vars[0][0][0]
+
+# counts # bits required to encode decimal
+compression.float_precision(vars[0][0][0]) + 1    
+# add 3 exponent and 1 sign bit to get final bit precision required
+
+# variance compared to the roundoff error from storing with these bits
+compression.SIGNIFICANT_BIT_PRECISION
+
+```
+
+
+
+# feature extraction
+
++ input layer dropout --> unimportant variables
++ use for feature selection?  similarly to [LassoNet](https://arxiv.org/abs/1907.12207)
+
+
+
+```{python own-code}
+weight_mus, weight_vars = compression.extract_pruned_params(layers, model.get_masks(thresholds))
+
+def extract_pruned_layer(layer, mask):
+  # extract non-zero columns
+  layer = layer[:, mask.sum(axis = 0) != 0]
+  # extract non-zero rows
+  layer = layer[mask.sum(axis = 1) != 0, :]
+  return layer
+
+def extract_pruned_layers(layers, masks):
+  res = []
+  for layer, mask in zip(layers, masks):
+    l = extract_pruned_layer(layer, mask)
+    res.append(l)
+  return(res)
+
+```
+
+
+```{python, eval = FALSE}
+pruned_weights = extract_pruned_layers(weight_mus, model.get_masks(thresholds))
+
+mask0 = model.get_masks(thresholds)[0]
+mask0.shape
+informative_pix = mask0.sum(axis = 0) != 0
+
+examples = train_dataloader.sampler.data_source.train_data[0:9].numpy()
+mask = 255. * (np.ones((1, 28, 28)))
+images = np.vstack([mask, examples])
+
+plt.close("all")
+plt.imshow(informative_pix.reshape(images[0].shape))
+plt.title("input layer mask", fontsize = 16)
+plt.show()
+plt.savefig("figures/fashion_input_mask.png")
+plt.close()
+
+
+
+
+# visualize pixel importance mask
+log_input_dropout = model.fc1.get_log_dropout_rates().cpu().data.numpy()
+importance = 1 - np.clip(np.exp(log_input_dropout.reshape(images[0].shape)), 0.0, 1)
+plt.imshow(importance)
+plt.colorbar()
+plt.title("1 - dropout rate (FC1 columns)", fontsize = 16)
+plt.show()
+plt.savefig("figures/fashion_importance.png")
+plt.close()
+
+```
+
+
+## importance
+
+1 - $\alpha_i$
+
+```{r importance, echo=FALSE, out.width="100%", out.height="100%", fig.show='hold', fig.align='center'}
+imppath <- here::here("walkthrough", "figures/fashion_importance.png")
+knitr::include_graphics(imppath)
+```
+
+
+nonzero values
+
+```{r one-minus-alpha, echo=FALSE, out.width="100%", out.height="100%", fig.show='hold', fig.align='center'}
+maskpath <- here::here("walkthrough", "figures/fashion_input_mask.png")
+knitr::include_graphics(maskpath)
+```
+
+
+
+
+
+
+
