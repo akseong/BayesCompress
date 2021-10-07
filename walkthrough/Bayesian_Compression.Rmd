@@ -130,8 +130,8 @@ install_miniconda()
 
 
 ```{r }
-# create conda environment and install dependencies
-if (!virtualenv_exists("r-reticulate")){
+# if doesn't exist, create conda environment and install dependencies
+if (!"r-reticulate" %in% conda_list()[[1]]){
   conda_create("r-reticulate")
   use_condaenv("r-reticulate")
   conda_install("r-reticulate", "matplotlib", pip=TRUE)
@@ -144,7 +144,7 @@ if (!virtualenv_exists("r-reticulate")){
   conda_install("r-reticulate", "seaborn", pip=TRUE)
   conda_install("r-reticulate", "numpy", pip = TRUE)
 }
-use_condaenv("r-reticulate")
+
 
 FPpath <- here::here("walkthrough")
 setwd(FPpath)
