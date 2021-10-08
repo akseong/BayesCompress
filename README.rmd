@@ -1,0 +1,30 @@
+---
+title: "BayesCompress for Variable Selection (in progress)"
+author: "Arnie Seong"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+header-includes:
+  - \usepackage{bm}
+  - \usepackage{xcolor}
+  - \usepackage{amssymb}
+output: rmarkdown::github_document
+urlcolor: blue
+---
+
+# Description
+
+This project is an adaptation of [the methods described here (Louizos, Ullrich, Welling 2017)](https://arxiv.org/abs/1705.08665) for variable selection.  The main advantage of this method over established variable selection methods is the combination of the expressivity of deep neural networks with the known behavior of familiar Bayesian sparsity priors.
+
+# Motivation
+The Bayesian Compression method outlined by Louizos, Ullrich, and Welling places scale-mixture sparsity (e.g. spike-and-slab and horseshoe) priors on _entire rows_ of neural network weight layers rather than on individual weights, allowing for compact representation of the weight layers since entire rows can be omitted.  In addition, since the input for row _m_ of layer _l_ is calculated using column _m_ of layer _l-1_, corresponding columns from the previous layer can be omitted.  
+
+
+```{r layer_vis, echo=FALSE, out.width="40%", out.height="100%", fig.cap="layer sparsity over training epochs", fig.show='hold'}
+layer1path <- here::here("walkthrough", "mnist_saved", "weight0_e.gif")
+layer2path <- here::here("walkthrough", "mnist_saved", "weight1_e.gif")
+knitr::include_graphics(c(layer1path, layer2path))
+```
+
+
+The motivation for this project is the insight that, for the input layer, this pruning scheme corresponds to removing features or covariates --- something we would not obtain by merely omitting inidividual weights.  From a statistical point of view, we obtain variable selection with known operating characteristics which should be robust to misspecification of functional forms.
+
+
