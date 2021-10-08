@@ -655,7 +655,6 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import datasets
 from torchvision.transforms import ToTensor
 
-
 training_data = datasets.FashionMNIST(
     root="data",
     train=True,
@@ -712,16 +711,29 @@ knitr::include_graphics(samplepath)
 
 
 ```{python def-model}
-
-train_dataloader = DataLoader(training_data, batch_size=64, shuffle=True)
-test_dataloader = DataLoader(test_data, batch_size=64, shuffle=True)
-
+# train_dataloader = DataLoader(training_data, batch_size=64, shuffle=True)
+# test_dataloader = DataLoader(test_data, batch_size=64, shuffle=True)
 # training_data.data.shape
 
 def main():
     kwargs = {'num_workers': 1, 'pin_memory': True} if FLAGS.cuda else {}
     
     mask = 255. * (np.ones((1, 28, 28)))
+    
+    training_data = datasets.FashionMNIST(
+        root="data",
+        train=True,
+        download=True,
+        transform=ToTensor()
+    )
+    test_data = datasets.FashionMNIST(
+        root="data",
+        train=False,
+        download=True,
+        transform=ToTensor()
+    )
+    train_dataloader = DataLoader(training_data, batch_size=64, shuffle=True)
+    test_dataloader = DataLoader(test_data, batch_size=64, shuffle=True)
     
     examples = train_dataloader.sampler.data_source.train_data[0:9].numpy()
     images = np.vstack([mask, examples])
@@ -1159,7 +1171,7 @@ plt.close("all")
 plt.imshow(informative_pix.reshape(images[0].shape))
 plt.title("input layer mask", fontsize = 16)
 plt.show()
-plt.savefig("figures/fashion_input_mask.png")
+plt.savefig("fashion_mnist_saved/fashion_input_mask.png")
 plt.close()
 
 
@@ -1172,7 +1184,7 @@ plt.imshow(importance)
 plt.colorbar()
 plt.title("1 - dropout rate (FC1 columns)", fontsize = 16)
 plt.show()
-plt.savefig("figures/fashion_importance.png")
+plt.savefig("fashion_mnist_saved/fashion_importance.png")
 plt.close()
 
 ```
@@ -1183,7 +1195,7 @@ plt.close()
 1 - $\alpha_i$
 
 ```{r importance, echo=FALSE, out.width="100%", out.height="100%", fig.show='hold', fig.align='center'}
-imppath <- here::here("walkthrough", "figures/fashion_importance.png")
+imppath <- here::here("walkthrough", "fashion_mnist_saved/fashion_importance.png")
 knitr::include_graphics(imppath)
 ```
 
@@ -1191,7 +1203,7 @@ knitr::include_graphics(imppath)
 nonzero values
 
 ```{r one-minus-alpha, echo=FALSE, out.width="100%", out.height="100%", fig.show='hold', fig.align='center'}
-maskpath <- here::here("walkthrough", "figures/fashion_input_mask.png")
+maskpath <- here::here("walkthrough", "fashion_mnist_saved/fashion_input_mask.png")
 knitr::include_graphics(maskpath)
 ```
 
