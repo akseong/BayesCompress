@@ -28,7 +28,7 @@ since the input for row *m* of layer *l* is calculated using column *m*
 of layer *l-1*, corresponding columns from the previous layer can be
 omitted.
 
-<img src="D:/Arnie/Github/Classes/BayesCompress/walkthrough/mnist_saved/weight0_e.gif" title="layer sparsity over training epochs" alt="layer sparsity over training epochs" width="40%" height="100%" /><img src="D:/Arnie/Github/Classes/BayesCompress/walkthrough/mnist_saved/weight1_e.gif" title="layer sparsity over training epochs" alt="layer sparsity over training epochs" width="40%" height="100%" />
+<img src="walkthrough/mnist_saved/weight0_e.gif" title="layer sparsity over training epochs" alt="layer sparsity over training epochs" width="40%" height="100%" /><img src="walkthrough/mnist_saved/weight1_e.gif" title="layer sparsity over training epochs" alt="layer sparsity over training epochs" width="40%" height="100%" />
 
 The motivation for this project is the insight that, for the input
 layer, this pruning scheme corresponds to removing features or
