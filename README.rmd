@@ -12,7 +12,7 @@ urlcolor: blue
 
 # Description
 
-This project is an adaptation of [the methods described here (Louizos, Ullrich, Welling 2017)](https://arxiv.org/abs/1705.08665) for variable selection.  The main advantage of this method over established variable selection methods is the combination of the expressivity of deep neural networks with the known behavior of familiar Bayesian sparsity priors.
+This project is an __(in-progress)__ adaptation of [the methods described here (Louizos, Ullrich, Welling 2017)](https://arxiv.org/abs/1705.08665) for variable selection.  The main advantage of this method over established variable selection methods is the combination of the expressivity of deep neural networks with the known behavior of familiar Bayesian sparsity priors.
 
 # Motivation
 The Bayesian Compression method outlined by Louizos, Ullrich, and Welling places scale-mixture sparsity (e.g. spike-and-slab and horseshoe) priors on _entire rows_ of neural network weight layers rather than on individual weights, allowing for compact representation of the weight layers since entire rows can be omitted.  In addition, since the input for row _m_ of layer _l_ is calculated using column _m_ of layer _l-1_, corresponding columns from the previous layer can be omitted.  
