@@ -25,6 +25,6 @@ knitr::include_graphics(c(layer1path, layer2path))
 ```
 
 
-The motivation for this project is the insight that, for the input layer, this pruning scheme corresponds to removing features or covariates --- something we would not obtain by merely omitting inidividual weights.  From a statistical point of view, we obtain variable selection with known operating characteristics which should be robust to misspecification of functional forms.
+The motivation for this project is the insight that, for the input layer, this pruning scheme corresponds to removing features or covariates --- something we would not obtain by merely omitting individual weights.  From a statistical point of view, from the Bayesian sparsity prior specification we obtain variable selection with known operating characteristics which, from the neural network architecture, should be robust to misspecification of functional forms and nonlinearity.
 
 
