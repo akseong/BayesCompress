@@ -18,8 +18,8 @@ This project is an __(in-progress)__ adaptation of [the methods described here (
 The Bayesian Compression method outlined by Louizos, Ullrich, and Welling places scale-mixture sparsity priors (e.g. spike-and-slab and horseshoe) on _entire rows_ of neural network weight layers rather than on individual weights.  In the typical matrix representation of weight layers, since row $i$ of weight layer $j$ is used to compute the inpute corresponding to column $i$'th in weight layer $j+1$, if row $i$ of layer $j$ is omitted, then column $i$ of layer $j+1$ can also be omitted, resulting in large reductions in the dimensions of the weight layers.  In addition, the posterior weights' variances can be used to impute the optimal number of bits required to encode the weights, leading to further compressibility.
 
 ```{r layer_vis, echo=FALSE, out.width="40%", out.height="100%", fig.cap="layer sparsity over training epochs", fig.show='hold'}
-layer1path <- here::here("walkthrough", "mnist_saved", "weight0_e.gif")
-layer2path <- here::here("walkthrough", "mnist_saved", "weight1_e.gif")
+layer1path <- "walkthrough/mnist_saved/weight0_e.gif"
+layer2path <- "walkthrough/mnist_saved/weight1_e.gif"
 knitr::include_graphics(c(layer1path, layer2path))
 ```
 

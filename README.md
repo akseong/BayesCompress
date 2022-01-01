@@ -32,7 +32,7 @@ layers. In addition, the posterior weights’ variances can be used to
 impute the optimal number of bits required to encode the weights,
 leading to further compressibility.
 
-<img src="D:/Arnie/Github/Classes/BayesCompress/walkthrough/mnist_saved/weight0_e.gif" title="layer sparsity over training epochs" alt="layer sparsity over training epochs" width="40%" height="100%" /><img src="D:/Arnie/Github/Classes/BayesCompress/walkthrough/mnist_saved/weight1_e.gif" title="layer sparsity over training epochs" alt="layer sparsity over training epochs" width="40%" height="100%" />
+<img src="walkthrough/mnist_saved/weight0_e.gif" title="layer sparsity over training epochs" alt="layer sparsity over training epochs" width="40%" height="100%" /><img src="walkthrough/mnist_saved/weight1_e.gif" title="layer sparsity over training epochs" alt="layer sparsity over training epochs" width="40%" height="100%" />
 
 ## Variable Selection
 
