@@ -4,8 +4,8 @@ author: "Arnie Seong"
 date: "`r format(Sys.time(), '%d %B %Y')`"
 header-includes:
   - \usepackage{bm}
-- \usepackage{xcolor}
-- \usepackage{amssymb}
+  - \usepackage{xcolor}
+  - \usepackage{amssymb}
 output: 
   html_document:
     df_print: paged
@@ -18,6 +18,8 @@ output:
       smooth_scroll: true
 code_fold: hide
 urlcolor: blue
+params:
+    retrain: FALSE
 ---
   
   
@@ -173,6 +175,52 @@ generate_linear_data <- function(
   return(res)
 }
 
+# vismat(mat, cap = NULL, leg = TRUE, na0 = TRUE, square)----
+vismat <- function(mat, cap = NULL, leg = TRUE, na0 = TRUE, lims = NULL, square = NULL, preserve_rownums = TRUE){
+  # outputs visualization of matrix with few unique values
+  # colnames should be strings, values represented as factors
+  # sci_not=TRUE puts legend in scientific notation
+  require(ggplot2)
+  require(scales)
+  require(reshape2)
+  
+  if(!preserve_rownums) rownames(mat) <- NULL
+  
+  melted <- melt(mat)
+  melted$value <- ifelse(
+    melted$value == 0 & na0,
+    NA,
+    melted$value
+  )
+  p <- ggplot(melted) + 
+    geom_raster(aes(y = Var1, 
+                    x = Var2, 
+                    fill = value)) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
+    scale_fill_viridis_c(limits = lims) + 
+    scale_x_discrete(expand = c(0,0))
+  
+  if (is.numeric(melted$Var1)){
+    p <- p + 
+      scale_y_reverse(expand = c(0,0))
+  } else {
+    p <- p + 
+      scale_y_discrete(limits = rev(levels(melted$Var1)), expand = c(0,0))
+  }
+  
+  
+
+  if (is.null(square)) square <- nrow(mat) / ncol(mat) > .9 & nrow(mat) / ncol(mat) < 1.1
+  if (square) p <- p + coord_fixed(1)
+  
+  if(is.null(cap)) cap <- paste0("visualization of matrix ", substitute(mat))
+  
+  p <- p + labs(title=cap)
+  
+  if (!leg) p <- p + theme(legend.position = "none")
+  
+  return(p)
+}
 ```
 
 
@@ -381,6 +429,15 @@ r.lmfit_coefs
 ```
 
 
+```{r}
+
+coef_check <- cbind(
+  "linr.fit (python)" = c(py$linr$intercept_,  py$linr$coef_),
+  "lm (R)" = lmfit_coefs
+)
+mykable(round(coef_check, 3), cap = "check that data from R and imported to python return same OLS fit")
+
+```
 
 
 ```{python dataloader}
@@ -542,44 +599,43 @@ def test():
 
 
 ```{python run_load_model}
-# train the model and save some visualisations on the way
-# print("--start training--")
-# for epoch in range(1, FLAGS.epochs + 1):
-#     print("--epoch" + str(epoch) + "--")
-#     train(epoch)
-#     test()
-#     # visualizations
-#     weight_mus = [model.fc1.weight_mu, model.fc2.weight_mu]
-#     log_alphas = [model.fc1.get_log_dropout_rates(), model.fc2.get_log_dropout_rates(),
-#                   model.fc3.get_log_dropout_rates()]
-#     visualise_weights(weight_mus, log_alphas, epoch=epoch)
-#     log_alpha = model.fc1.get_log_dropout_rates().cpu().data.numpy()
-#     # visualize_pixel_importance(images, log_alpha=log_alpha, epoch=str(epoch))
-# 
-# 
-# # compute compression rate and new model accuracy
-# layers = [model.fc1, model.fc2, model.fc3]
-# thresholds = FLAGS.thresholds
-# compute_compression_rate(layers, model.get_masks(thresholds))
-# 
-# weights = compute_reduced_weights(layers, model.get_masks(thresholds))
-# for layer, weight in zip(layers, weights):
-#     if FLAGS.cuda:
-#         layer.post_weight_mu.data = torch.Tensor(weight).cuda()
-#     else:
-#         layer.post_weight_mu.data = torch.Tensor(weight)
-# # for layer in layers: layer.deterministic = True
-# 
-# torch.save(model.state_dict(), 'model_weights.pth')
-# 
-# # generate_gif(save='pixel', epochs=FLAGS.epochs)
-# generate_gif(save='weight0_e', epochs=FLAGS.epochs)
-# generate_gif(save='weight1_e', epochs=FLAGS.epochs)
-
-
-
-
-model.load_state_dict(torch.load('model_weights.pth'))
+if r.params["retrain"]:
+  # train the model and save some visualisations on the way
+  print("--start training--")
+  for epoch in range(1, FLAGS.epochs + 1):
+      print("--epoch" + str(epoch) + "--")
+      train(epoch)
+      test()
+      # visualizations
+      weight_mus = [model.fc1.weight_mu, model.fc2.weight_mu]
+      log_alphas = [model.fc1.get_log_dropout_rates(), model.fc2.get_log_dropout_rates(),
+                    model.fc3.get_log_dropout_rates()]
+      visualise_weights(weight_mus, log_alphas, epoch=epoch)
+      log_alpha = model.fc1.get_log_dropout_rates().cpu().data.numpy()
+      # visualize_pixel_importance(images, log_alpha=log_alpha, epoch=str(epoch))
+  
+  
+  # compute compression rate and new model accuracy
+  layers = [model.fc1, model.fc2, model.fc3]
+  thresholds = FLAGS.thresholds
+  compute_compression_rate(layers, model.get_masks(thresholds))
+  
+  weights = compute_reduced_weights(layers, model.get_masks(thresholds))
+  for layer, weight in zip(layers, weights):
+      if FLAGS.cuda:
+          layer.post_weight_mu.data = torch.Tensor(weight).cuda()
+      else:
+          layer.post_weight_mu.data = torch.Tensor(weight)
+  # for layer in layers: layer.deterministic = True
+  
+  torch.save(model.state_dict(), 'model_weights.pth')
+  
+  # generate_gif(save='pixel', epochs=FLAGS.epochs)
+  generate_gif(save='weight0_e', epochs=FLAGS.epochs)
+  generate_gif(save='weight1_e', epochs=FLAGS.epochs)
+else:
+  model.load_state_dict(torch.load('model_weights.pth'))
+  
 layers = [model.fc1, model.fc2, model.fc3]
 thresholds = FLAGS.thresholds
 weight_mus = [model.fc1.weight_mu, model.fc2.weight_mu]
@@ -607,7 +663,9 @@ mask0 = model.get_masks(thresholds)[0]
 
 
 ```{r}
-py$weight_mus[[1]]
+
+vismat(py$weight_mus[[1]], cap = "first weight layer")
+
 
 gamma_hat <- colSums(abs(py$weight_mus[[1]])) != 0
 gamma_true <- rep(FALSE, length(gamma_hat))
