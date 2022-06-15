@@ -16,10 +16,10 @@ output:
     toc_float:
       collapsed: false
       smooth_scroll: true
-code_fold: hide
-urlcolor: blue
+    code_fold: hide
+  urlcolor: blue
 params:
-    retrain: FALSE
+  retrain: FALSE
 ---
   
   
@@ -105,6 +105,78 @@ mykable <- function(tab, cap = NULL,
   }
 }
 ```
+
+
+
+# Introduction:
+
+In their 2017 paper,"Bayseian Compression for Deep Learning", Christos Louizos, Karen Ullrich, and Max Welling outline a method for compressing neural networks, both via weight pruning and bit precision reduction.  Others (Scaradapane et al. 2016; Wen, Wu 2016) have applied sparsity priors such as the Bayesian LASSO (exponential prior on the variance parameter), but Louizos, Ullrich, and Welling's approach improves on previous work by __1)__ placing scale-mixture sparsity priors on _entire rows_ of weight layers rather than on individual weights, and __2)__ using the estimated variance of the parameters to calculate the bit precision, or precision quantization, required to store the weights without losing too much information.  
+
+Because neural networks are typically stored using a matrix representation of the weight layers, pruning weights individually does relatively little to reduce the memory required to store the network: pruning weights individually leads to a sprinkling of 0s in the matrix representation, but little, if any, reduction in the dimension of the matrix.  By instead using a hierarchical structure in which entire rows share the sparsity-inducing parameter, Louizos, Ullrich, and Welling are able to "zero out" entire rows --- entire neurons --- and thus reduce the dimensions of the matrix required to store the weights for a single layer.  The dimension reduction also compounds across neural network layers: for fully-connected layers, since row $i$ of weight layer $j$ is used to compute the $i$'th input in weight layer $j+1$, if row $i$ (neuron $i$) of layer $j$ is omitted, then column $i$ of layer $j+1$ can _also_ be omitted.  
+
+In addition, the authors offer an information theory-based argument for using the posterior weights' variances to impute the optimal number of bits required to encode the weights, leading to further compressibility.  The main idea here is that the larger a weight's variance, the lower the precision required to store it: if a weight has variance 1, then storing the weight with precision to the 8th decimal versus the 4th decimal does not preserve much information about the weight's distribution.  A Normal(4.0001, 1) distribution is less different from a Normal(4.00010001, 1) distribution than a Normal(4.0001, 0.01) distribution is from a Normal(4.00010001, 0.01).
+
+
+
+
+## Motivation: 
+
+The motivation for _this_ project is the insight that, for the first weight layer, pruning the weights for entire columns would correspond to removing features or covariates.  The focus of the method described above is not on variable selection in this way: while the hierarchical sparsity prior on weight layer rows leads to _downstream_ elimination of columns, the _input_ layer is not downstream from any other layer.  Thus the method does not lead to variable selection in the usual statistical sense, though it can be used to examine feature importance on an observation-by-observation basis, because it does not remove columns in the first weight layer.  
+
+Our idea is that, by repurposing the bit quantization estimate to provide a threshold for weights to be zero'd out, we can in fact eliminate columns form the input layer in a reasonable fashion.  That is, we can obtain principled variable selection with known operating characteristics via the Bayesian sparsity prior specification and variance-based thresholding, 
+
+
+# Model:
+
+
+
+
+
+
+
+
+
+
+# Performance:
+
+
+
+
+
+
+
+
+# Conclusion:
+
+Variational inference is known to underestimate variance.  While it is of course better no to under- or overestimate, in our case, underestimation of the variance leads to more conservative thresholding, i.e. we are more likely to include spurious variables because our estimated threshold is lower than it should be.
+
+Results are not as consistent as we would hope, and appear to be sensitive to randomly-seeded initial values.
+
+Not sure about how to determine the number and dimension of layers, though our prior beliefs regarding the complexity of the data and relationship between covariates and the outcome variable (e.g., linear or non-linear relationship) can inform the size and depth of the network.
+
+
+
+An alternative approach for future exploration would be to apply the sparsity prior to columns rather than rows.  This might be done to the input layer only, to all layers, and either separate or in combination with the sparsity prior on the rows.  We speculate that placing the sparsity prior on the input layer only, but in combination with the sparsity prior on rows across all layers, would work best, the idea being that reducing the number of neurons in downstream layers would narrow the number of viable solutions by removing redundancies.
+
+From a statistical point of view, from the Bayesian sparsity prior specification we obtain variable selection with known operating characteristics which, from the neural network architecture, should be robust to misspecification of functional forms and nonlinearities.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -663,9 +735,7 @@ mask0 = model.get_masks(thresholds)[0]
 
 
 ```{r}
-
-vismat(py$weight_mus[[1]], cap = "first weight layer")
-
+vismat(py$weight_mus[[1]], cap = "first weight layer; grey rectangles are pruned weights")
 
 gamma_hat <- colSums(abs(py$weight_mus[[1]])) != 0
 gamma_true <- rep(FALSE, length(gamma_hat))
@@ -681,9 +751,21 @@ binary_err <- function(pred, true){
   c("TP" = TP, "FP" = FP, "TN" = TN, "FN" = FN)
 }
 
-binary_err(pred = gamma_hat, true = gamma_true)
-ols_varsel_err(lmfit, true_covars, nuisance_vars)
+nn_varsel <- binary_err(pred = gamma_hat, true = gamma_true)
+ols_varsel <- ols_varsel_err(lmfit, true_covars, nuisance_vars)
+
+varsel_results <- rbind(
+  "OLS" = ols_varsel,
+  "BC" = nn_varsel
+)
+
+mykable(varsel_results, cap = "variable selection results")
 ```
+
+
+
+
+
 
 
 
