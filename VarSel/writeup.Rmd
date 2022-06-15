@@ -1,5 +1,5 @@
 ---
-title: "VarSel"
+title: "Variable Selection via Bayesian Compression"
 author: "Arnie Seong"
 date: "`r format(Sys.time(), '%d %B %Y')`"
 header-includes:
@@ -106,8 +106,14 @@ mykable <- function(tab, cap = NULL,
 }
 
 
-ols_varsel_err <- function(lmfit, true_covars, nuisance_vars, thresh = 0.05){
+
+
+
+ols_varsel_err <- function(lmfit, true_covars, nuisance_vars, thresh = 0.05, adjust.method = NULL){
   coeftab <- summary(lmfit, na.rm = FALSE)$coef
+  if (!is.null(adjust.method)){
+    coeftab[,4] <- p.adjust(coeftab[,4], method = adjust.method)
+  }
   # if (is.character(true_covars)){
   #   true_covars <- as.numeric(unlist(lapply(strsplit(true_covars, "X"), function(X) X[2]))) + 1
   #   nuisance_vars <- as.numeric(unlist(lapply(strsplit(nuisance_vars, "X"), function(X) X[2]))) + 1
@@ -172,7 +178,7 @@ vismat <- function(mat, cap = NULL, leg = TRUE, na0 = TRUE, lims = NULL, square 
 
 # Introduction:
 
-In their [2017 paper,"Bayesian Compression for Deep Learning"](https://arxiv.org/abs/1705.08665), Christos Louizos, Karen Ullrich, and Max Welling outline a method for compressing neural networks, both via weight pruning and bit precision reduction.  Others (Scaradapane et al. 2016; Wen, Wu 2016) have applied sparsity priors such as the Bayesian LASSO (exponential prior on the variance parameter), but Louizos, Ullrich, and Welling's approach improves on previous work by __1)__ placing scale-mixture sparsity priors on _entire rows_ of weight layers rather than on individual weights, and __2)__ using the estimated variance of the parameters to calculate the bit precision, or precision quantization, required to store the weights without losing too much information.  
+In their [2017 paper,"Bayesian Compression for Deep Learning"](https://arxiv.org/abs/1705.08665), Christos Louizos, Karen Ullrich, and Max Welling outline a method for compressing neural networks, both via weight pruning and bit precision reduction.  Others (Scaradapane et al. 2016; Wen, Wu 2016) have applied sparsity priors such as the Bayesian LASSO (exponential prior on the variance parameter) in order to reduce the amount of memory required to store neural networks, but Louizos, Ullrich, and Welling's approach improves on previous work by __1)__ placing scale-mixture sparsity priors on _entire rows_ of weight layers rather than on individual weights, and __2)__ using the estimated variance of the parameters to calculate the bit precision, or precision quantization, required to store the weights without losing too much information (i.e. causing data misfit).  
 
 Because neural networks are typically stored using a matrix representation of the weight layers, pruning individual weights independently does relatively little to reduce the memory required to store the network: pruning weights individually leads to a sprinkling of zeros in the matrix representation, but reduction in the dimensions of the matrix can only occur if an entire row or column is filled with zeros.  By instead using a hierarchical structure in which entire rows share the sparsity-inducing parameter, Louizos, Ullrich, and Welling are able to "zero out" entire rows --- entire neurons --- and thus reduce the dimensions of the matrix required to store the weight layer.  The dimension reduction also compounds across neural network layers: for fully-connected layers, since row $i$ of weight layer $j$ is used to compute the $i$'th input in weight layer $j+1$, if row $i$ (neuron $i$) of layer $j$ is omitted, then column $i$ of layer $j+1$ can _also_ be omitted.  
 
@@ -279,16 +285,9 @@ is then used to compute the optimal number of bits that minimizes the sum of the
 
 # Performance:
 
-We examined variable selection performance for a basic linear regression problem by generating synthetic data consisting of 10 true covariates, 20 nuisance variables, with N = 1000.  The true covariates and nuisance variables were randomly assigned to arise from normal and binomial distributions (code below), and the outcome $y$ made to be a linear transformation of the true covariates plus noise.
+We examined variable selection performance for a basic linear regression problem by generating synthetic data consisting of 10 true covariates, 20 nuisance variables, with N = 10000.  The true covariates and nuisance variables were randomly assigned to arise from normal and binomial distributions (code below), and the outcome $y$ made to be a linear transformation of the true covariates plus Normal noise.
 
-Comparisons against OLS (variable inclusion determined using a naive threshold of p-value > 0.05) were made; sample output is below.
-
-
-# generate data
-
-## linear data
-
-Choose from normal & binomial distributions, select variables, make $y$ a linear transformation of selected vars, return dataframe.
+## sample dataset visualization
 
 ```{r generate_linear_data_func}
 
@@ -351,7 +350,8 @@ generate_linear_data <- function(
 ```
 
 
-### visualize
+
+
 
 ```{r}
 set.seed(0)
@@ -364,7 +364,53 @@ beta_vec <- lindat_obj$beta_vec
 true_covars_inds <- as.integer(as.integer(unlist(lapply(strsplit(true_covars, "X"), function(x) x[2]))) - 1)
 nuisance_covars_inds <- as.integer(as.integer(unlist(lapply(strsplit(nuisance_vars, "X"), function(x) x[2]))) - 1)
 
-dat %>% 
+samp <- dat %>% 
+  slice_sample(n = 500) %>% 
+  gather(key = "covar", value = "value", -y)
+# 
+# p_all <- dat %>% 
+#   slice_sample(n = 500) %>% 
+#   gather(key = "covar", value = "value", -y) %>% 
+#   mutate(true_cov = if_else(
+#     covar %in% true_covars,
+#     "covar_true",
+#     "nuisance"
+#     )
+#   ) %>% 
+#   ggplot() + 
+#   geom_density(
+#     aes(
+#       x = value,
+#       color = covar,
+#       fill = covar
+#     ),
+#     alpha = .2
+#   ) + 
+#   theme(legend.position = "none") + 
+#   facet_wrap(. ~ true_cov, ncol = 1) + 
+#   labs(
+#     title = "density plot of all variables in dataset"
+#   )
+
+p_true <- dat[, true_covars_inds] %>% 
+  slice_sample(n = 500) %>% 
+  gather(key = "covar", value = "value") %>% 
+  ggplot() + 
+  geom_density(
+    aes(
+      x = value,
+      color = covar,
+      fill = covar
+    ),
+    alpha = .1
+  ) + 
+  theme(legend.position = "none") + 
+  labs(
+    title = "true covariates only"
+  )
+
+
+p_all <- dat %>% 
   slice_sample(n = 500) %>% 
   gather(key = "covar", value = "value", -y) %>% 
   mutate(true_cov = if_else(
@@ -381,38 +427,59 @@ dat %>%
       fill = covar,
       alpha = I(ifelse(true_cov=="covar_true", .25, .1))
     )
-  )
-
-
-dat %>% 
-  slice_sample(n = 500) %>% 
-  gather(key = "covar", value = "value", -y) %>% 
-  mutate(true_cov = if_else(
-    covar %in% lindat_obj$true_covars,
-    "covar_true",
-    "nuisance"
-    )
-  ) %>% 
-  ggplot() + 
-  geom_point(
-    aes(
-      y = y,
-      x = value,
-      color = covar,
-      alpha = I(ifelse(true_cov=="covar_true", .25, .1))
-    )
   ) + 
-  geom_smooth(
-    aes(
-      y = y,
-      x = value
-    ),
-    method = 'lm'
+  theme(legend.position = "none") + 
+  labs(
+    title = "density plot of all covariates",
+    subtitle = "(mix of normal and binomial distributions)"
   )
 
+grid.arrange(
+  p_all + xlim(-10, 20) + ylim(0, 2),
+  p_true + xlim(-10, 20) + ylim(0, 2), 
+  ncol = 1
+  # layout_matrix = rbind(
+  #   c(1, 1, 2),
+  #   c(1, 1, 3)
+  # )
+)
 
-lmfit <- lm("y ~ .", data = dat)
-lmfit_coefs <- coef(lmfit)
+
+# dat %>% 
+#   slice_sample(n = 500) %>% 
+#   gather(key = "covar", value = "value", -y) %>% 
+#   mutate(true_cov = if_else(
+#     covar %in% lindat_obj$true_covars,
+#     "covar_true",
+#     "nuisance"
+#     )
+#   ) %>% 
+#   ggplot() + 
+#   geom_point(
+#     aes(
+#       y = y,
+#       x = value,
+#       color = covar,
+#       alpha = I(ifelse(true_cov=="covar_true", .5, .25)),
+#       size = I(ifelse(true_cov=="covar_true", 1.25, .9))
+#     )
+#   ) + 
+#   geom_smooth(
+#     aes(
+#       y = y,
+#       x = value
+#     ),
+#     method = 'lm'
+#   ) +
+#   theme(legend.position = "none") + 
+#   ylim(c(0, 150)) + 
+#   xlim(-5, 15) + 
+#   labs(
+#     title = "scatterplot of data with linear regression output",
+#   )
+
+# lmfit <- lm("y ~ .", data = dat)
+# lmfit_coefs <- coef(lmfit)
 # ols_varsel_err(lmfit, true_covars, nuisance_vars)
 # dat <- data.frame(apply(dat, 2, scale))
 ```
@@ -420,7 +487,15 @@ lmfit_coefs <- coef(lmfit)
 
 
 
-## pytorch code
+## pytorch code + training
+
+I trained a neural network consisting of 3 fully connected layers over 50 training epochs, with dimension:
+
++ layer 1 (input layer): $30 \times 20$, corresponding to 30 covariate inputs and 20 neurons;
++ layer 2: $20 \times 30$ (input dimension 20, output dimension 30);
++ layer 3 (output layer): $30 \times 1$ (scalar output).
+
+
 
 ```{r python_env_setup, echo = FALSE}
 # if doesn't exist, create conda environment and install dependencies
@@ -486,12 +561,8 @@ parser.add_argument('--thresholds', type=float, nargs='*', default=[-2.8, -3., -
 FLAGS = parser.parse_args()
 FLAGS.cuda = torch.cuda.is_available()  # check if we can put the net on the GPU
 
-```
 
-
-
-```{python TEST_TRAIN_SPLIT}
-
+# load data in from R
 X = np.asarray(r.dat)[:, :r.dat.shape[1]-1]
 y = np.asarray(r.dat)[:, r.dat.shape[1]-1]
 X, y = torch.tensor(X).float(), torch.tensor(y).float().unsqueeze(-1)
@@ -513,10 +584,10 @@ X_train, y_train = X[train_idx], y[train_idx]
 X_test, y_test = X[test_idx], y[test_idx]
 
 
-# checking that R and python return the same OLS fit
-from sklearn.linear_model import LinearRegression
-linr = LinearRegression()
-linr.fit(X, y)
+# # checking that R and python return the same OLS fit
+# from sklearn.linear_model import LinearRegression
+# linr = LinearRegression()
+# linr.fit(X, y)
 # print(linr.intercept_, linr.coef_)
 # r.lmfit_coefs
 ```
@@ -687,10 +758,7 @@ def test():
         100. * correct / len(test_loader.dataset)))
 
 
-```
-
-
-```{python run_load_model}
+#### run / load model ----
 if r.params["retrain"]:
   # train the model and save some visualisations on the way
   print("--start training--")
@@ -757,21 +825,14 @@ mask0 = model.get_masks(thresholds)[0]
 
 
 
+# results / observations
 
-
-
-
-
-
+Unfortunately, my python coding ability is not yet good enough to have run many simiulations in an automated fashion, but here is a representative outcome from one sample dataset.  Comparisons against OLS (variable inclusion determined using a naive threshold of p-value > 0.05 as well as using Benjamini-Hochberg) were made; sample output is below.
++ True positives (`TP`) denote variables that were correctly included;
++ True negatives (`TN`) denote variables that were correctly excluded
 
 
 ```{r}
-vismat(py$weight_mus[[1]], cap = "first weight layer; grey rectangles are pruned weights") +
-  labs(
-    y = "neurons in first layer",
-    x = "covariates"
-  )
-
 gamma_hat <- colSums(abs(py$weight_mus[[1]])) != 0
 gamma_true <- rep(FALSE, length(gamma_hat))
 gamma_true[as.numeric(gsub("X", "", true_covars))] <- TRUE
@@ -787,11 +848,16 @@ binary_err <- function(pred, true){
 }
 
 nn_varsel <- binary_err(pred = gamma_hat, true = gamma_true)
+lmfit <- lm("y ~ .", data = dat)
+lmfit_coefs <- coef(lmfit)
+
 ols_varsel <- ols_varsel_err(lmfit, true_covars, nuisance_vars)
+BH_varsel <- ols_varsel_err(lmfit, true_covars, nuisance_vars, adjust.method = "BH")
 
 varsel_results <- rbind(
   "OLS" = ols_varsel,
-  "BC" = nn_varsel
+  "BH" = BH_varsel,
+  "Compression" = nn_varsel
 )
 
 mykable(varsel_results, cap = "variable selection results")
@@ -799,46 +865,47 @@ mykable(varsel_results, cap = "variable selection results")
 
 
 
+The evolution of the first (input) layer's $30 \times 20$ weight matrix (30 covariates, 20 neurons) during training can be seen below:
+
+```{r fm_weight-vis, echo=FALSE, out.width="50%", fig.cap="input layer evolution over training epochs", fig.show='hold', fig.align='center'}
+fm_weightpath <- here::here("VarSel", "figures", "weight0_e.gif")
+knitr::include_graphics(fm_weightpath)
+```
+
+
+
+This is the final version of the input layer's weight matrix __after thresholding__ based on the estimated variance and bit precision roundoffs (unfortunately, the plot scaling is off; there are 30 rows and 20 columns corresponding to the 30 covariates and 20 neurons):
+
+```{r}
+vismat(py$weight_mus[[1]]) +
+  coord_flip() + 
+  labs(
+    y = "neurons in first layer",
+    x = "covariates"
+  ) +
+  labs(
+    title = "first weight layer",
+    subtitle = "grey = pruned weights"
+  )
+```
 
 
 
 
+Unfortunately, because I do not know how to code in Python without using R's `reticulate` package, and I do not know how to loop through chunks of code containing both Python and R code, I can only re-run the simulation manually right now (so I am unable to display results from numerous simulations).  However, the results tended to be similar under the same simulation conditions, with the Bayesion Compression algorithm typically performing slightly better than OLS (naive p-value thresholding or with the Benjamini-Hochberg adjustment).
 
+One potential problem, however, is that re-training the exact same model on the exact same dataset occasionally produced different results; my best guess here is that the Bayesian Compression algorithm may be sensitive to starting values, or I may need to train for more epochs.
 
 
 
 # Conclusion:
 
-Variational inference is known to underestimate variance.  While it is of course better no to under- or overestimate, in our case, underestimation of the variance leads to more conservative thresholding, i.e. we are more likely to include spurious variables because our estimated threshold is lower than it should be.
+In the absence of multiple simulations, this is meant mostly as a proof-of-concept, i.e. that we can use the methods outlined by Louizos, Ullrich, and Welling with slight modification to perform principled variable selection.  I am encouraged by these initial results, and hope to explore it further.  A few potential issues for further work here:  
 
-Results are not as consistent as we would hope, and appear to be sensitive to randomly-seeded initial values.
+1. Variational inference is known to underestimate variance.  While it is of course better not to under- or overestimate at all, in our case, underestimation of the variance leads to more conservative thresholding, i.e. we are more likely to include spurious variables because our estimated threshold is lower than it should be.
+2. Results appear to be sensitive to randomly-seeded initial values.
+3. Determining the number and dimension of layers is sketchy at best.  Though our prior beliefs regarding the complexity of the data and relationship between covariates and the outcome variable (e.g., linear or non-linear relationship) can inform the size and depth of the network, it would be nice to have more generally applicable guidelines, or a set of plug-and-play parameter settings that works well for most types of data.
+4. An alternative approach for future exploration would be to apply the group sparsity prior directly by covariate rather than by neuron, i.e. to the columns rather than the rows.  This might be done to the input layer only or to all layers, and either separate or in combination with the sparsity prior on the rows.  I would speculate that placing the sparsity prior on the input layer only, but in combination with the sparsity prior on rows across all layers, would work best, the idea being that reducing the number of neurons in downstream layers would narrow the number of viable solutions by removing redundancies.
 
-Not sure about how to determine the number and dimension of layers, though our prior beliefs regarding the complexity of the data and relationship between covariates and the outcome variable (e.g., linear or non-linear relationship) can inform the size and depth of the network.
-
-
-
-An alternative approach for future exploration would be to apply the sparsity prior to columns rather than rows.  This might be done to the input layer only, to all layers, and either separate or in combination with the sparsity prior on the rows.  We speculate that placing the sparsity prior on the input layer only, but in combination with the sparsity prior on rows across all layers, would work best, the idea being that reducing the number of neurons in downstream layers would narrow the number of viable solutions by removing redundancies.
-
-From a statistical point of view, from the Bayesian sparsity prior specification we obtain variable selection with known operating characteristics which, from the neural network architecture, should be robust to misspecification of functional forms and nonlinearities.
-
-
-
-
-
-
-
-+ set up simulations --- need more python expertise
-+ how to determine number and size of layers?
-  - some rough idea of data complexity
-+ testing on functional data
-
-
-
-
-
-
-
-
-
-
+Last, though only linear data was attempted here, I am also excited about the potential applications for functional data analysis and variable selection, as we could then truly leverage the main strengths of neural networks --- their expressivity.  That is, the end goal here would be to develop a method yielding principled variable selection with well-studied operating characteristics (from the Bayesian sparsity prior) which would also be robust to misspecification of functional forms and nonlinearities.
 
