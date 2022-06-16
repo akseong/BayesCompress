@@ -27,4 +27,5 @@ knitr::include_graphics(c(layer1path, layer2path))
 ## Variable Selection
 The motivation for this project is the insight that, for the first weight layer, removing columns would correspond to removing features or covariates --- something we would not obtain by merely omitting individual weights.  As formulated in Louizos, Ullrich, and Welling 2017, the method described above does not lead to principled variable selection in the usual statistical sense (though it can be used to examine feature importance on an observation-by-observation basis), because it does not remove columns in the first weight layer.  We propose adding another level in the hierarchical sparsity prior to accomplish this. From a statistical point of view, from the Bayesian sparsity prior specification we obtain variable selection with known operating characteristics which, from the neural network architecture, should be robust to misspecification of functional forms and nonlinearities.
 
++ [proof of concept](https://akseong.github.io/BayesCompress/VarSel/writeup.html)
 
