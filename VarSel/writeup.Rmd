@@ -827,7 +827,8 @@ mask0 = model.get_masks(thresholds)[0]
 
 # results / observations
 
-Unfortunately, my python coding ability is not yet good enough to have run many simiulations in an automated fashion, but here is a representative outcome from one sample dataset.  Comparisons against OLS (variable inclusion determined using a naive threshold of p-value > 0.05 as well as using Benjamini-Hochberg) were made; sample output is below.
+Unfortunately, my python coding ability is not yet good enough to have run many simiulations in an automated fashion, but here is a representative outcome from one sample dataset.  Comparisons against OLS (variable inclusion determined using a naive threshold of p-value > 0.05 as well as using Benjamini-Hochberg) were made; sample output is below.  
+
 + True positives (`TP`) denote variables that were correctly included;
 + True negatives (`TN`) denote variables that were correctly excluded
 
@@ -872,9 +873,10 @@ fm_weightpath <- here::here("VarSel", "figures", "weight0_e.gif")
 knitr::include_graphics(fm_weightpath)
 ```
 
+Unfortunately, this displays the weights from each neuron in a column (as opposed to rows, which is how I have been referring to them) --- the y-axis increments correspond to each of the 30 covariates; the x-axis increments correspond to the 20 neurons of the input layer.  We can see that training ends up pruning columns (neurons), but there is also a steady push towards 0 across the rows, implying that certain covariates have only a minor effect.
 
 
-This is the final version of the input layer's weight matrix __after thresholding__ based on the estimated variance and bit precision roundoffs (unfortunately, the plot scaling is off; there are 30 rows and 20 columns corresponding to the 30 covariates and 20 neurons):
+Below (generated in `ggplot`) is the final version of the input layer's weight matrix __after thresholding__ based on the estimated variance and bit precision roundoffs (unfortunately, the plot scaling is off here, but just as in the animated .gif above, there are 30 rows and 20 columns corresponding to the 30 covariates and 20 neurons):
 
 ```{r}
 vismat(py$weight_mus[[1]]) +
