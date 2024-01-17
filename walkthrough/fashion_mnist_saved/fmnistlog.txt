@@ -1,0 +1,408 @@
+_StoreAction(option_strings=['--epochs'], dest='epochs', nargs=None, const=None, default=100, type=<class 'int'>, choices=None, help=None, metavar=None)
+_StoreAction(option_strings=['--batchsize'], dest='batchsize', nargs=None, const=None, default=128, type=<class 'int'>, choices=None, help=None, metavar=None)
+_StoreAction(option_strings=['--thresholds'], dest='thresholds', nargs='*', const=None, default=[-2.8, -3.0, -5.0], type=<class 'float'>, choices=None, help=None, metavar=None)
+--start training--
+--epoch1--
+Epoch: 1    Train loss: 18.030062   
+Test loss: 0.4073, Accuracy: 8508/10000 (85.08%)
+
+--epoch2--
+Epoch: 2    Train loss: 15.605293   
+Test loss: 0.3727, Accuracy: 8628/10000 (86.28%)
+
+--epoch3--
+Epoch: 3    Train loss: 13.461196   
+Test loss: 0.3629, Accuracy: 8696/10000 (86.96%)
+
+--epoch4--
+Epoch: 4    Train loss: 11.410591   
+Test loss: 0.3656, Accuracy: 8639/10000 (86.39%)
+
+--epoch5--
+Epoch: 5    Train loss: 9.156322    
+Test loss: 0.3485, Accuracy: 8725/10000 (87.25%)
+
+--epoch6--
+Epoch: 6    Train loss: 7.215502    
+Test loss: 0.3589, Accuracy: 8717/10000 (87.17%)
+
+--epoch7--
+Epoch: 7    Train loss: 6.296473    
+Test loss: 0.3674, Accuracy: 8666/10000 (86.66%)
+
+--epoch8--
+Epoch: 8    Train loss: 5.900913    
+Test loss: 0.3668, Accuracy: 8677/10000 (86.77%)
+
+--epoch9--
+Epoch: 9    Train loss: 5.878016    
+Test loss: 0.3601, Accuracy: 8694/10000 (86.94%)
+
+--epoch10--
+Epoch: 10   Train loss: 5.573061    
+Test loss: 0.3543, Accuracy: 8658/10000 (86.58%)
+
+--epoch11--
+Epoch: 11   Train loss: 5.688080    
+Test loss: 0.3591, Accuracy: 8709/10000 (87.09%)
+
+--epoch12--
+Epoch: 12   Train loss: 5.299718    
+Test loss: 0.3540, Accuracy: 8708/10000 (87.08%)
+
+--epoch13--
+Epoch: 13   Train loss: 5.406569    
+Test loss: 0.3433, Accuracy: 8766/10000 (87.66%)
+
+--epoch14--
+Epoch: 14   Train loss: 5.287253    
+Test loss: 0.3427, Accuracy: 8737/10000 (87.37%)
+
+--epoch15--
+Epoch: 15   Train loss: 5.033386    
+Test loss: 0.3429, Accuracy: 8757/10000 (87.57%)
+
+--epoch16--
+Epoch: 16   Train loss: 5.140461    
+Test loss: 0.3322, Accuracy: 8773/10000 (87.73%)
+
+--epoch17--
+Epoch: 17   Train loss: 5.132855    
+Test loss: 0.3348, Accuracy: 8771/10000 (87.71%)
+
+--epoch18--
+Epoch: 18   Train loss: 4.921610    
+Test loss: 0.3356, Accuracy: 8767/10000 (87.67%)
+
+--epoch19--
+Epoch: 19   Train loss: 5.117135    
+Test loss: 0.3328, Accuracy: 8787/10000 (87.87%)
+
+--epoch20--
+Epoch: 20   Train loss: 4.883693    
+Test loss: 0.3277, Accuracy: 8795/10000 (87.95%)
+
+--epoch21--
+Epoch: 21   Train loss: 5.099228    
+Test loss: 0.3257, Accuracy: 8812/10000 (88.12%)
+
+--epoch22--
+Epoch: 22   Train loss: 5.036642    
+Test loss: 0.3298, Accuracy: 8821/10000 (88.21%)
+
+--epoch23--
+Epoch: 23   Train loss: 5.068106    
+Test loss: 0.3315, Accuracy: 8790/10000 (87.90%)
+
+--epoch24--
+Epoch: 24   Train loss: 5.074981    
+Test loss: 0.3230, Accuracy: 8818/10000 (88.18%)
+
+--epoch25--
+Epoch: 25   Train loss: 4.738769    
+Test loss: 0.3256, Accuracy: 8824/10000 (88.24%)
+
+--epoch26--
+Epoch: 26   Train loss: 5.024150    
+Test loss: 0.3203, Accuracy: 8800/10000 (88.00%)
+
+--epoch27--
+Epoch: 27   Train loss: 4.976985    
+Test loss: 0.3231, Accuracy: 8810/10000 (88.10%)
+
+--epoch28--
+Epoch: 28   Train loss: 4.880416    
+Test loss: 0.3232, Accuracy: 8830/10000 (88.30%)
+
+--epoch29--
+Epoch: 29   Train loss: 4.884345    
+Test loss: 0.3266, Accuracy: 8804/10000 (88.04%)
+
+--epoch30--
+Epoch: 30   Train loss: 4.827025    
+Test loss: 0.3112, Accuracy: 8861/10000 (88.61%)
+
+--epoch31--
+Epoch: 31   Train loss: 4.935483    
+Test loss: 0.3164, Accuracy: 8846/10000 (88.46%)
+
+--epoch32--
+Epoch: 32   Train loss: 4.939002    
+Test loss: 0.3208, Accuracy: 8847/10000 (88.47%)
+
+--epoch33--
+Epoch: 33   Train loss: 4.859378    
+Test loss: 0.3120, Accuracy: 8858/10000 (88.58%)
+
+--epoch34--
+Epoch: 34   Train loss: 5.176078    
+Test loss: 0.3149, Accuracy: 8836/10000 (88.36%)
+
+--epoch35--
+Epoch: 35   Train loss: 4.833312    
+Test loss: 0.3163, Accuracy: 8834/10000 (88.34%)
+
+--epoch36--
+Epoch: 36   Train loss: 4.908034    
+Test loss: 0.3173, Accuracy: 8861/10000 (88.61%)
+
+--epoch37--
+Epoch: 37   Train loss: 5.066383    
+Test loss: 0.3168, Accuracy: 8847/10000 (88.47%)
+
+--epoch38--
+Epoch: 38   Train loss: 4.847878    
+Test loss: 0.3105, Accuracy: 8872/10000 (88.72%)
+
+--epoch39--
+Epoch: 39   Train loss: 4.849405    
+Test loss: 0.3168, Accuracy: 8829/10000 (88.29%)
+
+--epoch40--
+Epoch: 40   Train loss: 4.889662    
+Test loss: 0.3168, Accuracy: 8843/10000 (88.43%)
+
+--epoch41--
+Epoch: 41   Train loss: 4.849543    
+Test loss: 0.3183, Accuracy: 8852/10000 (88.52%)
+
+--epoch42--
+Epoch: 42   Train loss: 4.773191    
+Test loss: 0.3114, Accuracy: 8887/10000 (88.87%)
+
+--epoch43--
+Epoch: 43   Train loss: 5.084602    
+Test loss: 0.3180, Accuracy: 8840/10000 (88.40%)
+
+--epoch44--
+Epoch: 44   Train loss: 5.034232    
+Test loss: 0.3117, Accuracy: 8865/10000 (88.65%)
+
+--epoch45--
+Epoch: 45   Train loss: 4.870026    
+Test loss: 0.3144, Accuracy: 8836/10000 (88.36%)
+
+--epoch46--
+Epoch: 46   Train loss: 4.891286    
+Test loss: 0.3141, Accuracy: 8848/10000 (88.48%)
+
+--epoch47--
+Epoch: 47   Train loss: 4.875246    
+Test loss: 0.3092, Accuracy: 8857/10000 (88.57%)
+
+--epoch48--
+Epoch: 48   Train loss: 4.694518    
+Test loss: 0.3131, Accuracy: 8883/10000 (88.83%)
+
+--epoch49--
+Epoch: 49   Train loss: 4.775259    
+Test loss: 0.3090, Accuracy: 8877/10000 (88.77%)
+
+--epoch50--
+Epoch: 50   Train loss: 4.795959    
+Test loss: 0.3106, Accuracy: 8852/10000 (88.52%)
+
+--epoch51--
+Epoch: 51   Train loss: 5.097604    
+Test loss: 0.3067, Accuracy: 8862/10000 (88.62%)
+
+--epoch52--
+Epoch: 52   Train loss: 4.841589    
+Test loss: 0.3161, Accuracy: 8857/10000 (88.57%)
+
+--epoch53--
+Epoch: 53   Train loss: 4.863063    
+Test loss: 0.3113, Accuracy: 8860/10000 (88.60%)
+
+--epoch54--
+Epoch: 54   Train loss: 4.779024    
+Test loss: 0.3102, Accuracy: 8871/10000 (88.71%)
+
+--epoch55--
+Epoch: 55   Train loss: 4.681475    
+Test loss: 0.3179, Accuracy: 8847/10000 (88.47%)
+
+--epoch56--
+Epoch: 56   Train loss: 4.861183    
+Test loss: 0.3126, Accuracy: 8855/10000 (88.55%)
+
+--epoch57--
+Epoch: 57   Train loss: 5.067150    
+Test loss: 0.3068, Accuracy: 8870/10000 (88.70%)
+
+--epoch58--
+Epoch: 58   Train loss: 4.853489    
+Test loss: 0.3038, Accuracy: 8877/10000 (88.77%)
+
+--epoch59--
+Epoch: 59   Train loss: 4.837727    
+Test loss: 0.3057, Accuracy: 8877/10000 (88.77%)
+
+--epoch60--
+Epoch: 60   Train loss: 4.925929    
+Test loss: 0.3137, Accuracy: 8851/10000 (88.51%)
+
+--epoch61--
+Epoch: 61   Train loss: 4.860798    
+Test loss: 0.3137, Accuracy: 8872/10000 (88.72%)
+
+--epoch62--
+Epoch: 62   Train loss: 5.125248    
+Test loss: 0.3065, Accuracy: 8867/10000 (88.67%)
+
+--epoch63--
+Epoch: 63   Train loss: 4.781350    
+Test loss: 0.3069, Accuracy: 8889/10000 (88.89%)
+
+--epoch64--
+Epoch: 64   Train loss: 4.717782    
+Test loss: 0.3067, Accuracy: 8872/10000 (88.72%)
+
+--epoch65--
+Epoch: 65   Train loss: 4.704462    
+Test loss: 0.3083, Accuracy: 8885/10000 (88.85%)
+
+--epoch66--
+Epoch: 66   Train loss: 4.786864    
+Test loss: 0.3064, Accuracy: 8912/10000 (89.12%)
+
+--epoch67--
+Epoch: 67   Train loss: 4.841302    
+Test loss: 0.3072, Accuracy: 8877/10000 (88.77%)
+
+--epoch68--
+Epoch: 68   Train loss: 4.769228    
+Test loss: 0.3032, Accuracy: 8904/10000 (89.04%)
+
+--epoch69--
+Epoch: 69   Train loss: 4.666155    
+Test loss: 0.3090, Accuracy: 8889/10000 (88.89%)
+
+--epoch70--
+Epoch: 70   Train loss: 4.638545    
+Test loss: 0.3080, Accuracy: 8885/10000 (88.85%)
+
+--epoch71--
+Epoch: 71   Train loss: 4.816251    
+Test loss: 0.3084, Accuracy: 8879/10000 (88.79%)
+
+--epoch72--
+Epoch: 72   Train loss: 4.722248    
+Test loss: 0.3061, Accuracy: 8886/10000 (88.86%)
+
+--epoch73--
+Epoch: 73   Train loss: 4.872081    
+Test loss: 0.3056, Accuracy: 8894/10000 (88.94%)
+
+--epoch74--
+Epoch: 74   Train loss: 4.660868    
+Test loss: 0.3038, Accuracy: 8889/10000 (88.89%)
+
+--epoch75--
+Epoch: 75   Train loss: 4.719188    
+Test loss: 0.3076, Accuracy: 8866/10000 (88.66%)
+
+--epoch76--
+Epoch: 76   Train loss: 4.698153    
+Test loss: 0.3069, Accuracy: 8884/10000 (88.84%)
+
+--epoch77--
+Epoch: 77   Train loss: 5.036941    
+Test loss: 0.3085, Accuracy: 8876/10000 (88.76%)
+
+--epoch78--
+Epoch: 78   Train loss: 4.729927    
+Test loss: 0.3203, Accuracy: 8847/10000 (88.47%)
+
+--epoch79--
+Epoch: 79   Train loss: 4.855036    
+Test loss: 0.3046, Accuracy: 8898/10000 (88.98%)
+
+--epoch80--
+Epoch: 80   Train loss: 4.781412    
+Test loss: 0.3063, Accuracy: 8886/10000 (88.86%)
+
+--epoch81--
+Epoch: 81   Train loss: 5.030521    
+Test loss: 0.3136, Accuracy: 8872/10000 (88.72%)
+
+--epoch82--
+Epoch: 82   Train loss: 4.724186    
+Test loss: 0.3097, Accuracy: 8872/10000 (88.72%)
+
+--epoch83--
+Epoch: 83   Train loss: 5.022204    
+Test loss: 0.3044, Accuracy: 8882/10000 (88.82%)
+
+--epoch84--
+Epoch: 84   Train loss: 4.804311    
+Test loss: 0.3073, Accuracy: 8867/10000 (88.67%)
+
+--epoch85--
+Epoch: 85   Train loss: 5.007452    
+Test loss: 0.3056, Accuracy: 8875/10000 (88.75%)
+
+--epoch86--
+Epoch: 86   Train loss: 4.809572    
+Test loss: 0.3086, Accuracy: 8873/10000 (88.73%)
+
+--epoch87--
+Epoch: 87   Train loss: 4.738191    
+Test loss: 0.3080, Accuracy: 8892/10000 (88.92%)
+
+--epoch88--
+Epoch: 88   Train loss: 4.738903    
+Test loss: 0.3076, Accuracy: 8882/10000 (88.82%)
+
+--epoch89--
+Epoch: 89   Train loss: 4.861674    
+Test loss: 0.3074, Accuracy: 8893/10000 (88.93%)
+
+--epoch90--
+Epoch: 90   Train loss: 4.749323    
+Test loss: 0.3068, Accuracy: 8876/10000 (88.76%)
+
+--epoch91--
+Epoch: 91   Train loss: 4.670192    
+Test loss: 0.3048, Accuracy: 8880/10000 (88.80%)
+
+--epoch92--
+Epoch: 92   Train loss: 4.692786    
+Test loss: 0.3046, Accuracy: 8878/10000 (88.78%)
+
+--epoch93--
+Epoch: 93   Train loss: 4.792740    
+Test loss: 0.3087, Accuracy: 8890/10000 (88.90%)
+
+--epoch94--
+Epoch: 94   Train loss: 4.996445    
+Test loss: 0.3070, Accuracy: 8897/10000 (88.97%)
+
+--epoch95--
+Epoch: 95   Train loss: 4.739033    
+Test loss: 0.3051, Accuracy: 8885/10000 (88.85%)
+
+--epoch96--
+Epoch: 96   Train loss: 4.749079    
+Test loss: 0.3079, Accuracy: 8857/10000 (88.57%)
+
+--epoch97--
+Epoch: 97   Train loss: 4.630225    
+Test loss: 0.3063, Accuracy: 8878/10000 (88.78%)
+
+--epoch98--
+Epoch: 98   Train loss: 4.899397    
+Test loss: 0.3052, Accuracy: 8908/10000 (89.08%)
+
+--epoch99--
+Epoch: 99   Train loss: 4.802904    
+Test loss: 0.3050, Accuracy: 8897/10000 (88.97%)
+
+--epoch100--
+Epoch: 100  Train loss: 4.592123    
+Test loss: 0.3039, Accuracy: 8914/10000 (89.14%)
+
+Compressing the architecture will decrease the model by a factor of 7.1.
+Making use of weight uncertainty can reduce the model by a factor of 25.4.
+Test error after with reduced bit precision:
+Test loss: 0.3151, Accuracy: 8847/10000 (88.47%)

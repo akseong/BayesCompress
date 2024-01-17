@@ -1,0 +1,913 @@
+---
+title: "Variable Selection via Bayesian Compression"
+author: "Arnie Seong"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+header-includes:
+  - \usepackage{bm}
+  - \usepackage{xcolor}
+  - \usepackage{amssymb}
+output: 
+  html_document:
+    df_print: paged
+    theme: cerulean
+    highlight: tango
+    toc: yes
+    toc_depth: 4
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
+    code_fold: hide
+  urlcolor: blue
+params:
+  retrain: FALSE
+---
+  
+  
+```{r setup, include=FALSE, message=F, echo=F, warning=F}
+# LIBRARIES----
+library(reticulate)
+
+#### plotting:
+library(ggplot2)
+library(gridExtra)
+
+#### Misc:
+library(here)
+library(dplyr)
+library(tidyr)
+library(knitr)
+library(kableExtra)
+
+# DOCUMENT SETUP ----
+#### detect pdf/html output, set chunk options, sci.notation 
+latex_out <- knitr::is_latex_output()
+knitr::opts_chunk$set(
+  cache = FALSE, 
+  message = FALSE, 
+  echo = !knitr::is_latex_output(), 
+  warning = FALSE
+)
+if (knitr::is_latex_output()) {
+  knitr::opts_chunk$set(fig.height=4, 
+                        fig.width=6)
+} else {
+  knitr::opts_chunk$set(out.width = "100%")
+}
+options(scipen=10)
+
+# TEXT/TABLE FORMATTING----
+purple <- ifelse(
+  knitr::is_latex_output(),
+  "purple",
+  "#b51ced"
+)
+
+blue <- ifelse(
+  knitr::is_latex_output(),
+  "blue",
+  "#11579e"
+)
+
+colorize <- function(x, color=purple) {
+  # text color conditional on latex/html output
+  # from rmarkdown cookbook
+  if (knitr::is_latex_output()) {
+    sprintf("\\textcolor{ %s}{ %s}", color, x)
+  } else if (knitr::is_html_output()) {
+    sprintf("<span style='color: %s;'>%s</span>", color, x)
+  } else x
+}
+
+
+#### kable NA handling
+options(knitr.kable.NA = '')
+
+#### detect if knitting
+knitting <- !is.null(getOption("knitr.in.progress"))
+
+#### mykable
+mykable <- function(tab, cap = NULL,
+                    latex_options=c("hold_position", "scale_down", "striped"), 
+                    bootstrap_options=c("striped", "hover", "condensed"), 
+                    full_width=F, position="center", ...){
+  # kable formatting conditional on latex or html output
+  # common additional unspecified args (...):
+  #     digits = 2
+  #     format.args = (list(big.mark = ","))
+  if (is.null(getOption("knitr.in.progress"))){
+    print(tab)
+  } else if (knitr::is_latex_output()){
+    kable(x=tab, caption=cap, ...) %>%
+      kableExtra::kable_styling(latex_options = latex_options)
+  } else if (knitr::is_html_output()){
+    kable(x=tab, caption=cap, ...) %>%
+      kableExtra::kable_styling(bootstrap_options = bootstrap_options, full_width=full_width, position=position)
+  }
+}
+
+
+
+
+
+ols_varsel_err <- function(lmfit, true_covars, nuisance_vars, thresh = 0.05, adjust.method = NULL){
+  coeftab <- summary(lmfit, na.rm = FALSE)$coef
+  if (!is.null(adjust.method)){
+    coeftab[,4] <- p.adjust(coeftab[,4], method = adjust.method)
+  }
+  # if (is.character(true_covars)){
+  #   true_covars <- as.numeric(unlist(lapply(strsplit(true_covars, "X"), function(X) X[2]))) + 1
+  #   nuisance_vars <- as.numeric(unlist(lapply(strsplit(nuisance_vars, "X"), function(X) X[2]))) + 1
+  # }
+  
+  TP <- sum(coeftab[true_covars, 4] < thresh)
+  FN <- sum(coeftab[true_covars, 4] >= thresh)
+  TN <- sum(coeftab[nuisance_vars, 4] >= thresh)
+  FP <- sum(coeftab[nuisance_vars, 4] < thresh)
+  c("TP" = TP, "FP" = FP, "TN" = TN, "FN" = FN)
+}
+
+# vismat(mat, cap = NULL, leg = TRUE, na0 = TRUE, square)----
+vismat <- function(mat, cap = NULL, leg = TRUE, na0 = TRUE, lims = NULL, square = NULL, preserve_rownums = TRUE){
+  # outputs visualization of matrix with few unique values
+  # colnames should be strings, values represented as factors
+  # sci_not=TRUE puts legend in scientific notation
+  require(ggplot2)
+  require(scales)
+  require(reshape2)
+  
+  if(!preserve_rownums) rownames(mat) <- NULL
+  
+  melted <- melt(mat)
+  melted$value <- ifelse(
+    melted$value == 0 & na0,
+    NA,
+    melted$value
+  )
+  p <- ggplot(melted) + 
+    geom_raster(aes(y = Var1, 
+                    x = Var2, 
+                    fill = value)) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
+    scale_fill_viridis_c(limits = lims) + 
+    scale_x_discrete(expand = c(0,0))
+  
+  if (is.numeric(melted$Var1)){
+    p <- p + 
+      scale_y_reverse(expand = c(0,0))
+  } else {
+    p <- p + 
+      scale_y_discrete(limits = rev(levels(melted$Var1)), expand = c(0,0))
+  }
+  
+  
+
+  if (is.null(square)) square <- nrow(mat) / ncol(mat) > .9 & nrow(mat) / ncol(mat) < 1.1
+  if (square) p <- p + coord_fixed(1)
+  
+  if(is.null(cap)) cap <- paste0("visualization of matrix ", substitute(mat))
+  
+  p <- p + labs(title=cap)
+  
+  if (!leg) p <- p + theme(legend.position = "none")
+  
+  return(p)
+}
+```
+
+
+
+# Introduction:
+
+In their [2017 paper,"Bayesian Compression for Deep Learning"](https://arxiv.org/abs/1705.08665), Christos Louizos, Karen Ullrich, and Max Welling outline a method for compressing neural networks, both via weight pruning and bit precision reduction.  Others (Scaradapane et al. 2016; Wen, Wu 2016) have applied sparsity priors such as the Bayesian LASSO (exponential prior on the variance parameter) in order to reduce the amount of memory required to store neural networks, but Louizos, Ullrich, and Welling's approach improves on previous work by __1)__ placing scale-mixture sparsity priors on _entire rows_ of weight layers rather than on individual weights, and __2)__ using the estimated variance of the parameters to calculate the bit precision, or precision quantization, required to store the weights without losing too much information (i.e. causing data misfit).  
+
+Because neural networks are typically stored using a matrix representation of the weight layers, pruning individual weights independently does relatively little to reduce the memory required to store the network: pruning weights individually leads to a sprinkling of zeros in the matrix representation, but reduction in the dimensions of the matrix can only occur if an entire row or column is filled with zeros.  By instead using a hierarchical structure in which entire rows share the sparsity-inducing parameter, Louizos, Ullrich, and Welling are able to "zero out" entire rows --- entire neurons --- and thus reduce the dimensions of the matrix required to store the weight layer.  The dimension reduction also compounds across neural network layers: for fully-connected layers, since row $i$ of weight layer $j$ is used to compute the $i$'th input in weight layer $j+1$, if row $i$ (neuron $i$) of layer $j$ is omitted, then column $i$ of layer $j+1$ can _also_ be omitted.  
+
+In addition, the authors offer an information theory-based argument for using the posterior weights' variances to impute the optimal number of bits required to encode the weights, leading to further compressibility.  The main idea here is that the larger a weight's variance, the lower the precision required to store it: if a weight has variance 1, then storing the weight with precision to the 8th decimal versus the 4th decimal does not preserve much information about the weight's distribution.  A Normal(4.0001, 1) distribution is less different from a Normal(4.00010001, 1) distribution than a Normal(4.0001, 0.01) distribution is from a Normal(4.00010001, 0.01).
+
+
+
+
+## Motivation: 
+
+The motivation for _this_ project is the insight that, for the first weight layer, pruning the weights for entire columns would correspond to removing features or covariates.  The focus of the method described above is not on variable selection in this way: while the hierarchical sparsity prior on weight layer rows leads to _downstream_ elimination of columns, the _input_ layer is not downstream from any other layer.  Thus the method does not lead to variable selection in the usual statistical sense, though it can be used to examine feature importance on an observation-by-observation basis, because it does not remove columns in the first weight layer.  
+
+Our idea is that, by repurposing the bit quantization estimate to provide a threshold for weights to be zero'd out, we can in fact eliminate columns form the input layer in a reasonable fashion.  That is, we can obtain principled variable selection with known operating characteristics via the Bayesian sparsity prior specification and variance-based thresholding, 
+
+
+# Model:
+
+## Scale mixtures of normals
+
+A general construction for the scale mixture of normals entails placing a distribution $p(z)$ on the scale parameter $z$:
+$$
+z       \sim   p(z);   \quad      w       \sim   N(w; 0, z^2).
+$$
+
+Specifying the distribution $p(z)$ to have both relatively large mass at zero and heavy tails biases the posterior distribution for $w$ to be sparse.  For example, when $p(z)$ is a mixture of a Dirac delta at zero and a Normal distribution, we obtain the spike-and-slab; another well-known case is the LASSO estimator, obtained by placing a Laplace distribution on $z$: $p(z^2) = Exp(\lambda)$.
+
+We follow Louizos, Ullrich, and Welling 2017 in using the improper log-uniform prior $p(z) \propto |z|^{-1}$ (the authors also describe the implementation of their methods using the Horseshoe prior).  The primary reason for this choice is the simplicity of computation: marginalizing over the scale parameter $z$, the weights $w$ follow the Normal-Jeffreys (or log-uniform) prior:
+
+$$ 
+p(w) \propto \int \frac{1}{|z|} N(w|0, z^2)dz = \frac{1}{|w|}.
+$$
+
+In comparison, the spike-and-slab delta spike at zero is computationally expensive at scale: 1) variational Bayes techniques are unavailable as the Bernoulli scale mixture defies gradient descent, and 2) the search space contains $2^M$ models, where $M$ is the number of parameters, i.e. the number of weights in the neural network.
+
+## Group sparsity & Variational inference
+
+Group sparsity is accomplished under the authors' model by requiring weights belonging to the same group (i.e. neuron or convolutional filter) to share the scale parameter.  Let $W$ be the weight matrix of a fully connected neural network layer with dimension $A \times B$, where $A$ is the number of neurons and $B$ the dimension of the weights for each neuron. Then the joint prior is:
+
+$$
+  p(W, z) 
+  \propto 
+  \prod_i^A \frac{1}{|z_i|} 
+  \prod_{i,j}^{A,B} N(w_{ij} | 0, z_i^2) 
+$$
+
+
+The authors use the approximate joint posterior
+
+$$\begin{aligned}
+  q_{\phi} (W,z)
+  &=
+    \prod_i^A N(z_i | \mu_{z_i}, \mu^2_{z_i} \alpha_i) 
+    \prod_{i,j}^{A,B} N(w_{ij} | z_i \mu_{ij}, z_i^2 \sigma_{ij}^2), \\
+\end{aligned}$$
+
+where $\alpha_i$ is the dropout rate of group or neuron $i$.  After reparameterizing such that $\sigma^2_{z_i} = \mu^2_{z_i} \alpha_i$ (to avoide high variance gradients), the evidence lower bound is:
+$$
+\mathcal{L}(\phi)=\mathbb{E}_{q_{\phi}(\mathbf{z}) q_{\phi}(\mathbf{W} \mid \mathbf{z})}[\log p(\mathcal{D} \mid \mathbf{W})]-\mathbb{E}_{q_{\phi}(\mathbf{z})}\left[K L\left(q_{\phi}(\mathbf{W} \mid \mathbf{z}) \| p(\mathbf{W} \mid \mathbf{z})\right)\right]-K L\left(q_{\phi}(\mathbf{z}) \| p(\mathbf{z})\right)
+$$
+
+where the KL-divergence for the conditional prior $p(W|z)$ to the approximate posterior $q_\phi (W|z)$ is:
+
+$$\begin{aligned}
+  KL(q_\phi(W|z) || p(W|z)) 
+  &= 
+    \frac{1}{2} 
+    \sum_{i,j}^{A,B} 
+    \left(  
+      \log \frac{z_i^2}{z_i^2 \sigma^2_{ij}} 
+      + \frac{z_i^2 \sigma^2_{ij}}{z_i^2} 
+      + \frac{z_i^2 \mu^2_{ij}}{z_i^2} 
+      - 1
+    \right) 
+  \\
+  &= 
+    \frac{1}{2} 
+    \sum_{i,j}^{A,B} 
+    \left(  
+      \log \frac{1}{\sigma^2_{ij}} 
+      + \sigma^2_{ij}
+      + \mu^2_{ij}
+      - 1
+    \right).
+\end{aligned}$$
+
+Last, the authors obtain the KL-divergence from the normal-Jeffreys scale prior $p(z)$ to the Gaussian variational posterior $q_\phi (z)$ to be dependent only on the implied dropout rate $\alpha_i = \sigma^2_{z_i} / \mu^2_{z_i}$:
+
+$$
+-K L\left(q_{\phi}(\mathbf{z}) \| p(\mathbf{z})\right) \approx \sum_{i}^{A}\left(k_{1} \sigma\left(k_{2}+k_{3} \log \alpha_{i}\right)-0.5 m\left(-\log \alpha_{i}\right)-k_{1}\right)
+$$
+
+where $\sigma(\cdot), m(\cdot)$ are the sigmoid and softplus functions, and $k_{1}=0.63576, k_{2}=1.87320, k_{3}=1.48695$.
+
+Groups of parameters are then pruned by specifying a threshold for the variational dropout rate $\alpha_i$ such that $\log \alpha_{i}=\left(\log \sigma_{z_i}^{2}-\log \mu_{z_i}^{2}\right)>t$
+
+## Variance thresholding
+
+The variational posterior marginal variance 
+$$
+\mathbb{V}\left(w_{i j}\right)_{N J}=\sigma_{z_{i}}^{2}\left(\sigma_{i j}^{2}+\mu_{i j}^{2}\right)+\sigma_{i j}^{2} \mu_{z_{i}}^{2}
+$$
+is then used to compute the optimal number of bits that minimizes the sum of the complexity cost of communicating the model and error cost (the data misfit).  The theoretical arguments underpinning bit precision optimization are out of the scope of this writeup, but are delineated in Louizos, Ullrich, Welling 2017 Section 2 and Appendix B.
+
+
+# Performance:
+
+We examined variable selection performance for a basic linear regression problem by generating synthetic data consisting of 10 true covariates, 20 nuisance variables, with N = 10000.  The true covariates and nuisance variables were randomly assigned to arise from normal and binomial distributions (code below), and the outcome $y$ made to be a linear transformation of the true covariates plus Normal noise.
+
+## sample dataset visualization
+
+```{r generate_linear_data_func}
+
+generate_linear_data <- function(
+    ave_beta = 2,
+    sd_beta = 10,
+    sd_eps = 2,
+    n_obs = 1E4,
+    n_covars = 10,
+    n_nuisance = 20
+  ){
+  
+  beta_vec <- round(rnorm(n_covars + 1, mean = ave_beta, sd = sd_beta), 2)
+  dat <- data.frame(matrix(0, nrow = n_obs, ncol = n_covars + n_nuisance))
+  distn_vec <- rep(NA, n_covars + n_nuisance)
+  
+  for (j in 1:(n_covars+n_nuisance)) {
+    distn <- sample(c("normal","binomial"), 1)
+    if (distn == "normal"){
+      mu_j <- round(runif(1, 0, 10))
+      sig_j <- round(runif(1, 1, 5))
+      dat[, j] <- rnorm(n_obs, mu_j, sig_j)
+      distn_vec[j] <- paste0(distn, "(", mu_j, ", ", sig_j, ")")
+      
+    } else if (distn == "binomial"){
+      p_j <- runif(1, 0.1, 1)
+      n_j <- floor(runif(1, 1, 10))
+      dat[,j] <- rbinom(n_obs, size = n_j, prob = p_j)
+      distn_vec[j] <- paste0(distn, "(", n_j, ", ", p_j, ")")
+    }
+  }
+  
+  # construct y
+  # dat <- round(dat, 4)
+  covar_inds <- sort(sample(1:(n_covars + n_nuisance), n_covars))
+  covars <- as.matrix(dat[, covar_inds])
+  covar_distns <- distn_vec[covar_inds]
+  eps <- rnorm(n_obs, mean = 0, sd = sd_eps)
+  dat$y <- as.vector(cbind(1, covars) %*% beta_vec + eps)
+  true_covars <- colnames(dat)[covar_inds]
+  nuisance_vars <- colnames(dat)[setdiff(1:(n_nuisance + n_covars), covar_inds)]
+  names(beta_vec) <- c("(Intercept)", true_covars)
+  
+  res <- list(
+    "dat" = dat,
+    "eps" = eps,
+    "sd_eps" = sd_eps,
+    "distn_vec" = distn_vec,
+    "n_obs" = n_obs,
+    "n_covars" = n_covars,
+    "n_nuisance" = n_nuisance,
+    "beta_vec" = beta_vec,
+    "covar_inds" = covar_inds,
+    "true_covars" = true_covars,
+    "nuisance_vars" = nuisance_vars
+  )
+  
+  return(res)
+}
+```
+
+
+
+
+
+```{r}
+set.seed(0)
+lindat_obj <- generate_linear_data()
+dat <- lindat_obj$dat
+true_covars <- lindat_obj$true_covars
+nuisance_vars <- lindat_obj$nuisance_vars
+covar_inds <- lindat_obj$covar_inds
+beta_vec <- lindat_obj$beta_vec
+true_covars_inds <- as.integer(as.integer(unlist(lapply(strsplit(true_covars, "X"), function(x) x[2]))) - 1)
+nuisance_covars_inds <- as.integer(as.integer(unlist(lapply(strsplit(nuisance_vars, "X"), function(x) x[2]))) - 1)
+
+samp <- dat %>% 
+  slice_sample(n = 500) %>% 
+  gather(key = "covar", value = "value", -y)
+# 
+# p_all <- dat %>% 
+#   slice_sample(n = 500) %>% 
+#   gather(key = "covar", value = "value", -y) %>% 
+#   mutate(true_cov = if_else(
+#     covar %in% true_covars,
+#     "covar_true",
+#     "nuisance"
+#     )
+#   ) %>% 
+#   ggplot() + 
+#   geom_density(
+#     aes(
+#       x = value,
+#       color = covar,
+#       fill = covar
+#     ),
+#     alpha = .2
+#   ) + 
+#   theme(legend.position = "none") + 
+#   facet_wrap(. ~ true_cov, ncol = 1) + 
+#   labs(
+#     title = "density plot of all variables in dataset"
+#   )
+
+p_true <- dat[, true_covars_inds] %>% 
+  slice_sample(n = 500) %>% 
+  gather(key = "covar", value = "value") %>% 
+  ggplot() + 
+  geom_density(
+    aes(
+      x = value,
+      color = covar,
+      fill = covar
+    ),
+    alpha = .1
+  ) + 
+  theme(legend.position = "none") + 
+  labs(
+    title = "true covariates only"
+  )
+
+
+p_all <- dat %>% 
+  slice_sample(n = 500) %>% 
+  gather(key = "covar", value = "value", -y) %>% 
+  mutate(true_cov = if_else(
+    covar %in% lindat_obj$true_covars,
+    "covar_true",
+    "nuisance"
+    )
+  ) %>% 
+  ggplot() + 
+  geom_density(
+    aes(
+      x = value,
+      color = covar,
+      fill = covar,
+      alpha = I(ifelse(true_cov=="covar_true", .25, .1))
+    )
+  ) + 
+  theme(legend.position = "none") + 
+  labs(
+    title = "density plot of all covariates",
+    subtitle = "(mix of normal and binomial distributions)"
+  )
+
+grid.arrange(
+  p_all + xlim(-10, 20) + ylim(0, 2),
+  p_true + xlim(-10, 20) + ylim(0, 2), 
+  ncol = 1
+  # layout_matrix = rbind(
+  #   c(1, 1, 2),
+  #   c(1, 1, 3)
+  # )
+)
+
+
+# dat %>% 
+#   slice_sample(n = 500) %>% 
+#   gather(key = "covar", value = "value", -y) %>% 
+#   mutate(true_cov = if_else(
+#     covar %in% lindat_obj$true_covars,
+#     "covar_true",
+#     "nuisance"
+#     )
+#   ) %>% 
+#   ggplot() + 
+#   geom_point(
+#     aes(
+#       y = y,
+#       x = value,
+#       color = covar,
+#       alpha = I(ifelse(true_cov=="covar_true", .5, .25)),
+#       size = I(ifelse(true_cov=="covar_true", 1.25, .9))
+#     )
+#   ) + 
+#   geom_smooth(
+#     aes(
+#       y = y,
+#       x = value
+#     ),
+#     method = 'lm'
+#   ) +
+#   theme(legend.position = "none") + 
+#   ylim(c(0, 150)) + 
+#   xlim(-5, 15) + 
+#   labs(
+#     title = "scatterplot of data with linear regression output",
+#   )
+
+# lmfit <- lm("y ~ .", data = dat)
+# lmfit_coefs <- coef(lmfit)
+# ols_varsel_err(lmfit, true_covars, nuisance_vars)
+# dat <- data.frame(apply(dat, 2, scale))
+```
+
+
+
+
+## pytorch code + training
+
+I trained a neural network consisting of 3 fully connected layers over 50 training epochs, with dimension:
+
++ layer 1 (input layer): $30 \times 20$, corresponding to 30 covariate inputs and 20 neurons;
++ layer 2: $20 \times 30$ (input dimension 20, output dimension 30);
++ layer 3 (output layer): $30 \times 1$ (scalar output).
+
+
+
+```{r python_env_setup, echo = FALSE}
+# if doesn't exist, create conda environment and install dependencies
+if (!"r-reticulate" %in% conda_list()[[1]]){
+  conda_create("r-reticulate")
+  use_condaenv("r-reticulate")
+  conda_install("r-reticulate", "matplotlib", pip=TRUE)
+  conda_install("r-reticulate", "scipy", pip=TRUE)
+  conda_install("r-reticulate", "scikit-learn", pip=TRUE)
+  conda_install("r-reticulate", "sklearn", pip=TRUE)
+  conda_install("r-reticulate", "torch", pip=TRUE)
+  conda_install("r-reticulate", "torchvision", pip = TRUE)
+  conda_install("r-reticulate", "imageio", pip = TRUE)
+  conda_install("r-reticulate", "seaborn", pip=TRUE)
+  conda_install("r-reticulate", "numpy", pip = TRUE)
+}
+use_condaenv("r-reticulate")
+
+# set file path
+fpath <- here::here("VarSel")
+setwd(fpath)
+KUpath <- here::here("VarSel", "kullrich_files")
+# py_install("scikit-image", pip = TRUE)
+```
+
+
+
+
+```{python load_python_libs}
+from __future__ import print_function, division
+import os
+os.chdir(r.fpath)
+
+import sys
+sys.path.append(r.KUpath)
+
+import torch
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+plt.switch_backend('tkagg')
+
+import torch as torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
+from torch.autograd import Variable
+from torch.utils.data import Dataset, DataLoader
+
+# source Bayesian Compression .py files
+import BayesianLayers
+from compression import compute_compression_rate, compute_reduced_weights
+from utils import visualize_pixel_importance, generate_gif, visualise_weights
+import compression
+import utils
+
+# global arguments
+import argparse
+parser = argparse.ArgumentParser()
+parser.add_argument('--epochs', type=int, default=50)
+parser.add_argument('--batchsize', type=int, default=100)
+parser.add_argument('--thresholds', type=float, nargs='*', default=[-2.8, -3., -5.])
+FLAGS = parser.parse_args()
+FLAGS.cuda = torch.cuda.is_available()  # check if we can put the net on the GPU
+
+
+# load data in from R
+X = np.asarray(r.dat)[:, :r.dat.shape[1]-1]
+y = np.asarray(r.dat)[:, r.dat.shape[1]-1]
+X, y = torch.tensor(X).float(), torch.tensor(y).float().unsqueeze(-1)
+
+N = len(y)
+N_train = N * 4 // 5
+
+
+# Shuffles the indices
+idx = np.arange(N)
+np.random.shuffle(idx)
+
+# Uses first 80% random indices for train
+train_idx = idx[:N_train]
+test_idx = idx[N_train:]
+
+# Generates train and test
+X_train, y_train = X[train_idx], y[train_idx]
+X_test, y_test = X[test_idx], y[test_idx]
+
+
+# # checking that R and python return the same OLS fit
+# from sklearn.linear_model import LinearRegression
+# linr = LinearRegression()
+# linr.fit(X, y)
+# print(linr.intercept_, linr.coef_)
+# r.lmfit_coefs
+```
+
+
+```{r}
+# 
+# coef_check <- cbind(
+#   "linr.fit (python)" = c(py$linr$intercept_,  py$linr$coef_),
+#   "lm (R)" = lmfit_coefs
+# )
+# mykable(round(coef_check, 3), cap = "check that data from R and imported to python return same OLS fit")
+```
+
+
+```{python dataloader}
+# merge into tuples
+def merge(list1, list2):
+    merged_list = [(list1[i], list2[i]) for i in range(0, len(list1))]
+    return merged_list
+
+train_dat = merge(X_train, y_train)
+
+train_loader = DataLoader(
+  train_dat,
+  batch_size=FLAGS.batchsize, 
+  shuffle=True
+)
+
+test_dat = merge(X_test, y_test)
+
+test_loader = DataLoader(
+  test_dat,
+  batch_size=FLAGS.batchsize, 
+  shuffle=True
+)
+
+mask = 255. * (np.ones((1, 30)))
+examples = X_train[0:5,]
+images = np.vstack([mask, examples])
+
+# check dataloader
+# for batch_idx, (data, y) in enumerate(test_loader):
+#   # print(data)
+#   # print(y)
+#   print(data.size())
+#   print(y.size())
+
+print("")
+
+
+```
+
+
+
+
+```{python define_Bayesian_NN}
+# build a simple MLP
+class Net(nn.Module):
+    def __init__(self):
+        super(Net, self).__init__()
+        # activation
+        self.relu = nn.ReLU()
+        # layers
+        self.fc1 = BayesianLayers.LinearGroupNJ(1 * 30, 20, clip_var=0.04, cuda=FLAGS.cuda) # 28 x 28 <--- 1 * 31
+        self.fc2 = BayesianLayers.LinearGroupNJ(20, 30, cuda=FLAGS.cuda)
+        self.fc3 = BayesianLayers.LinearGroupNJ(30, 1, cuda=FLAGS.cuda)
+        # layers including kl_divergence
+        self.kl_list = [self.fc1, self.fc2, self.fc3]
+
+    def forward(self, x):
+        x = x.view(-1, 1*30)
+        x = self.relu(self.fc1(x))
+        x = self.relu(self.fc2(x))
+        return self.fc3(x)
+
+    def get_masks(self,thresholds):
+        weight_masks = []
+        mask = None
+        for i, (layer, threshold) in enumerate(zip(self.kl_list, thresholds)):
+            # compute dropout mask
+            if mask is None:
+                log_alpha = layer.get_log_dropout_rates().cpu().data.numpy()
+                mask = log_alpha < threshold
+            else:
+                mask = np.copy(next_mask)
+            try:
+                log_alpha = layers[i + 1].get_log_dropout_rates().cpu().data.numpy()
+                next_mask = log_alpha < thresholds[i + 1]
+            except:
+                # must be the last mask
+                next_mask = np.ones(10)
+
+            weight_mask = np.expand_dims(mask, axis=0) * np.expand_dims(next_mask, axis=1)
+            weight_masks.append(weight_mask.astype(np.float))
+        return weight_masks
+
+    def kl_divergence(self):
+        KLD = 0
+        for layer in self.kl_list:
+            KLD += layer.kl_divergence()
+        return KLD
+
+
+
+# init model
+model = Net()
+if FLAGS.cuda:
+    model.cuda()
+
+# init optimizer
+optimizer = optim.Adam(model.parameters())
+
+# we optimize the variational lower bound scaled by the number of data
+# points (so we can keep our intuitions about hyper-params such as the learning rate)
+# discrimination_loss = nn.functional.cross_entropy
+discrimination_loss = nn.MSELoss(reduction='none')
+
+def objective(output, target, kl_divergence):
+    discrimination_error = discrimination_loss(output, target)
+    # print("kl.item value, type: {}, {}".format(kl_divergence.item(), type(kl_divergence.item())))
+    # print("kl_divergence data type: {}".format(type(kl_divergence)))
+    # print("loss data value, type: {}".format(discrimination_error, type(discrimination_error)))
+    variational_bound = (discrimination_error + kl_divergence) / N_train
+    # print("variational_bound calculated")
+    # print("variational_bound value, type: {}, {}".format(torch.mean(variational_bound), type(torch.mean(variational_bound))))
+    if FLAGS.cuda:
+        variational_bound = variational_bound.cuda()
+    return variational_bound
+
+def train(epoch):
+    model.train()
+    for batch_idx, (data, target) in enumerate(train_loader):
+        if FLAGS.cuda:
+            data, target = data.cuda(), target.cuda()
+        data, target = Variable(data), Variable(target)
+        optimizer.zero_grad()
+        output = model(data)
+        # print("output = model(data)")
+        loss = objective(output, target, model.kl_divergence())
+        # print("loss = ...")
+        # loss.backward()
+        loss.sum().backward()
+        # print("loss.sum().backward()")
+        optimizer.step()
+        # clip the variances after each step
+        for layer in model.kl_list:
+            layer.clip_variances()
+    print('Epoch: {} \tTrain loss: {:.6f} \t'.format(
+        epoch, torch.mean(loss.data)))
+
+def test():
+    model.eval()
+    test_loss = 0
+    correct = 0
+    for data, target in test_loader:
+        if FLAGS.cuda:
+            data, target = data.cuda(), target.cuda()
+        data, target = Variable(data, volatile=True), Variable(target)
+        output = model(data)
+        # test_loss += discrimination_loss(output, target, size_average=False).data
+        test_loss += discrimination_loss(output, target).data
+        pred = output.data.max(1, keepdim=True)[1]
+        correct += pred.eq(target.data.view_as(pred)).cpu().sum()
+    test_loss /= len(test_loader.dataset)
+    print('Test loss: {:.4f}, Accuracy: {}/{} ({:.2f}%)\n'.format(
+        torch.mean(test_loss), correct, len(test_loader.dataset),
+        100. * correct / len(test_loader.dataset)))
+
+
+#### run / load model ----
+if r.params["retrain"]:
+  # train the model and save some visualisations on the way
+  print("--start training--")
+  for epoch in range(1, FLAGS.epochs + 1):
+      print("--epoch" + str(epoch) + "--")
+      train(epoch)
+      test()
+      # visualizations
+      weight_mus = [model.fc1.weight_mu, model.fc2.weight_mu]
+      log_alphas = [model.fc1.get_log_dropout_rates(), model.fc2.get_log_dropout_rates(),
+                    model.fc3.get_log_dropout_rates()]
+      visualise_weights(weight_mus, log_alphas, epoch=epoch)
+      log_alpha = model.fc1.get_log_dropout_rates().cpu().data.numpy()
+      # visualize_pixel_importance(images, log_alpha=log_alpha, epoch=str(epoch))
+  
+  
+  # compute compression rate and new model accuracy
+  layers = [model.fc1, model.fc2, model.fc3]
+  thresholds = FLAGS.thresholds
+  compute_compression_rate(layers, model.get_masks(thresholds))
+  
+  weights = compute_reduced_weights(layers, model.get_masks(thresholds))
+  for layer, weight in zip(layers, weights):
+      if FLAGS.cuda:
+          layer.post_weight_mu.data = torch.Tensor(weight).cuda()
+      else:
+          layer.post_weight_mu.data = torch.Tensor(weight)
+  # for layer in layers: layer.deterministic = True
+  
+  torch.save(model.state_dict(), 'model_weights.pth')
+  
+  # generate_gif(save='pixel', epochs=FLAGS.epochs)
+  generate_gif(save='weight0_e', epochs=FLAGS.epochs)
+  generate_gif(save='weight1_e', epochs=FLAGS.epochs)
+else:
+  model.load_state_dict(torch.load('model_weights.pth'))
+  
+layers = [model.fc1, model.fc2, model.fc3]
+thresholds = FLAGS.thresholds
+weight_mus = [model.fc1.weight_mu, model.fc2.weight_mu]
+weight_mus, weight_vars = compression.extract_pruned_params(layers, model.get_masks(thresholds))
+
+def extract_pruned_layer(layer, mask):
+  # extract non-zero columns
+  layer = layer[:, mask.sum(axis = 0) != 0]
+  # extract non-zero rows
+  layer = layer[mask.sum(axis = 1) != 0, :]
+  return layer
+
+def extract_pruned_layers(layers, masks):
+  res = []
+  for layer, mask in zip(layers, masks):
+    l = extract_pruned_layer(layer, mask)
+    res.append(l)
+  return(res)
+
+pruned_weights = extract_pruned_layers(weight_mus, model.get_masks(thresholds))
+# pruned_weights[0].shape
+
+mask0 = model.get_masks(thresholds)[0]
+```
+
+
+
+
+
+# results / observations
+
+Unfortunately, my python coding ability is not yet good enough to have run many simiulations in an automated fashion, but here is a representative outcome from one sample dataset.  Comparisons against OLS (variable inclusion determined using a naive threshold of p-value > 0.05 as well as using Benjamini-Hochberg) were made; sample output is below.  
+
++ True positives (`TP`) denote variables that were correctly included;
++ True negatives (`TN`) denote variables that were correctly excluded
+
+
+```{r}
+gamma_hat <- colSums(abs(py$weight_mus[[1]])) != 0
+gamma_true <- rep(FALSE, length(gamma_hat))
+gamma_true[as.numeric(gsub("X", "", true_covars))] <- TRUE
+
+
+binary_err <- function(pred, true){
+  TP <- sum(true & pred)
+  FP <- sum(!true & pred)
+  TN <- sum(!true & !pred)
+  FN <- sum(true & !pred)
+  
+  c("TP" = TP, "FP" = FP, "TN" = TN, "FN" = FN)
+}
+
+nn_varsel <- binary_err(pred = gamma_hat, true = gamma_true)
+lmfit <- lm("y ~ .", data = dat)
+lmfit_coefs <- coef(lmfit)
+
+ols_varsel <- ols_varsel_err(lmfit, true_covars, nuisance_vars)
+BH_varsel <- ols_varsel_err(lmfit, true_covars, nuisance_vars, adjust.method = "BH")
+
+varsel_results <- rbind(
+  "OLS" = ols_varsel,
+  "BH" = BH_varsel,
+  "Compression" = nn_varsel
+)
+
+mykable(varsel_results, cap = "variable selection results")
+```
+
+
+
+The evolution of the first (input) layer's $30 \times 20$ weight matrix (30 covariates, 20 neurons) during training can be seen below:
+
+```{r fm_weight-vis, echo=FALSE, out.width="50%", fig.cap="input layer evolution over training epochs", fig.show='hold', fig.align='center'}
+fm_weightpath <- here::here("VarSel", "figures", "weight0_e.gif")
+knitr::include_graphics(fm_weightpath)
+```
+
+Unfortunately, this displays the weights from each neuron in a column (as opposed to rows, which is how I have been referring to them) --- the y-axis increments correspond to each of the 30 covariates; the x-axis increments correspond to the 20 neurons of the input layer.  We can see that training ends up pruning columns (neurons), but there is also a steady push towards 0 across the rows, implying that certain covariates have only a minor effect.
+
+
+Below (generated in `ggplot`) is the final version of the input layer's weight matrix __after thresholding__ based on the estimated variance and bit precision roundoffs (unfortunately, the plot scaling is off here, but just as in the animated .gif above, there are 30 rows and 20 columns corresponding to the 30 covariates and 20 neurons):
+
+```{r}
+vismat(py$weight_mus[[1]]) +
+  coord_flip() + 
+  labs(
+    y = "neurons in first layer",
+    x = "covariates"
+  ) +
+  labs(
+    title = "first weight layer",
+    subtitle = "grey = pruned weights"
+  )
+```
+
+
+
+
+Unfortunately, because I do not know how to code in Python without using R's `reticulate` package, and I do not know how to loop through chunks of code containing both Python and R code, I can only re-run the simulation manually right now (so I am unable to display results from numerous simulations).  However, the results tended to be similar under the same simulation conditions, with the Bayesion Compression algorithm typically performing slightly better than OLS (naive p-value thresholding or with the Benjamini-Hochberg adjustment).
+
+One potential problem, however, is that re-training the exact same model on the exact same dataset occasionally produced different results; my best guess here is that the Bayesian Compression algorithm may be sensitive to starting values, or I may need to train for more epochs.
+
+
+
+# Conclusion:
+
+In the absence of multiple simulations, this is meant mostly as a proof-of-concept, i.e. that we can use the methods outlined by Louizos, Ullrich, and Welling with slight modification to perform principled variable selection.  I am encouraged by these initial results, and hope to explore it further.  A few potential issues for further work here:  
+
+1. Variational inference is known to underestimate variance.  While it is of course better not to under- or overestimate at all, in our case, underestimation of the variance leads to more conservative thresholding, i.e. we are more likely to include spurious variables because our estimated threshold is lower than it should be.
+2. Results appear to be sensitive to randomly-seeded initial values.
+3. Determining the number and dimension of layers is sketchy at best.  Though our prior beliefs regarding the complexity of the data and relationship between covariates and the outcome variable (e.g., linear or non-linear relationship) can inform the size and depth of the network, it would be nice to have more generally applicable guidelines, or a set of plug-and-play parameter settings that works well for most types of data.
+4. An alternative approach for future exploration would be to apply the group sparsity prior directly by covariate rather than by neuron, i.e. to the columns rather than the rows.  This might be done to the input layer only or to all layers, and either separate or in combination with the sparsity prior on the rows.  I would speculate that placing the sparsity prior on the input layer only, but in combination with the sparsity prior on rows across all layers, would work best, the idea being that reducing the number of neurons in downstream layers would narrow the number of viable solutions by removing redundancies.
+
+Last, though only linear data was attempted here, I am also excited about the potential applications for functional data analysis and variable selection, as we could then truly leverage the main strengths of neural networks --- their expressivity.  That is, the end goal here would be to develop a method yielding principled variable selection with well-studied operating characteristics (from the Bayesian sparsity prior) which would also be robust to misspecification of functional forms and nonlinearities.
+

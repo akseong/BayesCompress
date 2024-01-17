@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>‘Bayesian Compression for Deep Learning’</title>
+    <meta charset="utf-8" />
+    <meta name="author" content="Arnie Seong" />
+    <script src="Bayes_Compress_presentation_files/header-attrs-2.8/header-attrs.js"></script>
+    <link href="Bayes_Compress_presentation_files/remark-css-0.0.1/default.css" rel="stylesheet" />
+    <link href="Bayes_Compress_presentation_files/remark-css-0.0.1/default-fonts.css" rel="stylesheet" />
+  </head>
+  <body>
+    <textarea id="source">
+class: top, left, inverse, title-slide
+
+# ‘Bayesian Compression for Deep Learning’
+## … or doing two (three?) things I don’t understand at once
+### Arnie Seong
+### UC Irvine
+### 2020/06/02 (updated: 2021-06-02)
+
+---
+
+
+
+
+.pull-left[
+NIPS paper [__Bayesian Compression for Deep Learning__](https://papers.nips.cc/paper/2017/file/69d1fc78dbda242c43ad6590368912d4-Paper.pdf)
++ __authors:__ Christos Louizos, Karen Ullrich, Max Welling, 
+
++ __main idea:__ _hierarchically_ apply a sparsity-inducing prior to weight parameters
+
++ __why:__
+  - reduce model size for use on edge devices
+  - latent variance parameters imply bit quantization
+  - speed, energy savings
+  
+]
+
+
+
+.pull-right[
+![Input layer (FC1)](mnist_saved/weight0_e.gif)
+![Hidden Layer (FC2)](mnist_saved/weight1_e.gif)
+
+FC1: `\(28^2 \times 300\)`; &amp;nbsp; 
+FC2: `\(300 \times 100\)`; &amp;nbsp;
+FC3: `\(100 \times 10\)`
+]
+
+
+--
+
+.pull-left[
+__my interest:__
+
++ interpretability......?
+
+]
+
+.pull-right[
+![Pixel Importance](mnist_saved/pixel.gif)
+]
+
+
+
+---
+## Prior: Scale mixture of Normals
+
+
+Scale mixture of Normals prior placed on network weights:
+
+`$$z \sim p(z);  \quad w|z\sim N(0, z^2)$$`
+
+--
+
+_e.g._ if `\(p(\cdot)\)` is Bernoulli  `\(\rightarrow\)`  spike-and-slab prior
+
+--
+
++ computationally expensive
+
+--
+
++ `\(M \text{ weights} \rightarrow 2^M\)` models to explore
+
+--
+
+
+###__2 priors used in paper:__
+
+--
+
++ log-uniform (normal-Jeffrey's) prior: `\(p(z) \propto |z|^{-1}\)`  
+  
+  - improper, but nice marginal: `\(p(w) \propto \int \frac{1}{|z|} N(w|0, z^2) dz = \frac{1}{|w|}\)` 
+  
+--
+
++ half-Cauchy `\(\rightarrow\)` horseshoe prior
+
+  - log-uniform prior is limiting case of the horseshoe (IG prior shape parameters `\(\rightarrow 0\)`)
+
+
+
+---
+## hierarchical-ality-ness
+
+
+Share `\(\bf z\)` across rows of the weight matrices `\(\bf W\)`&lt;sup&gt;[1]&lt;/sup&gt;, i.e. corresponding to an input/feature&lt;sup&gt;[2]&lt;/sup&gt;.
+
+
+--
+
+
+Joint prior (A = input dimension, B = output dimension): 
+
+`$$p({\bf W,z}) \propto 
+               \prod_{i}^{A} \frac{1}{|z_i|}
+               \prod_{ij}^{A,B} N(W_{ij}|0, z_i^2)$$`
+
+
+.footnote[
+&lt;font size = "3"&gt;
+[1] moving to matrix notation
+
+[2] weirdly, apparently in neural network weight matrices, inputs correspond to rows 🤷
+&lt;/font&gt;
+]
+
+
+
+--
+
+&amp;nbsp;
+
+###__why do we want to do this?__
+
+--
+
++ _ordered sparsity_: can omit entire rows of weight matrix
+
+--
+
++ AND if rows omitted in layer `\(l\)`, omit the columns in layer `\(l\)`-1!
+
+
+
+
+---
+class: center, bottom
+## The secret sauce: variational Bayes
+
+&amp;nbsp;
+
+--
+
+In variational Bayes, we approximate the posterior distribution `\(p(\cdot)\)` with some other distribution `\(q_\phi (\cdot)\)`
+
+&amp;nbsp;
+
+--
+
+(like, you know, a __Normal distribution__ 
+❤️
+🍰
+🐶
+🤸)
+
+&amp;nbsp;
+
+--
+
+by tuning the variational parameters `\(\phi\)` to minimize (usually) the KL divergence.
+
+&amp;nbsp;
+
+&amp;nbsp;
+
+--
+
+The KL divergence decomposes into two terms: 
+
+&amp;nbsp;
+
+--
+
+a constant with respect to `\(\phi\)`, and the Evidence Lower Bound (ELBO)
+
+&amp;nbsp;
+
+
+
+
+---
+## variational joint posterior
+
+Thus we approximate the joint posterior `\(p({\bf W, z})\)` with the variational distribution
+
+`$$q_\phi ({\bf W, z}) = \prod_i^A N(z_i|\mu_{z_i}, \mu_{z_i}^2 \alpha_i) \prod_{i,j}^{A,B} N(w_{ij} | z_i \mu_{ij}, z_i^2 \sigma_{ij}^2)$$`
+
+where `\(\alpha_i\)` is the dropout rate.
+
+
+--
+
++ via reparameterization ( `\(\sigma_{z_i}^2 \equiv \mu_{z_i}^2 \alpha_i\)` ), obtain the ELBO `\(\mathcal{L}(\phi)\)`
+
+  - `\(\mathcal{L}(\phi) =\)`
+--
+`\(\text{ ... math math mcmathy mathy math}\)`
+
+
+--
+
++ the upshot is that we can avoid MCMC and instead do gradient descent (ascent?) on the ELBO, optimizing w.r.t. `\(\sigma^2_{z_i}\)`
+
+  - (maximizing the ELBO is equivalent to minimizing `\(KL(q_\phi ({\bf W, z}) || p({\bf W, z})\)`)
+
+
+
+---
+## pruning via thresholding
+
+
+The negative KL divergence for the variance parameter `\(z_i\)` turns out to have a relatively simple form:
+
+`$$-KL(q_\phi(z)||p(z)) = \sum_i^A(k_1 \sigma(k_2 + k_3 \log \alpha_i)) - 0.5 m(-\log(\alpha_i) - k_1)$$`
+
+where `\(\sigma(\cdot), m(\cdot)\)` are the sigmoid and softplus functions, and `\(k1, k_2, k_3\)` are constants.
+
+&amp;nbsp;
+
+--
+
+**Note**: it only depends on `\(\alpha_i\)`!
+
+Thus entire groups of parameters `\(w\)` can be pruned simply by thresholding `\(\alpha_i = \sigma^2_{z_i} / \mu^2_{z_i}\)`
+
+
+--
+
++ Recall: 
+
+`$$q_\phi ({\bf W, z}) = \prod_i^A N(z_i|\mu_{z_i}, \mu_{z_i}^2 \alpha_i) \prod_{i,j}^{A,B} N(w_{ij} | z_i \mu_{ij}, z_i^2 \sigma_{ij}^2)$$`
+
+
+
+
+
+---
+## quantization
+
+
+Does every weight parameter need to be stored as a 32-bit float?
+
+--
+
+What if the variance of the weight is large?
+
+--
+
+&amp;nbsp;
+
+Essentially, if the variance is large relative to the round-off error from storing a float using a reduced number of bits ....
+--
+well, that's __ok__!
+
+&amp;nbsp;
+
+--
+
+So the variational posterior's marginal variances 
+
+`$$V(w_{ij}) = \sigma^2_{z_i} (\sigma^2_{ij} + \mu^2_{ij}) + \sigma^2_{ij} \mu^2_{ij}$$`
+
+can be used to assess the bit precision necessary to represent the weights!
+
+
+
+---
+## interpretability
+
+.pull-left[
++ idea: dropout in the input layer implies that a feature is unimportant
+
++ so not so much interpretability as feature selection
+
++ other work along these lines include [LassoNet](https://arxiv.org/abs/1907.12207)
+]
+
+.pull-right[
+&lt;img src="pres_figs/fashion_importance.png" width="300" height="350"&gt;
+]
+
+
+--
+
+&lt;img src="fashion_mnist_saved/pixel.gif" width="800" height="125"&gt;
+
+
+
+
+---
+## implementation
+
++ pytorch-based implementation at [Karen Ullrich's github](https://github.com/KarenUllrich/Tutorial_BayesianCompressionForDL)
+
+
+
+&amp;nbsp;
+
+--
+
+&amp;nbsp;
+
+__experimentation thus far__
+
++ [MNIST and Fashion MNIST](https://akseong.github.io/Stat295_ML-DS/Final_Project/Bayesian_Compression.html)
+
+
+```
+## input (FC) layer compression: (300, 784) --&gt; (113, 382)
+## 2nd FC layer compression: (200, 300) --&gt; (14, 113)
+## output (FC) layer compression: (10, 200) --&gt; (10, 14)
+
+## Compressing the architecture will decrease the model by a factor of 6.6.
+## Making use of weight uncertainty can reduce the model by a factor of 23.6.
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"highlightStyle": "github",
+"highlightLines": true,
+"countIncrementalSlides": false,
+"slideNumberFormat": "%current%",
+"ratio": "16:9"
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>
