@@ -88,10 +88,44 @@ train_ds[1]
 
 
 
+# # # # # # # # # # # # # # # # # # # # # # # # #
+## Batches / Dataloader ----
+# # # # # # # # # # # # # # # # # # # # # # # # #
+
+# Now, we’ve done so much work already, but you haven’t actually seen any of the scatterplots yet! The reason we’ve been waiting until now is that we want to show a bunch of them at a time, and for that, we need to know how to handle batches of data.
+# 
+# So let’s create a DataLoader object from the training set. We’ll soon use it to train the model, but right now, we’ll just plot the first batch.
+# 
+# A DataLoader needs to know where to get the data – namely, from the Dataset it gets passed –, as well as how many items should go in a batch. Optionally, it can return data in random order (shuffle = TRUE).
+
+train_dl <- dataloader(train_ds, batch_size = 64, shuffle = TRUE)
+
+length(train_dl)
+
+batch <- dataloader_make_iter(train_dl) %>% dataloader_next()
+
+dim(batch$x)
+dim(batch$y)
+
+# plot:
+par(mfrow = c(8,8), mar = rep(0, 4))
+
+#remove channel dimension
+images <- as.array(batch$x$squeeze(2))
 
 
+images %>%
+  purrr::array_tree(1) %>%
+  purrr::map(as.raster) %>%
+  purrr::iwalk(~{plot(.x)})
 
 
+batch$y %>% as.numeric() %>% round(digits = 2)
 
 
+valid_dl <- dataloader(valid_ds, batch_size = 64)
+length(valid_dl)
 
+
+test_dl <- dataloader(test_ds, batch_size = 64)
+length(test_dl)
