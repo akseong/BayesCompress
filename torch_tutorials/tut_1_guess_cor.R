@@ -129,3 +129,10 @@ length(valid_dl)
 
 test_dl <- dataloader(test_ds, batch_size = 64)
 length(test_dl)
+
+
+
+# # # # # # # # # # # # # # # # # # # # # # # # #
+## Create the model ----
+# # # # # # # # # # # # # # # # # # # # # # # # #
+
