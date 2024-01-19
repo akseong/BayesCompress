@@ -28,13 +28,11 @@ params:
 library(reticulate)
 
 #### plotting:
-library(ggplot2)
+library(tidyverse)
 library(gridExtra)
 
 #### Misc:
 library(here)
-library(dplyr)
-library(tidyr)
 library(knitr)
 library(kableExtra)
 
@@ -148,7 +146,7 @@ Our idea is that, by repurposing the bit quantization estimate to provide a thre
 
 # Conclusion:
 
-Variational inference is known to underestimate variance.  While it is of course better no to under- or overestimate, in our case, underestimation of the variance leads to more conservative thresholding, i.e. we are more likely to include spurious variables because our estimated threshold is lower than it should be.
+Variational inference is known to underestimate variance.  While it is of course better not to under- or overestimate, in our case, underestimation of the variance leads to more conservative thresholding, i.e. we are more likely to include spurious variables because our estimated threshold is lower than it should be.
 
 Results are not as consistent as we would hope, and appear to be sensitive to randomly-seeded initial values.
 
@@ -156,7 +154,7 @@ Not sure about how to determine the number and dimension of layers, though our p
 
 
 
-An alternative approach for future exploration would be to apply the sparsity prior to columns rather than rows.  This might be done to the input layer only, to all layers, and either separate or in combination with the sparsity prior on the rows.  We speculate that placing the sparsity prior on the input layer only, but in combination with the sparsity prior on rows across all layers, would work best, the idea being that reducing the number of neurons in downstream layers would narrow the number of viable solutions by removing redundancies.
+An alternative approach for future exploration would be to apply the sparsity prior to columns rather than rows.  This might be done to the input layer only, to all layers, and either separate or in combination with the sparsity prior on the rows.  We speculate that placing a column-wise sparsity prior on the input layer only, but in combination with the sparsity prior on rows across all layers, would work best, the idea being that reducing the number of neurons in downstream layers would narrow the number of viable solutions by removing redundancies.
 
 From a statistical point of view, from the Bayesian sparsity prior specification we obtain variable selection with known operating characteristics which, from the neural network architecture, should be robust to misspecification of functional forms and nonlinearities.
 
@@ -221,7 +219,7 @@ generate_linear_data <- function(
   
   # construct y
   # dat <- round(dat, 4)
-  covar_inds <- sort(sample(1:(n_covars + n_nuisance), n_covars))
+  covar_inds <- 1:n_covars
   covars <- as.matrix(dat[, covar_inds])
   covar_distns <- distn_vec[covar_inds]
   eps <- rnorm(n_obs, mean = 0, sd = sd_eps)
@@ -300,7 +298,7 @@ vismat <- function(mat, cap = NULL, leg = TRUE, na0 = TRUE, lims = NULL, square 
 
 ```{r}
 set.seed(0)
-lindat_obj <- generate_linear_data()
+lindat_obj <- generate_linear_data(n_covars = 5, n_nuisance = 20, n_obs = 100)
 dat <- lindat_obj$dat
 true_covars <- lindat_obj$true_covars
 nuisance_vars <- lindat_obj$nuisance_vars
@@ -309,7 +307,7 @@ beta_vec <- lindat_obj$beta_vec
 true_covars_inds <- as.integer(as.integer(unlist(lapply(strsplit(true_covars, "X"), function(x) x[2]))) - 1)
 nuisance_covars_inds <- as.integer(as.integer(unlist(lapply(strsplit(nuisance_vars, "X"), function(x) x[2]))) - 1)
 
-dat %>% 
+longdat <- dat %>% 
   slice_sample(n = 500) %>% 
   gather(key = "covar", value = "value", -y) %>% 
   mutate(true_cov = if_else(
@@ -318,6 +316,12 @@ dat %>%
     "nuisance"
     )
   ) %>% 
+  mutate(covar = fct_relevel(covar, paste0("X", 1:(ncol(dat) - 1))))
+
+
+
+
+density_p <- longdat %>% 
   ggplot() + 
   geom_density(
     aes(
@@ -327,17 +331,11 @@ dat %>%
       alpha = I(ifelse(true_cov=="covar_true", .25, .1))
     )
   )
+density_p
+density_p +
+  facet_wrap(vars(true_cov))
 
-
-dat %>% 
-  slice_sample(n = 500) %>% 
-  gather(key = "covar", value = "value", -y) %>% 
-  mutate(true_cov = if_else(
-    covar %in% lindat_obj$true_covars,
-    "covar_true",
-    "nuisance"
-    )
-  ) %>% 
+longdat %>% 
   ggplot() + 
   geom_point(
     aes(
@@ -354,6 +352,8 @@ dat %>%
     ),
     method = 'lm'
   )
+
+
 
 ols_varsel_err <- function(lmfit, true_covars, nuisance_vars, thresh = 0.05){
   coeftab <- summary(lmfit, na.rm = FALSE)$coef
@@ -379,12 +379,167 @@ ols_varsel_err(lmfit, true_covars, nuisance_vars)
 
 
 
+```{r GENERATE_FUNCTIONAL_DATA}
+
+
+# functional data created using splines for bumpy curve,
+# then smoothed with loess
+
+
+# create grid (z variable)
+z_vec <- (-50:50)/10
+n_knots <- 20
+
+# create spline basis
+S <- splines::bs(z_vec, df = n_knots, knots = NULL, degree = 3, intercept = FALSE)
+t_vec <- seq(min(z_vec), max(z_vec), length.out = dim(S)[2])
+
+
+#### create correlated spline coefs
+
+# spline coefficient covariance functions
+exp_cov_func <- function(t1, t2, sig = 1, v = 2){
+  # C(d) = sigma^2 exp{-d / V}
+  sig^2 * exp( -abs(t2-t1) / v)
+}
+
+sq_exp_cov_func <- function(t1, t2, sig = 1, v = 2){
+  # smoother than exp_cov_func
+  # C(d) = sigma^2 exp{- (d / V}^2)
+  sig^2 * exp( -((t2-t1) / v)^2)
+}
 
 
 
+gen_func_curve <- function(
+    z_vec,
+    n_knots = 20,
+    cov_func = exp_cov_func,
+    mu_beta = 0,
+    loess_span = .4,
+    ...
+  ){
+  require(splines)
+  # create spline basis
+  S <- splines::bs(z_vec, df = n_knots, knots = NULL, degree = 3, intercept = FALSE)
+  t_vec <- seq(min(z_vec), max(z_vec), length.out = dim(S)[2])
+  
+  # create correlated basis coefficients
+  covmat <- matrix(NA, nrow = length(t_vec), ncol = length(t_vec))
+  for (i in 1:length(t_vec)){
+    for (j in 1:length(t_vec)){
+      covmat[i, j] <- 
+        covmat[j, i] <- 
+        cov_func(t_vec[i], t_vec[j], ...)
+    }
+  }
+  
+  betas <- MASS::mvrnorm(1, mu = rep(mu_beta, n_knots), Sigma = covmat)
+  bumpy = S %*% betas
+  fit_loess <- loess(bumpy~z_vec, span = loess_span)
+  Ey <- fit_loess$fitted
+  
+  return(Ey)
+}
 
 
+gen_func_data <- function(
+  # n_obs_vec <- vector of n_obs for each group
+  # generates different curve for each group
+  # generates nuisance group indicators
+  # generates nuisance continuous covars
+  n_subj_vec = c(5, 5, 5),
+  z_vec = (-50:50)/100,
+  n_knots = 20,
+  n_groups = 3,
+  cov_func = exp_cov_func,
+  sig_vec = c(2, 1, 3),
+  v_vec = c(.5, 1, 3),
+  mu_vec = 0,
+  loess_span_vec = c(.25, .3, .4),
+  want_plot = FALSE
+){
+  
+  n_obs_per_subj <- length(z_vec)
+  subj_inds <- rep(1:sum(n_subj_vec), each = n_obs_per_subj)
+  z <- rep(z_vec, sum(n_subj_vec))
+  group_cutoffs <- c(0, cumsum(n_subj_vec)) * n_obs_per_subj  
+  group_labels <- rep(1:n_groups, times = n_subj_vec * n_obs_per_subj)
+  grp_inds <- matrix(0, ncol = n_groups, nrow = sum(n_subj_vec)*n_obs_per_subj)
+  grp_Eys <- matrix(0, ncol = n_groups, nrow = n_obs_per_subj)
+  Ey <- rep(NA, sum(n_subj_vec)*n_obs_per_subj)
+  if (length(mu_vec)==1) mu_vec <- rep(mu_vec, n_groups)
+  if (length(sig_vec)==1) sig_vec <- rep(sig_vec, n_groups)
+  if (length(v_vec)==1) v_vec <- rep(v_vec, n_groups)
+  if (length(loess_span_vec)==1)loess_span_vec <- rep(loess_span_vec, n_groups)
+  
+  
+  for (i in 1:n_groups){
+    # create group indicator variables
+    current_inds <- (group_cutoffs[i]+1):group_cutoffs[i+1]
+    grp_inds[current_inds, i] <- 1
+    # create group mean function
+    grp_Eys[, i]<- gen_func_curve(
+      z_vec = z_vec, 
+      n_knots = n_knots, 
+      cov_func = cov_func, 
+      mu_beta = mu_vec[i], 
+      loess_span = loess_span_vec[i], 
+      sig = sig_vec[i], 
+      v = v_vec[i]
+    )
+    if (want_plot){
+      matplot(
+        y = grp_Eys, 
+        x = z_vec, 
+        type = "l",
+        main = paste0("mean functions for ", n_groups, " groups")
+      )
+    }
+    
+    Ey[current_inds] <- rep(grp_Eys[,i], n_subj_vec[i])
+  }  
+  
+  df <- data.frame(
+    "Ey" = Ey,
+    "Subj" = subj_inds,
+    "z" = z,
+    "grp_number" = group_labels,
+    "grp_binary" = grp_inds
+  )
+  return(df)
+}
 
+```
+
+
+```{r}
+
+# create grid (z variable)
+z_vec <- (-50:50)/10
+n_knots <- 20
+
+# create spline basis
+S <- splines::bs(z_vec, df = n_knots, knots = NULL, degree = 3, intercept = FALSE)
+t_vec <- seq(min(z_vec), max(z_vec), length.out = dim(S)[2])
+
+
+df <- gen_func_data(
+  n_subj_vec = c(5, 5, 5, 3, 2),
+  z_vec = (-50:50)/100,
+  n_knots = 20,
+  n_groups = 5,
+  cov_func = exp_cov_func,
+  sig_vec = c(2, 1, 3, .5, 2),
+  v_vec = c(.5, 1, 3, .5, 2),
+  mu_vec = 0,
+  loess_span_vec = c(.25, .3, .4, .5, .3),
+  want_plot = TRUE
+)
+
+
+tibble(df)
+```
 
 
 
@@ -406,15 +561,17 @@ ols_varsel_err(lmfit, true_covars, nuisance_vars)
 if (!"r-reticulate" %in% conda_list()[[1]]){
   conda_create("r-reticulate")
   use_condaenv("r-reticulate")
-  conda_install("r-reticulate", "matplotlib", pip=TRUE)
-  conda_install("r-reticulate", "scipy", pip=TRUE)
-  conda_install("r-reticulate", "scikit-learn", pip=TRUE)
+  # conda_install("r-reticulate", "matplotlib", pip=TRUE)
+  # conda_install("r-reticulate", "scipy", pip=TRUE)
+  # conda_install("r-reticulate", "scikit-learn", pip=TRUE)
+  
   conda_install("r-reticulate", "sklearn", pip=TRUE)
-  conda_install("r-reticulate", "torch", pip=TRUE)
-  conda_install("r-reticulate", "torchvision", pip = TRUE)
-  conda_install("r-reticulate", "imageio", pip = TRUE)
-  conda_install("r-reticulate", "seaborn", pip=TRUE)
-  conda_install("r-reticulate", "numpy", pip = TRUE)
+    # SKLEARN_ALLOW_DEPRECATED_SKLEARN_PACKAGE_INSTALL=True
+  # conda_install("r-reticulate", "torch", pip=TRUE)
+  # conda_install("r-reticulate", "torchvision", pip = TRUE)
+  # conda_install("r-reticulate", "imageio", pip = TRUE)
+  # conda_install("r-reticulate", "seaborn", pip=TRUE)
+  # conda_install("r-reticulate", "numpy", pip = TRUE)
 }
 use_condaenv("r-reticulate")
 
@@ -436,7 +593,6 @@ os.chdir(r.fpath)
 import sys
 sys.path.append(r.KUpath)
 
-import torch
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
