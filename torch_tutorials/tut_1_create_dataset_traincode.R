@@ -122,7 +122,85 @@ embedding_module <- nn_module(
 
 
 
+# network
+net <- nn_module(
+  "penguin_net",
+  
+  # specify layers
+  initialize = function(cardinalities,
+                        n_cont,
+                        fc_dim,
+                        output_dim) {
+    
+    self$embedder <- embedding_module(cardinalities)
+    self$fc1 <- nn_linear(sum(purrr::map(cardinalities, function(x) ceiling(x/2)) %>% unlist()) + n_cont, fc_dim)
+    self$output <- nn_linear(fc_dim, output_dim)
+    
+  },
+  
+  
+  forward = function(x_cont, x_cat) {
+    
+    embedded <- self$embedder(x_cat)
+    
+    # concatenate embeddings and continuous vars
+    all <- torch_cat(list(embedded, x_cont$to(dtype = torch_float())), dim = 2)
+    
+    all %>% self$fc1() %>%
+      nnf_relu() %>%
+      self$output() %>%
+      nnf_log_softmax(dim = 2)
+    
+  }
+)
+
+# model
+model <- net(
+  cardinalities = c(length(levels(penguins$island)), length(levels(penguins$sex))),
+  n_cont = 5,
+  fc_dim = 32,
+  output_dim = 3
+)
 
 
+
+# # # # # # # # # # # # # # # # # # # # # # # # #
+## TRAIN MODEL ----
+# # # # # # # # # # # # # # # # # # # # # # # # #
+
+
+optimizer <- optim_adam(model$parameters, lr = 0.01)
+
+for (epoch in 1:20) {
+  
+  model$train()
+  train_losses <- c()  
+  
+  coro::loop(for (b in train_dl) {
+    
+    optimizer$zero_grad()
+    output <- model(b$x_cont, b$x_cat)
+    loss <- nnf_nll_loss(output, b$y)
+    
+    loss$backward()
+    optimizer$step()
+    
+    train_losses <- c(train_losses, loss$item())
+    
+  })
+  
+  model$eval()
+  valid_losses <- c()
+  
+  coro::loop(for (b in valid_dl) {
+    
+    output <- model(b$x_cont, b$x_cat)
+    loss <- nnf_nll_loss(output, b$y)
+    valid_losses <- c(valid_losses, loss$item())
+    
+  })
+  
+  cat(sprintf("Loss at epoch %d: training: %3.3f, validation: %3.3f\n", epoch, mean(train_losses), mean(valid_losses)))
+}
 
 
