@@ -539,6 +539,19 @@ df <- gen_func_data(
 
 
 tibble(df)
+
+ggplot(df) + 
+  geom_line(
+    aes(
+      x = z,
+      y = Ey,
+      color = as.factor(grp_number)
+    )
+  ) +
+  labs(
+    title = paste0("mean functions for ", length(unique(df$grp_number)), " groups")
+  )
+
 ```
 
 
