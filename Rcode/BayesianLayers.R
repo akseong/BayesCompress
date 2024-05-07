@@ -108,6 +108,17 @@ LinearGroupNJ <- R6Class(
         stop("Flag deterministic is True. This should not be used in training.")
       }
       
+      
+      
+      
+      
+      
+      
+      ####**** PROBLEMS HERE ****
+      
+      
+      
+      
       batch_size <- x$size()[1]
       # Compute z  
       # Note that we reparametrise according to [2] Eq. (11) (not [1])
@@ -118,6 +129,20 @@ LinearGroupNJ <- R6Class(
       xz <- x * z
       mu_activations <- F$linear(xz, self$weight_mu, self$bias_mu)
       var_activations <- F$linear(xz$pow(2), self$weight_logvar$exp(), self$bias_logvar$exp())
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
       
       return(reparametrize(mu_activations, var_activations$log(), sampling = self$training, cuda = self$cuda))
     },
