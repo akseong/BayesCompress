@@ -10,30 +10,49 @@ library(torch)
 
 cuda <- cuda_is_available()
 
+
 reparametrize <- function(mu, logvar, cuda = FALSE, sampling = TRUE) {
   if (sampling) {
     std <- logvar$mul(0.5)$exp_()
     if (cuda) {
-      eps <- torch$cuda$FloatTensor(std$size())$normal_()
+      eps <- torch_randn(std$size(), device = "gpu", requires_grad = TRUE)
     } else {
-      eps <- torch$FloatTensor(std$size())$normal_()
+      eps <- torch_randn(std$size(), device = "cpu", requires_grad = TRUE)
     }
-    eps <- Variable(eps)
     return(mu + eps * std)
   } else {
     return(mu)
   }
 }
 
+# CHATGPT generated
+# reparametrize <- function(mu, logvar, cuda = FALSE, sampling = TRUE) {
+#   if (sampling) {
+#     std <- logvar$mul(0.5)$exp_()
+#     if (cuda) {
+#       eps <- torch$cuda$FloatTensor(std$size())$normal_()
+#     } else {
+#       eps <- torch$FloatTensor(std$size())$normal_()
+#     }
+#     eps <- Variable(eps)
+#     return(mu + eps * std)
+#   } else {
+#     return(mu)
+#   }
+# }
 
 
 
-LinearGroupNJ <- R6Class(
-  "LinearGroupNJ",
-  inherit = Module,
+
+LinearGroupNJ <- torch::nn_module(
+  classname = "LinearGroupNJ",
+  
   
   public = list(
-    initialize = function(in_features, out_features, cuda = FALSE, init_weight = NULL, init_bias = NULL, clip_var = NULL) {
+    initialize = function(in_features, out_features, 
+                          cuda = FALSE, 
+                          init_weight = NULL, init_bias = NULL, 
+                          clip_var = NULL) {
       super$initialize()
       self$cuda <- cuda
       self$in_features <- in_features
@@ -122,23 +141,18 @@ LinearGroupNJ <- R6Class(
       batch_size <- x$size()[1]
       # Compute z  
       # Note that we reparametrise according to [2] Eq. (11) (not [1])
-      z <- reparametrize(self$z_mu$repeat(batch_size, 1), self$z_logvar$repeat(batch_size, 1), sampling = self$training, cuda = self$cuda)
+      z <- reparametrize(
+        mu = self$z_mu$`repeat`(c(batch_size, 1)), 
+        logvar = self$z_logvar$`repeat`(c(batch_size, 1)), 
+        sampling = self$training, 
+        cuda = self$cuda
+      )
       
       # Apply local reparametrisation trick see [1] Eq. (6)
       # To the parametrisation given in [3] Eq. (6)
       xz <- x * z
-      mu_activations <- F$linear(xz, self$weight_mu, self$bias_mu)
-      var_activations <- F$linear(xz$pow(2), self$weight_logvar$exp(), self$bias_logvar$exp())
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
+      mu_activations <- nnf_linear(xz, self$weight_mu, self$bias_mu)
+      var_activations <- nnf_linear(xz$pow(2), self$weight_logvar$exp(), self$bias_logvar$exp())
       
       
       
