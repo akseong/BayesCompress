@@ -32,11 +32,11 @@ LinearGroupNJ <- torch::nn_module(
   
   
     initialize = function(in_features, out_features, 
-                          cuda = FALSE, 
+                          # cuda = FALSE, 
                           init_weight = NULL, init_bias = NULL, 
                           clip_var = NULL) {
       super$initialize()
-      self$cuda <- cuda
+      # self$cuda <- cuda
       self$in_features <- in_features
       self$out_features <- out_features
       self$clip_var <- clip_var
@@ -115,8 +115,9 @@ LinearGroupNJ <- torch::nn_module(
       z <- reparametrize(
         mu = self$z_mu$`repeat`(c(batch_size, 1)), 
         logvar = self$z_logvar$`repeat`(c(batch_size, 1)), 
-        sampling = self$training, 
-        cuda = self$cuda
+        sampling = self$training
+        # , 
+        # cuda = self$cuda
       )
       
       # Apply local reparametrisation trick see [1] Eq. (6)
