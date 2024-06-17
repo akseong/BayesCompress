@@ -127,17 +127,6 @@ LinearGroupNJ <- torch::nn_module(
         stop("Flag deterministic is True. This should not be used in training.")
       }
       
-      
-      
-      
-      
-      
-      
-      ####**** PROBLEMS HERE ****
-      
-      
-      
-      
       batch_size <- x$size()[1]
       # Compute z  
       # Note that we reparametrise according to [2] Eq. (11) (not [1])
