@@ -25,23 +25,6 @@ reparametrize <- function(mu, logvar, cuda = FALSE, sampling = TRUE) {
   }
 }
 
-# CHATGPT generated
-# reparametrize <- function(mu, logvar, cuda = FALSE, sampling = TRUE) {
-#   if (sampling) {
-#     std <- logvar$mul(0.5)$exp_()
-#     if (cuda) {
-#       eps <- torch$cuda$FloatTensor(std$size())$normal_()
-#     } else {
-#       eps <- torch$FloatTensor(std$size())$normal_()
-#     }
-#     eps <- Variable(eps)
-#     return(mu + eps * std)
-#   } else {
-#     return(mu)
-#   }
-# }
-
-
 
 
 LinearGroupNJ <- torch::nn_module(
@@ -187,7 +170,130 @@ LinearGroupNJ <- torch::nn_module(
 
 
 
+# # # # # # # # # # # # # # # # # # # # # # # # #
+## COMPRESSION ----
+# # # # # # # # # # # # # # # # # # # # # # # # #
 
+# General tools
+unit_round_off <- function(t = 23) {
+  # Calculate unit round off based on the number of significand bits
+  return(0.5 * 2 ** (1 - t))
+}
+
+SIGNIFICANT_BIT_PRECISION <- lapply(1:23, function(i) unit_round_off(t = i + 1))
+
+float_precision <- function(x) {
+  # Compute float precision based on predefined significant bit precision levels
+  sum(sapply(SIGNIFICANT_BIT_PRECISION, function(sbp) x < sbp))
+}
+
+float_precisions <- function(X, dist_fun, layer = 1) {
+  X <- np$flatten(X)
+  out <- sapply(X * 2, float_precision)
+  ceiling(dist_fun(out))
+}
+
+special_round <- function(input, significant_bit) {
+  delta <- unit_round_off(t = significant_bit)
+  rounded <- floor(input / delta + 0.5)
+  rounded * delta
+}
+
+fast_infernce_weights <- function(w, exponent_bit, significant_bit) {
+  special_round(w, significant_bit)
+}
+
+compress_matrix <- function(x) {
+  if (length(np$shape(x)) != 2) {
+    dim <- np$shape(x)
+    x <- np$reshape(x, c(dim[1] * dim[2], dim[3] * dim[4]))
+    x <- x[, np$any(x != 0, axis = 0)]
+    x <- x[np$any(x != 0, axis = 1), ]
+  } else {
+    x <- x[np$any(x != 0, axis = 1), ]
+    x <- x[, np$any(x != 0, axis = 0)]
+  }
+  x
+}
+
+extract_pruned_params <- function(layers, masks) {
+  post_weight_mus <- list()
+  post_weight_vars <- list()
+  
+  for (i in 1:length(layers)) {
+    layer <- layers[[i]]
+    mask <- masks[[i]]
+    
+    # Compute posteriors
+    post_weight_mu <- layer$compute_posterior_params()$cpu()$data$numpy()
+    post_weight_var <- layer$compute_posterior_params()$cpu()$data$numpy()
+    
+    # Apply mask to mus and variances
+    post_weight_mu <- post_weight_mu * mask
+    post_weight_var <- post_weight_var * mask
+    
+    post_weight_mus[[i]] <- post_weight_mu
+    post_weight_vars[[i]] <- post_weight_var
+  }
+  
+  list(post_weight_mus, post_weight_vars)
+}
+
+compute_compression_rate <- function(vars, in_precision = 32, dist_fun = function(x) max(x), overflow = 10e38) {
+  sizes <- sapply(vars, function(v) np$size(v))
+  nb_weights <- sum(sizes)
+  IN_BITS <- in_precision * nb_weights
+  
+  # Prune architecture
+  vars <- lapply(vars, function(v) compress_matrix(v))
+  sizes <- sapply(vars, function(v) np$size(v))
+  
+  # Compute significant bits
+  significant_bits <- sapply(vars, function(v, k) float_precisions(v, dist_fun, layer = k + 1), simplify = FALSE)
+  # problems here
+  
+  
+  
+  exponent_bit <- ceiling(log2(log2(overflow) + 1) + 1)
+  total_bits <- sapply(significant_bits, function(sb) 1 + exponent_bit + sb)
+  
+  OUT_BITS <- sum(sizes * total_bits)
+  
+  list(nb_weights / sum(sizes), IN_BITS / OUT_BITS, significant_bits, exponent_bit)
+}
+
+display_compression_rate <- function(layers, masks) {
+  # Reduce architecture
+  pruned_params <- extract_pruned_params(layers, masks)
+  weight_mus <- pruned_params[[1]]
+  weight_vars <- pruned_params[[2]]
+  
+  # Compute overflow level based on maximum weight
+  overflow <- max(sapply(weight_mus, function(w) max(abs(w))))
+  
+  # Compute compression rate
+  result <- compute_compression_rate(weight_vars, dist_fun = function(x) mean(x), overflow = overflow)
+  cat("Compressing the architecture will decrease the model by a factor of", result[[1]], "\n")
+  cat("Making use of weight uncertainty can reduce the model by a factor of", result[[2]], "\n")
+}
+
+# compute_reduced_weights <- function(layers, masks) {
+#   pruned_params <- extract_pruned_params(layers, masks)
+#   weight_mus <- pruned_params[[1]]
+#   weight_vars <- pruned_params[[2]]
+#   
+#   overflow <- max(sapply(weight_mus, function(w) max(abs(w))))
+#   
+#   _, _, significant_bits, exponent_bits <- _compute_compression_rate(weight_vars, dist_fun = function(x) mean(x), overflow = overflow)
+#   
+#   weights <- mapply(fast_infernce_weights, weight_mus, exponent_bits, significant_bits)
+#   weights
+# }
+
+# Example usage:
+# Assuming layers and masks are defined appropriately
+# compute_compression_rate(layers, masks)
+# compute_reduced_weights(layers, masks)
 
 
 
