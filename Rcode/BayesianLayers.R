@@ -31,7 +31,6 @@ LinearGroupNJ <- torch::nn_module(
   classname = "LinearGroupNJ",
   
   
-  public = list(
     initialize = function(in_features, out_features, 
                           cuda = FALSE, 
                           init_weight = NULL, init_bias = NULL, 
@@ -125,11 +124,7 @@ LinearGroupNJ <- torch::nn_module(
       xz <- x * z
       mu_activations <- nnf_linear(xz, self$weight_mu, self$bias_mu)
       var_activations <- nnf_linear(xz$pow(2), self$weight_logvar$exp(), self$bias_logvar$exp())
-      
-      
-      
-      
-      
+
       return(reparametrize(mu_activations, var_activations$log(), sampling = self$training, cuda = self$cuda))
     },
     
@@ -152,19 +147,20 @@ LinearGroupNJ <- torch::nn_module(
       KLD <- KLD + torch$sum(KLD_element)
       
       return(KLD)
-    },
-    
-    clone = function() {
-      new_obj <- super$clone()
-      new_obj$z_mu <- self$z_mu$clone()
-      new_obj$z_logvar <- self$z_logvar$clone()
-      new_obj$weight_mu <- self$weight_mu$clone()
-      new_obj$weight_logvar <- self$weight_logvar$clone()
-      new_obj$bias_mu <- self$bias_mu$clone()
-      new_obj$bias_logvar <- self$bias_logvar$clone()
-      return(new_obj)
     }
-  )
+  # ,
+  #   
+  #   clone = function() {
+  #     new_obj <- super$clone()
+  #     new_obj$z_mu <- self$z_mu$clone()
+  #     new_obj$z_logvar <- self$z_logvar$clone()
+  #     new_obj$weight_mu <- self$weight_mu$clone()
+  #     new_obj$weight_logvar <- self$weight_logvar$clone()
+  #     new_obj$bias_mu <- self$bias_mu$clone()
+  #     new_obj$bias_logvar <- self$bias_logvar$clone()
+  #     return(new_obj)
+  #   }
+  # 
 )
 
 
