@@ -4,7 +4,7 @@
 ## Author:    Arnie Seong
 ##################################################
 
-library(ggplot)
+library(ggplot2)
 library(torch)
 library(here)
 source(here("Rcode", "BayesianLayers.R"))
@@ -90,14 +90,14 @@ net <- nn_module(
     self$fc1 <- LinearGroupNJ(
       in_features = in_features, 
       out_features = d_hidden,
-      cuda = FALSE, init_weight = NULL, 
+      init_weight = NULL, 
       init_bias = NULL, clip_var = NULL)
     
     
     self$fc2 <- LinearGroupNJ(
       in_features = d_hidden, 
       out_features = out_features,
-      cuda = FALSE, init_weight = NULL, 
+      init_weight = NULL, 
       init_bias = NULL, clip_var = NULL)
     
     self$relu <- nnf_relu()
