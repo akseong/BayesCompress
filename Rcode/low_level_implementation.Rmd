@@ -134,6 +134,10 @@ y_vector <- x$mm(w1_true) + b1_true + epsilon
 # scalar response
 y_scalar <- y_vector$sum(dim = 2) + epsilon[ , 1]
 y <- y_scalar$unsqueeze(2)
+df <- data.frame(
+  "y" = as_array(y), 
+  "X" = as_array(x)
+)
 ```
 
 
@@ -143,10 +147,26 @@ y <- y_scalar$unsqueeze(2)
 
 
 ```{r LMFIT}
-lmfit <- lm(as_array(y_scalar) ~ as_array(x))
+lmfit <- lm(y ~ ., df)
 summary(lmfit)
 b1_true[1, ]$sum()
 w1_true$sum(dim = 2)
+
+
+binary_err_mat <- function(est, tru){
+  # returns 4-row matrix of FP, TP, FN, TN
+  FP <- est - tru == 1
+  TP <- tru + est == 2
+  FN <- tru - est == 1
+  TN <- abs(tru) + abs(est) == 0   
+  return(rbind(FP, TP, FN, TN))
+}
+
+binary_err_rate <- function(est, tru){
+  # returns FP, TP, FN, TN rates
+  rowSums(binary_err_mat(est, tru)) / length(tru)  
+}
+
 ```
 
 `lm()` does OK.  Tends to miss when coefficient < .5  ($\epsilon \sim N(0,1)$
