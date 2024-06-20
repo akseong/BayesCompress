@@ -252,7 +252,7 @@ log_alpha2 = z2_logvar - torch_log(z2_mu$pow(2) + stability_param)
 - fill in weights, using the "reparameterization trick" (essentially, if $X ~ N(\mu, \sigma^2))$, can rewrite as $X = \mu + \sigma*Z$, where $Z \sim N(0,1)$.
 
 
-```{r REPARAMETERIZE}
+```{r REPARAMETERIZE_AND_FORWARD}
 reparameterize <- function(mu, logvar, cuda = FALSE, sampling = TRUE) {
   if (sampling) {
     std <- logvar$mul(0.5)$exp_()
@@ -268,30 +268,36 @@ reparameterize <- function(mu, logvar, cuda = FALSE, sampling = TRUE) {
 }
 
 
-# compute z
+# compute z1 & forward through fc1
 # note:
 #   z1 has shape n x d_in (because of `z1_mu$`repeat`(c(n, 1))
 #   because 1) x * z1  
 
 z1 <- reparameterize(mu = z1_mu$`repeat`(c(n, 1)), logvar = z1_logvar$`repeat`((c(n, 1))))
 
-z1$requires_grad_(TRUE)
+z1$retain_grad()
 
-z2 <- reparameterize(mu = z2_mu$`repeat`(c(n,1)), logvar = z2_logvar$`repeat`(c(n,1)))
+h1 <- nnf_linear(input = x*z1_mu, weight = w1_mu, bias = b1_mu)
+# h1 = fc1 activations
 
-
-h1 <- nnf_linear(x*z1_mu, w1_mu, b1_mu)
 
 h1_tilde <- h1$relu()
 
-y_pred <- nnf_linear(h1_tilde*z2)
 
+# compute z2 & forward through fc2
+z2 <- reparameterize(mu = z2_mu$`repeat`(c(n,1)), logvar = z2_logvar$`repeat`(c(n,1)))
+
+
+y_pred <- nnf_linear(input = h1_tilde*z2, weight = w2_mu, bias = b2_mu)
+
+mse <- (y - y_pred)$pow(2)$sum()
+
+mse$backward()
+b1_mu$grad
+z1_mu$grad
+
+mse$grad_fn$next_functions[[1]]$next_functions
 ```
-
-
-
-
-
 
 
 
