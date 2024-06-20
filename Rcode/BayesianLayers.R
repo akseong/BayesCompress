@@ -34,7 +34,7 @@ LinearGroupNJ <- torch::nn_module(
                           # cuda = FALSE, 
                           init_weight = NULL, init_bias = NULL, 
                           clip_var = NULL) {
-      # super$initialize()
+      super$initialize()
       # self$cuda <- cuda
       self$in_features <- in_features
       self$out_features <- out_features
@@ -43,13 +43,13 @@ LinearGroupNJ <- torch::nn_module(
       
       # Trainable parameters according to Eq.(6)
       # Dropout parameters
-      self$z_mu <- nn_parameter(torch_tensor(in_features))
-      self$z_logvar <- nn_parameter(torch_tensor(in_features))  # = z_mu^2 * alpha
+      self$z_mu <- nn_parameter(torch_empty(in_features))
+      self$z_logvar <- nn_parameter(torch_empty(in_features))  # = z_mu^2 * alpha
       # Weight parameters
-      self$weight_mu <- nn_parameter(torch_tensor(out_features, in_features))
-      self$weight_logvar <- nn_parameter(torch_tensor(out_features, in_features))
-      self$bias_mu <- nn_parameter(torch_tensor(out_features))
-      self$bias_logvar <- nn_parameter(torch_tensor(out_features))
+      self$weight_mu <- nn_parameter(torch_empty(out_features, in_features))
+      self$weight_logvar <- nn_parameter(torch_empty(out_features, in_features))
+      self$bias_mu <- nn_parameter(torch_empty(out_features))
+      self$bias_logvar <- nn_parameter(torch_empty(out_features))
       
       # Initialize parameters either randomly or with pretrained net
       self$reset_parameters(init_weight, init_bias)
