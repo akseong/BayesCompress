@@ -76,19 +76,71 @@ valid_dat <- datloader(x[valid_indices, ], y_scalar[valid_indices])
 in_features <- train_dat$x$size()[2]
 out_features <- length(valid_dat$y[1])
 
+train_dl <- torch::dataloader(train_dat, batch_size = 64, shuffle = TRUE)
+batch <- torch::dataloader_make_iter(train_dl) %>% torch::dataloader_next()
+
+d_hidden <- 12
+
 mask <- torch_ones(d_in)
+net <- nn_module(
+  "testnet",
 
+  initialize <- function() {
+    
+    self$fc1 <- LinearGroupNJ(
+      in_features = in_features, 
+      out_features = d_hidden,
+      cuda = FALSE, init_weight = NULL, 
+      init_bias = NULL, clip_var = NULL)
+    
+    
+    self$fc2 <- LinearGroupNJ(
+      in_features = d_hidden, 
+      out_features = out_features,
+      cuda = FALSE, init_weight = NULL, 
+      init_bias = NULL, clip_var = NULL)
+    
+    self$relu <- nnf_relu()
+    
+    self$kl_list <- list(self$fc1, self$fc2)
+  },
 
+  forward <- function(x) {
+    
+    x %>% 
+      self$fc1() %>%
+      self$relu() %>% 
+      self$fc2()
+  },
 
-
-
-LinearGroupNJ(in_features, 
-              out_features, 
-              cuda = FALSE, 
-              init_weight = NULL, 
-              init_bias = NULL, 
-              clip_var = NULL
+  kl_divergence <- function() {
+    KLD = 0
+    for (layer in self$kl_list){
+      KLD = KLD + layer$kl_divergence()
+    }
+  }
 )
+
+
+model <- net()
+model(batch$x)
+
+
+
+
+fc1 <- LinearGroupNJ(
+  in_features = in_features, 
+  out_features = d_hidden,
+  init_weight = NULL, 
+  init_bias = NULL, clip_var = NULL)
+
+
+
+
+
+
+
+
 
 
 

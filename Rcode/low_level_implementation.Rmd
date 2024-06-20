@@ -1,0 +1,354 @@
+---
+title: Low Level `torch` implementation of "Bayesian Compression" (LUW 2017)
+author: "Arnie Seong"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+header-includes:
+  - \usepackage{bm}
+  - \usepackage{xcolor}
+  - \usepackage{amssymb}
+output: 
+  html_document:
+    df_print: paged
+    theme: cerulean
+    highlight: tango
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
+    code_fold: show
+urlcolor: blue
+params:
+  retrain: FALSE
+---
+
+
+```{r setup, include=FALSE, message=F, echo=F, warning=F}
+# LIBRARIES----
+
+#### plotting:
+library(ggplot2)
+library(gridExtra)
+
+# #### Misc:
+library(here)
+library(tidyr)
+library(knitr)
+library(kableExtra)
+library(dplyr)
+
+# DOCUMENT SETUP ----
+# detect pdf/html output, set chunk options, sci.notation 
+latex_out <- knitr::is_latex_output()
+knitr::opts_chunk$set(
+  cache = FALSE, 
+  message = FALSE, 
+  echo = !knitr::is_latex_output(), 
+  warning = FALSE
+)
+
+
+if (knitr::is_latex_output()) {
+  knitr::opts_chunk$set(fig.height=4, 
+                        fig.width=6)
+} else {
+  knitr::opts_chunk$set(out.width = "100%")
+}
+
+options(scipen=10)
+
+
+# TEXT/TABLE FORMATTING----
+
+custom_purple <- ifelse(
+  knitr::is_latex_output(),
+  "purple",
+  "#b51ced"
+)
+
+custom_blue <- ifelse(
+  knitr::is_latex_output(),
+  "blue",
+  "#11579e"
+)
+
+colorize <- function(x, color=custom_purple) {
+  # text color conditional on latex/html output
+  # from rmarkdown cookbook
+  if (knitr::is_latex_output()) {
+    sprintf("\\textcolor{ %s}{ %s}", color, x)
+  } else if (knitr::is_html_output()) {
+    sprintf("<span style='color: %s;'>%s</span>", color, x)
+  } else x
+}
+
+# kable NA handling
+options(knitr.kable.NA = '')
+
+# mykable function
+mykable <- function(tab, cap,
+                    latex_options=c("hold_position", "scale_down", "striped"), 
+                    bootstrap_options=c("striped", "hover", "condensed"), 
+                    full_width=F, position="center", ...){
+  # kable formatting conditional on latex or html output
+  if (knitr::is_latex_output()){
+    kable(x=tab, caption=cap, ...) %>%
+      kableExtra::kable_styling(latex_options = latex_options)
+  } else if (knitr::is_html_output()){
+    kable(x=tab, caption=cap, ...) %>%
+      kableExtra::kable_styling(bootstrap_options = bootstrap_options, full_width=full_width, position=position)
+  }
+}
+```
+
+```{r}
+library(torch)
+source(here("Rcode", "BayesianLayers.R"))
+```
+
+
+# Setup
+
+## generate data.  
+
+```{r GENERATE_DATA}
+
+n <- 100
+# input dimensionality (# of features)
+d_in <- 5
+d_true <- 2   # the rest are nuisance vars
+# output dimensionality (response dim)
+datagen_out <- 3
+
+x <- torch_randn(n, d_in)
+w1_true <- torch_randn(size = c(d_in, datagen_out))
+w1_true[(d_true+1):d_in, ] <- 0
+b1_true <- torch_randint(-3, 5, size = c(1, datagen_out))$'repeat'(c(n, 1))
+epsilon <- torch_randn(size = c(n, datagen_out))
+# plot(density(as_array(epsilon)))
+# qqnorm(y = as_array(epsilon))
+
+# multivariate response
+y_vector <- x$mm(w1_true) + b1_true + epsilon
+
+# scalar response
+y_scalar <- y_vector$sum(dim = 2) + epsilon[ , 1]
+y <- y_scalar$unsqueeze(2)
+```
+
+
+- `r n` obs generated as basic linear regression $y = X\beta + \epsilon$, with $\epsilon_i \sim N(0,1)$
+- Only first `r d_true` covariates in $X$ (out of `r d_in`) actually have an effect (rest are nuisance var.s).  
+- multivariate response also generated (but not used for now)
+
+
+```{r LMFIT}
+lmfit <- lm(as_array(y_scalar) ~ as_array(x))
+summary(lmfit)
+b1_true[1, ]$sum()
+w1_true$sum(dim = 2)
+```
+
+`lm()` does OK.  Tends to miss when coefficient < .5  ($\epsilon \sim N(0,1)$
+
+
+
+## set up network
+
+```{r}
+d_hidden <- 12
+d_out <- length(y[1])
+```
+
+- 2 layers: input (`fc1`) and hidden (`fc2`).  
+- Weights for `fc1` and `fc2` denoted $W_1, W_2$; intercepts/biases as $b_1, b_2$.
+- Dimensions included in some subscripts just to keep an eye on things.
+
+$$\begin{align}
+\tt{fc1:} \quad 
+  &  X_{(n \times d_{in})} W_{1(d_{in} \times d_{hidden})}  + b_1 
+  && = h_1 \overset{relu}{\rightarrow} \tilde{h}_{1(n \times d_{hidden})} 
+\\
+\tt{fc2:} \quad 
+  &  \tilde{h}_{1(n \times d_{hidden})} W_{2(d_{hidden} \times d_{out})}  + b_2 
+  && = \hat{y}
+\end{align}$$
+
+
+## Log-Uniform Model
+Let $l$ index the layer of the weight matrix $W_l$ (here, $l \in \{1, 2\}$), and $i$ index the row of $W_l$, and $j$ index the columns. 
+
+$$\begin{align} 
+  p(z_{li \cdot}) &\propto |z_{li \cdot}|^{-1}
+  \\
+  p(w_{lij} | z_{l i \cdot}) &= N \left(w_{lij} | 0, z_{l i \cdot}^2 \right)
+  \\
+  q(W_l, z) &= \prod_{l, i} N \left(z_{li \cdot} | \mu_{z_{l i \cdot}}, \mu_{z_{l i \cdot} }^2 \alpha_{l i \cdot} \right) \prod_{l,i,j} N \left( w_{lij} | z_{l i \cdot} \mu_{lij}, z_{l i \cdot}^2 \sigma_{lij}^2 \right)
+\end{align}$$
+
+
+### initialize parameters
+
+```{r INITIALIZE_PARAMS}
+
+# initialize params
+# LUW: 
+#  z_mu ~ N(1, .01)
+#  w_mu ~ N(0, 1 / sqrt(length(w_mu)))
+#  z_logvar ~ N(-9, .01)
+#  w_logvar ~ N(-9, .01)
+#  bias_logvar ~ N(-9, .01)
+
+z1_mu <- torch_normal(mean = 1, std = 0.1, size = d_in, requires_grad = TRUE)
+z2_mu <- torch_normal(mean = 1, std = 0.1, size = d_hidden, requires_grad = TRUE)
+z1_logvar <- torch_normal(mean = -9, std = 0.1, size = d_in, requires_grad = TRUE)
+z2_logvar <- torch_normal(mean = -9, std = 0.1, size = d_hidden, requires_grad = TRUE)
+
+
+w1_mu <- torch_normal(mean = 0, std = 1/sqrt(d_in), size = c(d_hidden, d_in), requires_grad = TRUE)
+w2_mu <- torch_normal(mean = 0, std = 1/sqrt(d_hidden), size = c(d_out, d_hidden), requires_grad = TRUE)
+w1_logvar <- torch_normal(mean = -9, std = 0.1, size = c(d_hidden, d_in), requires_grad = TRUE)
+w2_logvar <- torch_normal(mean = -9, std = 0.1, size = c(d_hidden, d_in), requires_grad = TRUE)
+
+
+b1_mu <- torch_zeros(d_hidden, requires_grad = TRUE)
+b2_mu <- torch_zeros(d_out, requires_grad = TRUE)
+b1_logvar <- torch_normal(mean = -9, std = 0.1, size = d_hidden, requires_grad = TRUE)
+b2_logvar <- torch_normal(mean = -9, std = 0.1, size = d_out, requires_grad = TRUE)
+
+
+stability_param <- 1e-8
+
+log_alpha1 = z1_logvar - torch_log(z1_mu$pow(2) + stability_param)
+log_alpha2 = z2_logvar - torch_log(z2_mu$pow(2) + stability_param)
+```
+
+
+
+
+
+### forward function
+
+- fill in weights, using the "reparameterization trick" (essentially, if $X ~ N(\mu, \sigma^2))$, can rewrite as $X = \mu + \sigma*Z$, where $Z \sim N(0,1)$.
+
+
+```{r REPARAMETERIZE}
+reparameterize <- function(mu, logvar, cuda = FALSE, sampling = TRUE) {
+  if (sampling) {
+    std <- logvar$mul(0.5)$exp_()
+    if (cuda) {
+      eps <- torch_randn(std$size(), device = "gpu", requires_grad = TRUE)
+    } else {
+      eps <- torch_randn(std$size(), device = "cpu", requires_grad = TRUE)
+    }
+    return(mu + eps * std)
+  } else {
+    return(mu)
+  }
+}
+
+
+# compute z
+# note:
+#   z1 has shape n x d_in (because of `z1_mu$`repeat`(c(n, 1))
+#   because 1) x * z1  
+
+z1 <- reparameterize(mu = z1_mu$`repeat`(c(n, 1)), logvar = z1_logvar$`repeat`((c(n, 1))))
+
+z1$requires_grad_(TRUE)
+
+z2 <- reparameterize(mu = z2_mu$`repeat`(c(n,1)), logvar = z2_logvar$`repeat`(c(n,1)))
+
+
+h1 <- nnf_linear(x*z1_mu, w1_mu, b1_mu)
+
+h1_tilde <- h1$relu()
+
+y_pred <- nnf_linear(h1_tilde*z2)
+
+```
+
+
+
+
+
+
+
+
+```{r FORWARD}
+
+y_pred <- x$mm(w1)$add(b1)$clamp(min = 0)$mm(w2)$add(b2)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+learning_rate <- 1e-4
+
+
+
+# # # # # # # # # # # # 
+##    training loop    
+  
+  
+  # # # # # # # # # # # # 
+  ##    Forward pass
+  h <- x$mm(w1) + b1
+  h_relu <- h$clamp(min = 0)
+  y_pred <- h_relu$mm(w2) + b2
+  
+  
+  # # # # # # # # # # # # 
+  ##    compute loss
+  KL <- 
+  loss <- nnf_mse_loss(y_pred, y, reduction = "sum")
+  KL
+  
+  if (t %% 10 == 0)
+    cat("Epoch: ", t, "   Loss: ", loss$item(), "\n")
+  
+  # # # # # # # # # # # # 
+  ##    backprop
+  
+  
+  
+  
+  # # # # # # # # # # # # 
+  ##    update weights    
+  
+  # Wrap in with_no_grad() because this is a part we DON'T 
+  # want to record for automatic gradient computation
+  with_no_grad({
+    w1 <- w1$sub_(learning_rate * w1$grad)
+    w2 <- w2$sub_(learning_rate * w2$grad)
+    b1 <- b1$sub_(learning_rate * b1$grad)
+    b2 <- b2$sub_(learning_rate * b2$grad)  
+    
+    # Zero gradients after every pass
+    w1$grad$zero_()
+    w2$grad$zero_()
+    b1$grad$zero_()
+    b2$grad$zero_()  
+  })
+  
+  
+  
+  
+  
+  
+
+
+
+
+
+
+
+

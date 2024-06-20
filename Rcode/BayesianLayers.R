@@ -30,12 +30,11 @@ reparametrize <- function(mu, logvar, cuda = FALSE, sampling = TRUE) {
 LinearGroupNJ <- torch::nn_module(
   classname = "LinearGroupNJ",
   
-  
     initialize = function(in_features, out_features, 
                           # cuda = FALSE, 
                           init_weight = NULL, init_bias = NULL, 
                           clip_var = NULL) {
-      super$initialize()
+      # super$initialize()
       # self$cuda <- cuda
       self$in_features <- in_features
       self$out_features <- out_features
@@ -44,20 +43,20 @@ LinearGroupNJ <- torch::nn_module(
       
       # Trainable parameters according to Eq.(6)
       # Dropout parameters
-      self$z_mu <- Parameter(torch$Tensor(in_features))
-      self$z_logvar <- Parameter(torch$Tensor(in_features))  # = z_mu^2 * alpha
+      self$z_mu <- nn_parameter(torch_tensor(in_features))
+      self$z_logvar <- nn_parameter(torch_tensor(in_features))  # = z_mu^2 * alpha
       # Weight parameters
-      self$weight_mu <- Parameter(torch$Tensor(out_features, in_features))
-      self$weight_logvar <- Parameter(torch$Tensor(out_features, in_features))
-      self$bias_mu <- Parameter(torch$Tensor(out_features))
-      self$bias_logvar <- Parameter(torch$Tensor(out_features))
+      self$weight_mu <- nn_parameter(torch_tensor(out_features, in_features))
+      self$weight_logvar <- nn_parameter(torch_tensor(out_features, in_features))
+      self$bias_mu <- nn_parameter(torch_tensor(out_features))
+      self$bias_logvar <- nn_parameter(torch_tensor(out_features))
       
       # Initialize parameters either randomly or with pretrained net
       self$reset_parameters(init_weight, init_bias)
       
       # Activations for KL
-      self$sigmoid <- nn$Sigmoid()
-      self$softplus <- nn$Softplus()
+      self$sigmoid <- nn_sigmoid()
+      self$softplus <- nn_softplus()
       
       # Numerical stability param
       self$epsilon <- 1e-8
@@ -66,22 +65,22 @@ LinearGroupNJ <- torch::nn_module(
     reset_parameters = function(init_weight, init_bias) {
       # Init means
       stdv <- 1 / sqrt(self$weight_mu$size(1))
-      self$z_mu$data <- torch$normal(1, 1e-2)
+      self$z_mu$data <- torch_normal(1, 1e-2)
       if (!is.null(init_weight)) {
-        self$weight_mu$data <- torch$Tensor(init_weight)
+        self$weight_mu$data <- torch_tensor(init_weight)
       } else {
-        self$weight_mu$data <- torch$normal(0, stdv)
+        self$weight_mu$data <- torch_normal(0, stdv)
       }
       if (!is.null(init_bias)) {
-        self$bias_mu$data <- torch$Tensor(init_bias)
+        self$bias_mu$data <- torch_tensor(init_bias)
       } else {
-        self$bias_mu$data <- torch$zeros(self$out_features)
+        self$bias_mu$data <- torch_zeros(self$out_features)
       }
       
       # Init logvars
-      self$z_logvar$data <- torch$normal(-9, 1e-2)
-      self$weight_logvar$data <- torch$normal(-9, 1e-2)
-      self$bias_logvar$data <- torch$normal(-9, 1e-2)
+      self$z_logvar$data <- torch_normal(-9, 1e-2)
+      self$weight_logvar$data <- torch_normal(-9, 1e-2)
+      self$bias_logvar$data <- torch_normal(-9, 1e-2)
     },
     
     clip_variances = function() {
@@ -92,7 +91,7 @@ LinearGroupNJ <- torch::nn_module(
     },
     
     get_log_dropout_rates = function() {
-      log_alpha <- self$z_logvar - torch$log(self$z_mu$pow(2) + self$epsilon)
+      log_alpha <- self$z_logvar - torch_log(self$z_mu$pow(2) + self$epsilon)
       return(log_alpha)
     },
     
