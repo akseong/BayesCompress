@@ -239,9 +239,11 @@ reparameterize <- function(mu, logvar, cuda = FALSE, sampling = TRUE) {
 #  w_logvar ~ N(-9, .01)
 #  bias_logvar ~ N(-9, .01)
 
-
 # need to initialize using reparam trick!
-
+# otherwise gradients won't propagate 
+# (initializing with torch_normal() --- a sampling 
+#   operation --- does not store gradient info)
+# so POPULATE torch_tensor() with torch_normal()
 z1_mu <- torch_tensor(
   torch_normal(mean = 1, std = 0.1, size = d_in), 
   requires_grad = TRUE)
@@ -254,8 +256,6 @@ z1_logvar <- torch_tensor(
 z2_logvar <- torch_tensor(
   torch_normal(mean = -9, std = 0.1, size = d_hidden), 
   requires_grad = TRUE)
-
-
 
 w1_mu <- torch_tensor(
   torch_normal(mean = 0, std = 1/sqrt(d_in), size = c(d_hidden, d_in)),
@@ -281,6 +281,8 @@ b2_logvar <- torch_tensor(
   requires_grad = TRUE)
 
 
+
+# calculate log dropout rates
 stability_param <- 1e-8
 
 log_alpha1 = z1_logvar - torch_log(z1_mu$pow(2) + stability_param)
@@ -330,51 +332,111 @@ y_pred_var <- nnf_linear(input = h1z2$pow(2), weight = w2_logvar$exp(), bias = b
 
 y_pred <- reparameterize(mu = y_pred_mu, logvar = y_pred_var$log())
 
-# calculate loss fcn (MSE for now)
-mse <- (y - y_pred)$pow(2)$sum()
-
-mse$backward()
-
-
-# leaf nodes (should have gradient, but no grad_fn)
-z1_mu$grad
-z1_mu$grad_fn
-z1_mu$grad
-z1_mu$grad_fn 
-z2_mu$grad
-z2_mu$grad_fn
-z1_logvar$grad
-z1_logvar$grad_fn
-z2_logvar$grad
-z2_logvar$grad_fn
-w1_mu$grad
-w1_mu$grad_fn
-w2_mu$grad
-w2_mu$grad_fn
-w1_logvar$grad    # no grad - FIXED!
-w1_logvar$grad_fn
-w2_logvar$grad    # no grad - FIXED!
-w2_logvar$grad_fn
-b1_mu$grad
-b1_mu$grad_fn
-b2_mu$grad
-b2_mu$grad_fn
-b1_logvar$grad   # no grad - FIXED!
-b1_logvar$grad_fn
-b2_logvar$grad    # no grad - FIXED!
-b2_logvar$grad_fn
-
-# should not be leaf tensors
-h1$grad
-h1$grad_fn
-h1_tilde$grad
-h1_tilde$grad_fn
-y_pred$grad
-y_pred$grad_fn
+# # calculate loss fcn (MSE for now)
+# mse <- (y - y_pred)$pow(2)$sum()
+# 
+# mse$backward()
 ```
 
 
+
+
 ### Loss
+
+```{r}
+
+mse <- nnf_mse_loss(y_pred, y, reduction = "sum")
+
+calc_kld <- function(log_alpha, weight_mu, weight_logvar, bias_mu, bias_logvar){
+  k1 = 0.63576
+  k2 = 1.87320
+  k3 = 1.48695
+  
+  # KL(q(z) || p(z))
+  KL_z <- -torch_sum(
+    k1 * nnf_sigmoid(k2 + k3*log_alpha) - 
+    0.5 * nnf_softplus(-log_alpha) - 
+    k1
+  )
+  
+  # KL(q(w|z) || p(w|z))
+  KL_w_z <- torch_sum(
+    -0.5 * weight_logvar + 
+    0.5 * (weight_logvar$exp() + weight_mu$pow(2)) - 
+    0.5
+  )
+  
+  # KL for bias term
+  KL_bias <- torch_sum(-0.5 * bias_logvar + 
+    0.5 * (bias_logvar$exp() + bias_mu$pow(2)) - 0.5
+  )
+  
+  # sum
+  KL <- KL_z + KL_w_z + KL_bias
+  return(KL)
+}
+
+KLD_1 <- calc_kld(
+  log_alpha = log_alpha1, 
+  weight_mu = w1_mu, 
+  weight_logvar = w1_logvar, 
+  bias_mu = b1_mu, 
+  bias_logvar = b1_logvar
+)
+
+KLD_2 <- calc_kld(
+  log_alpha = log_alpha2, 
+  weight_mu = w2_mu, 
+  weight_logvar = w2_logvar, 
+  bias_mu = b2_mu, 
+  bias_logvar = b2_logvar
+)
+
+
+
+loss <- mse + KLD_1 + KLD_2
+loss$backward()
+
+```
+
+
+```{r CHECK_GRADIENTS, echo = FALSE, eval = FALSE}
+# # leaf nodes (should have gradient, but no grad_fn)
+# z1_mu$grad
+# z1_mu$grad_fn
+# z1_mu$grad
+# z1_mu$grad_fn
+# z2_mu$grad
+# z2_mu$grad_fn
+# z1_logvar$grad
+# z1_logvar$grad_fn
+# z2_logvar$grad
+# z2_logvar$grad_fn
+# w1_mu$grad
+# w1_mu$grad_fn
+# w2_mu$grad
+# w2_mu$grad_fn
+# w1_logvar$grad    # no grad - FIXED!
+# w1_logvar$grad_fn
+# w2_logvar$grad    # no grad - FIXED!
+# w2_logvar$grad_fn
+# b1_mu$grad
+# b1_mu$grad_fn
+# b2_mu$grad
+# b2_mu$grad_fn
+# b1_logvar$grad   # no grad - FIXED!
+# b1_logvar$grad_fn
+# b2_logvar$grad    # no grad - FIXED!
+# b2_logvar$grad_fn
+# 
+# # should not be leaf tensors
+# h1$grad
+# h1$grad_fn
+# h1_tilde$grad
+# h1_tilde$grad_fn
+# y_pred$grad
+# y_pred$grad_fn
+```
 
 
 
