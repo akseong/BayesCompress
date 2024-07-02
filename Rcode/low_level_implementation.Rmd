@@ -351,17 +351,17 @@ w1_mu$grad
 w1_mu$grad_fn
 w2_mu$grad
 w2_mu$grad_fn
-w1_logvar$grad    # no grad
+w1_logvar$grad    # no grad - FIXED!
 w1_logvar$grad_fn
-w2_logvar$grad    # no grad
+w2_logvar$grad    # no grad - FIXED!
 w2_logvar$grad_fn
 b1_mu$grad
 b1_mu$grad_fn
 b2_mu$grad
 b2_mu$grad_fn
-b1_logvar$grad   # no grad
+b1_logvar$grad   # no grad - FIXED!
 b1_logvar$grad_fn
-b2_logvar$grad    # no grad
+b2_logvar$grad    # no grad - FIXED!
 b2_logvar$grad_fn
 
 # should not be leaf tensors
@@ -374,7 +374,11 @@ y_pred$grad_fn
 ```
 
 
+### Loss
 
+
+
+### backprop
 
 
 
