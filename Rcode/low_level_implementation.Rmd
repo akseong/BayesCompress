@@ -134,10 +134,6 @@ y_vector <- x$mm(w1_true) + b1_true + epsilon
 # scalar response
 y_scalar <- y_vector$sum(dim = 2) + epsilon[ , 1]
 y <- y_scalar$unsqueeze(2)
-df <- data.frame(
-  "y" = as_array(y), 
-  "X" = as_array(x)
-)
 ```
 
 
@@ -147,6 +143,11 @@ df <- data.frame(
 
 
 ```{r LMFIT}
+df <- data.frame(
+  "y" = as_array(y), 
+  "X" = as_array(x)
+)
+
 lmfit <- lm(y ~ ., df)
 summary(lmfit)
 b1_true[1, ]$sum()
@@ -177,7 +178,8 @@ binary_err_rate <- function(est, tru){
 
 ```{r}
 d_hidden <- 12
-d_out <- length(y[1])
+d_out <- length(y[1,])
+
 ```
 
 - 2 layers: input (`fc1`) and hidden (`fc2`).  
@@ -218,6 +220,9 @@ $$\begin{align}
 #  z_logvar ~ N(-9, .01)
 #  w_logvar ~ N(-9, .01)
 #  bias_logvar ~ N(-9, .01)
+
+
+# need to initialize using reparam trick!
 
 z1_mu <- torch_normal(mean = 1, std = 0.1, size = d_in, requires_grad = TRUE)
 z2_mu <- torch_normal(mean = 1, std = 0.1, size = d_hidden, requires_grad = TRUE)
@@ -273,30 +278,43 @@ reparameterize <- function(mu, logvar, cuda = FALSE, sampling = TRUE) {
 #   z1 has shape n x d_in (because of `z1_mu$`repeat`(c(n, 1))
 #   because 1) x * z1  
 
-z1 <- reparameterize(mu = z1_mu$`repeat`(c(n, 1)), logvar = z1_logvar$`repeat`((c(n, 1))))
+z1 <- reparameterize(
+  mu = z1_mu$`repeat`(c(n, 1)), 
+  logvar = z1_logvar$`repeat`((c(n, 1)))
+)
 
-z1$retain_grad()
-
-h1 <- nnf_linear(input = x*z1_mu, weight = w1_mu, bias = b1_mu)
 # h1 = fc1 activations
-
-
+h1 <- nnf_linear(input = x*z1_mu, weight = w1_mu, bias = b1_mu)
 h1_tilde <- h1$relu()
 
 
+z1$retain_grad()
+z1_mu$retain_grad()
+h1$retain_grad()
+h1_tilde$retain_grad()
+
 # compute z2 & forward through fc2
 z2 <- reparameterize(mu = z2_mu$`repeat`(c(n,1)), logvar = z2_logvar$`repeat`(c(n,1)))
-
 
 y_pred <- nnf_linear(input = h1_tilde*z2, weight = w2_mu, bias = b2_mu)
 
 mse <- (y - y_pred)$pow(2)$sum()
 
 mse$backward()
-b1_mu$grad
-z1_mu$grad
 
-mse$grad_fn$next_functions[[1]]$next_functions
+
+
+
+
+
+b2_mu$grad_fn
+
+b1_mu$grad_fn
+z1_mu$grad
+z1$grad_fn
+
+
+mse$grad_fn$next_functions[[1]]$next_functions[[1]]
 ```
 
 
