@@ -179,6 +179,7 @@ binary_err_rate <- function(est, tru){
 ```{r}
 d_hidden <- 12
 d_out <- length(y[1,])
+learning_rate <- 1e-4
 
 ```
 
@@ -279,14 +280,6 @@ b1_logvar <- torch_tensor(
 b2_logvar <- torch_tensor(
   torch_normal(mean = -9, std = 0.1, size = d_out),
   requires_grad = TRUE)
-
-
-
-# calculate log dropout rates
-stability_param <- 1e-8
-
-log_alpha1 = z1_logvar - torch_log(z1_mu$pow(2) + stability_param)
-log_alpha2 = z2_logvar - torch_log(z2_mu$pow(2) + stability_param)
 ```
 
 
@@ -332,6 +325,11 @@ y_pred_var <- nnf_linear(input = h1z2$pow(2), weight = w2_logvar$exp(), bias = b
 
 y_pred <- reparameterize(mu = y_pred_mu, logvar = y_pred_var$log())
 
+# calculate log dropout rates
+stability_param <- 1e-8
+
+log_alpha1 = z1_logvar - torch_log(z1_mu$pow(2) + stability_param)
+log_alpha2 = z2_logvar - torch_log(z2_mu$pow(2) + stability_param)
 # # calculate loss fcn (MSE for now)
 # mse <- (y - y_pred)$pow(2)$sum()
 # 
@@ -343,7 +341,7 @@ y_pred <- reparameterize(mu = y_pred_mu, logvar = y_pred_var$log())
 
 ### Loss
 
-```{r}
+```{r KL_LOSS}
 
 mse <- nnf_mse_loss(y_pred, y, reduction = "sum")
 
@@ -404,8 +402,6 @@ loss$backward()
 # # leaf nodes (should have gradient, but no grad_fn)
 # z1_mu$grad
 # z1_mu$grad_fn
-# z1_mu$grad
-# z1_mu$grad_fn
 # z2_mu$grad
 # z2_mu$grad_fn
 # z1_logvar$grad
@@ -435,69 +431,305 @@ loss$backward()
 # h1_tilde$grad
 # h1_tilde$grad_fn
 # y_pred$grad
-# y_pred$grad_fn
+# y_pred$grad_fnx
+
+
+# #leaf nodes:
+# z1_mu
+# z2_mu
+# w1_mu
+# w2_mu
+# b1_mu
+# b2_mu
+# z1_logvar
+# z2_logvar
+# w1_logvar
+# w2_logvar
+# b1_logvar
+# b2_logvar
 ```
 
 
 
 ### backprop
 
+```{r BACKPROP}
+#    update weights    
+  
+# Wrap in with_no_grad() because this is a part we DON'T 
+# want to record for automatic gradient computation
+with_no_grad({
+  z1_mu <- z1_mu$sub_(learning_rate * z1_mu$grad)
+  z2_mu <- z2_mu$sub_(learning_rate * z2_mu$grad)
+  w1_mu <- w1_mu$sub_(learning_rate * w1_mu$grad)
+  w2_mu <- w2_mu$sub_(learning_rate * w2_mu$grad)
+  b1_mu <- b1_mu$sub_(learning_rate * b1_mu$grad)
+  b2_mu <- b2_mu$sub_(learning_rate * b2_mu$grad)
+  z1_logvar <- z1_logvar$sub_(learning_rate * z1_logvar$grad)
+  z2_logvar <- z2_logvar$sub_(learning_rate * z2_logvar$grad)
+  w1_logvar <- w1_logvar$sub_(learning_rate * w1_logvar$grad)
+  w2_logvar <- w2_logvar$sub_(learning_rate * w2_logvar$grad)
+  b1_logvar <- b1_logvar$sub_(learning_rate * b1_logvar$grad)
+  b2_logvar <- b2_logvar$sub_(learning_rate * b2_logvar$grad)
+  
+  z1_mu$grad$zero_()
+  z2_mu$grad$zero_()
+  w1_mu$grad$zero_()
+  w2_mu$grad$zero_()
+  b1_mu$grad$zero_()
+  b2_mu$grad$zero_()
+  z1_logvar$grad$zero_()
+  z2_logvar$grad$zero_()
+  w1_logvar$grad$zero_()
+  w2_logvar$grad$zero_()
+  b1_logvar$grad$zero_()
+  b2_logvar$grad$zero_()
+})
+
+```
+
+# full implementation
+
+
+```{r FULL_SIM}
+
+
+#### GENERATE DATA----
+n <- 100
+# input dimensionality (# of features)
+d_in <- 5
+d_true <- 2   # the rest are nuisance vars
+# output dimensionality (response dim)
+datagen_out <- 3
+
+x <- torch_randn(n, d_in)
+w1_true <- torch_randn(size = c(d_in, datagen_out))
+w1_true[(d_true+1):d_in, ] <- 0
+b1_true <- torch_randint(-3, 5, size = c(1, datagen_out))$'repeat'(c(n, 1))
+epsilon <- torch_randn(size = c(n, datagen_out))
+# plot(density(as_array(epsilon)))
+# qqnorm(y = as_array(epsilon))
+
+# multivariate response
+y_vector <- x$mm(w1_true) + b1_true + epsilon
+
+# scalar response
+y_scalar <- y_vector$sum(dim = 2) + epsilon[ , 1]
+y <- y_scalar$unsqueeze(2)
 
 
 
+#### NETWORK SETUP----
+d_hidden <- 12
+d_out <- length(y[1,])
+learning_rate <- 1e-4
+epochs <- 2000
 
 
+reparameterize <- function(mu, logvar, cuda = FALSE, sampling = TRUE) {
+  if (sampling) {
+    std <- logvar$mul(0.5)$exp_()
+    if (cuda) {
+      eps <- torch_randn(std$size(), device = "gpu", requires_grad = TRUE)
+    } else {
+      eps <- torch_randn(std$size(), device = "cpu", requires_grad = TRUE)
+    }
+    return(mu$add(eps$mul(std)))
+  } else {
+    return(mu)
+  }
+}
+
+calc_kld <- function(log_alpha, weight_mu, weight_logvar, bias_mu, bias_logvar){
+  k1 = 0.63576
+  k2 = 1.87320
+  k3 = 1.48695
+  
+  # KL(q(z) || p(z))
+  KL_z <- -torch_sum(
+    k1 * nnf_sigmoid(k2 + k3*log_alpha) - 
+    0.5 * nnf_softplus(-log_alpha) - 
+    k1
+  )
+  
+  # KL(q(w|z) || p(w|z))
+  KL_w_z <- torch_sum(
+    -0.5 * weight_logvar + 
+    0.5 * (weight_logvar$exp() + weight_mu$pow(2)) - 
+    0.5
+  )
+  
+  # KL for bias term
+  KL_bias <- torch_sum(-0.5 * bias_logvar + 
+    0.5 * (bias_logvar$exp() + bias_mu$pow(2)) - 0.5
+  )
+  
+  # sum
+  KL <- KL_z + KL_w_z + KL_bias
+  return(KL)
+}
+
+#### INITIALIZE PARAMETERS ----
+# LUW 2017: 
+#  z_mu ~ N(1, .01)
+#  w_mu ~ N(0, 1 / sqrt(length(w_mu)))
+#  z_logvar ~ N(-9, .01)
+#  w_logvar ~ N(-9, .01)
+#  bias_logvar ~ N(-9, .01)
+
+# need to initialize using reparam trick!
+# otherwise gradients won't propagate 
+# (initializing with torch_normal() --- a sampling 
+#   operation --- does not store gradient info)
+# so POPULATE torch_tensor() with torch_normal()
+z1_mu <- torch_tensor(
+  torch_normal(mean = 1, std = 0.1, size = d_in), 
+  requires_grad = TRUE)
+z2_mu <- torch_tensor(
+  torch_normal(mean = 1, std = 0.1, size = d_hidden), 
+  requires_grad = TRUE)
+z1_logvar <- torch_tensor(
+  torch_normal(mean = -9, std = 0.1, size = d_in),
+  requires_grad = TRUE)
+z2_logvar <- torch_tensor(
+  torch_normal(mean = -9, std = 0.1, size = d_hidden), 
+  requires_grad = TRUE)
+
+w1_mu <- torch_tensor(
+  torch_normal(mean = 0, std = 1/sqrt(d_in), size = c(d_hidden, d_in)),
+  requires_grad = TRUE)
+w2_mu <- torch_tensor(
+   torch_normal(mean = 0, std = 1/sqrt(d_hidden), size = c(d_out, d_hidden)),
+   requires_grad = TRUE)
+w1_logvar <- torch_tensor(
+   torch_normal(mean = -9, std = 0.1, size = c(d_hidden, d_in)),
+   requires_grad = TRUE)
+w2_logvar <- torch_tensor(
+   torch_normal(mean = -9, std = 0.1, size = c(d_out, d_hidden)),
+   requires_grad = TRUE)
 
 
-# # # # # # # # # # # # 
-##    training loop    
+b1_mu <- torch_zeros(d_hidden, requires_grad = TRUE)
+b2_mu <- torch_zeros(d_out, requires_grad = TRUE)
+b1_logvar <- torch_tensor(
+   torch_normal(mean = -9, std = 0.1, size = d_hidden),
+   requires_grad = TRUE)
+b2_logvar <- torch_tensor(
+  torch_normal(mean = -9, std = 0.1, size = d_out),
+  requires_grad = TRUE)
+
+
+#### TRAINING LOOP: ----
+for (t in 1:epochs) {
+  
+  #### FORWARD ----
+  # compute z1 & forward through fc1
+  # note:
+  #   z1 has shape n x d_in (because of `z1_mu$`repeat`(c(n, 1))
+  #   because 1) x * z1  
+  
+  z1 <- reparameterize(
+    mu = z1_mu$`repeat`(c(n, 1)), 
+    logvar = z1_logvar$`repeat`(c(n, 1))
+  )
+  
+  # h1 = fc1 activations (noisy; h1 ~ N(h1_mu, h1_var))
+  xz1 <- x*z1
+  h1_mu <- nnf_linear(input = xz1, weight = w1_mu, bias = b1_mu)
+  h1_var <- nnf_linear(input = xz1$pow(2), weight = w1_logvar$exp(), bias = b1_logvar$exp())
+  
+  h1 <- reparameterize(mu = h1_mu, logvar = h1_var$log())
+  h1_tilde <- h1$relu()
   
   
-  # # # # # # # # # # # # 
-  ##    Forward pass
-  h <- x$mm(w1) + b1
-  h_relu <- h$clamp(min = 0)
-  y_pred <- h_relu$mm(w2) + b2
+  # compute z2 & forward through fc2
+  z2 <- reparameterize(
+    mu = z2_mu$`repeat`(c(n,1)), 
+    logvar = z2_logvar$`repeat`(c(n,1))
+  )
+  
+  # y_preds also noisy; y_pred ~ N(y_pred_mu, y_pred_var))
+  h1z2 <- h1_tilde * z2
+  y_pred_mu <- nnf_linear(input = h1z2, weight = w2_mu, bias = b2_mu)
+  y_pred_var <- nnf_linear(input = h1z2$pow(2), weight = w2_logvar$exp(), bias = b2_logvar$exp())
+  
+  y_pred <- reparameterize(mu = y_pred_mu, logvar = y_pred_var$log())
+  
+  # calculate log dropout rates
+  stability_param <- 1e-8
+  
+  log_alpha1 = z1_logvar - torch_log(z1_mu$pow(2) + stability_param)
+  log_alpha2 = z2_logvar - torch_log(z2_mu$pow(2) + stability_param)
   
   
-  # # # # # # # # # # # # 
-  ##    compute loss
-  KL <- 
-  loss <- nnf_mse_loss(y_pred, y, reduction = "sum")
-  KL
+  #### CALCULATE LOSS ----
+  mse <- nnf_mse_loss(y_pred, y, reduction = "sum")
   
-  if (t %% 10 == 0)
-    cat("Epoch: ", t, "   Loss: ", loss$item(), "\n")
+  kld_1 <- calc_kld(
+    log_alpha = log_alpha1, 
+    weight_mu = w1_mu, 
+    weight_logvar = w1_logvar, 
+    bias_mu = b1_mu, 
+    bias_logvar = b1_logvar
+  )
   
-  # # # # # # # # # # # # 
-  ##    backprop
+  kld_2 <- calc_kld(
+    log_alpha = log_alpha2, 
+    weight_mu = w2_mu, 
+    weight_logvar = w2_logvar, 
+    bias_mu = b2_mu, 
+    bias_logvar = b2_logvar
+  )
+  
+  kld <- kld_1 + kld_2
+  
+  loss <- mse + kld
+  if (t %% 10 == 0){
+    cat("Epoch: ", t, 
+        "   Loss: MSE + KLD:", 
+        mse$item(), " + ", kld$item(), 
+        " = ", loss$item(), "\n")
+    cat("z1_mu = ", as_array(z1_mu), "\n")
+  }
   
   
+  #### BACKPROP----
+  loss$backward()
   
-  
-  # # # # # # # # # # # # 
-  ##    update weights    
-  
+  # update weights
   # Wrap in with_no_grad() because this is a part we DON'T 
   # want to record for automatic gradient computation
   with_no_grad({
-    w1 <- w1$sub_(learning_rate * w1$grad)
-    w2 <- w2$sub_(learning_rate * w2$grad)
-    b1 <- b1$sub_(learning_rate * b1$grad)
-    b2 <- b2$sub_(learning_rate * b2$grad)  
+    z1_mu <- z1_mu$sub_(learning_rate * z1_mu$grad)
+    z2_mu <- z2_mu$sub_(learning_rate * z2_mu$grad)
+    w1_mu <- w1_mu$sub_(learning_rate * w1_mu$grad)
+    w2_mu <- w2_mu$sub_(learning_rate * w2_mu$grad)
+    b1_mu <- b1_mu$sub_(learning_rate * b1_mu$grad)
+    b2_mu <- b2_mu$sub_(learning_rate * b2_mu$grad)
+    z1_logvar <- z1_logvar$sub_(learning_rate * z1_logvar$grad)
+    z2_logvar <- z2_logvar$sub_(learning_rate * z2_logvar$grad)
+    w1_logvar <- w1_logvar$sub_(learning_rate * w1_logvar$grad)
+    w2_logvar <- w2_logvar$sub_(learning_rate * w2_logvar$grad)
+    b1_logvar <- b1_logvar$sub_(learning_rate * b1_logvar$grad)
+    b2_logvar <- b2_logvar$sub_(learning_rate * b2_logvar$grad)
     
-    # Zero gradients after every pass
-    w1$grad$zero_()
-    w2$grad$zero_()
-    b1$grad$zero_()
-    b2$grad$zero_()  
+    # zero out gradients (do not want to accumulate gradient)
+    z1_mu$grad$zero_()
+    z2_mu$grad$zero_()
+    w1_mu$grad$zero_()
+    w2_mu$grad$zero_()
+    b1_mu$grad$zero_()
+    b2_mu$grad$zero_()
+    z1_logvar$grad$zero_()
+    z2_logvar$grad$zero_()
+    w1_logvar$grad$zero_()
+    w2_logvar$grad$zero_()
+    b1_logvar$grad$zero_()
+    b2_logvar$grad$zero_()
   })
-  
-  
-  
-  
-  
-  
+}
+
+```
 
 
 
