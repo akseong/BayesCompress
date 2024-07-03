@@ -495,7 +495,7 @@ with_no_grad({
 
 
 #### GENERATE DATA----
-n <- 100
+n <- 1000
 # input dimensionality (# of features)
 d_in <- 5
 d_true <- 2   # the rest are nuisance vars
@@ -520,10 +520,11 @@ y <- y_scalar$unsqueeze(2)
 
 
 #### NETWORK SETUP----
-d_hidden <- 12
+d_hidden <- 4
 d_out <- length(y[1,])
 learning_rate <- 1e-4
 epochs <- 2000
+tol <- 0.001
 
 
 reparameterize <- function(mu, logvar, cuda = FALSE, sampling = TRUE) {
@@ -618,10 +619,13 @@ b2_logvar <- torch_tensor(
   torch_normal(mean = -9, std = 0.1, size = d_out),
   requires_grad = TRUE)
 
+loss_tminus1 <- torch_tensor(0)
+loss_diff <- torch_tensor(1000)
+t <- 0
 
 #### TRAINING LOOP: ----
-for (t in 1:epochs) {
-  
+while (loss_diff$item() > tol & t <= epochs) {
+  t <- t + 1
   #### FORWARD ----
   # compute z1 & forward through fc1
   # note:
@@ -684,14 +688,16 @@ for (t in 1:epochs) {
   kld <- kld_1 + kld_2
   
   loss <- mse + kld
-  if (t %% 10 == 0){
+  if (t %% 100 == 0){
     cat("Epoch: ", t, 
         "   Loss: MSE + KLD:", 
         mse$item(), " + ", kld$item(), 
         " = ", loss$item(), "\n")
     cat("z1_mu = ", as_array(z1_mu), "\n")
   }
-  
+
+  loss_diff <- abs(loss - loss_tminus1)
+  loss_tminus1 <- loss
   
   #### BACKPROP----
   loss$backward()
