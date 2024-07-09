@@ -213,8 +213,8 @@ BayesianLayerNJ <- nn_module(
     self$reset_parameters(init_weight, init_bias)
     
     # Activations for KL
-    self$sigmoid <- nnf_sigmoid()                # MAY NEED TO USE nn_sigmoid() 
-    self$softplus <- nnf_softplus()
+    self$sigmoid <- nnf_sigmoid                # MAY NEED TO USE nn_sigmoid() 
+    self$softplus <- nnf_softplus
     
     # numerical stability param
     self$epsilon <- 1e-8
@@ -224,12 +224,31 @@ BayesianLayerNJ <- nn_module(
   reset_parameters = function(init_weight, init_bias){
     # initialize means
     stdv <- 1 / sqrt(self$weight_mu$size(1)) # self$weight_mu$size(1) = out_features
-    self$z_mu <- nn_parameter(torch_normal(1, 1e-2, size = self$z_mu$size()))
+    self$z_mu <- torch_normal(1, 1e-2, size = self$z_mu$size())      # potential issue (if not considered leaf node anymore?)
+    if (!is.null(init_weight)) {
+      self$weight_mu <- torch_tensor(init_weight)
+    } else {
+      self$weight_mu <- torch_normal(0, stdv, size = self$weight_mu$size())
+    }
     
+    if (!is.null(init_bias)) {
+      self$bias_mu$data <- torch_tensor(init_bias)
+    } else {
+      self$bias_mu$data <- torch_zeros(self$out_features)
+    }
+    
+    # initialize log variances
+    self$z_logvar <- torch_normal(-9, 1e-2)
+    self$weight_logvar <- torch_normal(-9, 1e-2)
+    self$bias_logvar <- torch_normal(-9, 1e-2)
+  },
+  
+  clip_variances = function() {
+    if (!is.null(self$clip_var)) {
+      self$weight_logvar$data <- self$weight_logvar$data$clamp(max = log(self$clip_var))
+    }
     
   }
-  
-  
   
   
   
