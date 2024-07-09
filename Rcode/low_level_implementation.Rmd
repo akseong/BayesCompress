@@ -520,11 +520,11 @@ y <- y_scalar$unsqueeze(2)
 
 
 #### NETWORK SETUP----
-d_hidden <- 4
+d_hidden <- 20
 d_out <- length(y[1,])
 learning_rate <- 1e-4
 epochs <- 2000
-tol <- 0.001
+tol <- 1e-10
 
 
 reparameterize <- function(mu, logvar, cuda = FALSE, sampling = TRUE) {
@@ -619,7 +619,8 @@ b2_logvar <- torch_tensor(
   torch_normal(mean = -9, std = 0.1, size = d_out),
   requires_grad = TRUE)
 
-loss_tminus1 <- torch_tensor(0)
+# initialize stopping conditions
+loss_tminus1 <- torch_tensor(5)
 loss_diff <- torch_tensor(1000)
 t <- 0
 
@@ -738,6 +739,10 @@ while (loss_diff$item() > tol & t <= epochs) {
 ```
 
 
+# comments
+
+Performance is not good - may be issue with optimizer (basic gradient descent).
+Would expect it do be comparable, however, to vanilla `lm()` since it's a linear model.
 
 
 
