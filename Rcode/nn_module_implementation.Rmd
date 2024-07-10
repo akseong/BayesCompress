@@ -167,6 +167,9 @@ lm_binary_err_rate <- binary_err_rate(est = summary(lmfit)$coef[-1, 4]< 0.05, tr
 ```
 
 
+
+
+
 ```{r}
 
 reparameterize <- function(mu, logvar, cuda = FALSE, sampling = TRUE) {
@@ -195,6 +198,18 @@ BayesianLayerNJ <- nn_module(
     clip_var = NULL
     ) {
     
+    
+    #### code for testing only----
+    in_features <- 5
+    out_features <- 3
+    cuda = FALSE
+    init_weight = NULL
+    init_bias = NULL
+    clip_var = NULL
+    self <- list()
+    ### end testing code
+    
+    
     self$cuda <- cuda
     self$in_features <- in_features
     self$out_features <- out_features
@@ -222,30 +237,36 @@ BayesianLayerNJ <- nn_module(
   },
   
   reset_parameters = function(init_weight, init_bias){
+    
+    # feel like there are issues with using nn_parameter here again 
+    # to define each of these as parameters again.  
+    # not sure how to modify in-place without losing `is_nn_parameter() = TRUE`
+    
+    
     # initialize means
     stdv <- 1 / sqrt(self$weight_mu$size(1)) # self$weight_mu$size(1) = out_features
-    self$z_mu <- torch_normal(1, 1e-2, size = self$z_mu$size())      # potential issue (if not considered leaf node anymore?)
+    self$z_mu <- nn_parameter(torch_normal(1, 1e-2, size = self$z_mu$size()))      # potential issue (if not considered leaf node anymore?)
     if (!is.null(init_weight)) {
-      self$weight_mu <- torch_tensor(init_weight)
+      self$weight_mu <- nn_parameter(torch_tensor(init_weight))
     } else {
-      self$weight_mu <- torch_normal(0, stdv, size = self$weight_mu$size())
+      self$weight_mu <- nn_parameter(torch_normal(0, stdv, size = self$weight_mu$size()))
     }
     
     if (!is.null(init_bias)) {
-      self$bias_mu$data <- torch_tensor(init_bias)
+      self$bias_mu <- nn_parameter(torch_tensor(init_bias))
     } else {
-      self$bias_mu$data <- torch_zeros(self$out_features)
+      self$bias_mu <- nn_parameter(torch_zeros(self$out_features))
     }
     
     # initialize log variances
-    self$z_logvar <- torch_normal(-9, 1e-2)
-    self$weight_logvar <- torch_normal(-9, 1e-2)
-    self$bias_logvar <- torch_normal(-9, 1e-2)
+    self$z_logvar <- nn_parameter(torch_normal(-9, 1e-2, size = self$in_features))
+    self$weight_logvar <- nn_parameter(torch_normal(-9, 1e-2, size = c(self$out_features, self$in_features)))
+    self$bias_logvar <- nn_parameter(torch_normal(-9, 1e-2, size = self$out_features))
   },
   
   clip_variances = function() {
     if (!is.null(self$clip_var)) {
-      self$weight_logvar$data <- self$weight_logvar$data$clamp(max = log(self$clip_var))
+      self$weight_logvar <- nn_parameter(self$weight_logvar$clamp(max = log(self$clip_var)))
     }
     
   }
