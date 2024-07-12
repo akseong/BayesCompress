@@ -336,7 +336,7 @@ BayesianLayerNJ <- nn_module(
     k1 = 0.63576
     k2 = 1.87320
     k3 = 1.48695
-    log_alpha = self$get_log_dropout_rates
+    log_alpha = self$get_log_dropout_rates()
     
     # KL(q(z) || p(z))
     kl_z <- -torch_sum(
@@ -432,9 +432,9 @@ model$parameters
 optimizer <- optim_adam(model$parameters)
 
 mse <- nnf_mse_loss(y_pred, y)
-model$get_model_kld()
+kl <- model$get_model_kld() / n
 
-model$fc1$get_kl
+loss <- mse + kl
 
 ```
 
