@@ -199,15 +199,15 @@ BayesianLayerNJ <- nn_module(
     ) {
     
     
-    #### code for testing only----
-    in_features <- 5
-    out_features <- 3
-    cuda = FALSE
-    init_weight = NULL
-    init_bias = NULL
-    clip_var = NULL
-    self <- nn_module()
-    ### end testing code
+    # #### code for testing only----
+    # in_features <- 5
+    # out_features <- 3
+    # cuda = FALSE
+    # init_weight = NULL
+    # init_bias = NULL
+    # clip_var = NULL
+    # self <- nn_module()
+    # ### end testing code
     
     
     self$cuda <- cuda
@@ -294,9 +294,15 @@ BayesianLayerNJ <- nn_module(
   forward = function(x){
     if (self$deterministic) {
       cat("argument deterministic = TRUE.  Should not be used for training")
-      return(nnf_linear(input = x, weight = self$poast_weight_mu, bias = self$bias_mu))
+      return(
+        nnf_linear(
+          input = x, 
+          weight = self$post_weight_mu, 
+          bias = self$bias_mu
+        )
+      )
     }
-    batch_size <- x$size()[1]
+    batch_size <- x$size(1)
     z <- reparameterize(
       mu = self$z_mu$'repeat'(c(batch_size, 1)), 
       logvar = self$z_logvar$'repeat'(c(batch_size, 1)),
@@ -326,7 +332,7 @@ BayesianLayerNJ <- nn_module(
   },
   
   
-  get_kl <- function() {
+  get_kl <- function(){
     k1 = 0.63576
     k2 = 1.87320
     k3 = 1.48695
@@ -334,30 +340,27 @@ BayesianLayerNJ <- nn_module(
     
     # KL(q(z) || p(z))
     kl_z <- -torch_sum(
-      k1 * self$sigmoid(k2 + k3*log_alpha) - 
-      0.5 * self$softplus(-log_alpha) - 
-      k1
+      k1 * self$sigmoid(k2 + k3*log_alpha) - 0.5 * self$softplus(-log_alpha) - k1
     )
     
     # KL(q(w|z) || p(w|z))
     kl_w_z <- torch_sum(
-      -0.5 * self$weight_logvar + 
-        0.5 * (self$weight_logvar$exp() + self$weight_mu$pow(2)) - 
-        0.5
+      -0.5 * self$weight_logvar + 0.5 * (self$weight_logvar$exp() + self$weight_mu$pow(2)) - 0.5
     )
     
     # KL for bias term
     kl_bias <- torch_sum(
-      -0.5 * self$bias_logvar + 
-        0.5 * (self$bias_logvar$exp() + self$bias_mu$pow(2)) - 
-        0.5
+      -0.5 * self$bias_logvar + 0.5 * (self$bias_logvar$exp() + self$bias_mu$pow(2)) - 0.5
     )
     
     # sum
     kl <- kl_z + kl_w_z + kl_bias
     return(kl)
   }
+  
 )
+
+
 
 ```
 
@@ -366,6 +369,53 @@ BayesianLayerNJ <- nn_module(
 
 
 
+```{r}
+
+
+
+
+net <- nn_module(
+  
+  "NJ_testing",
+  
+  initialize = function() {
+    # in_channels, out_channels, kernel_size, stride = 1, padding = 0
+    
+    self$fc1 <- BayesianLayerNJ(    
+      in_features = d_in, 
+      out_features = d_hidden,
+      cuda = FALSE,
+      init_weight = NULL,
+      init_bias = NULL,
+      clip_var = NULL
+    )
+    
+    self$fc2 <- BayesianLayerNJ(
+      in_features = d_hidden,
+      out_features = d_out
+    )
+    
+  },
+  
+  forward = function(x) {
+    x %>% 
+      self$fc1() %>%
+      nnf_relu() %>%
+      self$fc2()
+  }
+)
+
+
+
+
+
+
+
+
+
+
+
+```
 
 
 
