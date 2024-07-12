@@ -172,10 +172,10 @@ lm_binary_err_rate <- binary_err_rate(est = summary(lmfit)$coef[-1, 4]< 0.05, tr
 
 ```{r}
 
-reparameterize <- function(mu, logvar, cuda = FALSE, sampling = TRUE) {
+reparameterize <- function(mu, logvar, use_cuda = FALSE, sampling = TRUE) {
   if (sampling) {
     std <- logvar$mul(0.5)$exp_()
-    if (cuda) {
+    if (use_cuda) {
       eps <- torch_randn(std$size(), device = "gpu", requires_grad = TRUE)
     } else {
       eps <- torch_randn(std$size(), device = "cpu", requires_grad = TRUE)
@@ -192,7 +192,7 @@ BayesianLayerNJ <- nn_module(
   
   initialize = function(
     in_features, out_features,
-    cuda = FALSE,
+    use_cuda = FALSE,
     init_weight = NULL,
     init_bias = NULL,
     clip_var = NULL
@@ -202,7 +202,7 @@ BayesianLayerNJ <- nn_module(
     # #### code for testing only----
     # in_features <- 5
     # out_features <- 3
-    # cuda = FALSE
+    # use_cuda = FALSE
     # init_weight = NULL
     # init_bias = NULL
     # clip_var = NULL
@@ -210,7 +210,7 @@ BayesianLayerNJ <- nn_module(
     # ### end testing code
     
     
-    self$cuda <- cuda
+    self$use_cuda <- use_cuda
     self$in_features <- in_features
     self$out_features <- out_features
     self$clip_var <- clip_var
@@ -227,9 +227,9 @@ BayesianLayerNJ <- nn_module(
     # initialize parameters randomly or with pretrained net
     self$reset_parameters(init_weight, init_bias)
     
-    # Activations for KL
-    self$sigmoid <- nnf_sigmoid                # MAY NEED TO USE nn_sigmoid() 
-    self$softplus <- nnf_softplus
+    # # Activations for KL
+    # self$sigmoid <- nnf_sigmoid                # MAY NEED TO USE nn_sigmoid() 
+    # self$softplus <- nnf_softplus
     
     # numerical stability param
     self$epsilon <- 1e-8
@@ -307,7 +307,7 @@ BayesianLayerNJ <- nn_module(
       mu = self$z_mu$'repeat'(c(batch_size, 1)), 
       logvar = self$z_logvar$'repeat'(c(batch_size, 1)),
       sampling = !self$deterministic,
-      cuda = self$cuda
+      use_cuda = self$use_cuda
     )
     xz <- x*z
     mu_activations <- nnf_linear(
@@ -325,14 +325,14 @@ BayesianLayerNJ <- nn_module(
       reparameterize(
         mu = mu_activations, 
         logvar = var_activations$log(), 
-        cuda = self$cuda, 
+        use_cuda = self$use_cuda, 
         sampling = !self$deterministic
       )
     )
   },
   
   
-  get_kl <- function(){
+  get_kl = function() {
     k1 = 0.63576
     k2 = 1.87320
     k3 = 1.48695
@@ -340,7 +340,7 @@ BayesianLayerNJ <- nn_module(
     
     # KL(q(z) || p(z))
     kl_z <- -torch_sum(
-      k1 * self$sigmoid(k2 + k3*log_alpha) - 0.5 * self$softplus(-log_alpha) - k1
+      k1 * nnf_sigmoid(k2 + k3*log_alpha) - 0.5 * nnf_softplus(-log_alpha) - k1
     )
     
     # KL(q(w|z) || p(w|z))
@@ -357,7 +357,6 @@ BayesianLayerNJ <- nn_module(
     kl <- kl_z + kl_w_z + kl_bias
     return(kl)
   }
-  
 )
 
 
@@ -370,8 +369,8 @@ BayesianLayerNJ <- nn_module(
 
 
 ```{r}
-
-
+d_hidden <- 10
+d_out <- 1
 
 
 net <- nn_module(
@@ -381,18 +380,22 @@ net <- nn_module(
   initialize = function() {
     # in_channels, out_channels, kernel_size, stride = 1, padding = 0
     
-    self$fc1 <- BayesianLayerNJ(    
+    self$fc1 = BayesianLayerNJ(    
       in_features = d_in, 
       out_features = d_hidden,
-      cuda = FALSE,
+      use_cuda = FALSE,
       init_weight = NULL,
       init_bias = NULL,
       clip_var = NULL
     )
     
-    self$fc2 <- BayesianLayerNJ(
+    self$fc2 = BayesianLayerNJ(
       in_features = d_hidden,
-      out_features = d_out
+      out_features = d_out,
+      use_cuda = FALSE,
+      init_weight = NULL,
+      init_bias = NULL,
+      clip_var = NULL
     )
     
   },
@@ -402,18 +405,36 @@ net <- nn_module(
       self$fc1() %>%
       nnf_relu() %>%
       self$fc2()
+  },
+  
+  
+  get_masks = function(thresholds){
+    # implement later?
+  },
+  
+  
+  get_model_kld = function(){
+    kl1 = self$fc1$get_kl()
+    kl2 = self$fc2$get_kl()
+    kld = kl1 + kl2
+    return(kld)
   }
+  
 )
 
+model = net()
 
 
+y_pred <- model(x)
+model$parameters
 
 
+optimizer <- optim_adam(model$parameters)
 
+mse <- nnf_mse_loss(y_pred, y)
+model$get_model_kld()
 
-
-
-
+model$fc1$get_kl
 
 ```
 
