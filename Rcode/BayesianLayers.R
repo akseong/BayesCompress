@@ -11,6 +11,7 @@ library(torch)
 reparameterize <- function(mu, logvar, use_cuda = FALSE, sampling = TRUE) {
   # for X ~ N(mu, sigma^2), can rewrite as X = mu + sigma * Z
   # "reparam trick" often used to preserve gradient on mu and sigma
+  # Last modified 2024/07/16
   if (sampling) {
     std <- logvar$mul(0.5)$exp_()
   if (use_cuda) {
@@ -26,7 +27,7 @@ reparameterize <- function(mu, logvar, use_cuda = FALSE, sampling = TRUE) {
 
 
 BayesianLayerNJ <- nn_module(
-  
+  # last modified 2024/07/16
   classname = "BayesianLayerNJ",
   
   initialize = function(
