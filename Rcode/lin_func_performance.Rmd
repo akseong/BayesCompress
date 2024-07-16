@@ -1,0 +1,317 @@
+---
+title: "LUW2017 Normal-Jeffreys testing"
+author: "Arnie Seong"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+header-includes:
+  - \usepackage{bm}
+  - \usepackage{xcolor}
+  - \usepackage{amssymb}
+output: 
+  html_document:
+    df_print: paged
+    theme: cerulean
+    highlight: tango
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
+    code_fold: show
+urlcolor: blue
+params:
+  retrain: FALSE
+---
+
+
+```{r setup, include=FALSE, message=F, echo=F, warning=F}
+# LIBRARIES----
+
+#### plotting:
+library(ggplot2)
+library(gridExtra)
+
+# #### Misc:
+library(here)
+library(tidyr)
+library(knitr)
+library(kableExtra)
+library(dplyr)
+
+# DOCUMENT SETUP ----
+# detect pdf/html output, set chunk options, sci.notation 
+latex_out <- knitr::is_latex_output()
+knitr::opts_chunk$set(
+  cache = FALSE, 
+  message = FALSE, 
+  echo = !knitr::is_latex_output(), 
+  warning = FALSE
+)
+
+
+if (knitr::is_latex_output()) {
+  knitr::opts_chunk$set(fig.height=4, 
+                        fig.width=6)
+} else {
+  knitr::opts_chunk$set(out.width = "100%")
+}
+
+options(scipen=10)
+
+
+# TEXT/TABLE FORMATTING----
+
+custom_purple <- ifelse(
+  knitr::is_latex_output(),
+  "purple",
+  "#b51ced"
+)
+
+custom_blue <- ifelse(
+  knitr::is_latex_output(),
+  "blue",
+  "#11579e"
+)
+
+colorize <- function(x, color=custom_purple) {
+  # text color conditional on latex/html output
+  # from rmarkdown cookbook
+  if (knitr::is_latex_output()) {
+    sprintf("\\textcolor{ %s}{ %s}", color, x)
+  } else if (knitr::is_html_output()) {
+    sprintf("<span style='color: %s;'>%s</span>", color, x)
+  } else x
+}
+
+# kable NA handling
+options(knitr.kable.NA = '')
+
+# mykable function
+mykable <- function(tab, cap,
+                    latex_options=c("hold_position", "scale_down", "striped"), 
+                    bootstrap_options=c("striped", "hover", "condensed"), 
+                    full_width=F, position="center", ...){
+  # kable formatting conditional on latex or html output
+  if (knitr::is_latex_output()){
+    kable(x=tab, caption=cap, ...) %>%
+      kableExtra::kable_styling(latex_options = latex_options)
+  } else if (knitr::is_html_output()){
+    kable(x=tab, caption=cap, ...) %>%
+      kableExtra::kable_styling(bootstrap_options = bootstrap_options, full_width=full_width, position=position)
+  }
+}
+
+source(here("Rcode", "BayesianLayers.R"))
+```
+
+
+# Setup
+
+## generate data.  
+
+```{r GENERATE_DATA}
+library(torch)
+
+sim_linear_data <- function(
+  n = 100,
+  d_in = 10,
+  d_true = 3,
+  err_sigma = 1,
+  intercept = 0,
+  true_coefs = NULL
+  ){
+  require(torch)
+  
+  # if true_coefs not provided, generates randomly
+  if (is.null(true_coefs)){
+    true_coefs <- round(runif(d_in,-5, 5), 2)
+    true_coefs[(d_true + 1): d_in] <- 0
+  }
+  
+  # ensure d_in, d_true match true_coefs (if true_coefs provided)
+  d_in <- length(true_coefs)
+  d_true <- sum(true_coefs != 0)
+  
+  # generate x, y
+  x <- torch_randn(n, d_in)
+  y <- x$matmul(true_coefs)$unsqueeze(2) + 
+    intercept + 
+    torch_normal(mean = 0, std = err_sigma, size = c(n, 1))
+  
+  return(
+    list(
+      "y" = y,
+      "x" = x,
+      "true_coefs" = true_coefs,
+      "intercept" = intercept,
+      "n" = n,
+      "d_in" = d_in,
+      "d_true" = d_true
+    )
+  )
+}
+
+binary_err_mat <- function(est, tru){
+  # returns 4-row matrix of FP, TP, FN, TN
+  FP <- est - tru == 1
+  TP <- tru + est == 2
+  FN <- tru - est == 1
+  TN <- abs(tru) + abs(est) == 0
+  return(rbind(FP, TP, FN, TN))
+}
+
+binary_err_rate <- function(est, tru){
+  # returns FP, TP, FN, TN rates
+  rowSums(binary_err_mat(est, tru)) / length(tru)  
+}
+```
+
+
+
+
+```{r GENERATE_LINEAR_DATA}
+true_coefs = c(-0.5, 1, -2, 4, rep(0, times = 100))
+
+lin_simdat <- sim_linear_data(
+  n = 100,
+  true_coefs = true_coefs
+)
+```
+
+
+
+- `r lin_simdat$n` obs generated as basic linear regression $y = X\beta + \epsilon$, with $\epsilon_i \sim N(0,1)$
+- Only first `r lin_simdat$d_true` covariates in $X$ (out of `r lin_simdat$d_in`) actually have an effect (rest are nuisance var.s).  
+- multivariate response also generated (but not used for now)
+
+
+## Normal-Jeffreys SLP fit
+
+```{r DEFINE_NET}
+SLNJ <- nn_module(
+  "SLNJ",
+  initialize = function() {
+    self$fc1 = BayesianLayerNJ(    
+      in_features = lin_simdat$d_in, 
+      out_features = 1,
+      use_cuda = FALSE,
+      init_weight = NULL,
+      init_bias = NULL,
+      clip_var = NULL
+    )
+  },
+  
+  forward = function(x) {
+    x %>% 
+      self$fc1() 
+  },
+
+  get_model_kld = function(){
+    kl1 = self$fc1$get_kl()
+    kld = kl1
+    return(kld)
+  }
+)
+```
+
+
+
+```{r TRAIN_SLNJ}
+
+train_epochs <- 100000
+epoch = 1
+convergence_crit <- 1e-5
+
+
+slnj_net <- SLNJ()
+slnj_net(lin_simdat$x)
+
+optim_slnj <- optim_adam(slnj_net$parameters)
+loss_diff <- 1
+loss <- torch_zeros(1)
+
+while (epoch<train_epochs & abs(loss_diff) > convergence_crit){
+  prev_loss <- loss
+  epoch = epoch + 1
+  
+  y_pred <- slnj_net(lin_simdat$x)
+  
+  mse <- nnf_mse_loss(y_pred, lin_simdat$y)
+  kl <- slnj_net$get_model_kld() / n
+  
+  loss <- mse + kl
+  loss_diff <- (loss - prev_loss)$item()
+  
+  if(epoch %% 100 == 0){
+    cat(
+      "Epoch: ", epoch, 
+      "MSE + KL/n = ", mse$item(), " + ", kl$item(), 
+      " = ", loss$item(), 
+      "\n"
+    )
+    cat(round(as_array(slnj_net$fc1$z_mu), 4), "\n")
+  }
+  
+  # zero out previous gradients
+  optim_slnj$zero_grad()
+  # backprop
+  loss$backward()
+  # update weights
+  optim_slnj$step()
+
+}
+
+slnj_net$fc1$get_log_dropout_rates()$exp()
+sum((slnj_net$fc1$compute_posterior_param()$post_weight_mu - true_coefs)^2)
+mse
+
+
+```
+
+
+
+
+## lm fit 
+
+```{r LM_PERFORMANCE}
+calc_lm_stats <- function(lm_fit, true_coefs, alpha = 0.05){
+  beta_hat <- summary(lm_fit)$coef[-1, 1]
+  binary_err <- binary_err_rate(
+    est = summary(lm_fit)$coef[-1, 4] < alpha, 
+    tru = true_coefs != 0)
+  fit_mse <- mean(lm_fit$residuals^2)
+  coef_mse <- mean((beta_hat - true_coefs)^2)
+  list(
+      "binary_err" = binary_err,
+      "fit_mse" = fit_mse,
+      "coef_mse" = coef_mse
+    )
+}
+
+get_lm_stats <- function(simdat, alpha = 0.05){
+  lm_df <- data.frame(
+    "y" = as_array(simdat$y), 
+    "x" = as_array(simdat$x)
+  )
+  if (simdat$d_in > simdat$n){
+    lm_df <- lm_df[, 1:(ceiling(n/2)+1)]
+  }
+  
+  lm_fit <- lm(y ~ ., lm_df)
+  if (length(simdat$true_coefs) >= n){
+    warning("p >= n; (p - n) + floor(n/2) spurious covariates eliminated to accomodate lm")
+    calc_lm_stats(
+      lm_fit = lm_fit, 
+      true_coefs = simdat$true_coefs[1:ceiling(n/2)], 
+      alpha = alpha
+    )
+  } else {
+    calc_lm_stats(lm_fit = lm_fit, true_coefs = simdat$true_coefs, alpha = alpha)
+  }
+}
+
+get_lm_stats(simdat = lin_simdat)
+```
+
+
+
+- results from 1 run are quite encouraging!!
