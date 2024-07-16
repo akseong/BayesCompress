@@ -112,7 +112,7 @@ n <- 100
 # input dimensionality (# of features)
 d_in <- 5
 d_true <- 2   # the rest are nuisance vars
-
+sig <- 1
 x <- torch_randn(n, d_in)
 coefs <- c(0, 0, -0.5, 2, -5)
 intercept <- 0
@@ -156,7 +156,7 @@ lm_binary_err_rate <- binary_err_rate(est = summary(lmfit)$coef[-1, 4]< 0.05, co
 
 
 
-
+## BayesianLayerNJ code
 
 ```{r}
 
@@ -353,7 +353,7 @@ BayesianLayerNJ <- nn_module(
 
 
 
-
+# Overparameterized MLP training
 
 
 ```{r}
@@ -446,14 +446,14 @@ for (epoch in 1:train_epochs){
   
   loss <- mse + kl
   
-  if(epoch %% 10 == 0){
+  if(epoch %% 100 == 0){
     cat(
       "Epoch: ", epoch, 
       "MSE + KL/n = ", mse$item(), " + ", kl$item(), 
       " = ", loss$item(), 
       "\n"
     )
-    cat(model$fc1$weight_logvar$exp()$mean()$item(), "\n")
+    cat(round(as_array(model$fc1$z_mu), 4), "\n")
   }
   
   # zero out previous gradients
@@ -472,7 +472,6 @@ for (epoch in 1:train_epochs){
 ## `lm()` results
 ```{r}
 summary(lmfit)
-beta_true
 ```
 
 
@@ -499,7 +498,7 @@ for (epoch in 1:train_epochs){
   loss_mlp <- nnf_mse_loss(y_pred, y)
   
   
-  if(epoch %% 10 == 0){
+  if(epoch %% 100 == 0){
     cat(
       "Epoch: ", epoch, 
       "MSE = ", loss_mlp$item(), 
@@ -523,7 +522,7 @@ for (epoch in 1:train_epochs){
 
 
 
-# single layer performance
+## comparison against single layer NJ
 
 ```{r}
 SLNJ <- nn_module(
@@ -585,14 +584,13 @@ for (epoch in 1:train_epochs){
   
   loss <- mse + kl
   
-  if(epoch %% 10 == 0){
+  if(epoch %% 100 == 0){
     cat(
       "Epoch: ", epoch, 
       "MSE + KL/n = ", mse$item(), " + ", kl$item(), 
       " = ", loss$item(), 
       "\n"
     )
-    cat(slnj_net$fc1$weight_logvar$exp()$mean()$item(), "\n")
     cat(round(as_array(slnj_net$fc1$z_mu), 4), "\n")
   }
   
@@ -624,7 +622,7 @@ $\log \alpha = \log(\sigma^2_z) - \log(\mu_z^2)$, so that as $\mu_z \rightarrow 
 It looks like the parameter `z_mu` for the layers is not the actual mixing parameter.  Instead, it looks like the real mixing parameter is what LUW 2017 call the "dropout rate", i.e. the `alpha` parameters (e.g. `slnj_net$fc1$get_log_dropout_rates()$exp()`). 
 
 
-### Q: Is this ($\alpha$ being the real mixing parameter instead of $\mu_z$) a result of all the reparameterizations?
+## Q: Is this ($\alpha$ being the real mixing parameter instead of $\mu_z$) a result of all the reparameterizations?
 
 
 ```{r}
@@ -698,7 +696,7 @@ shown
 
 
 
-Also need to look at the *posterior parameters*.
+## Also need to look at the *posterior parameters*.
 ```{r}
 as_array(slnj_net$fc1$compute_posterior_param()$post_weight_mu)
 coefs
@@ -716,5 +714,5 @@ as_array(model$fc1$compute_posterior_param()$post_weight_mu)
 
 
 #  need to add:
-- clip variances after each epoch
+- clip variances after each epoch (in LUW 2017)
 
