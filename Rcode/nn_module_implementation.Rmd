@@ -112,23 +112,14 @@ n <- 100
 # input dimensionality (# of features)
 d_in <- 5
 d_true <- 2   # the rest are nuisance vars
-# output dimensionality (response dim)
-datagen_out <- 3
 
 x <- torch_randn(n, d_in)
-w1_true <- torch_randn(size = c(d_in, datagen_out))
-w1_true[(d_true+1):d_in, ] <- 0
-b1_true <- torch_randint(-3, 5, size = c(1, datagen_out))$'repeat'(c(n, 1))
-epsilon <- torch_randn(size = c(n, datagen_out))
-# plot(density(as_array(epsilon)))
-# qqnorm(y = as_array(epsilon))
-
-# multivariate response
-y_vector <- x$mm(w1_true) + b1_true + epsilon
+coefs <- c(0, 0, -0.5, 2, -5)
+intercept <- 0
 
 # scalar response
-y_scalar <- y_vector$sum(dim = 2) + epsilon[ , 1]
-y <- y_scalar$unsqueeze(2)
+y <- x$matmul(coefs)$unsqueeze(2) + intercept + torch_normal(mean = 0, std = sig, size = c(n, 1))
+
 ```
 
 
@@ -145,9 +136,6 @@ df <- data.frame(
 
 lmfit <- lm(y ~ ., df)
 summary(lmfit)
-b1_true[1, ]$sum()
-tru <- as_array(abs(w1_true$sum(dim = 2)) > 0)
-
 
 binary_err_mat <- function(est, tru){
   # returns 4-row matrix of FP, TP, FN, TN
@@ -163,7 +151,7 @@ binary_err_rate <- function(est, tru){
   rowSums(binary_err_mat(est, tru)) / length(tru)  
 }
 
-lm_binary_err_rate <- binary_err_rate(est = summary(lmfit)$coef[-1, 4]< 0.05, tru)
+lm_binary_err_rate <- binary_err_rate(est = summary(lmfit)$coef[-1, 4]< 0.05, coefs != 0)
 ```
 
 
@@ -369,7 +357,8 @@ BayesianLayerNJ <- nn_module(
 
 
 ```{r}
-d_hidden <- 10
+d_hidden1 <- 8
+d_hidden2 <- 4
 d_out <- 1
 
 
@@ -382,7 +371,7 @@ net <- nn_module(
     
     self$fc1 = BayesianLayerNJ(    
       in_features = d_in, 
-      out_features = d_hidden,
+      out_features = d_hidden1,
       use_cuda = FALSE,
       init_weight = NULL,
       init_bias = NULL,
@@ -390,21 +379,31 @@ net <- nn_module(
     )
     
     self$fc2 = BayesianLayerNJ(
-      in_features = d_hidden,
-      out_features = d_out,
+      in_features = d_hidden1,
+      out_features = d_hidden2,
       use_cuda = FALSE,
       init_weight = NULL,
       init_bias = NULL,
       clip_var = NULL
     )
     
+    self$fc3 = BayesianLayerNJ(
+      in_features = d_hidden2,
+      out_features = d_out,
+      use_cuda = FALSE,
+      init_weight = NULL,
+      init_bias = NULL,
+      clip_var = NULL
+    )    
   },
   
   forward = function(x) {
     x %>% 
       self$fc1() %>%
       nnf_relu() %>%
-      self$fc2()
+      self$fc2() %>% 
+      nnf_relu() %>% 
+      self$fc3()
   },
   
   
@@ -416,25 +415,278 @@ net <- nn_module(
   get_model_kld = function(){
     kl1 = self$fc1$get_kl()
     kl2 = self$fc2$get_kl()
-    kld = kl1 + kl2
+    kl3 = self$fc3$get_kl()
+    kld = kl1 + kl2 + kl3
     return(kld)
   }
   
 )
 
 model = net()
+```
 
 
-y_pred <- model(x)
-model$parameters
+
+## Training with ADAM
 
 
-optimizer <- optim_adam(model$parameters)
 
-mse <- nnf_mse_loss(y_pred, y)
-kl <- model$get_model_kld() / n
+```{r TRAIN}
+optim <- optim_adam(model$parameters)
 
-loss <- mse + kl
+
+train_epochs <- 2000
+for (epoch in 1:train_epochs){
+  
+  
+  y_pred <- model(x)
+  
+  mse <- nnf_mse_loss(y_pred, y)
+  kl <- model$get_model_kld() / n
+  
+  loss <- mse + kl
+  
+  if(epoch %% 10 == 0){
+    cat(
+      "Epoch: ", epoch, 
+      "MSE + KL/n = ", mse$item(), " + ", kl$item(), 
+      " = ", loss$item(), 
+      "\n"
+    )
+    cat(model$fc1$weight_logvar$exp()$mean()$item(), "\n")
+  }
+  
+  # zero out previous gradients
+  optim$zero_grad()
+  # backprop
+  loss$backward()
+  # update weights
+  optim$step()
+
+}
+```
+
+
+# troubleshooting
+
+## `lm()` results
+```{r}
+summary(lmfit)
+beta_true
+```
+
+
+## comparison against basic MLP
+
+```{r}
+
+mlp <- nn_sequential(
+  nn_linear(d_in, d_hidden1),
+  nn_relu(),
+  nn_linear(d_hidden1, d_hidden2),
+  nn_relu(),
+  nn_linear(d_hidden2, d_out)
+)
+
+optim_mlp <- optim_adam(mlp$parameters)
+
+
+for (epoch in 1:train_epochs){
+  
+  
+  y_pred <- mlp(x)
+  
+  loss_mlp <- nnf_mse_loss(y_pred, y)
+  
+  
+  if(epoch %% 10 == 0){
+    cat(
+      "Epoch: ", epoch, 
+      "MSE = ", loss_mlp$item(), 
+      "\n"
+    )
+  }
+  
+  # zero out previous gradients
+  optim_mlp$zero_grad()
+  # backprop
+  loss_mlp$backward()
+  # update weights
+  optim_mlp$step()
+
+}
+
+
+```
+
+
+
+
+
+# single layer performance
+
+```{r}
+SLNJ <- nn_module(
+  
+  "SLNJ",
+  
+  initialize = function() {
+    # in_channels, out_channels, kernel_size, stride = 1, padding = 0
+    
+    self$fc1 = BayesianLayerNJ(    
+      in_features = d_in, 
+      out_features = 1,
+      use_cuda = FALSE,
+      init_weight = NULL,
+      init_bias = NULL,
+      clip_var = NULL
+    )
+
+  },
+  
+  forward = function(x) {
+    x %>% 
+      self$fc1() 
+  },
+  
+  
+  get_masks = function(thresholds){
+    # implement later?
+  },
+  
+  
+  get_model_kld = function(){
+    kl1 = self$fc1$get_kl()
+    kld = kl1
+    return(kld)
+  }
+  
+)
+
+slnj_net <- SLNJ()
+slnj_net(x)
+
+```
+
+
+```{r}
+optim_slnj <- optim_adam(slnj_net$parameters)
+
+
+train_epochs <- 2000
+
+for (epoch in 1:train_epochs){
+  
+  
+  y_pred <- slnj_net(x)
+  
+  mse <- nnf_mse_loss(y_pred, y)
+  kl <- slnj_net$get_model_kld() / n
+  
+  loss <- mse + kl
+  
+  if(epoch %% 10 == 0){
+    cat(
+      "Epoch: ", epoch, 
+      "MSE + KL/n = ", mse$item(), " + ", kl$item(), 
+      " = ", loss$item(), 
+      "\n"
+    )
+    cat(slnj_net$fc1$weight_logvar$exp()$mean()$item(), "\n")
+    cat(round(as_array(slnj_net$fc1$z_mu), 4), "\n")
+  }
+  
+  # zero out previous gradients
+  optim_slnj$zero_grad()
+  # backprop
+  loss$backward()
+  # update weights
+  optim_slnj$step()
+
+}
+```
+
+
+
+# log_alpha
+
+**log_alpha is calculated as:**
+`log_alpha = self.z_logvar - torch_log(self.z_mu.pow(2) + self.epsilon)`
+(`self.epsilon` is a stability parameter = 1e-8, I'm assuming so that if `z_mu` = 0 we don't get $-\infty$)
+
+Or, essentially: 
+
+$\log \alpha = \log(\sigma^2_z) - \log(\mu_z^2)$, so that as $\mu_z \rightarrow 0$, then $\alpha$ is large.
+
+
+
+**for single-layer NJ**:
+It looks like the parameter `z_mu` for the layers is not the actual mixing parameter.  Instead, it looks like the real mixing parameter is what LUW 2017 call the "dropout rate", i.e. the `alpha` parameters (e.g. `slnj_net$fc1$get_log_dropout_rates()$exp()`). 
+
+
+### Q: Is this ($\alpha$ being the real mixing parameter instead of $\mu_z$) a result of all the reparameterizations?
+
+
+```{r}
+as_array(slnj_net$fc1$get_log_dropout_rates()$exp())
+```
+
+
+**for heavily over-parameterized network**
+```{r}
+as_array(model$fc1$get_log_dropout_rates()$exp())
+as_array(model$fc2$get_log_dropout_rates()$exp())
+
+```
+
+not sure how to interpret this, unfortunately.  Weird stuff in `utils.py`:
+
+In `visualise_weights`, Kullrich seems to be adding the log alphas of the current layer + the layer after it (i.e. for layer $i$, `log_alphas` from layers $i$ and $i+1$) to get the importance weights mask.  
+
+```{r}
+
+la1 <- model$fc1$get_log_dropout_rates()
+la2 <- model$fc2$get_log_dropout_rates()
+la1
+la1$unsqueeze(2)
+la2
+la2$unsqueeze(1)
+
+mask <- la1$unsqueeze(2) + la2$unsqueeze(1)
+mask  # ah! i see.  The vectors are broadcasted so we get a matrix.
+
+plotted_values <- model$fc1$weight_mu$t() * mask
+abs_range <- as_array(max(abs(model$fc1$weight_mu)))
+
+in_plot <- abs(plotted_values) < abs_range
+in_plot
+plotted_values * in_plot
+
+```
+
+Interesting.  So only these weights "matter"?
+
+or is it the opposite?  what happens if a value to be plotted is outside of `vmin`/`vmax` in `matplotlib`?
+```{r}
+plotted_values$clip(-abs_range, abs_range)
+```
+
+
+## pixel_importance
+`visualise_pixel_importance` also interesting:
+(in `example.py` it's given just the data (`x`) and the first layer's `log_alpha` as input)
+This should be the analogue to variable importance (?), for each observation.
+
+```{r}
+
+mask = 1 - la1$exp()
+mask <- mask$clip(0,1)
+# kullrich scales the data values to -0.5 to 0.5,
+x_transformed <- x/max(x) - 0.5
+# then makes the plot of the mask * data only show values from -0.5 to 0.5
+shown <- (x_transformed*mask)$clip(-0.5, .5)
+shown
+
 
 ```
 
@@ -446,27 +698,23 @@ loss <- mse + kl
 
 
 
+Also need to look at the *posterior parameters*.
+```{r}
+as_array(slnj_net$fc1$compute_posterior_param()$post_weight_mu)
+coefs
+
+```
+
+
+```{r}
+
+as_array(model$fc1$compute_posterior_param()$post_weight_mu)
+```
 
 
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+#  need to add:
+- clip variances after each epoch
 
