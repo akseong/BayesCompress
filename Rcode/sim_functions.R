@@ -1,0 +1,117 @@
+##################################################
+## Project:   simulation functions
+## Date:      Jul 17, 2024
+## Author:    Arnie Seong
+##################################################
+
+# DATA GENERATION ----
+## sim_linear_data ----
+sim_linear_data <- function(
+  n = 100,
+  d_in = 10,
+  d_true = 3,
+  err_sigma = 1,
+  intercept = 0,
+  true_coefs = NULL
+){
+  require(torch)
+  
+  # if true_coefs not provided, generates randomly
+  if (is.null(true_coefs)){
+    true_coefs <- round(runif(d_in,-5, 5), 2)
+    true_coefs[(d_true + 1): d_in] <- 0
+  }
+  
+  # ensure d_in, d_true match true_coefs (if true_coefs provided)
+  d_in <- length(true_coefs)
+  d_true <- sum(true_coefs != 0)
+  
+  # generate x, y
+  x <- torch_randn(n, d_in)
+  y <- x$matmul(true_coefs)$unsqueeze(2) + 
+    intercept + 
+    torch_normal(mean = 0, std = err_sigma, size = c(n, 1))
+  
+  return(
+    list(
+      "y" = y,
+      "x" = x,
+      "true_coefs" = true_coefs,
+      "intercept" = intercept,
+      "n" = n,
+      "d_in" = d_in,
+      "d_true" = d_true
+    )
+  )
+}
+
+# ASSESSMENT FUNCS ----
+## binary_err_mat ----
+binary_err_mat <- function(est, tru){
+  # returns 4-row matrix of FP, TP, FN, TN
+  FP <- est - tru == 1
+  TP <- tru + est == 2
+  FN <- tru - est == 1
+  TN <- abs(tru) + abs(est) == 0
+  return(rbind(FP, TP, FN, TN))
+}
+
+## binary_err_rate ----
+binary_err_rate <- function(est, tru){
+  # returns FP, TP, FN, TN rates
+  rowSums(binary_err_mat(est, tru)) / length(tru)  
+}
+
+
+# FOR LM() ----
+##calc_lm_stats----
+calc_lm_stats <- function(lm_fit, true_coefs, alpha = 0.05){
+  beta_hat <- summary(lm_fit)$coef[-1, 1]
+  binary_err <- binary_err_rate(
+    est = summary(lm_fit)$coef[-1, 4] < alpha, 
+    tru = true_coefs != 0)
+  fit_mse <- mean(lm_fit$residuals^2)
+  coef_mse <- mean((beta_hat - true_coefs)^2)
+  list(
+    "binary_err" = binary_err,
+    "fit_mse" = fit_mse,
+    "coef_mse" = coef_mse
+  )
+}
+
+## get_lm_stats ----
+get_lm_stats <- function(simdat, alpha = 0.05){
+  lm_df <- data.frame(
+    "y" = as_array(simdat$y), 
+    "x" = as_array(simdat$x)
+  )
+  if (simdat$d_in > simdat$n){
+    lm_df <- lm_df[, 1:(ceiling(simdat$n/2)+1)]
+  }
+  
+  lm_fit <- lm(y ~ ., lm_df)
+  if (length(simdat$true_coefs) >= n_obs){
+    warning("p >= n; (p - n) + floor(n/2) spurious covariates eliminated to accomodate lm")
+    calc_lm_stats(
+      lm_fit = lm_fit, 
+      true_coefs = simdat$true_coefs[1:ceiling(simdat$n/2)], 
+      alpha = alpha
+    )
+  } else {
+    calc_lm_stats(lm_fit = lm_fit, true_coefs = simdat$true_coefs, alpha = alpha)
+  }
+}
+
+
+
+# FOR SPIKE-SLAB ----
+
+
+
+# FOR MOMBF ----
+
+
+# FOR LASSO ----
+
+
+
