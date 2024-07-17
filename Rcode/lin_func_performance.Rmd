@@ -104,9 +104,16 @@ source(here("Rcode", "BayesianLayers.R"))
 ```
 
 
-# Setup
+# Linear data (1 run)
 
-## generate data.  
+basic simulation setting:  
+
+- p > n
+- sparse truth (4 true covariates, 100 nuisance)
+- p = 104, n = 100
+
+
+## generate linear data  
 
 ```{r GENERATE_DATA}
 library(torch)
@@ -169,10 +176,11 @@ binary_err_rate <- function(est, tru){
 
 
 ```{r GENERATE_LINEAR_DATA}
+n_obs <- 100
 true_coefs = c(-0.5, 1, -2, 4, rep(0, times = 100))
 
 lin_simdat <- sim_linear_data(
-  n = 100,
+  n = n_obs,
   true_coefs = true_coefs
 )
 ```
@@ -185,6 +193,19 @@ lin_simdat <- sim_linear_data(
 
 
 ## Normal-Jeffreys SLP fit
+
+Let $l$ index the layer of the weight matrix $W_l$ (here, $l \in \{1, 2\}$), and $i$ index the row of $W_l$, and $j$ index the columns. The Bayesian model $p(w_{lij} | z_{l i \cdot} p(z_{l i \cdot})$ and variational distribution $q(W_l, z)$ are:
+
+$$\begin{align} 
+  p(z_{li \cdot}) &\propto |z_{li \cdot}|^{-1}
+  \\
+  p(w_{lij} | z_{l i \cdot}) &= N \left(w_{lij} | 0, z_{l i \cdot}^2 \right)
+  \\
+  q(W_l, z) &= \prod_{l, i} N \left(z_{li \cdot} | \mu_{z_{l i \cdot}}, \mu_{z_{l i \cdot} }^2 \alpha_{l i \cdot} \right) \prod_{l,i,j} N \left( w_{lij} | z_{l i \cdot} \mu_{lij}, z_{l i \cdot}^2 \sigma_{lij}^2 \right)
+\end{align}$$
+
+Since the data here is linear, we apply the variational Bayes model to a single neuron / single layer (i.e. regular multivariate linear regression model).
+
 
 ```{r DEFINE_NET}
 SLNJ <- nn_module(
@@ -217,8 +238,13 @@ SLNJ <- nn_module(
 
 ```{r TRAIN_SLNJ}
 
+lin_simdat <- sim_linear_data(
+  n = n_obs,
+  true_coefs = true_coefs
+)
+
 train_epochs <- 100000
-epoch = 1
+epoch <- 1
 convergence_crit <- 1e-5
 
 
@@ -229,26 +255,26 @@ optim_slnj <- optim_adam(slnj_net$parameters)
 loss_diff <- 1
 loss <- torch_zeros(1)
 
-while (epoch<train_epochs & abs(loss_diff) > convergence_crit){
+while (epoch < train_epochs & abs(loss_diff) > convergence_crit){
   prev_loss <- loss
-  epoch = epoch + 1
+  epoch <- epoch + 1
   
   y_pred <- slnj_net(lin_simdat$x)
   
   mse <- nnf_mse_loss(y_pred, lin_simdat$y)
-  kl <- slnj_net$get_model_kld() / n
+  kl <- slnj_net$get_model_kld() / lin_simdat$n
   
   loss <- mse + kl
   loss_diff <- (loss - prev_loss)$item()
   
-  if(epoch %% 100 == 0){
+  if(epoch %% 1000 == 0){
     cat(
       "Epoch: ", epoch, 
       "MSE + KL/n = ", mse$item(), " + ", kl$item(), 
       " = ", loss$item(), 
       "\n"
     )
-    cat(round(as_array(slnj_net$fc1$z_mu), 4), "\n")
+    # cat(round(as_array(slnj_net$fc1$z_mu), 4), "\n")
   }
   
   # zero out previous gradients
@@ -259,13 +285,23 @@ while (epoch<train_epochs & abs(loss_diff) > convergence_crit){
   optim_slnj$step()
 
 }
-
-slnj_net$fc1$get_log_dropout_rates()$exp()
-sum((slnj_net$fc1$compute_posterior_param()$post_weight_mu - true_coefs)^2)
-mse
-
-
 ```
+
+
+```{r SLNJ_STATS, results="hold"}
+
+dropout_alphas <- slnj_net$fc1$get_log_dropout_rates()$exp()
+mse <- sum((slnj_net$fc1$compute_posterior_param()$post_weight_mu - true_coefs)^2)
+
+slnj_keeps <- slnj_net$fc1$get_log_dropout_rates()$exp() < 0.05
+slnj_bin_err <- binary_err_rate(est = as_array(slnj_keeps), tru = lin_simdat$true_coefs != 0 )
+
+cat("mse ", as_array(mse), "\n")
+cat("binary error: \n")
+slnj_bin_err
+```
+
+not bad!
 
 
 
@@ -293,15 +329,15 @@ get_lm_stats <- function(simdat, alpha = 0.05){
     "x" = as_array(simdat$x)
   )
   if (simdat$d_in > simdat$n){
-    lm_df <- lm_df[, 1:(ceiling(n/2)+1)]
+    lm_df <- lm_df[, 1:(ceiling(simdat$n/2)+1)]
   }
   
   lm_fit <- lm(y ~ ., lm_df)
-  if (length(simdat$true_coefs) >= n){
+  if (length(simdat$true_coefs) >= n_obs){
     warning("p >= n; (p - n) + floor(n/2) spurious covariates eliminated to accomodate lm")
     calc_lm_stats(
       lm_fit = lm_fit, 
-      true_coefs = simdat$true_coefs[1:ceiling(n/2)], 
+      true_coefs = simdat$true_coefs[1:ceiling(simdat$n/2)], 
       alpha = alpha
     )
   } else {
@@ -312,6 +348,48 @@ get_lm_stats <- function(simdat, alpha = 0.05){
 get_lm_stats(simdat = lin_simdat)
 ```
 
+- note that these results are after giving `lm()` quite a large advantage (keeping only half of the nuisance variables)
+
+- results from 1 run are quite encouraging!
 
 
-- results from 1 run are quite encouraging!!
+
+
+# Linear data simulation
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Functional Data setting
+
+- how to adapt to Saez data setting?
+- how to decide on model complexity?
+   - 1 hidden layer, 32 nodes?
+   - better to start off overparameterizing since algorithm prunes itself?
+   
+
+
+```{r}
+
+```
+
+
+
+
+
+
+
+
+
+
+
