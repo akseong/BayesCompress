@@ -567,8 +567,9 @@ post_w1$post_weight_mu
 
 
 - takes a looong time to start to get to larger alpha (dropout) values
-- maybe should initialize with dropout near 1
+- maybe should initialize with dropout ~ 1/2
 - yup!  helps.
+- test with more nuisance vars
 
 
 # Functional Data setting with group diffs
