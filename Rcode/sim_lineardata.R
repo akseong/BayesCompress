@@ -13,9 +13,6 @@ library(dplyr)
 library(BoomSpikeSlab)
 library(glmnet)
 
-
-
-
 library(torch)
 source(here("Rcode", "BayesianLayers.R"))
 source(here("Rcode", "sim_functions.R"))
@@ -26,7 +23,7 @@ source(here("Rcode", "sim_functions.R"))
 
 n_obs <- 100
 true_coefs = c(-0.5, 1, -2, 4, rep(0, times = 100))
-train_epochs <- 10000
+train_epochs <- 100
 
 convergence_crit <- 1e-5
 verbose <- TRUE
@@ -71,7 +68,7 @@ SLNJ <- nn_module(
 )
 
 slnj_net <- SLNJ()
-slnj_net(lin_simdat$x)
+# slnj_net(lin_simdat$x)
 
 optim_slnj <- optim_adam(slnj_net$parameters)
 loss_diff <- 1
