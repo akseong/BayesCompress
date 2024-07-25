@@ -82,7 +82,8 @@ BayesianLayerNJ <- nn_module(
     }
     
     # initialize log variances
-    self$z_logvar <- nn_parameter(torch_normal(-9, 1e-2, size = self$in_features))
+    self$z_logvar <- nn_parameter(torch_normal(log(1/2), 1e-2, size = self$in_features)) 
+    # z_logvar init changed from original proposed init value to make dropout parameter alpha ~ 1/2
     self$weight_logvar <- nn_parameter(torch_normal(-9, 1e-2, size = c(self$out_features, self$in_features)))
     self$bias_logvar <- nn_parameter(torch_normal(-9, 1e-2, size = self$out_features))
   },
