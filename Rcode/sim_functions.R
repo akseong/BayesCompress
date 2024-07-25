@@ -50,16 +50,26 @@ sim_linear_data <- function(
 binary_err_mat <- function(est, tru){
   # returns 4-row matrix of FP, TP, FN, TN
   FP <- est - tru == 1
-  TP <- tru + est == 2
-  FN <- tru - est == 1
+  TP <- est + tru == 2
+  FN <- est - tru == -1
   TN <- abs(tru) + abs(est) == 0
   return(rbind(FP, TP, FN, TN))
 }
 
-## binary_err_rate ----
+# binary_err----
+binary_err <- function(est, tru){
+  # returns FP, TP, FN, TN as percentage of all decisions
+  rowSums(binary_err_mat(est, tru)) / length(tru)  
+}
+
+# binary_err_rate----
 binary_err_rate <- function(est, tru){
   # returns FP, TP, FN, TN rates
-  rowSums(binary_err_mat(est, tru)) / length(tru)  
+  decision_counts <- rowSums(binary_err_mat(est, tru))
+  pred_pos <- decision_counts[1] + decision_counts[2]
+  pred_neg <- decision_counts[3] + decision_counts[4]
+  denom <- c(pred_pos, pred_pos, pred_neg, pred_neg)
+  decision_counts / denom
 }
 
 
