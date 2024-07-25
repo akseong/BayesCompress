@@ -243,7 +243,7 @@ lin_simdat <- sim_linear_data(
   true_coefs = true_coefs
 )
 
-train_epochs <- 100000
+train_epochs <- 10000
 epoch <- 1
 convergence_crit <- 1e-5
 
@@ -355,15 +355,6 @@ get_lm_stats(simdat = lin_simdat)
 
 
 
-# Linear data simulation
-
-
-
-
-
-
-
-
 
 
 
@@ -372,21 +363,224 @@ get_lm_stats(simdat = lin_simdat)
 
 # Functional Data setting
 
-- how to adapt to Saez data setting?
-- how to decide on model complexity?
-   - 1 hidden layer, 32 nodes?
-   - better to start off overparameterizing since algorithm prunes itself?
-   
 
 
 ```{r}
+sim_func_data <- function(
+  n = 1000,
+  d_in = 10,
+  flist = list(f1, f2, f3),
+  err_sigma = 1
+){
+  # generate x, y
+  x <- torch_randn(n, d_in)
+  y <- rep(0, n)
+  for(j in 1:length(flist)){
+    y <- y + flist[[j]](x[,j])
+  }
+  y <- y$unsqueeze(2) + torch_normal(mean = 0, std = err_sigma, size = c(n, 1))
+  
+  return(
+    list(
+      "y" = y,
+      "x" = x,
+      "n" = n,
+      "d_in" = d_in,
+      "d_true" = length(flist)
+    )
+  )
+}
+
+```
+
+
+## checking data generation
+
+```{r}
+f1 <- function(x) exp(x/2)
+
+f2 <- function(x) cos(pi*x)
+
+f3 <- function(x) abs(x)^(1.5)
+
+# checking
+td <- sim_func_data(flist = list(f1, f2, f3), err_sigma = 0)
+
+y <- as_array(td$y)
+x1 <- as_array(td$x[,1])
+x2 <- as_array(td$x[, 2])
+x3 <- as_array(td$x[, 3])
+x4 <- as_array(td$x[, 4])
+
+
+plot(x1, y, main = "checking f1 = exp(x1/2)")
+plot(x2, y, main = "checking f2 = cos(pi*x2")
+plot(x3, y, main = "checking x3 = abs(x)^(1.5)")
+plot(x4, y, main = "checking x4 (should be white noise)")
 
 ```
 
 
 
+## model
+
+```{r}
+fdat <- sim_func_data(
+  n = 10000,
+  d_in = 20,
+  flist = list(f1, f2, f3), 
+  err_sigma = 1)
+
+d_hidden1 <- 50
+d_hidden2 <- 25
+d_out <- 1
+
+net <- nn_module(
+  "mlp_NJ",
+  
+  initialize = function() {
+    
+    self$fc1 = BayesianLayerNJ(    
+      in_features = fdat$d_in, 
+      out_features = d_hidden1,
+      use_cuda = FALSE,
+      init_weight = NULL,
+      init_bias = NULL,
+      clip_var = NULL
+    )
+    
+    self$fc2 = BayesianLayerNJ(    
+      in_features = d_hidden1, 
+      out_features = d_hidden2,
+      use_cuda = FALSE,
+      init_weight = NULL,
+      init_bias = NULL,
+      clip_var = NULL
+    )
+    
+    self$fc3 = BayesianLayerNJ(    
+      in_features = d_hidden2, 
+      out_features = d_out,
+      use_cuda = FALSE,
+      init_weight = NULL,
+      init_bias = NULL,
+      clip_var = NULL
+    )
+
+  },
+
+  forward = function(x) {
+    x %>% 
+      self$fc1() %>%
+      nnf_relu() %>%
+      self$fc2() %>% 
+      nnf_relu() %>% 
+      self$fc3()
+  },
+  
+  
+  get_masks = function(thresholds){
+    # implement later?
+  },
+  
+  
+  get_model_kld = function(){
+    kl1 = self$fc1$get_kl()
+    kl2 = self$fc2$get_kl()
+    kl3 = self$fc3$get_kl()
+    kld = kl1 + kl2 + kl3
+    return(kld)
+  }
+)
 
 
+```
+
+
+## train
+
+```{r}
+fcn_model <- net()
+x <- fdat$x
+y <- fdat$y
+# fcn_model(fdat$x)
+
+optim <- optim_adam(fcn_model$parameters)
+
+train_epochs <- 5000
+loss_mat <- array(data = NA, dim = c(train_epochs/100, 4))
+colnames(loss_mat) <- c("epoch", "mse", "kl", "loss")
+  
+for (epoch in 1:train_epochs){
+  
+  y_pred <- fcn_model(x)
+  
+  mse <- nnf_mse_loss(y_pred, y)
+  kl <- fcn_model$get_model_kld() / fdat$n
+  
+  loss <- mse + kl
+  
+  if(epoch %% 100 == 0){
+    cat(
+      "Epoch: ", epoch, 
+      "MSE + KL/n = ", mse$item(), " + ", kl$item(), 
+      " = ", loss$item(), 
+      "\n"
+    )
+    dropout_alphas <- fcn_model$fc1$get_log_dropout_rates()$exp()
+    cat(round(as_array(dropout_alphas), 4), "\n")
+    loss_mat[epoch/100, ] = c(epoch, mse$item(), kl$item(), loss$item())
+  }
+  
+  # zero out previous gradients
+  optim$zero_grad()
+  # backprop
+  loss$backward()
+  # update weights
+  optim$step()
+
+}
+
+
+dropout_alphas <- fcn_model$fc1$get_log_dropout_rates()$exp()
+
+fcn_model_keeps <- fcn_model$fc1$get_log_dropout_rates()$exp() < 0.05
+true_gam <- c(
+  rep(T, times = fdat$d_true),
+  rep(F, times = fdat$d_in - fdat$d_true)
+)
+fcn_model_bin_err <- binary_err_rate(est = as_array(fcn_model_keeps), tru =  true_gam)
+
+cat("binary error: \n")
+fcn_model_bin_err
+
+
+post_w1 <- fcn_model$fc1$compute_posterior_param()
+
+post_w1$post_weight_mu
+
+
+
+
+```
+
+
+
+- takes a looong time to start to get to larger alpha (dropout) values
+- maybe should initialize with dropout near 1
+- yup!  helps.
+
+
+# Functional Data setting with group diffs
+
+- how to adapt to Saez data setting?
+- how to decide on model complexity?
+   - 1 hidden layer, 32 nodes?
+   - better to start off overparameterizing since algorithm prunes itself?
+   
+- use Saez data and same basic simulation procedures (orthog design matrix, cut basis, etc.), and add nuisance vars?
+
+- is there a way to avoid projecting time variable onto 0-deg spline basis?  i.e. work with time variable directly to identify when time variable is important?
 
 
 
