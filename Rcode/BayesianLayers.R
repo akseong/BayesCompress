@@ -35,6 +35,7 @@ BayesianLayerNJ <- nn_module(
     use_cuda = FALSE,
     init_weight = NULL,
     init_bias = NULL,
+    init_alpha = 1/2,
     clip_var = NULL
   ){
     
@@ -53,14 +54,14 @@ BayesianLayerNJ <- nn_module(
     self$bias_logvar <- nn_parameter(torch_randn(out_features))
     
     # initialize parameters randomly or with pretrained net
-    self$reset_parameters(init_weight, init_bias)
+    self$reset_parameters(init_weight, init_bias, init_alpha)
     
     # numerical stability param
     self$epsilon <- 1e-8
   },
   
   
-  reset_parameters = function(init_weight, init_bias){
+  reset_parameters = function(init_weight, init_bias, init_alpha){
     
     # feel like there may be issues with using nn_parameter here again 
     # to populate each of these, but not sure  
@@ -82,7 +83,7 @@ BayesianLayerNJ <- nn_module(
     }
     
     # initialize log variances
-    self$z_logvar <- nn_parameter(torch_normal(log(1/2), 1e-2, size = self$in_features)) 
+    self$z_logvar <- nn_parameter(torch_normal(mean = log(init_alpha), 1e-2, size = self$in_features)) 
     # z_logvar init changed from original proposed init value to make dropout parameter alpha ~ 1/2
     self$weight_logvar <- nn_parameter(torch_normal(-9, 1e-2, size = c(self$out_features, self$in_features)))
     self$bias_logvar <- nn_parameter(torch_normal(-9, 1e-2, size = self$out_features))
