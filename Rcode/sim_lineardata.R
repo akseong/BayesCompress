@@ -18,203 +18,284 @@ source(here("Rcode", "BayesianLayers.R"))
 source(here("Rcode", "sim_functions.R"))
 
 
-
-
+n_sims <- 3
+res <- sapply(1:n_sims, function(x) NULL)
 
 n_obs <- 100
 true_coefs = c(-0.5, 1, -2, 4, rep(0, times = 100))
-train_epochs <- 100
+d_in <- length(true_coefs)
 
-convergence_crit <- 1e-5
-verbose <- TRUE
+
+
+
+# # # # # # # # # # # # 
+##    SLNJ training parameters
+
+# set initial value for dropout rate alpha
+# (default value is 1/2)
+# here we assume some sparsity, so set alpha to 0.9
+init_alpha <- 0.9
+use_cuda <- cuda_is_available()
+max_train_epochs <- 20000
+verbose <- FALSE
+burn_in <- 5000
+convergence_crit <- 1e-6
 # loss moving average stopping criterion length
 ma_length <- 50
-loss_store_vec <- rep(NA, times = 2*ma_length)
 
 
 
-lin_simdat <- sim_linear_data(
-  n = n_obs,
-  true_coefs = true_coefs
-)
 
-# # # # # # # # # # # # # # # # # # # # # # # # #
-## BAYESIAN LAYER NJ ----
-# # # # # # # # # # # # # # # # # # # # # # # # #
-
-SLNJ <- nn_module(
-  "SLNJ",
-  initialize = function() {
-    self$fc1 = BayesianLayerNJ(    
-      in_features = lin_simdat$d_in, 
-      out_features = 1,
-      use_cuda = FALSE,
-      init_weight = NULL,
-      init_bias = NULL,
-      clip_var = NULL
-    )
-  },
+for(sim_num in 1:n_sims){
   
-  forward = function(x) {
-    x %>% 
-      self$fc1() 
-  },
   
-  get_model_kld = function(){
-    kl1 = self$fc1$get_kl()
-    kld = kl1
-    return(kld)
-  }
-)
-
-slnj_net <- SLNJ()
-# slnj_net(lin_simdat$x)
-
-optim_slnj <- optim_adam(slnj_net$parameters)
-loss_diff <- 1
-loss <- torch_zeros(1)
-loss_store_mat <- array(NA, dim = c(3, 2*ma_length))
-rownames(loss_store_mat) <- c("epoch", "loss", "loss_MA")
-burn_in <- 100
-loss_ma_stop <- FALSE
-
-epoch <- 1
-stop_criteria_reached <- FALSE
-
-while (epoch < train_epochs & !stop_criteria_reached){
-  prev_loss <- loss
-  epoch <- epoch + 1
+  # # # # # # # # # # # # 
+  ##    SIMULATION START    
+  # generate data
+  lin_simdat <- sim_linear_data(
+    n = n_obs,
+    true_coefs = true_coefs
+  )
   
-  y_pred <- slnj_net(lin_simdat$x)
+  # # # # # # # # # # # # # # # # # # # # # # # # #
+  ## BAYESIAN LAYER NJ ----
+  # # # # # # # # # # # # # # # # # # # # # # # # #
   
-  mse <- nnf_mse_loss(y_pred, lin_simdat$y)
-  kl <- slnj_net$get_model_kld() / lin_simdat$n
-  
-  loss <- mse + kl
-  loss_diff <- (loss - prev_loss)$item()
-  
-  if(epoch %% 1000 == 0 & verbose){
-    cat(
-      "Epoch: ", epoch, 
-      "MSE + KL/n = ", mse$item(), " + ", kl$item(), 
-      " = ", loss$item(), 
-      "\n"
-    )
-
-  }
-  
-  if (epoch > burn_in) {
-    # stopping criterion --- if loss MA hasn't gone down
-    # in ma_length epochs, stop training
-    store_ind <- epoch %% (2*ma_length) + 1
-    loss_store_mat[1, store_ind] <- epoch
-    loss_store_mat[2, store_ind] <- loss$item()
-
-    # subset losses to contribute to MA
-    if (store_ind == 2*ma_length){
-      ma_inds <- c(2*ma_length, 1:(ma_length-1))
-    } else if (store_ind > ma_length){
-      ma_inds <- c(
-        store_ind:(2 * ma_length),
-        1:((store_ind-ma_length) %% ma_length)
-      )[1:ma_length]
-    } else {
-      ma_inds <- store_ind:(store_ind + ma_length - 1)
+  SLNJ <- nn_module(
+    "SLNJ",
+    initialize = function() {
+      self$fc1 = BayesianLayerNJ(    
+        in_features = lin_simdat$d_in, 
+        out_features = 1,
+        use_cuda = use_cuda,
+        init_weight = NULL,
+        init_bias = NULL,
+        init_alpha = init_alpha,
+        clip_var = NULL
+      )
+    },
+    
+    forward = function(x) {
+      x %>% 
+        self$fc1() 
+    },
+    
+    get_model_kld = function(){
+      kl1 = self$fc1$get_kl()
+      kld = kl1
+      return(kld)
     }
-
-    losses_vec <- loss_store_mat[2, ma_inds]
-    loss_store_mat[3, store_ind] <- mean(losses_vec, na.rm = TRUE)
-    if (epoch > (burn_in + 2*ma_length)){
-      loss_ma_vec <- loss_store_mat[3, ma_inds]
-      loss_ma_diff <- diff(loss_ma_vec)
-      losses_diff <- diff(losses_vec)
-      if (sum(loss_ma_diff > 0 & losses_diff > 0) >= length(loss_ma_diff)) {
-        loss_ma_stop <- TRUE
+  )
+  
+  slnj_net <- SLNJ()
+  optim_slnj <- optim_adam(slnj_net$parameters)
+  
+  
+  # initialize stopping criteria params
+  # 3 stopping criteria:
+  #    1: epochs > max_train_epochs
+  #    2: loss_diff < convergence crit
+  #    3: loss moving average (average over last ma_length epochs) 
+  #       has increased for the last ma_length epochs.
+  #       In this case, best model occurred ma_length epochs ago.
+  loss_diff <- 1
+  loss <- torch_zeros(1)
+  loss_ma_stop <- FALSE
+  converge_stop <- FALSE
+  
+  # track loss, alphas for stopping criteria
+  loss_store_mat <- array(NA, dim = c(3, 2*ma_length))
+  rownames(loss_store_mat) <- c("epoch", "loss", "loss_MA")
+  log_alpha_mat <- array(NA, dim = c(2*ma_length, d_in + 4))
+  colnames(log_alpha_mat) <- c(
+    paste0("x", 1:d_in),
+    "epoch",
+    "mse",
+    "kl",
+    "coef_mse"
+  )
+  
+  epoch <- 0
+  while (epoch < max_train_epochs & !converge_stop & !loss_ma_stop){
+    prev_loss <- loss
+    epoch <- epoch + 1
+    
+    y_pred <- slnj_net(lin_simdat$x)
+    
+    mse <- nnf_mse_loss(y_pred, lin_simdat$y)
+    kl <- slnj_net$get_model_kld() / lin_simdat$n
+    
+    loss <- mse + kl
+    loss_diff <- (loss - prev_loss)$item()
+    
+    if(epoch %% 1000 == 0 & verbose){
+      cat(
+        "Epoch: ", epoch, 
+        "MSE + KL/n = ", mse$item(), " + ", kl$item(), 
+        " = ", loss$item(), 
+        "\n"
+      )
+      slnj_keeps <- slnj_net$fc1$get_log_dropout_rates()$exp() < 0.05
+      slnj_bin_err <- binary_err(est = as_array(slnj_keeps), tru = lin_simdat$true_coefs != 0 )
+      cat("binary error: \n")
+      cat(round(slnj_bin_err, 4))
+      cat("\n")
+  
+    }
+    
+    if (epoch > burn_in) {
+      # stopping criterion --- if loss MA hasn't decreased
+      # in ma_length epochs, stop training
+      store_ind <- epoch %% (2*ma_length) + 1
+      loss_store_mat[1, store_ind] <- epoch
+      loss_store_mat[2, store_ind] <- loss$item()
+      log_alpha_mat[store_ind, ] <- c(
+        as_array(slnj_net$fc1$get_log_dropout_rates()),
+        epoch,
+        mse$item(), 
+        kl$item(),
+        sum((slnj_net$fc1$compute_posterior_param()$post_weight_mu - true_coefs)^2)$item()
+      )
+      
+      # store loss moving average
+      # subset losses to contribute to MA
+      if (store_ind == 2*ma_length){
+        ma_inds <- c(2*ma_length, 1:(ma_length-1))
+      } else if (store_ind > ma_length){
+        ma_inds <- c(
+          store_ind:(2 * ma_length),
+          1:((store_ind-ma_length) %% ma_length)
+        )[1:ma_length]
+      } else {
+        ma_inds <- store_ind:(store_ind + ma_length - 1)
       }
+  
+      losses_vec <- loss_store_mat[2, ma_inds]
+      loss_store_mat[3, store_ind] <- mean(losses_vec, na.rm = TRUE)
+      
+      if (epoch > (burn_in + 2*ma_length)){
+        
+        converge_stop <- abs(loss_diff) < convergence_crit
+        
+        loss_ma_vec <- loss_store_mat[3, ma_inds]
+        loss_ma_diff <- diff(loss_ma_vec)
+        if (sum(loss_ma_diff > 0) >= length(loss_ma_diff)) {
+          loss_ma_stop <- TRUE
+        }
+      }
+  
     }
-
+    
+    
+    # zero out previous gradients
+    optim_slnj$zero_grad()
+    # backprop
+    loss$backward()
+    # update weights
+    optim_slnj$step()
+    
   }
   
-  # zero out previous gradients
-  optim_slnj$zero_grad()
-  # backprop
-  loss$backward()
-  # update weights
-  optim_slnj$step()
+  # best model's alphas / other metrics
+  if (loss_ma_stop) {
+    best_epoch_row <- which(log_alpha_mat[, d_in + 1] == epoch - (ma_length))
+  } else {
+    best_epoch_row <- which(log_alpha_mat[, d_in + 1] == epoch)
+  }
   
-  stop_criteria_reached <- abs(loss_diff) < convergence_crit  |  loss_ma_stop
+  # in case which returns "integer(0)" above:
+  if (length(best_epoch_row) == 0){
+    best_epoch_row <- store_ind
+  }
+  
+  log_dropout_alphas <- log_alpha_mat[best_epoch_row, 1:d_in]
+  other_metrics <- c(log_alpha_mat[best_epoch_row, d_in + 1:4])
+  stop_reason <- c(
+    "max_epochs" = epoch > max_train_epochs,
+    "converge_crit" = converge_stop,
+    "loss_ma" = loss_ma_stop
+  ) 
+  
+  
+  
+  if (verbose){
+    slnj_keeps <- exp(log_dropout_alphas) < 0.05
+    slnj_bin_err <- binary_err(est = slnj_keeps, tru = lin_simdat$true_coefs != 0 )
+    
+    cat("binary error: \n")
+    slnj_bin_err
+  }
+  
+  
+  
+  # store results: 
+  # epoch
+  # stop_reason
+  # dropout_alphas
+  # mse
+  slnj_res <- list(
+    "epoch" = epoch,
+    "stop_reason" = stop_reason,
+    "log_dropout_alphas" = log_dropout_alphas,
+    "other_metrics" = other_metrics
+  )
+  
+  res[[sim_num]]$slnj <- slnj_res
+  
+  
+  
+  # # # # # # # # # # # # # # # # # # # # # # # # #
+  ## lm ----
+  # # # # # # # # # # # # # # # # # # # # # # # # #
+  lm_res <- get_lm_stats(simdat = lin_simdat)
+  res[[sim_num]]$lm <- lm_res
+  
+  
+  
+  # # # # # # # # # # # # # # # # # # # # # # # # #
+  ## LASSO ----
+  # # # # # # # # # # # # # # # # # # # # # # # # #
+  x <- as_array(lin_simdat$x)
+  y <- as_array(lin_simdat$y)
+  
+  cvfit <- glmnet::cv.glmnet(x, y)
+  lasso_coefs <- coef(cvfit, s = "lambda.1se")
+  
+  binary_err(
+    est = lasso_coefs[-1]!=0, 
+    tru = true_coefs!=0
+  )
+  res[[sim_num]]$lasso <- lasso_coefs
+  
+  # # # # # # # # # # # # # # # # # # # # # # # # #
+  ## spike-slab ----
+  # # # # # # # # # # # # # # # # # # # # # # # # #
+  X <- cbind(1, x)
+  prior = IndependentSpikeSlabPrior(X, y, 
+                                    expected.model.size = 1,
+                                    prior.beta.sd = rep(1, ncol(X))) 
+  lm.ss = lm.spike(y ~ x, niter = 1000, prior = prior)
+  ss_allcoefs <- summary(lm.ss)$coef
+  
+  # reorder results
+  ss_intercept <- ss_allcoefs[rownames(ss_allcoefs)=="(Intercept)",]
+  ss_coefs <- ss_allcoefs[rownames(ss_allcoefs)!="(Intercept)",]
+  ss_coefs_current_order <- as.numeric(sapply(strsplit(rownames(ss_coefs), "x"), function(X) X[2]))
+  ss_res <- rbind(
+    "(Intercept)" = ss_intercept,
+    ss_coefs[order(ss_coefs_current_order),]
+  )
+  
+  
+  res[[sim_num]]$ss <- ss_res
+  
+  # # # # # # # # # # # # # # # # # # # # # # # # #
+  ## mombf ----
+  # # # # # # # # # # # # # # # # # # # # # # # # #
+
 }
 
-dropout_alphas <- slnj_net$fc1$get_log_dropout_rates()$exp()
-coef_mse <- sum((slnj_net$fc1$compute_posterior_param()$post_weight_mu - true_coefs)^2)
-
-slnj_keeps <- slnj_net$fc1$get_log_dropout_rates()$exp() < 0.05
-slnj_bin_err <- binary_err_rate(est = as_array(slnj_keeps), tru = lin_simdat$true_coefs != 0 )
-
-cat("coef_mse ", as_array(coef_mse), "\n")
-cat("binary error: \n")
-slnj_bin_err
-
-
-
-# store: 
-# time taken
-# dopout_alphas
-# coef_mse
-# slnj_keeps
-# slnj_bin_err
-# epoch
-# stop_criteria_reached
-
-
-
-
-# # # # # # # # # # # # # # # # # # # # # # # # #
-## lm ----
-# # # # # # # # # # # # # # # # # # # # # # # # #
-
-lin_simdat <- sim_linear_data(
-  n = n_obs,
-  true_coefs = true_coefs
-)
-get_lm_stats(simdat = lin_simdat)
-
-
-
-
-# # # # # # # # # # # # # # # # # # # # # # # # #
-## LASSO ----
-# # # # # # # # # # # # # # # # # # # # # # # # #
-x <- as_array(lin_simdat$x)
-y <- as_array(lin_simdat$y)
-
-cvfit <- glmnet::cv.glmnet(x, y)
-lasso_coefs <- coef(cvfit, s = "lambda.1se")
-
-binary_err_rate(
-  est = lasso_coefs[-1]==0, 
-  tru = true_coefs==0
-)
-
-
-
-
-
-# # # # # # # # # # # # # # # # # # # # # # # # #
-## spike-slab ----
-# # # # # # # # # # # # # # # # # # # # # # # # #
-X <- cbind(1, x)
-prior = IndependentSpikeSlabPrior(X, y, 
-                                  expected.model.size = 1,
-                                  prior.beta.sd = rep(1, ncol(X))) 
-lm.ss = lm.spike(y ~ x, niter = 1000, prior = prior)
-summary(lm.ss)$coef
-
-
-
-# # # # # # # # # # # # # # # # # # # # # # # # #
-## mombf ----
-# # # # # # # # # # # # # # # # # # # # # # # # #
-
+fname <- here("Rcode", "results", "linear_sim.Rdata")
+save(res, file = fname)
 
 
