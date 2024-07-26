@@ -45,6 +45,39 @@ sim_linear_data <- function(
   )
 }
 
+
+## sim_func_data----
+fcn1 <- function(x) exp(x/2)
+fcn2 <- function(x) cos(pi*x)
+fcn3 <- function(x) abs(x)^(1.5)
+
+sim_func_data <- function(
+  n = 1000,
+  d_in = 10,
+  flist = list(fcn1, fcn2, fcn3),
+  err_sigma = 1
+){
+  # generate x, y
+  x <- torch_randn(n, d_in)
+  y <- rep(0, n)
+  for(j in 1:length(flist)){
+    y <- y + flist[[j]](x[,j])
+  }
+  y <- y$unsqueeze(2) + torch_normal(mean = 0, std = err_sigma, size = c(n, 1))
+  
+  return(
+    list(
+      "y" = y,
+      "x" = x,
+      "n" = n,
+      "d_in" = d_in,
+      "d_true" = length(flist)
+    )
+  )
+}
+
+
+
 # ASSESSMENT FUNCS ----
 ## binary_err_mat ----
 binary_err_mat <- function(est, tru){
@@ -68,7 +101,10 @@ binary_err_rate <- function(est, tru){
   decision_counts <- rowSums(binary_err_mat(est, tru))
   pred_pos <- decision_counts[1] + decision_counts[2]
   pred_neg <- decision_counts[3] + decision_counts[4]
+  
   denom <- c(pred_pos, pred_pos, pred_neg, pred_neg)
+  # in case no positives or negatives predicted
+  denom <- ifelse(denom == 0, 1, denom) 
   decision_counts / denom
 }
 
