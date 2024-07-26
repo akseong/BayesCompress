@@ -228,6 +228,7 @@ SLNJ <- nn_module(
       use_cuda = FALSE,
       init_weight = NULL,
       init_bias = NULL,
+      init_alpha =  0.9,
       clip_var = NULL
     )
   },
@@ -243,6 +244,7 @@ SLNJ <- nn_module(
     return(kld)
   }
 )
+slnj_net <- SLNJ()
 ```
 
 
@@ -259,7 +261,7 @@ epoch <- 1
 convergence_crit <- 1e-5
 
 
-slnj_net <- SLNJ()
+
 slnj_net(lin_simdat$x)
 
 optim_slnj <- optim_adam(slnj_net$parameters)
@@ -307,11 +309,21 @@ dropout_alphas <- slnj_net$fc1$get_log_dropout_rates()$exp()
 mse <- sum((slnj_net$fc1$compute_posterior_param()$post_weight_mu - true_coefs)^2)
 
 slnj_keeps <- slnj_net$fc1$get_log_dropout_rates()$exp() < 0.05
-slnj_bin_err <- binary_err_rate(est = as_array(slnj_keeps), tru = lin_simdat$true_coefs != 0 )
+slnj_bin_err <- binary_err(est = as_array(slnj_keeps), tru = lin_simdat$true_coefs != 0 )
+slnj_bin_err_rates <- binary_err_rate(est = as_array(slnj_keeps), tru = lin_simdat$true_coefs != 0 )
 
 cat("mse ", as_array(mse), "\n")
-cat("binary error: \n")
+cat("binary error as percentages (sums to 1): \n")
 slnj_bin_err
+
+cat("binary error rates (FP + TP = 1, FN + PN = 1): \n")
+slnj_bin_err_rates
+
+alphas_df <- data.frame(
+  "nuisance_var" = lin_simdat$true_coefs==0,
+  "alphas" = as_array(slnj_net$fc1$get_log_dropout_rates()$exp())
+)
+
 ```
 
 not bad!
@@ -411,9 +423,7 @@ sim_func_data <- function(
 
 ```{r}
 f1 <- function(x) exp(x/2)
-
 f2 <- function(x) cos(pi*x)
-
 f3 <- function(x) abs(x)^(1.5)
 
 # checking
@@ -436,6 +446,9 @@ plot(x4, y, main = "checking x4 (should be white noise)")
 
 
 ## model
+
+Generate data with 3 covariates that are non-linearly related to the outcome, and 97 nuisance covariates.  See if we can pick them out.
+
 
 ```{r}
 fdat <- sim_func_data(
@@ -596,6 +609,16 @@ post_w1$post_weight_mu
 
 - is there a way to avoid projecting time variable onto 0-deg spline basis?  i.e. work with time variable directly to identify when time variable is important?
 
+```{r}
+# BoomSpikeSlab doesn't pick up on these; only on covariate 1 (which has somewhat linear relationship)
+library(BoomSpikeSlab)
+X <- cbind(1, as_array(x))
+prior = IndependentSpikeSlabPrior(X, as_array(y), 
+                                  expected.model.size = 1,
+                                  prior.beta.sd = rep(1, ncol(X))) 
+lm.ss = lm.spike(as_array(y) ~ as_array(x), niter = 1000, prior = prior)
+summary(lm.ss)$coef
+```
 
 
 
