@@ -136,7 +136,7 @@ get_lm_stats <- function(simdat, alpha = 0.05){
   }
   
   lm_fit <- lm(y ~ ., lm_df)
-  if (length(simdat$true_coefs) >= n_obs){
+  if (length(simdat$true_coefs) >= simdat$n){
     warning("p >= n; (p - n) + floor(n/2) spurious covariates eliminated to accomodate lm")
     calc_lm_stats(
       lm_fit = lm_fit, 
