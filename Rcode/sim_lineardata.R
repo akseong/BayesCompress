@@ -348,7 +348,11 @@ for(sim_num in 1:n_sims){
   if (sim_num %% 25 == 0){
     save(res, file = fpath)
     txt <- paste0("finished ", sim_num, " of ", n_sims)
+<<<<<<< HEAD
     cat_color(txt)
+=======
+    cat_color("txt")
+>>>>>>> 5201cfe8d366f44dcef339a3f594a189d442b1df
   }
 }
 
