@@ -247,6 +247,7 @@ for(sim_num in 1:n_sims){
     "epoch" = epoch,
     "stop_reason" = stop_reason,
     "log_dropout_alphas" = log_dropout_alphas,
+    "log_alpha_mat" = log_alpha_mat,
     "other_metrics" = other_metrics
   )
   
