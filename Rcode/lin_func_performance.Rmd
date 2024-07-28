@@ -82,6 +82,20 @@ colorize <- function(x, color=custom_purple) {
   } else x
 }
 
+
+
+cat_color <- function(txt, style = 1, color = 36){
+  cat(
+    paste0(
+      "\033[0;",
+      style, ";",
+      color, "m",
+      txt,
+      "\033[0m","\n"
+    )
+  )  
+}
+
 # kable NA handling
 options(knitr.kable.NA = '')
 
