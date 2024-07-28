@@ -4,25 +4,35 @@
 ## Author:    Arnie Seong
 ##################################################
 
-
 library(here)
 library(tidyr)
 library(dplyr)
+
+# BayesCompress
+library(torch)
+source(here("Rcode", "BayesianLayers.R"))
+source(here("Rcode", "sim_functions.R"))
 
 #competitors
 library(BoomSpikeSlab)
 library(glmnet)
 
-library(torch)
-source(here("Rcode", "BayesianLayers.R"))
-source(here("Rcode", "sim_functions.R"))
 
 
-n_sims <- 3
+# sim params --------------------------------------------------------------
+testing <- FALSE
+
+fname <- ifelse(testing, "linear_sim_sig1_TEST.Rdata", "linear_sim_sig1.Rdata")
+fpath <- here("Rcode", "results", fname)
+
+n_sims <- ifelse(testing, 3, 100)
+
 res <- sapply(1:n_sims, function(x) NULL)
 
+# simulated data settings
 n_obs <- 100
 true_coefs = c(-0.5, 1, -2, 4, rep(0, times = 100))
+sig <- 1
 d_in <- length(true_coefs)
 
 
@@ -36,9 +46,9 @@ d_in <- length(true_coefs)
 # here we assume some sparsity, so set alpha to 0.9
 init_alpha <- 0.9
 use_cuda <- cuda_is_available()
-max_train_epochs <- 20000
-verbose <- FALSE
-burn_in <- 5000
+max_train_epochs <- ifelse(testing, 500, 20000)
+verbose <- testing
+burn_in <- ifelse(testing, 100, 5000)
 convergence_crit <- 1e-6
 # loss moving average stopping criterion length
 ma_length <- 50
@@ -47,13 +57,13 @@ ma_length <- 50
 
 
 for(sim_num in 1:n_sims){
-  
-  
+
   # # # # # # # # # # # # 
   ##    SIMULATION START    
   # generate data
   lin_simdat <- sim_linear_data(
     n = n_obs,
+    err_sigma = sig,
     true_coefs = true_coefs
   )
   
@@ -260,12 +270,19 @@ for(sim_num in 1:n_sims){
   
   cvfit <- glmnet::cv.glmnet(x, y)
   lasso_coefs <- coef(cvfit, s = "lambda.1se")
+  lasso_mse <- cvfit$cvm[cvfit$lambda == cvfit$lambda.1se]
+  lasso_bin_err <- binary_err(est = !(lasso_coefs[-1]==0), tru = true_coefs!=0)
   
-  binary_err(
-    est = lasso_coefs[-1]!=0, 
-    tru = true_coefs!=0
+  res[[sim_num]]$lasso <- list(
+    "coefs" = lasso_coefs,
+    "binary_err" = lasso_bin_err,
+    "fit_mse" = lasso_mse,
+    "coef_mse" = mean((lasso_coefs[-1] - true_coefs)^2)
   )
-  res[[sim_num]]$lasso <- lasso_coefs
+  
+  
+
+  
   
   # # # # # # # # # # # # # # # # # # # # # # # # #
   ## spike-slab ----
@@ -274,16 +291,31 @@ for(sim_num in 1:n_sims){
   prior = IndependentSpikeSlabPrior(X, y, 
                                     expected.model.size = 1,
                                     prior.beta.sd = rep(1, ncol(X))) 
-  lm.ss = lm.spike(y ~ x, niter = 1000, prior = prior)
-  ss_allcoefs <- summary(lm.ss)$coef
+  lm_ss = lm.spike(y ~ x, niter = 1000, prior = prior)
+  ss_allcoefs_unordered <- summary(lm_ss)$coef
   
   # reorder results
-  ss_intercept <- ss_allcoefs[rownames(ss_allcoefs)=="(Intercept)",]
-  ss_coefs <- ss_allcoefs[rownames(ss_allcoefs)!="(Intercept)",]
-  ss_coefs_current_order <- as.numeric(sapply(strsplit(rownames(ss_coefs), "x"), function(X) X[2]))
-  ss_res <- rbind(
+  ss_intercept <- ss_allcoefs_unordered[rownames(ss_allcoefs_unordered)=="(Intercept)",]
+  ss_coefs_unordered <- ss_allcoefs_unordered[rownames(ss_allcoefs_unordered)!="(Intercept)",]
+  coef_order <- as.numeric(sapply(strsplit(rownames(ss_coefs_unordered), "x"), function(X) X[2]))
+  ss_allcoefs <- rbind(
     "(Intercept)" = ss_intercept,
-    ss_coefs[order(ss_coefs_current_order),]
+    ss_coefs_unordered[order(coef_order),]
+  )
+  ss_coefs <- ss_allcoefs[-1, ]
+  ss_bin_err <- binary_err(
+    est = ss_coefs[, 4] > 0.05, 
+    tru = true_coefs != 0)
+  
+  # get median mse from last quarter of draws
+  ss_mse <- median(lm_ss$sse[751:1000]) / n_obs
+  
+  
+  ss_res <- list(
+    "coefs" = ss_coefs,
+    "binary_err" = ss_bin_err,
+    "fit_mse" = ss_mse,
+    "coef_mse" = mean((ss_coefs - true_coefs)^2)
   )
   
   
@@ -293,9 +325,17 @@ for(sim_num in 1:n_sims){
   ## mombf ----
   # # # # # # # # # # # # # # # # # # # # # # # # #
 
+  
+  
+  
+  
+  # # # # # # # # # # # # 
+  ##    partial save
+  
+  if (sim_num %% 25 == 0){
+    save(res, file = fpath)
+  }
 }
 
-fname <- here("Rcode", "results", "linear_sim.Rdata")
-save(res, file = fname)
-
+save(res, file = fpath)
 
