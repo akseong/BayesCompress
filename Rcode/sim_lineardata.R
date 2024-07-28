@@ -38,17 +38,29 @@ d_in <- length(true_coefs)
 
 
 
+
+cat_color <- function(txt, style = 1, color = 36){
+  cat(
+    paste0(
+      "\033[0;",
+      style, ";",
+      color, "m",
+      txt,
+      "\033[0m","\n"
+    )
+  )  
+}
+
 # # # # # # # # # # # # 
 ##    SLNJ training parameters
 
 # set initial value for dropout rate alpha
 # (default value is 1/2)
-# here we assume some sparsity, so set alpha to 0.9
-init_alpha <- 0.9
+init_alpha <- 0.5
 use_cuda <- cuda_is_available()
-max_train_epochs <- ifelse(testing, 500, 20000)
+max_train_epochs <- ifelse(testing, 500, 40000)
 verbose <- testing
-burn_in <- ifelse(testing, 100, 5000)
+burn_in <- ifelse(testing, 100, 10000)
 convergence_crit <- 1e-6
 # loss moving average stopping criterion length
 ma_length <- 50
@@ -335,6 +347,8 @@ for(sim_num in 1:n_sims){
   
   if (sim_num %% 25 == 0){
     save(res, file = fpath)
+    txt <- paste0("finished ", sim_num, " of ", n_sims)
+    cat_color(txt)
   }
 }
 
