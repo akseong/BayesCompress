@@ -99,10 +99,10 @@ binary_err <- function(est, tru){
 binary_err_rate <- function(est, tru){
   # returns FP, TP, FN, TN rates
   decision_counts <- rowSums(binary_err_mat(est, tru))
-  pred_pos <- decision_counts[1] + decision_counts[2]
-  pred_neg <- decision_counts[3] + decision_counts[4]
+  actual_pos <- decision_counts[2] + decision_counts[3]
+  actual_neg <- decision_counts[1] + decision_counts[4]
   
-  denom <- c(pred_pos, pred_pos, pred_neg, pred_neg)
+  denom <- c(actual_neg, actual_pos, actual_pos, actual_neg)
   # in case no positives or negatives predicted
   denom <- ifelse(denom == 0, 1, denom) 
   decision_counts / denom
