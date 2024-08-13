@@ -352,5 +352,5 @@ for(sim_num in 1:n_sims){
   }
 }
 
-save(res, file = fpath)
+save(res, true_coefs, file = fpath)
 
