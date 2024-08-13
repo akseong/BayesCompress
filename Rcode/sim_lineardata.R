@@ -346,7 +346,7 @@ for(sim_num in 1:n_sims){
   ##    partial save
   
   if (sim_num %% 25 == 0){
-    save(res, file = fpath)
+    save(res, true_coefs, file = fpath)
     txt <- paste0("finished ", sim_num, " of ", n_sims)
     cat_color(txt)
   }
