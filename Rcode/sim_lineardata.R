@@ -74,7 +74,7 @@ for(sim_num in 1:n_sims){
   ##    SIMULATION START    
   # generate data
   lin_simdat <- sim_linear_data(
-    n = n_obs,
+    n_obs = n_obs,
     err_sigma = sig,
     true_coefs = true_coefs
   )
@@ -145,7 +145,7 @@ for(sim_num in 1:n_sims){
     y_pred <- slnj_net(lin_simdat$x)
     
     mse <- nnf_mse_loss(y_pred, lin_simdat$y)
-    kl <- slnj_net$get_model_kld() / lin_simdat$n
+    kl <- slnj_net$get_model_kld() / lin_simdat$n_obs
     
     loss <- mse + kl
     loss_diff <- (loss - prev_loss)$item()

@@ -19,8 +19,9 @@ library(glmnet)
 
 
 
+
 # sim params --------------------------------------------------------------
-testing <- TRUE
+testing <- FALSE
 
 fname <- ifelse(testing, "MLP_linear_sim_sig1_TEST.Rdata", "MLP_linear_sim_sig1.Rdata")
 fpath <- here("Rcode", "results", fname)
@@ -40,20 +41,6 @@ d_hidden2 <- 25
 
 
 
-
-
-
-cat_color <- function(txt, style = 1, color = 36){
-  cat(
-    paste0(
-      "\033[0;",
-      style, ";",
-      color, "m",
-      txt,
-      "\033[0m","\n"
-    )
-  )  
-}
 
 # # # # # # # # # # # # 
 ##    MLNJ training parameters
@@ -78,7 +65,7 @@ for(sim_num in 1:n_sims){
   ##    SIMULATION START    
   # generate data
   lin_simdat <- sim_linear_data(
-    n = n_obs,
+    n_obs = n_obs,
     err_sigma = sig,
     true_coefs = true_coefs
   )
@@ -175,7 +162,7 @@ for(sim_num in 1:n_sims){
     y_pred <- mlnj_net(lin_simdat$x)
     
     mse <- nnf_mse_loss(y_pred, lin_simdat$y)
-    kl <- mlnj_net$get_model_kld() / lin_simdat$n
+    kl <- mlnj_net$get_model_kld() / lin_simdat$n_obs
     
     loss <- mse + kl
     loss_diff <- (loss - prev_loss)$item()

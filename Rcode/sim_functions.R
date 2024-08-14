@@ -7,7 +7,7 @@
 # DATA GENERATION ----
 ## sim_linear_data ----
 sim_linear_data <- function(
-  n = 100,
+  n_obs = 100,
   d_in = 10,
   d_true = 3,
   err_sigma = 1,
@@ -27,10 +27,10 @@ sim_linear_data <- function(
   d_true <- sum(true_coefs != 0)
   
   # generate x, y
-  x <- torch_randn(n, d_in)
+  x <- torch_randn(n_obs, d_in)
   y <- x$matmul(true_coefs)$unsqueeze(2) + 
     intercept + 
-    torch_normal(mean = 0, std = err_sigma, size = c(n, 1))
+    torch_normal(mean = 0, std = err_sigma, size = c(n_obs, 1))
   
   return(
     list(
@@ -38,7 +38,7 @@ sim_linear_data <- function(
       "x" = x,
       "true_coefs" = true_coefs,
       "intercept" = intercept,
-      "n" = n,
+      "n_obs" = n_obs,
       "d_in" = d_in,
       "d_true" = d_true
     )
@@ -52,24 +52,24 @@ fcn2 <- function(x) cos(pi*x)
 fcn3 <- function(x) abs(x)^(1.5)
 
 sim_func_data <- function(
-  n = 1000,
+  n_obs = 1000,
   d_in = 10,
   flist = list(fcn1, fcn2, fcn3),
   err_sigma = 1
 ){
   # generate x, y
-  x <- torch_randn(n, d_in)
-  y <- rep(0, n)
+  x <- torch_randn(n_obs, d_in)
+  y <- rep(0, n_obs)
   for(j in 1:length(flist)){
     y <- y + flist[[j]](x[,j])
   }
-  y <- y$unsqueeze(2) + torch_normal(mean = 0, std = err_sigma, size = c(n, 1))
+  y <- y$unsqueeze(2) + torch_normal(mean = 0, std = err_sigma, size = c(n_obs, 1))
   
   return(
     list(
       "y" = y,
       "x" = x,
-      "n" = n,
+      "n_obs" = n_obs,
       "d_in" = d_in,
       "d_true" = length(flist)
     )
@@ -131,16 +131,16 @@ get_lm_stats <- function(simdat, alpha = 0.05){
     "y" = as_array(simdat$y), 
     "x" = as_array(simdat$x)
   )
-  if (simdat$d_in > simdat$n){
-    lm_df <- lm_df[, 1:(ceiling(simdat$n/2)+1)]
+  if (simdat$d_in > simdat$n_obs){
+    lm_df <- lm_df[, 1:(ceiling(simdat$n_obs/2)+1)]
   }
   
   lm_fit <- lm(y ~ ., lm_df)
-  if (length(simdat$true_coefs) >= simdat$n){
+  if (length(simdat$true_coefs) >= simdat$n_obs){
     warning("p >= n; (p - n) + floor(n/2) spurious covariates eliminated to accomodate lm")
     calc_lm_stats(
       lm_fit = lm_fit, 
-      true_coefs = simdat$true_coefs[1:ceiling(simdat$n/2)], 
+      true_coefs = simdat$true_coefs[1:ceiling(simdat$n_obs/2)], 
       alpha = alpha
     )
   } else {
@@ -148,6 +148,21 @@ get_lm_stats <- function(simdat, alpha = 0.05){
   }
 }
 
+
+# HELPER FUNCS ----
+## cat_color(txt, style = 1, color = 36) ---
+cat_color <- function(txt, style = 1, color = 36){
+  # prints txt with colored font/bkgrnd
+  cat(
+    paste0(
+      "\033[0;",
+      style, ";",
+      color, "m",
+      txt,
+      "\033[0m","\n"
+    )
+  )  
+}
 
 
 # FOR SPIKE-SLAB ----
