@@ -7,7 +7,6 @@
 library(here)
 library(tidyr)
 library(dplyr)
-library(ggplot2)
 
 # BayesCompress
 library(torch)
@@ -80,7 +79,9 @@ for(sim_num in 1:n_sims){
     rep(0, fcn_simdat$d_in-fcn_simdat$d_true)
   )
   
+  # plot functions
   # xsamp <- -500:500 / 100
+  # library(ggplot2)
   # qplot(y = fcn1(xsamp), x = xsamp)
   # qplot(y = fcn2(xsamp), x = xsamp)
   # qplot(y = fcn3(xsamp), x = xsamp)
