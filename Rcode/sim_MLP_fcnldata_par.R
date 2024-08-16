@@ -36,7 +36,7 @@ cl_size <- ifelse(cl_size < 1, 1, cl_size)
 
 
 # sim params --------------------------------------------------------------
-testing <- TRUE
+testing <- FALSE
 
 fname <- ifelse(testing, "MLP_fcnl_sim_sig1_TEST", "MLP_fcnl_sim_sig1")
 fpath <- here("Rcode", "results", paste0(fname, ".Rdata"))
@@ -423,21 +423,21 @@ MLP_fcnldata_sim <- function(
 # # # # # # # # # # # # # # # # # # # # # # # # #
 # each partial save contains cl_size simulations
 
-sim_params <- c(
-  n_obs,
-  sig,
-  d_in,
-  d_hidden1,
-  d_hidden2,
-  init_alpha,
-  ma_length,
-  max_train_epochs,
-  verbose,
-  burn_in,
-  convergence_crit,
-  n_sims,
-  true_model,
-  MLP_fcnldata_sim
+sim_params <- list(
+  "n_obs" = n_obs,
+  "sig" = sig,
+  "d_in" = d_in,
+  "d_hidden1" = d_hidden1,
+  "d_hidden2" = d_hidden2,
+  "init_alpha" = init_alpha,
+  "ma_length" = ma_length,
+  "max_train_epochs" = max_train_epochs,
+  "verbose" = verbose,
+  "burn_in" = burn_in,
+  "convergence_crit" = convergence_crit,
+  "n_sims" = n_sims,
+  "true_model" = true_model,
+  "MLP_fcnldata_sim" = MLP_fcnldata_sim
 )
 
 for (partial_num in 1:length(partial_fpaths)) {
@@ -518,3 +518,23 @@ for (partial_num in 1:length(partial_fpaths)){
 
 save(result, sim_params, file = fpath)
 cat("\n simulation results saved \n")
+
+
+
+# # check
+# rm(result, sim_params)
+# load(fpath)
+# names(sim_params)
+# 
+# length(sim_params)
+# sapply(result, function(X) X$mlnj$other_metrics)
+# sapply(result, function(X) X$mlnj$log_dropout_alphas)
+
+
+
+
+
+
+
+
+
