@@ -18,29 +18,6 @@ source(here("Rcode", "sim_functions.R"))
 # library(BoomSpikeSlab)
 # library(glmnet)
 
-# # # # # # # # # # # # # # # # # # # # # # # # #
-## helper funcs ----
-# # # # # # # # # # # # # # # # # # # # # # # # #
-#### cat_color(txt, style = 1, color = 36)----
-cat_color <- function(txt, style = 1, color = 36){
-  # color = 41 (white, red bkgd)
-  #         46 (white, teal bkgd)
-  # 31-36, 41-46 are diff colors
-  if (!is.null(getOption("knitr.in.progress"))){
-    cat(txt, "\n")
-  } else{
-    cat(
-      paste0(
-        "\033[0;",
-        style, ";",
-        color, "m",
-        txt,
-        "\033[0m","\n"
-      )
-    )  
-  }
-}
-
 
 # sim params --------------------------------------------------------------
 testing <- FALSE
