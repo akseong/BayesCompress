@@ -23,7 +23,7 @@ library(glmnet)
 # sim params --------------------------------------------------------------
 testing <- FALSE
 
-fname <- ifelse(testing, "MLP_linear_sim_sig1_TEST.Rdata", "MLP_linear_sim_sig1.Rdata")
+fname <- ifelse(testing, "MLP_linear_sim_sig1_TEST.Rdata", "MLP_linear_sim_sig1_part2.Rdata")
 fpath <- here("Rcode", "results", fname)
 
 n_sims <- ifelse(testing, 3, 100)
@@ -321,7 +321,7 @@ for(sim_num in 1:n_sims){
   prior = IndependentSpikeSlabPrior(X, y, 
                                     expected.model.size = 1,
                                     prior.beta.sd = rep(1, ncol(X))) 
-  lm_ss = lm.spike(y ~ x, niter = 1000, prior = prior)
+  lm_ss = lm.spike(y ~ x, niter = 1000, prior = prior, ping = 0)
   ss_allcoefs_unordered <- summary(lm_ss)$coef
   
   # reorder results
@@ -362,10 +362,10 @@ for(sim_num in 1:n_sims){
   # # # # # # # # # # # # 
   ##    partial save
   
-  if (sim_num %% 25 == 0){
+  if (sim_num %% 10 == 0){
     save(res, true_coefs, file = fpath)
     txt <- paste0("finished ", sim_num, " of ", n_sims)
-    cat_color(txt)
+    cat(txt)
   }
 }
 
