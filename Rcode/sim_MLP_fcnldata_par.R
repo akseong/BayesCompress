@@ -445,7 +445,7 @@ for (partial_num in 1:length(partial_fpaths)) {
   # parallelize
   cl <- makeCluster(cl_size,
                     type="PSOCK",
-                    outfile=paste0(fname, "_monitor.txt"))
+                    outfile=paste0(fpath, "_monitor.txt"))
   
   # EXPORT variables, libraries
   # export libraries
