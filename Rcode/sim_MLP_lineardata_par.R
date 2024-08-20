@@ -504,14 +504,14 @@ cat("\n simulation results saved \n")
 
 
 
-# check
-rm(result, sim_params)
-load(fpath)
-names(sim_params)
-
-length(sim_params)
-sapply(result, function(X) X$mlnj$other_metrics)
-sapply(result, function(X) X$mlnj$log_dropout_alphas)
+# # check
+# rm(result, sim_params)
+# load(fpath)
+# names(sim_params)
+# 
+# length(sim_params)
+# sapply(result, function(X) X$mlnj$other_metrics)
+# sapply(result, function(X) X$mlnj$log_dropout_alphas)
 
 
 
