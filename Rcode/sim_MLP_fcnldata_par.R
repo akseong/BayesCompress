@@ -29,7 +29,7 @@ ncpus <- detectCores()
 cl_size <- ifelse(
   on_server,
   ncpus / 2,
-  ncpus - 4
+  5
 )
 
 cl_size <- ifelse(cl_size < 1, 1, cl_size)
@@ -38,13 +38,13 @@ cl_size <- ifelse(cl_size < 1, 1, cl_size)
 # sim params --------------------------------------------------------------
 testing <- FALSE
 
-fname <- ifelse(testing, "MLP_fcnl_sim_sig1_TEST", "MLP_fcnl_sim_sig1")
+fname <- ifelse(testing, "MLP_fcnl_sim_sig1_TEST", "MLP_fcnl_sim_sig1_part2")
 fpath <- here("Rcode", "results", paste0(fname, ".Rdata"))
 
 n_sims <- ifelse(testing, 5, 100)
 cl_size <- ifelse(testing, 2, cl_size)
 
-n_sims_each_partial <- cl_size * ifelse(testing, 2, 5)
+n_sims_each_partial <- cl_size * 2
 # separate save files for parallelization
 num_saves <- n_sims %/% n_sims_each_partial + ifelse(n_sims %% n_sims_each_partial == 0, 0, 1)
 partial_fpaths <- here("Rcode", "results", paste0(fname, "_PARTIAL", 1:num_saves, ".Rdata"))
