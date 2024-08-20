@@ -38,7 +38,7 @@ cl_size <- ifelse(cl_size < 1, 1, cl_size)
 # sim params --------------------------------------------------------------
 testing <- FALSE
 
-fname <- ifelse(testing, "MLP_fcnl_sim_sig1_TEST", "MLP_fcnl_sim_sig1_part2")
+fname <- ifelse(testing, "MLP_fcnl_sim_sig1_TEST", "MLP_fcnl_sim_sig1_traintweak1")
 fpath <- here("Rcode", "results", paste0(fname, ".Rdata"))
 
 n_sims <- ifelse(testing, 5, 100)
@@ -86,10 +86,10 @@ dropout_thresh <- 0.05
 # set initial value for dropout rate alpha
 # (default value is 1/2)
 init_alpha <- 0.5
-max_train_epochs <- ifelse(testing, 500, 40000)
+max_train_epochs <- ifelse(testing, 500, 100000)
 verbose <- testing
 burn_in <- ifelse(testing, 100, 10000)
-convergence_crit <- 1e-6
+convergence_crit <- 1e-8
 # loss moving average stopping criterion length
 ma_length <- 50
 
@@ -311,7 +311,7 @@ MLP_fcnldata_sim <- function(
   log_dropout_alphas <- log_alpha_mat[best_epoch_row, 1:d_in]
   other_metrics <- c(log_alpha_mat[best_epoch_row, d_in + 1:4])
   stop_reason <- c(
-    "max_epochs" = epoch > max_train_epochs,
+    "max_epochs" = epoch >= max_train_epochs,
     "converge_crit" = converge_stop,
     "loss_ma" = loss_ma_stop
   ) 
