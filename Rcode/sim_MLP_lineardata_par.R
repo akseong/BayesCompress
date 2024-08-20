@@ -22,21 +22,16 @@ library(pbapply)
 
 
 # parallelization params ----
-
 on_server <- FALSE
+use_cuda <- FALSE
 ncpus <- detectCores()
 
-cl_size <- ifelse(
-  on_server,
-  ncpus / 2,
-  5
-)
-
+cl_size <- ifelse(on_server, ncpus / 2, 5)
 cl_size <- ifelse(cl_size < 1, 1, cl_size)
 
 
 # sim params --------------------------------------------------------------
-testing <- TRUE
+testing <- FALSE
 
 fname <- ifelse(testing, "MLP_linear_sim_sig1_TEST", "MLP_linear_sim_sig1_part2")
 fpath <- here("Rcode", "results", paste0(fname, ".Rdata"))
@@ -44,7 +39,7 @@ fpath <- here("Rcode", "results", paste0(fname, ".Rdata"))
 n_sims <- ifelse(testing, 5, 100)
 cl_size <- ifelse(testing, 2, cl_size)
 
-n_sims_each_partial <- cl_size * 2
+n_sims_each_partial <- cl_size * ifelse(testing, 1, 2)
 # separate save files for parallelization
 num_saves <- n_sims %/% n_sims_each_partial + ifelse(n_sims %% n_sims_each_partial == 0, 0, 1)
 partial_fpaths <- here("Rcode", "results", paste0(fname, "_PARTIAL", 1:num_saves, ".Rdata"))
@@ -242,7 +237,7 @@ MLP_lindata_sim <- function(
         epoch,
         mse$item(), 
         kl$item(),
-        NA ##############################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################################
+        mean((mlnj_net$fc1$compute_posterior_param()$post_weight_mu - true_coefs)^2)$item()
       )
       
       # store loss moving average
@@ -356,7 +351,7 @@ MLP_lindata_sim <- function(
     "coefs" = lasso_coefs,
     "binary_err" = lasso_bin_err,
     "fit_mse" = lasso_mse,
-    "coef_mse" = NA
+    "coef_mse" = mean((lasso_coefs[-1] - true_coefs)^2)
   )
   
   
@@ -393,7 +388,7 @@ MLP_lindata_sim <- function(
     "coefs" = ss_coefs,
     "binary_err" = ss_bin_err,
     "fit_mse" = ss_mse,
-    "coef_mse" = NA
+    "coef_mse" = mean((ss_coefs[, 1] - true_coefs)^2)
   )
   
   res$ss <- ss_res
@@ -426,7 +421,7 @@ sim_params <- list(
   "convergence_crit" = convergence_crit,
   "n_sims" = n_sims,
   "true_model" = true_model,
-  "MLP_fcnldata_sim" = MLP_fcnldata_sim
+  "MLP_lindata_sim" = MLP_lindata_sim
 )
 
 for (partial_num in 1:length(partial_fpaths)) {
@@ -464,11 +459,10 @@ for (partial_num in 1:length(partial_fpaths)) {
   partial_res <- pblapply(
     1:n_sims_each_partial, 
     function(X)
-      MLP_fcnldata_sim(
+      MLP_lindata_sim(
         n_obs,
         sig,
-        flist,
-        d_in,
+        true_coefs,
         d_hidden1,
         d_hidden2,
         use_cuda = FALSE,
@@ -510,14 +504,14 @@ cat("\n simulation results saved \n")
 
 
 
-# # check
-# rm(result, sim_params)
-# load(fpath)
-# names(sim_params)
-# 
-# length(sim_params)
-# sapply(result, function(X) X$mlnj$other_metrics)
-# sapply(result, function(X) X$mlnj$log_dropout_alphas)
+# check
+rm(result, sim_params)
+load(fpath)
+names(sim_params)
+
+length(sim_params)
+sapply(result, function(X) X$mlnj$other_metrics)
+sapply(result, function(X) X$mlnj$log_dropout_alphas)
 
 
 
