@@ -338,7 +338,8 @@ MLP_fcnldata_sim <- function(
     "stop_reason" = stop_reason,
     "log_dropout_alphas" = log_dropout_alphas,
     "log_alpha_mat" = log_alpha_mat,
-    "other_metrics" = other_metrics
+    "other_metrics" = other_metrics,
+    "mlnj_net" = mlnj_net
   )
   
   res$mlnj <- mlnj_res
