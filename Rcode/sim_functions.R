@@ -150,6 +150,23 @@ get_lm_stats <- function(simdat, alpha = 0.05){
 
 
 # HELPER FUNCS ----
+## time_since ----
+time_since <- function(){
+  # prints time since last called 
+  # (use to print time a loop takes, for example).
+  # usage:
+  # f <- time_since()
+  # f()
+  # f()
+  
+  st <- Sys.time()
+  function(x = Sys.time()) {
+    print(x-st)
+    st <<- x
+  }
+}
+
+
 ## cat_color(txt, style = 1, color = 36) ---
 cat_color <- function(txt, style = 1, color = 36){
   # prints txt with colored font/bkgrnd
