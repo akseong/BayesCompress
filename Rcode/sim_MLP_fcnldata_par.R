@@ -89,7 +89,7 @@ init_alpha <- 0.5
 max_train_epochs <- ifelse(testing, 500, 100000)
 verbose <- testing
 burn_in <- ifelse(testing, 100, 10000)
-convergence_crit <- 1e-8
+convergence_crit <- 1e-9
 # loss moving average stopping criterion length
 ma_length <- 50
 
