@@ -1,0 +1,238 @@
+---
+title: "First simulations"
+author: "Arnie Seong"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+header-includes:
+  - \usepackage{bm}
+  - \usepackage{xcolor}
+  - \usepackage{amssymb}
+output: 
+  html_document:
+    df_print: paged
+    theme: cerulean
+    highlight: tango
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
+    code_fold: show
+urlcolor: blue
+params:
+  retrain: FALSE
+---
+
+
+```{r setup, include=FALSE, message=F, echo=F, warning=F}
+# LIBRARIES----
+
+#### Misc:
+library(here)
+library(tidyr)
+library(knitr)
+library(kableExtra)
+library(dplyr)
+library(ggplot2)
+
+
+# DOCUMENT SETUP ----
+# detect pdf/html output, set chunk options, sci.notation 
+latex_out <- knitr::is_latex_output()
+knitr::opts_chunk$set(
+  cache = FALSE, 
+  message = FALSE, 
+  echo = !knitr::is_latex_output(), 
+  warning = FALSE
+)
+
+
+if (knitr::is_latex_output()) {
+  knitr::opts_chunk$set(fig.height=4, 
+                        fig.width=6)
+} else {
+  knitr::opts_chunk$set(out.width = "100%")
+}
+
+options(scipen=10)
+
+
+# TEXT/TABLE FORMATTING----
+
+custom_purple <- ifelse(
+  knitr::is_latex_output(),
+  "purple",
+  "#b51ced"
+)
+
+custom_blue <- ifelse(
+  knitr::is_latex_output(),
+  "blue",
+  "#11579e"
+)
+
+colorize <- function(x, color=custom_purple) {
+  # text color conditional on latex/html output
+  # from rmarkdown cookbook
+  if (knitr::is_latex_output()) {
+    sprintf("\\textcolor{ %s}{ %s}", color, x)
+  } else if (knitr::is_html_output()) {
+    sprintf("<span style='color: %s;'>%s</span>", color, x)
+  } else x
+}
+
+
+
+cat_color <- function(txt, style = 1, color = 36){
+  cat(
+    paste0(
+      "\033[0;",
+      style, ";",
+      color, "m",
+      txt,
+      "\033[0m","\n"
+    )
+  )  
+}
+
+# kable NA handling
+options(knitr.kable.NA = '')
+
+# mykable function
+mykable <- function(tab, cap,
+                    latex_options=c("hold_position", "scale_down", "striped"), 
+                    bootstrap_options=c("striped", "hover", "condensed"), 
+                    full_width=F, position="center", ...){
+  # kable formatting conditional on latex or html output
+  if (knitr::is_latex_output()){
+    kable(x=tab, caption=cap, ...) %>%
+      kableExtra::kable_styling(latex_options = latex_options)
+  } else if (knitr::is_html_output()){
+    kable(x=tab, caption=cap, ...) %>%
+      kableExtra::kable_styling(bootstrap_options = bootstrap_options, full_width=full_width, position=position)
+  }
+}
+
+source(here("Rcode", "BayesianLayers.R"))
+source(here("Rcode", "sim_functions.R"))
+```
+
+
+
+
+# Background
+The motivation for this model is to combine the variable selection properties of Bayesian spike-and-slab with the expressivity of a neural network.  We do this by placing a spike-and-slab prior on the _rows_ of a weight matrix $W$ representing one layer of a neural network.
+
+Let $X$ be a $n \times I$ matrix representing $n$ observations of $I$ covariates, and $W$ be a $I \times J$ weight matrix.  We can then represent the computation performed by the first (input) layer of a neural network as $XW + b = H$, where $b$ is a vector of biases and $H$ is the pre-activation matrix (adopting $\sigma ()$ to denote the activation function, $\sigma(H) = \tilde{H}$ is the input for the next layer).
+
+Thus if all of the individual weights $w_{ij}$ in row $i$ are 0, then the covariate in column $i$ of $X$ has no effect on the final prediction.  Thus by placing a spike-and-slab prior on the rows of $W$, we obtain variable selection.
+
+__Note:__ Need to experiment to see if it's better to only do this for the input layer (as opposed to all layers, which is the current implementation)
+
+
+This formulation follows Louizos, Ulrich, and Welling 2017 (LUW 2017), who proposed using a group sparsity prior in order to reduce the size of the weight matrices in a neural network.  Thus far, this is just a re-purposing of their "Bayesian Compression Algorithm" for variable selection, which they largely do not address.
+
+  
+- possible ways to differentiate ourselves:  
+    - a more rigorous interpretation of the dropout parameter $\alpha_i$ as the equivalent to a Wald statistic  
+    - normalizing flow to model non-local prior (like Adam)  
+    - some way to reconcile mean-field assumption with group sparsity?  
+    - as LUW 2017 note, the log-uniform prior does require independence between parameters (i.e. grouping by row is not kosher), so the joint Bayesian model is not strictly accurate and is more of an approximation
+    - (obvious: empirical results on how good it is at variable selection)
+
+
+
+## Model
+
+We adopt a scale mixture of Normals as the prior for the weights:
+
+$$\begin{align}
+  z 
+  & \sim p(z)
+  \\
+  w 
+  & \sim N(0, z^2)
+\end{align}$$
+
+This is a fairly general formulation: letting $p(z)$ be Bernoulli, for example, leads to the discrete spike-and-slab.  
+
+
+
+Following LUW 2017, we make two modifications:
+
+1) we use the log-uniform prior for $z$, corresponding to a relaxation of the discrete spike-and-slab
+
+2) rather than assigning each individual weight $w_{ij}$ its own $z_{ij}$, we constrain the rows to share a single $z_i$.
+
+Under this formulation, the Bayesian model $p(w_{ij} | z_{i \cdot} p(z_{i \cdot})$ is:
+
+$$\begin{align} 
+  p(z_{i}) &\propto |z_{i}|^{-1}
+  \\
+  p(w_{ij} | z_{i}) &= N \left(w_{ij} | 0, z_{i}^2 \right)
+\end{align}$$
+
+In order to avoid MCMC on the potentially very large number of parameters, we adopt LUW 2017's variational Bayes algorithm (in turn adapted from Kingma, Salimans, Welling 2015 and Molchanov, Ashukha, Vetrov 2017).  They use the variational distribution
+
+$$\begin{align}
+  q(W, z) 
+  &=  \prod_{i} N \left(z_{i} | \mu_{z_{i}}, \mu_{z_{i} }^2 \alpha_{i} \right)
+      \prod_{i,j} N \left( w_{ij} | z_{i} \mu_{ij}, z_{i}^2 \sigma_{ij}^2 \right)
+\end{align}$$
+
+where $\alpha_i$ is the dropout rate of a given row of weights.  Furthermore, following Molchanov, Ashukha, Vetrov 2017, they reparameterize $\mu_{z_{i} }^2 \alpha_{i} = \sigma_{z_i}^2$ because the approximate posterior over $z$ suffers from high variance gradients.  Thus we arrive at:
+
+$$\begin{align}
+  q(W, z) 
+  &=  \prod_{i} N \left(z_{i} | \mu_{z_{i}}, {\color{red}{\sigma_{z_i}^2}} \right)
+      \prod_{i,j} N \left( w_{ij} | z_{i} \mu_{ij}, z_{i}^2 \sigma_{ij}^2 \right)
+\end{align}$$
+
+
+
+In other words, the (now implied) dropout parameter $\alpha_i$ is the inverse of a Wald statistic: $\alpha_{i} = \dfrac{\sigma_{z_i}^2}{\mu_{z_i}^2}$.  _(Perhaps this being a Wald statistic is just so obvious it doesn't need mentioning, but I don't believe the papers positing this as a dropout parameter say this explicitly)_  This might be used to provide guidance on how to threshold $\alpha_{i}$ appropriately for variable selection (LUW2017 only addresses thresholding $alpha_i$ in order to achieve a desired level of compression).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Let $l$ index the layer of the weight matrix $W_l$ (here, $l \in \{1, 2\}$), and $i$ index the row of $W_l$, and $j$ index the columns. The Bayesian model $p(w_{lij} | z_{l i \cdot} p(z_{l i \cdot})$ and variational distribution $q(W_l, z)$ are:
+
+$$\begin{align} 
+  p(z_{li \cdot}) &\propto |z_{li \cdot}|^{-1}
+  \\
+  p(w_{lij} | z_{l i \cdot}) &= N \left(w_{lij} | 0, z_{l i \cdot}^2 \right)
+  \\
+  q(W_l, z) &= \prod_{l, i} N \left(z_{li \cdot} | \mu_{z_{l i \cdot}}, \mu_{z_{l i \cdot} }^2 \alpha_{l i \cdot} \right) \prod_{l,i,j} N \left( w_{lij} | z_{l i \cdot} \mu_{lij}, z_{l i \cdot}^2 \sigma_{lij}^2 \right)
+\end{align}$$
+
+
+
+
+
+
+
+
+
+
+
+# Linear data
+
+basic simulation setting:  
+
+- p > n
+- sparse truth (4 true covariates, 100 nuisance)
+- p = 104, n = 100
