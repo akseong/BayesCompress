@@ -158,6 +158,7 @@ BayesianLayerNJ <- nn_module(
   
   
   get_kl = function() {
+    
     k1 = 0.63576
     k2 = 1.87320
     k3 = 1.48695
@@ -170,12 +171,12 @@ BayesianLayerNJ <- nn_module(
     
     # KL(q(w|z) || p(w|z))
     kl_w_z <- torch_sum(
-      -0.5 * self$weight_logvar + 0.5 * (self$weight_logvar$exp() + self$weight_mu$pow(2)) - 0.5
+      0.5 * (-self$weight_logvar + self$weight_logvar$exp() + self$weight_mu$pow(2) - 1)
     )
     
     # KL for bias term
     kl_bias <- torch_sum(
-      -0.5 * self$bias_logvar + 0.5 * (self$bias_logvar$exp() + self$bias_mu$pow(2)) - 0.5
+      0.5 * (-self$bias_logvar + self$bias_logvar$exp() + self$bias_mu$pow(2) - 1)
     )
     
     # sum
