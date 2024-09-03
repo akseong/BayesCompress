@@ -38,7 +38,7 @@ cl_size <- ifelse(cl_size < 1, 1, cl_size)
 # sim params --------------------------------------------------------------
 testing <- FALSE
 
-fname <- ifelse(testing, "MLP_fcnl_sim_sig1_TEST", "MLP_fcnl_sim_sig1_traintweak1")
+fname <- ifelse(testing, "MLP_fcnl_sim_sig1_TEST", "MLP_fcnl_sim_sig1_traintweak2")
 fpath <- here("Rcode", "results", paste0(fname, ".Rdata"))
 
 n_sims <- ifelse(testing, 5, 100)
