@@ -116,7 +116,13 @@ source(here("Rcode", "BayesianLayers.R"))
 source(here("Rcode", "sim_functions.R"))
 ```
 
+<style type="text/css">
 
+  #TOC>ul>li, h1{
+    font-weight: bold;
+  }
+  
+</style>
 
 
 # Background
@@ -154,7 +160,7 @@ $$\begin{align}
   & \sim N(0, z^2)
 \end{align}$$
 
-This is a fairly general formulation: letting $p(z)$ be Bernoulli, for example, leads to the discrete spike-and-slab.  
+This is a fairly general formulation: letting $p(z)$ be Bernoulli, for example, leads to the discrete spike-and-slab (with unit variance).  
 
 
 
@@ -164,7 +170,7 @@ Following LUW 2017, we make two modifications:
 
 2) rather than assigning each individual weight $w_{ij}$ its own $z_{ij}$, we constrain each row of weights $w_{i \cdot}$ to share a single $z_i$, thus enforcing group sparsity.
 
-Under this formulation, the Bayesian model $p(w_{ij} | z_{i} p(z_{i})$ is:
+Under this formulation, the Bayesian model is:
 
 $$\begin{align} 
   p(z_{i}) &\propto |z_{i}|^{-1}
@@ -192,6 +198,47 @@ $$\begin{align}
 __One important item to notice here:__ the (now implied) dropout parameter $\alpha_{i} = \dfrac{\sigma_{z_i}^2}{\mu_{z_i}^2}$ is the inverse of a Wald statistic.  _(Perhaps this being a Wald statistic is just so obvious it doesn't need mentioning, but I don't believe any of the the papers positing this as a dropout parameter say this explicitly)_  This might be used to provide guidance on how to threshold $\alpha_{i}$ appropriately for variable selection (LUW2017 only addresses thresholding $\alpha_i$ in order to achieve a desired level of compression).
 
 
+### need help here
+
+
+A few things are left implicit in _LUW 2017_ (maybe ML people all know this to be the common assumption?) --- in particular, the priors placed on $\sigma^2$, $\mu_{z_i}, \alpha_i, \\mu_{ij}, \sigma_{ij}^2$?  
+
+From what I can tell, the full formulation appears to be (do ML people even think about the variance of the observations?  Seems to be completely unimportant / elided in their literature):
+
+$$\begin{align}
+  x &\sim N(x; f(W), \sigma^2)
+  \\
+  p(\sigma^2) &\propto 1
+  \\
+  p(W) &= \prod_{ij} p(w_{ij})
+  \\
+  w_{ij} | z_{i} & \sim N \left(w_{ij} | 0, z_{i}^2 \right)
+  \\
+  p(z) &= \prod_i p(z_{i}) \propto |z_{i}|^{-1}
+  \\
+\end{align}$$
+
+And the variational distributions:
+
+$$\begin{align}
+  q(W, z)
+  &=  \prod_{i} N \left(z_{i} | \mu_{z_{i}}, {\color{red}{\sigma_{z_i}^2}} \right)
+      \prod_{i,j} N \left( w_{ij} | z_{i} \mu_{ij}, z_{i}^2 \sigma_{ij}^2 \right)
+  \\
+  \mu_{ij} &\sim N(0,1/J)
+  \\
+  \sigma_{ij}^2 &\sim logNormal(-9, 0.01)
+  \\
+  \mu_{z_i} &\sim N(0, 1/I)
+  \\
+  \sigma_{z_i}^2 &\sim logNormal(-9, 0.01)
+  \\
+  \alpha_{i} &= \dfrac{\sigma_{z_i}^2}{\mu_{z_i}^2}
+\end{align}$$
+
+
+
+
 
 ## multiple layers
 
@@ -212,9 +259,9 @@ $$\begin{align}
 The upshot of all of this is just that we can perform the same operations on each layer, and the results are easily separable (multiply / sum each layer's results to get results for entire network)
 
 
-# variational algorithm and derivations
+# Derivations
 
-## deriving the ELBO (general)
+## ELBO (general)
 
 For notational simplicity, in the following I use $z$ to denote both the weights ($W$) and scale parameters ($z$), and $phi$ to denote all parameters governing the variational distribution ($\{\mu_{z_i}, \alpha_i, \sigma_{z_i}^2, \mu_{ij}, \sigma_{ij}^2\}$).
 
@@ -250,11 +297,11 @@ $$\begin{align}
 The second term is the ELBO $\mathcal{L}(\phi)$.  Since $\log p(x)$ is constant w.r.t. $q_\phi (z)$, maximizing the ELBO over $\phi$ minimizes the first term, the KL divergence between the variational distribution $q_\phi(z)$ and the posterior $p(z|x)$.
 
 
-### (side note: interpretation of ELBO)
+### Bayesian interpretation of ELBO
 
-I mentioned a potentially interesting interpretation of the ELBO during one of our meetings.  Just wanted to follow up on this:
+I mentioned a potentially interesting interpretation of the ELBO at our face-to-face meeting at the MoonGoat.  Just wanted to follow up on this, mostly as a side note:
 
-We can rearrange the ELBO such that:
+We can rearrange the above expression for the ELBO such that:
 $$\begin{align} 
   \mathcal{L}(\phi) 
   &= 
@@ -270,14 +317,14 @@ $$\begin{align}
   E_{q_\phi(z)} \left[\log p(x|z) \right] - KL \left(q_\phi(z) || p(z)\right)
 \end{align}$$
 
-The first term is the log-likelihood integrated over $z$, whereas the second term is the KL divergence between the variational distribution for $z$ and the prior on $z$.  I.e. the ELBO balances the likelihood of the data under the variational distribution against the "distance" the variational distribution must move from the prior.  As the variational distribution is our approximation to the posterior, we have a nice parallel here to the usual Bayesian idea of the data moving the posterior away from the prior.
+The first term is the log-likelihood integrated over $z$, whereas the second term is the KL divergence between the variational distribution $q_\phi(z_$ and the prior $p(z)$.  I.e. the ELBO balances the likelihood of the data under the variational distribution against the "distance" the variational distribution must move from the prior.  As the variational distribution is our approximation to the posterior, we have a nice parallel here to the usual Bayesian idea of the data moving the posterior away from the prior.
 
 
-A bit more rigorously: if use the interpretation from information theory of $\log \dfrac{1}{q_\phi(z)}$ as the "surprise" of obtaining $z$ if we assume that $z$ is generated via the variational distribution $q_\phi(z)$, we can think of the terms as follows:
+A bit more rigorously: if use the interpretation from information theory of $\log \dfrac{1}{q_\phi(z)}$ as the "surprise" of drawing $z$ from the variational distribution $q_\phi(z)$, we can think of the terms as follows:
 
 - $E_{q_\phi(z)} \left[\log p(x|z) \right]$ is the (negative) expected surprise of the data under our model when $z$ is sampled under $q_\phi(z)$;
 
-- $KL \left(q_\phi(z) || p(z)\right)$ is the expectation *when sampling $z$ under $q_\phi(z)$* of how surprised we are by $z$ given that we assume the variational distribution is true, minus how surprised we "should" have been by $z$ according to the model prior.
+- $KL \left(q_\phi(z) || p(z)\right)$ is the expectation, *when sampling $z$ from $q_\phi(z)$*, of how surprised we are by $z$ (given that we assume the variational distribution is true) minus how surprised we "should" have been by $z$ under the actual prior $p(z)$.  
 
 
 
@@ -308,8 +355,16 @@ $$\begin{align}
 \end{align}$$
 
 
+### Log-likelihood
 
-Using the distributions above
+Since $p(x|W, z) = N(x; f(W), \sigma^2)$, $x$ depends on $z$ only through $W$, $p(x|W,z) = p(x|W)$.  Thus the first term, $E_{q_\phi(W|z) q_\phi(z)} \left[ \log p(x|W, z) \right]$ is the expectation of the log-likelihood $\log p(x|W)$ under the variational distribution.
+
+
+
+
+### KL for W|z
+
+Using the distributions for the weights
 
 - $q_\phi(W|z) = \prod_{i,j} N(w_{ij} | z_i \mu_{ij}, z_i^2 \sigma_{ij}^2)$
 - $p(W|z) = \prod_{i,j} N(w_{ij} | 0, z_i^2)$
@@ -399,6 +454,30 @@ $$\begin{align}
 \end{align}$$
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Simulations
 
 
 ## check:
