@@ -373,9 +373,17 @@ $$\begin{align}
 
 ### Log-likelihood
 
-Since $p(x|W, z) = N(x; f(W), \sigma^2)$, $x$ depends on $z$ only through $W$, $p(x|W,z) = p(x|W)$.  Thus the first term, $E_{q_\phi(W|z) q_\phi(z)} \left[ \log p(x|W, z) \right]$ is the expectation of the log-likelihood $\log p(x|W)$ under the variational distribution.
+Since $x$ depends on $z$ only through $W$, $p(x|W,z) = p(x|W)$.  Thus the first term, $E_{q_\phi(W|z) q_\phi(z)} \left[ \log p(x|W, z) \right]$ is the expectation of the log-likelihood $\log p(x|W)$ under the variational distribution.
 
-In the scalar response case, 
+In the scalar response case, where (__I THINK___) $p(x | W) = N(x; f(W), \sigma^2)$, we have
+
+$$\begin{align}
+  \log p(x|W)
+  &=
+    -\frac{1}{2} \log (2 \pi \sigma^2)
+    -\frac{1}{2 \sigma^2} \left( x - f(W) \right)^2
+  \\
+\end{align}$$
 
 
 ### KL for W|z
@@ -456,29 +464,15 @@ $$\begin{align}
 
 An approximation to $KL \left(q_\phi(z) || p(z) \right)$ is taken from $Molchanov, Ashukha, Vetrov 2017$, through which we obtain:
 
-$$KL \left(q_\phi(z) || p(z) \right) \approx \sum_i (k_1 \sigma (k_2 + k_3 \log(\alpha_i))) - 0.5 m (-log \alpha_i) - 0.5 (m(-loga \alpha _i ) - k_3)$$
-where $k_1, k_2, k_3$ are constants, $\sigm$ is the sigmoid function, and $m$ is the softplus function.
+$$KL \left(q_\phi(z) || p(z) \right) \approx \sum_i (k_1 \sigma (k_2 + k_3 \log(\alpha_i))) - 0.5 m (-\log \alpha_i) - k_3)$$
+where $k_1, k_2, k_3$ are constants, $\sigma$ is the sigmoid function, and $m$ is the softplus function.  Importantly, note that this term depends only on the implied dropout rate $\alpha_i = \frac{\sigma_{z_i}^2}{\mu_{z_i}^2}$ --- which we identified as having a form similar to a Wald statistic.
+
+
 
 ### optimization
 
-We rely on torch's automatic differentiation and gradient calculations to minimize the objective function.  In the scalar response case, we use $MSE + KL/n$.
+We rely on torch's automatic differentiation and gradient calculations to minimize the objective function.  In the scalar response case, LUW 2017 uses $MSE + KL/n$, which is __almost__ an affine function of the ELBO (i.e. optimal parameters would be basically the same).  The only difference is that $MSE$ differs from the likelihood term by a scalar multiplier of $\frac{1}{2 \sigma^2}$.  
 
-The ELBO (scalar response case) is:
-
-$$E_{q_\phi(W|z) q_\phi(z)} \left[ \log p(x|W, z) \right] -  
-    E_{q_\phi(z)} \left[ KL\left( q_\phi(W|z) || p(W|z) \right) \right]- 
-    KL \left(q_\phi(z) || p(z) \right)$$
-
-Where 
-
-$$\begin{align}
-  \log p(x|W, z) 
-  &=
-  
-  \\
-  
-
-\end{align}$$
 
 
 
