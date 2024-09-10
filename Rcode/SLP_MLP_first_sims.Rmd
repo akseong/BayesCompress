@@ -209,28 +209,10 @@ __One important item to notice here:__ the (now implied) dropout parameter $\alp
 
 ### need help here
 
-A few things that I do not understand are:  
-  
-
-1) the model for the data itself is never addressed in _LUW 2017_.  Letting $f(W)$ indicate the neural network and $x$ the response, is the response modeled as $x \sim N(f(W), \sigma^2)$?  Is there a prior on the error variance?  
-
-2) the priors for many parameters in the variational distribution are left largely implicit --- in particular, the priors placed on $\mu_{z_i}, \alpha_i, \mu_{ij}, \sigma_{ij}^2$.  
-
-  - The code uses draws from Normal and log-Normal distributions _to initialize_ $\mu_{z_i}, \alpha_i, \mu_{ij}, \sigma_{ij}^2$
-
-Am I misunderstanding something fundamental here?  Is it unnecessary to provide priors for these, and unnecessary to have a distributional model for the response?  
-
-
-
-
-
-From what I can tell, the full formulation appears to be (do ML people even think about the variance of the observations?  Seems to be completely unimportant / elided in their literature):
-
+From what I can tell, the full formulation appears to be:
 
 $$\begin{align}
   x &\sim N(x; f(W), \sigma^2)
-  \\
-  p(\sigma^2) &\propto 1
   \\
   p(W | z) &= \prod_{ij} p(w_{ij} | z_i) = \prod_{ij} N \left(w_{ij} | 0, z_{i}^2 \right)
   \\
@@ -238,7 +220,7 @@ $$\begin{align}
   \\
 \end{align}$$
 
-And the variational distributions:
+And the variational distributions (based on code):
 
 $$\begin{align}
   q(W, z)
@@ -255,6 +237,20 @@ $$\begin{align}
   \\
   \alpha_{i} &= \dfrac{\sigma_{z_i}^2}{\mu_{z_i}^2}
 \end{align}$$
+
+
+A few things that I do not understand are:  
+  
+
+1) the model for the data itself is never addressed in _LUW 2017_.  I feel like I'm missing something fundamental here --- none of the literature appears to address this.  
+
+  - the only place that a distributional model for the data is mentioned is in the ELBO, $\mathcal{L}(\phi) = E_{q_\phi(W|z) q_\phi(z)} \left[ \log \color{red}{p(x|W, z)} \right] - E_{q_\phi(z)} \left[ KL\left( q_\phi(W|z) || p(W|z) \right) \right]-KL \left(q_\phi(z) || p(z) \right)$.
+  - it seems like this likelihood term simply gets replaced by MSE in the scalar response case (which would comport with an assumption that $x \sim N(f(W), \sigma^2)$, at least up to a multiplier), or cross-entropy when the data/response are pictures/labels (again, corresponding to an assumed multinomial dist'n).  This makes sense to me, BUT what doesn't make sense is that 1) the variance of the response is not modeled anywhere, and 2) the multiplier probably matters a little, no?
+
+
+2) the priors for many parameters in the variational distribution are never mentioned in the paper / left implicit --- in particular, the priors placed on $\mu_{z_i}, \alpha_i, \mu_{ij}, \sigma_{ij}^2$.  
+
+  - The code makes draws from Normal and log-Normal distributions _to initialize_ $\mu_{z_i}, \alpha_i, \mu_{ij}, \sigma_{ij}^2$, and these parameters are updated via the gradient of the ELBO.  However, their distributions are not part of the computation.  I suppose these parameters are only part of the _variational_ distribution, and so ... their distributions don't actually matter much?  We're just trying to optimize the ELBO using them?
 
 
 
@@ -379,7 +375,7 @@ $$\begin{align}
 
 Since $p(x|W, z) = N(x; f(W), \sigma^2)$, $x$ depends on $z$ only through $W$, $p(x|W,z) = p(x|W)$.  Thus the first term, $E_{q_\phi(W|z) q_\phi(z)} \left[ \log p(x|W, z) \right]$ is the expectation of the log-likelihood $\log p(x|W)$ under the variational distribution.
 
-
+In the scalar response case, 
 
 
 ### KL for W|z
@@ -456,22 +452,34 @@ $$\begin{align}
     \right)
 \end{align}$$
 
+### KL for z
 
+An approximation to $KL \left(q_\phi(z) || p(z) \right)$ is taken from $Molchanov, Ashukha, Vetrov 2017$, through which we obtain:
 
+$$KL \left(q_\phi(z) || p(z) \right) \approx \sum_i (k_1 \sigma (k_2 + k_3 \log(\alpha_i))) - 0.5 m (-log \alpha_i) - 0.5 (m(-loga \alpha _i ) - k_3)$$
+where $k_1, k_2, k_3$ are constants, $\sigm$ is the sigmoid function, and $m$ is the softplus function.
 
-
+### optimization
 
 We rely on torch's automatic differentiation and gradient calculations to minimize the objective function.  In the scalar response case, we use $MSE + KL/n$.
 
+The ELBO (scalar response case) is:
 
+$$E_{q_\phi(W|z) q_\phi(z)} \left[ \log p(x|W, z) \right] -  
+    E_{q_\phi(z)} \left[ KL\left( q_\phi(W|z) || p(W|z) \right) \right]- 
+    KL \left(q_\phi(z) || p(z) \right)$$
+
+Where 
 
 $$\begin{align}
-  \log P(X) 
-    &=
-    E_{q_{\theta}(z)} \left[ \log p(X|Z) \right]
-    - D_{KL} \left( q_\theta (z) ~||~ p(z) \right)
-    + D_{KL} \left( q_\theta (z) ~||~ p(z|x) \right)
+  \log p(x|W, z) 
+  &=
+  
+  \\
+  
+
 \end{align}$$
+
 
 
 
