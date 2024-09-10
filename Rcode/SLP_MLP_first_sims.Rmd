@@ -175,8 +175,17 @@ Under this formulation, the Bayesian model is:
 $$\begin{align} 
   p(z_{i}) &\propto |z_{i}|^{-1}
   \\
-  p(w_{ij} | z_{i}) &= N \left(w_{ij} | 0, z_{i}^2 \right)
+  p(w_{ij} | z_{i}) &= N(w_{ij} | 0, z_{i}^2)
 \end{align}$$
+
+And therefore we have:
+
+$$\begin{align} 
+  p(W, \mathbf{z}) 
+  &= \prod_i \frac{1}{|z_i|}\prod_{i,j} N(w_{ij} | 0, z_{i}^2)
+\end{align}$$
+
+
 
 In order to avoid MCMC on the potentially very large number of parameters, we adopt _LUW 2017_'s variational Bayes algorithm (in turn adapted from _Kingma, Salimans, Welling 2015_ and _Molchanov, Ashukha, Vetrov 2017_).  Thus, we use the variational distribution
 
@@ -195,26 +204,37 @@ $$\begin{align}
 \end{align}$$
 
 
-__One important item to notice here:__ the (now implied) dropout parameter $\alpha_{i} = \dfrac{\sigma_{z_i}^2}{\mu_{z_i}^2}$ is the inverse of a Wald statistic.  _(Perhaps this being a Wald statistic is just so obvious it doesn't need mentioning, but I don't believe any of the the papers positing this as a dropout parameter say this explicitly)_  This might be used to provide guidance on how to threshold $\alpha_{i}$ appropriately for variable selection (LUW2017 only addresses thresholding $\alpha_i$ in order to achieve a desired level of compression).
+__One important item to notice here:__ the (now implied) dropout parameter $\alpha_{i} = \dfrac{\sigma_{z_i}^2}{\mu_{z_i}^2}$ is the inverse of a Wald statistic for $z_i$.  _(Perhaps this being a Wald statistic is just so obvious it doesn't need mentioning, but I don't believe any of the the papers positing this as a dropout parameter say this explicitly)_  This might be used to provide guidance on how to threshold $\alpha_{i}$ appropriately for variable selection (LUW2017 only addresses thresholding $\alpha_i$ in order to achieve a desired level of compression).
 
 
 ### need help here
 
+A few things that I do not understand are:  
+  
 
-A few things are left implicit in _LUW 2017_ (maybe ML people all know this to be the common assumption?) --- in particular, the priors placed on $\sigma^2$, $\mu_{z_i}, \alpha_i, \\mu_{ij}, \sigma_{ij}^2$?  
+1) the model for the data itself is never addressed in _LUW 2017_.  Letting $f(W)$ indicate the neural network and $x$ the response, is the response modeled as $x \sim N(f(W), \sigma^2)$?  Is there a prior on the error variance?  
+
+2) the priors for many parameters in the variational distribution are left largely implicit --- in particular, the priors placed on $\mu_{z_i}, \alpha_i, \mu_{ij}, \sigma_{ij}^2$.  
+
+  - The code uses draws from Normal and log-Normal distributions _to initialize_ $\mu_{z_i}, \alpha_i, \mu_{ij}, \sigma_{ij}^2$
+
+Am I misunderstanding something fundamental here?  Is it unnecessary to provide priors for these, and unnecessary to have a distributional model for the response?  
+
+
+
+
 
 From what I can tell, the full formulation appears to be (do ML people even think about the variance of the observations?  Seems to be completely unimportant / elided in their literature):
+
 
 $$\begin{align}
   x &\sim N(x; f(W), \sigma^2)
   \\
   p(\sigma^2) &\propto 1
   \\
-  p(W) &= \prod_{ij} p(w_{ij})
+  p(W | z) &= \prod_{ij} p(w_{ij} | z_i) = \prod_{ij} N \left(w_{ij} | 0, z_{i}^2 \right)
   \\
-  w_{ij} | z_{i} & \sim N \left(w_{ij} | 0, z_{i}^2 \right)
-  \\
-  p(z) &= \prod_i p(z_{i}) \propto |z_{i}|^{-1}
+  p(z) &= \prod_i p(z_{i}) \propto \prod_{ij} |z_{i}|^{-1}
   \\
 \end{align}$$
 
