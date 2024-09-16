@@ -16,7 +16,7 @@ output:
     toc_float:
       collapsed: false
       smooth_scroll: true
-    code_fold: show
+    code_fold: hide
 urlcolor: blue
 params:
   retrain: FALSE
@@ -517,16 +517,18 @@ _Linearly-related data, single neuron model_
 
 __Data generation:__  
 
-- Covariates $x_i$ for $i \in \{1, 2, ..., 104\}$ generated as independent draws from a standard normal, i.e. $x_i \sim N(0,1)$  
+- __Covariates__: $\vec{x}_i \sim N(0, I)$ for $i \in \{1, 2, ..., I\}$.  $I$ is the number of covariates (what we usually denote using $p$); essentially, every entry in the matrix $X_{n \times I}$ is iid N(0,1).
 
-- $y = -0.5 x_1 + 1 x_2 - 2 x_3 + 4 x_4 + \epsilon$ where $\epsilon \sim N(0,1)$, i.e. only 4 "true" covariates ($x_1, x_2, x_3, x_4$) and 100 nuisance variables ($x_5, x_6, ..., x_{104}$)  
+- __Response__: letting $\epsilon \sim N(0,1)$, $$y = -0.5 x_1 + 1 x_2 - 2 x_3 + 4 x_4 + \epsilon$$ i.e. only 4 "true" covariates ($x_1, x_2, x_3, x_4$) and 100 nuisance variables ($x_5, x_6, ..., x_{104}$)  
 
-- number of observations $n$ = 100  
+- __number of observations__ $n$ = 100  
 
-- error variance $\sigma^2$ = 1  
+- __error variance__ $\sigma^2$ = 1  
 
 
-Model `SLP` has only 1 neuron, i.e. we are essentially fitting a scale mixture of normals regression model.
+__Model:__
+
+`SLP` has only 1 neuron, i.e. we are essentially fitting a scale mixture of normals regression model.
 
 Results averaged from running methods on 100 simulated datasets
 
@@ -615,18 +617,16 @@ mykable(tab = slnj_tab, cap = "SLP results")
 
 ```
 
-Model inclusion decisded using the "implied dropout parameter" $\alpha_i$.  
+Model inclusion decided using the "implied dropout parameter" $\alpha_i$.  
 `r colorize(txt)`
 
 
 
 ## setting 1b) 
 
-Data generation identical to setting 1a).  
+__Data generation__: identical to setting 1a).  
 
-__Model__:  
-
-`MLP` = multiple neurons, multiple layers  
+__Model__: `MLP` = multiple neurons, multiple layers  
 
   - 2 hidden layers with 50 nodes and 25 nodes respectively
 
@@ -635,13 +635,19 @@ __Model__:
 
 ## setting 2
 
-non-linear relationship between response $y$ and $x_1, x_2, x_3, x_4$.
+__Data generation__: 
 
-$$y = f_1(x_1) + f_2(x_2) + f_3(x_3) + f_4(x_4) + \epsilon$$
+- __covariates__: identical to setting 1a)
 
-with $\epsilon \sim N(0,1)$.
+- __response__:  
+
+  - non-linear relationship between response $y$ and $x_1, x_2, x_3, x_4$: $$y = f_1(x_1) + f_2(x_2) + f_3(x_3) + f_4(x_4) + \epsilon$$ with $\epsilon \sim N(0,1)$.
 
 ```{r}
+
+
+
+
 # plots of f1, f2, f3, f4
 ```
 
