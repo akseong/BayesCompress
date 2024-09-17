@@ -818,9 +818,12 @@ __Setting 1a) (linear data, single neuron model)__ is largely meant as proof of 
 
 
 
-__Setting 1b) (linear data, deep neural network)__:
+__Setting 1b) (linear data, deep neural network)__:  the intention here is to show that simply using the intended form of our method will still work fine with data in which we have more covariates than observations AND the relationship between the response and true covariates is simple (linear) --- i.e. even though the deep neural network is highly overparameterized for the data, we still maintain competitive performance in terms of both variable selection and fit.
+
+- results are again quite encouraging.  Only a very small loss in performance: though the False Positive Rate is about 2x as large as the previous (and precisely minimally parameterized) version of the model, we are still well within desirable limits (by like an order of magnitude).  
 
 
+__FWER__ is somewhat concerning in both settings.  I'm not sure how concerned we are with FWER in this type of setting (100 nuisance variables, only 4 "true" covariates).
 
 
 __Note__: we might employ a more sophisticated method for setting the inclusion threshold for the dropout parameter $\alpha_i$.  Right now inclusion criteria for the `SLP` and `MLP` methods are based on setting the threshold (approximately) at $\alpha_i < 0.05$.  (For the Spike-and-Slab models, posterior inclusion probability threshold is set to 0.95 to be included in the model).
