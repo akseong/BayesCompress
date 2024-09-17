@@ -50,6 +50,7 @@ sim_linear_data <- function(
 fcn1 <- function(x) exp(x/2)
 fcn2 <- function(x) cos(pi*x)
 fcn3 <- function(x) abs(x)^(1.5)
+fcn4 <- function(x) cos(pi*x) + sin(pi/1.2*x) - x
 
 sim_func_data <- function(
   n_obs = 1000,
