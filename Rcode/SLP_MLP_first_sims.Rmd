@@ -27,13 +27,13 @@ params:
 # LIBRARIES----
 
 #### Misc:
+library(knitr)
 library(here)
 library(tidyr)
-library(knitr)
-library(kableExtra)
 library(dplyr)
+library(kableExtra)
 library(ggplot2)
-
+library(latex2exp)
 
 # DOCUMENT SETUP ----
 # detect pdf/html output, set chunk options, sci.notation 
@@ -406,7 +406,7 @@ $$\begin{align}
   &=
     E_{q_\phi(W|z)}
     \left[
-      \log \dfrac{q_\phi(W|z)}{p(W|z)}
+      \logsdf \dfrac{q_\phi(W|z)}{p(W|z)}
     \right]
   \\
   &=
@@ -617,8 +617,42 @@ mykable(tab = slnj_tab, cap = "SLP results")
 
 ```
 
-Model inclusion decided using the "implied dropout parameter" $\alpha_i$.  
+Model inclusion for `SLP` decided using the "implied dropout parameter" $\alpha_i$.  
 `r colorize(txt)`
+
+Model fit results measured in terms of MSE are in the table below.  Reported MSE for Spike-and-Slab models are calculated using each trial's posterior means only (i.e. each trial's `fit_MSE` and `coef_MSE` are calculated using the posterior means for the coefficients.  The mean and sd of these  across trials are then calculated.)
+
+
+
+```{r SLNJ_other_metrics}
+
+mse_stats <- function(res_MSEs){
+  c(
+    "fit_MSE_avg" = mean(res_MSEs[, 1]),
+    "fit_MSE_sd" = sd(res_MSEs[, 1]),
+    "coef_MSE_avg" = mean(res_MSEs[, 2]),
+    "coef_MSE_sd" = sd(res_MSEs[, 2])
+  )
+}
+
+#slnj average MSE
+slnj_MSEs <- slnj_metrics[, c(2,4)]
+lasso_MSEs <- t(sapply(res, function(X) c(X$lasso$fit_mse, X$lasso$coef_mse)))
+ss_MSEs <- t(sapply(res, function(X) c(X$ss$fit_mse, X$ss$coef_mse)))
+slnj_mse_vec <- mse_stats(slnj_MSEs)
+lasso_mse_vec <- mse_stats(lasso_MSEs)
+ss_mse_vec <- mse_stats(ss_MSEs)
+
+mse_tab <- rbind(
+  "SLP" = slnj_mse_vec,
+  "Spike-Slab" = ss_mse_vec,
+  "LASSO" = lasso_mse_vec
+)
+
+mykable(tab = round(mse_tab, 4), cap = "fit metrics")
+
+```
+
 
 
 
@@ -631,6 +665,165 @@ __Model__: `MLP` = multiple neurons, multiple layers
   - 2 hidden layers with 50 nodes and 25 nodes respectively
 
 
+```{r MLP_results}
+
+fname <- "MLP_linear_sim_sig1.Rdata"
+fname2 <- "MLP_linear_sim_sig1_part2.Rdata"
+fpath <- here::here("Rcode", "results", fname)
+fpath2 <- here::here("Rcode", "results", fname2)
+
+load(fpath)
+load(fpath2)
+
+# some results null (stopped simulation b/c needed to use computer)
+res_non_null <- res[!sapply(res, is.null)]
+result_non_null <- result[!sapply(result, is.null)]
+
+res <- append(res_non_null, result_non_null)
+
+# replace with true coefs
+tru <-c(rep(1, 4), rep(0, 100))
+
+
+# mlnj bare results
+
+# threshold log_alphas at -3 (exp(-3) \approx 0.05)
+# what is a reasonable dropout probability?  
+log_alpha_threshold <- -3
+txt <- paste0("log_alpha_threshold = ", log_alpha_threshold, 
+              " (i.e. dropout rate of <",
+              round(exp(log_alpha_threshold), 5), 
+              " required for inclusion)")
+
+mlnj_log_alphas <- t(sapply(res, function(X) X$mlnj$log_dropout_alphas))
+mlnj_include <- mlnj_log_alphas < log_alpha_threshold
+
+mlnj_binary_err <- t(apply(
+  mlnj_include, 1, 
+  function(X) binary_err(est = X, tru = tru)
+))
+mlnj_binary_err_rates <- t(apply(
+  mlnj_include, 1,
+  function(X) binary_err_rate(est = X, tru = tru)
+))
+
+mlnj_fwer <- mean(mlnj_binary_err_rates[,1] != 0)
+
+# other mlnj metrics
+mlnj_metrics <- t(sapply(res, function(X) X$mlnj$other_metrics))
+
+# # # # # # # # # # # # # # # # # # # # # # # # #
+## LASSO ----
+# # # # # # # # # # # # # # # # # # # # # # # # #
+
+lasso_coefs <- t(sapply(res, function(X) as.vector(X$lasso$coefs)[-1]))
+lasso_include <- lasso_coefs != 0 
+lasso_binary_err_rates <- t(apply(
+  lasso_include, 1, 
+  function(X) binary_err_rate(est = X, tru = tru)
+))
+
+lasso_fwer <- mean(lasso_binary_err_rates[,1] != 0)
+
+
+# # # # # # # # # # # # # # # # # # # # # # # # #
+## Spike-&-Slab ----
+# # # # # # # # # # # # # # # # # # # # # # # # #
+
+# use same threshold?
+
+
+ss_post_inclusion_probs <- t(sapply(res, function(X) X$ss$coefs[, 5]))
+ss_dropout_equiv <- 1 - ss_post_inclusion_probs
+ss_include <- ss_dropout_equiv < exp(log_alpha_threshold)
+
+
+ss_binary_err_rates <- t(apply(
+  ss_include, 1, 
+  function(X) binary_err_rate(est = X, tru = tru)
+))
+
+ss_fwer <- mean(ss_binary_err_rates[,1] != 0)
+
+mlnj_res <- colMeans(mlnj_binary_err_rates)
+ss_res <- colMeans(ss_binary_err_rates)
+lasso_res <- colMeans(lasso_binary_err_rates)
+
+
+mlnj_fwer <- mean(mlnj_binary_err_rates[,1] != 0)
+ss_fwer <- mean(ss_binary_err_rates[,1] != 0)
+lasso_fwer <- mean(lasso_binary_err_rates[,1] != 0)
+
+mlnj_res <- c(mlnj_res, "FWER" = mlnj_fwer)
+ss_res <- c(ss_res, "FWER" = ss_fwer)
+lasso_res <- c(lasso_res, "FWER" = lasso_fwer)
+
+mlnj_tab <- rbind(
+  mlnj_res,
+  ss_res,
+  lasso_res
+)
+
+rownames(mlnj_tab) <- c("MLP", "Spike-Slab", "LASSO")
+colnames(mlnj_tab) <- c("FP", "TP", "FN", "TN", "FWER")
+
+mykable(tab = mlnj_tab, cap = "MLP results")
+```
+
+
+The highly over-parameterized version of this model still performs quite well in terms of variable selection for linear data.
+
+Below are metrics for the model fit.  Included are the coefficient MSEs, though they are not really relevant for the `MLP` (calculated based on input layer's coefficients for these variables, but there are 2 hidden layers in the neural network).
+
+
+```{r MLP_fit_results}
+
+mse_stats <- function(res_MSEs){
+  c(
+    "fit_MSE_avg" = mean(res_MSEs[, 1]),
+    "fit_MSE_sd" = sd(res_MSEs[, 1]),
+    "coef_MSE_avg" = mean(res_MSEs[, 2]),
+    "coef_MSE_sd" = sd(res_MSEs[, 2])
+  )
+}
+
+#mlnj average MSE
+mlnj_MSEs <- mlnj_metrics[, c(2,4)]
+lasso_MSEs <- t(sapply(res, function(X) c(X$lasso$fit_mse, X$lasso$coef_mse)))
+ss_MSEs <- t(sapply(res, function(X) c(X$ss$fit_mse, X$ss$coef_mse)))
+mlnj_mse_vec <- mse_stats(mlnj_MSEs)
+lasso_mse_vec <- mse_stats(lasso_MSEs)
+ss_mse_vec <- mse_stats(ss_MSEs)
+
+mse_tab <- rbind(
+  "MLP" = mlnj_mse_vec,
+  "Spike-Slab" = ss_mse_vec,
+  "LASSO" = lasso_mse_vec
+)
+
+mykable(tab = round(mse_tab, 4), cap = "fit metrics")
+```
+
+
+
+
+
+### comments
+
+__Setting 1a) (linear data, single neuron model)__ is largely meant as proof of concept.  
+
+- The results of the `SLP` and the `Spike-Slab` models should be similar, since fitting the `SLP` model corresponds to a fitting Spike-and-Slab model with 2 modifications: 1) the discrete Spike-and-Slab model has been relaxed to a scale-mixture of Gaussians, 2) rather than MCMC, a variational algorithm is employed to find optimal parameter values.
+
+- results are encouraging.  Both `SLP` and `Spike-Slab` are more conservative than LASSO, with only a very small loss in power.  `Spike-Slab` is more conservative than `SLP`, but has a somewhat large loss in power. 
+
+
+
+__Setting 1b) (linear data, deep neural network)__:
+
+
+
+
+__Note__: we might employ a more sophisticated method for setting the inclusion threshold for the dropout parameter $\alpha_i$.  Right now inclusion criteria for the `SLP` and `MLP` methods are based on setting the threshold (approximately) at $\alpha_i < 0.05$.  (For the Spike-and-Slab models, posterior inclusion probability threshold is set to 0.95 to be included in the model).
 
 
 ## setting 2
@@ -644,11 +837,41 @@ __Data generation__:
   - non-linear relationship between response $y$ and $x_1, x_2, x_3, x_4$: $$y = f_1(x_1) + f_2(x_2) + f_3(x_3) + f_4(x_4) + \epsilon$$ with $\epsilon \sim N(0,1)$.
 
 ```{r}
+x_grid <- -50:50 / 10
+y1 <- fcn1(x_grid)
+y2 <- fcn2(x_grid)
+y3 <- fcn3(x_grid)
+y4 <- fcn4(x_grid)
+
+fcn_df <- data.frame(
+  x_grid, y1, y2, y3, y4
+)
+
+names(fcn_df) <- c(
+  "x",
+  "f_1(x)",
+  "f_2(x)",
+  "f_3(x)",
+  "f_4(x)"
+)
 
 
+fcn_df %>% 
+  pivot_longer(cols = -x) %>% 
+  ggplot() + 
+  geom_point(
+    aes(
+      y = value,
+      x = x,
+      color = name
+    )
+  ) + 
+  labs(
+    title = "additive contribution of x1, x2, x3, x4 to response",
+    subtitle = TeX("E(y) = f_1(x_1) + f_2(x_2) + f_3(x_3) + f_4(x_4)"),
+    color = ""
+  )
 
-
-# plots of f1, f2, f3, f4
 ```
 
 
@@ -657,5 +880,12 @@ __Model__:
 
 `MLP` = multiple neurons, multiple layers  
       - 2 hidden layers with 50 nodes and 25 nodes respectively
+
+
+
+
+
+
+
 
 
