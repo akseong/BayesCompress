@@ -133,7 +133,7 @@ source(here("Rcode", "sim_functions.R"))
 # Background
 The motivation for this model is to combine the variable selection properties of Bayesian spike-and-slab with the expressivity of a neural network.  We do this by placing a spike-and-slab prior on the _rows_ of a weight matrix $W$ representing one layer of a neural network.
 
-Let $X$ be a $n \times I$ matrix representing $n$ observations of $I$ covariates, and $W$ be a $I \times J$ weight matrix.  We can then represent the computation performed by the first (input) layer of a neural network as $XW + b = H$, where $b$ is a vector of biases and $H$ is the pre-activation (that is, if $\sigma ()$ denotes the activation function, $\sigma(H) = \tilde{H}$ is the input for the next layer in the neural network).
+Let $X$ be a $n \times I$ matrix representing $n$ observations of $I$ covariates, and $W$ be a $I \times J$ weight matrix.  We can then represent the computation performed by the first (input) layer of a neural network as $XW + b = H$, where $b$ is a length $J$ vector of biases (which is duplicated $n$ times into a $n \times J$ matrix) and $H$ is the pre-activation (that is, if $\sigma ()$ denotes the activation function, $\sigma(H) = \tilde{H}$ is the input for the next layer in the neural network).
 
 If all of the weights $w_{ij}$ in row $i$ of $W$ are 0, then the covariate in column $i$ of $X$ does not contribute to $H$ and therefore also has no effect on the final prediction.  Thus by placing a spike-and-slab prior on the rows of $W$, we obtain variable selection.
 
@@ -142,15 +142,27 @@ We rely heavily here on the formulation and variational Bayes algorithm develope
 
 ## notes:
 
-- Need to experiment to see if it's better to only do this for the input layer (as opposed to all layers, which is the current implementation)
+__How to differentiate ourselves from LUW 2017__:  
 
-- Ways to differentiate ourselves:  
-    - a more rigorous interpretation of the dropout parameter $\alpha_i$ as the equivalent to a Wald statistic  
-    - (Adam's paper) using normalizing flow to model non-local prior
-    - some way to reconcile mean-field assumption of Variational Bayes with group sparsity?  
-    - as _LUW 2017_ note, the log-uniform prior does require independence between parameters (i.e. grouping by row is not kosher), so the joint Bayesian model developed in LUW 2017 is not strictly accurate and is more of an approximation
-    - obvious difference: provide empirical results on how good the method is at variable selection
+- Need to experiment to see if it's better to only do this for the input layer (as opposed to all layers, which is the current implementation)  
+- a more rigorous interpretation of the dropout parameter $\alpha_i$ as the equivalent to a Wald statistic  
+- (Adam's paper) using normalizing flow to model non-local prior
+- some way to reconcile mean-field assumption of Variational Bayes with group sparsity?  
+- as _LUW 2017_ note, the log-uniform prior does require independence between parameters (i.e. grouping by row is not kosher), so the joint Bayesian model developed in LUW 2017 is not strictly accurate and is more of an approximation
+- obvious difference: provide empirical results on how good the method is at variable selection
 
+
+__Note on indices__: 
+
+$i \in \{1, 2, ..., I\}$ indexes the rows of the weight matrix $W$, i.e. the inputs or covariates.  $j \in \{1, 2, ...., J\}$ indexes the columns of $W$, i.e. the output's dimensionality.  Thus, representing a fully connected layer of a neural network as $XW + b = H$, the components are:  
+
+- $X$: $n \times I$ matrix of covariates ($n$ observations of $I$ covariates)  
+- $W$: $I \times J$ weight matrix  
+- $b$: length $J$ intercept vector (gets "broadcast", i.e. duplicated and stacked/rowbound to form a $n \times J$ matrix)  
+- $H$: $n \times J$ pre-activation
+
+In a single-layer neural network, $H$ is our prediction $\hat{y}$.  
+In a multi-layer neural network, $H$ passes through some activation function $\sigma()$.  This $\sigma(H) = \tilde H$ then becomes the input for the next layer.  
 
 
 # Model
@@ -165,7 +177,7 @@ $$\begin{align}
   & \sim N(0, z^2)
 \end{align}$$
 
-This is a fairly general formulation: letting $p(z)$ be Bernoulli, for example, leads to the discrete spike-and-slab (with unit variance).  
+This is a fairly general formulation: letting $p(z)$ be Bernoulli, for example, leads to the discrete spike-and-slab.  
 
 
 
@@ -246,7 +258,6 @@ $$\begin{align}
 
 
 A few things that I do not understand are:  
-  
 
 1) the model for the data, i.e. $y \sim N(y; f(W, X), \sigma^2)$, is never addressed in _LUW 2017_.  I feel like I'm missing something fundamental here --- none of the literature appears to address this.  
 
@@ -339,16 +350,26 @@ $$\begin{align}
   E_{q_\phi(z)} \left[\log p(y|z) \right] - KL \left(q_\phi(z) || p(z)\right)
 \end{align}$$
 
-The first term is the log-likelihood integrated over $z$, whereas the second term is the KL divergence between the variational distribution $q_\phi(z_$ and the prior $p(z)$.  I.e. the ELBO balances the likelihood of the data under the variational distribution against the "distance" the variational distribution must move from the prior.  As the variational distribution is our approximation to the posterior, we have a nice parallel here to the usual Bayesian idea of the data moving the posterior away from the prior.
+The first term is the log-likelihood integrated over $z$, whereas the second term is the KL divergence between the variational distribution $q_\phi(z)$ and the prior $p(z)$.  In other words, the ELBO balances the expected likelihood of the data (under the variational distribution) against the expected "distance" between the variational distribution and the prior.  As the variational distribution is our approximation to the posterior, we have a nice parallel here to the usual Bayesian idea of the data moving the posterior away from the prior.
 
 
-A bit more rigorously: if use the interpretation from information theory of $\log \dfrac{1}{q_\phi(z)}$ as the "surprise" of drawing $z$ from the variational distribution $q_\phi(z)$, we can think of the terms as follows:
+A bit more rigorously: if we use the information theory interpretation of $\log \dfrac{1}{q_\phi(z)}$ as the "surprise" of drawing $z$ from the variational distribution $q_\phi(z)$, we can think of the terms as follows:
 
-- $E_{q_\phi(z)} \left[\log p(y|z) \right]$ is the (negative) expected surprise of the data under our model when $z$ is sampled under $q_\phi(z)$;
+$$\begin{align} 
+  \mathcal{L}(\phi) 
+  &=
+  E_{q_\phi(z)} \left[\log p(y|z) \right] - KL \left(q_\phi(z) || p(z)\right)
+  \\
+  &=
+  -KL \left(q_\phi(z) || p(z)\right) - E_{q_\phi(z)} \left[\log \dfrac{1}{p(y|z)} \right] 
+\end{align}$$
 
-- $KL \left(q_\phi(z) || p(z)\right)$ is the expectation, *when sampling $z$ from $q_\phi(z)$*, of how surprised we are by $z$ (given that we assume the variational distribution is true) minus how surprised we "should" have been by $z$ under the actual prior $p(z)$.  
+- $-KL \left(q_\phi(z) || p(z)\right)$ is the expectation, *when sampling $z$ from $q_\phi(z)$*, of how surprised we are by $z$ (given that we assume the variational distribution is true) minus how surprised we would have been by $z$ under the prior $p(z)$;
+
+- $E_{q_\phi(z)} \left[\log \dfrac{1}{p(y|z)}$ is the expected surprise of the data under our model *when $z$ is sampled under $q_\phi(z)$*.
 
 
+So the ELBO, essentially, balances 1) the expected difference in surprise between the variational and prior distributions with 2) the expected surprise of the data, all when sampling $z$ under the variational distribution.  So maximizing the ELBO involves minimizing the surprise of the data by adjusting the approximate posterior, while keeping the approximate posterior to the prior.
 
 
 ## derivations for this specific model
@@ -381,7 +402,7 @@ $$\begin{align}
 
 Since $y$ depends on $z$ only through $W$, $p(y|W,z) = p(y|W)$.  Thus the first term, $E_{q_\phi(W|z) q_\phi(z)} \left[ \log p(y|W, z) \right]$ is the expectation of the log-likelihood $\log p(y|W)$ under the variational distribution.
 
-In the scalar response case, where (__I THINK___) $p(y | W) = N(y; f(W, X), \sigma^2)$, we have
+In the scalar response case, where the assumption appears to be (?) $p(y | W) = N(y; f(W, X), \sigma^2)$, we have
 
 $$\begin{align}
   \log p(y|W)
@@ -390,6 +411,12 @@ $$\begin{align}
     -\frac{1}{2 \sigma^2} \left( y - f(W, X) \right)^2
   \\
 \end{align}$$
+
+`r colorize("This portion of the ELBO, in the code, only appears as MSE.")`  In other words, in the pytorch implementation posted on their github, LUW 2017 designates the objective function to be minimized as $MSE + KL\left( q_\phi(W|z) || p(W|z) \right) + KL \left(q_\phi(z) || p(z) \right)$.
+
+So instead of the likelihood, the objective function only uses MSE.  Leaving out $\frac{1}{2} \log (2 \pi \sigma^2)$ is fine, but what about the $\frac{1}{2 \sigma^2}$ multiplier on the $MSE$?  
+
+`r colorize("This seems problematic to me")` because this objective function is NOT an affine function of the ELBO (i.e. optimal parameter values will be different, no?).
 
 
 ### KL for W|z
@@ -406,7 +433,7 @@ $$\begin{align}
   &=
     E_{q_\phi(W|z)}
     \left[
-      \logsdf \dfrac{q_\phi(W|z)}{p(W|z)}
+      \log \dfrac{q_\phi(W|z)}{p(W|z)}
     \right]
   \\
   &=
@@ -483,7 +510,7 @@ We rely on torch's automatic differentiation and gradient calculations to minimi
 
 __Issue__: $MSE + KL/n$ contains the same components as the ELBO, but is not quite an affine function of the ELBO (i.e. optimal parameter values $\phi$ for the ELBO and for $MSE + KL/n$ are `r colorize("not")` necessarily the same, __which seems problematic__).  In the ELBO, the terms estimated by the $MSE$ and $KL$ are scaled differently relative to each other, i.e. 
 
-$$\widehat{\mathcal{L}}(\phi) = n \times \left( \frac{MSE}{2 \sigma^2}  + KL/n \right) + c$$
+$$\widehat{\mathcal{L}}(\phi) = -n \times \left( \frac{MSE}{2 \sigma^2}  + KL/n \right) + c$$
 where $c$ is a constant not depending on $\phi$.
 
 
