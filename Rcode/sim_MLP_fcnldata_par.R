@@ -86,7 +86,7 @@ dropout_thresh <- 0.05
 # set initial value for dropout rate alpha
 # (default value is 1/2)
 init_alpha <- 0.5
-max_train_epochs <- ifelse(testing, 500, 40000)
+max_train_epochs <- ifelse(testing, 500, 100000)
 verbose <- testing
 burn_in <- ifelse(testing, 100, 10000)
 convergence_crit <- 1e-8
@@ -338,8 +338,7 @@ MLP_fcnldata_sim <- function(
     "stop_reason" = stop_reason,
     "log_dropout_alphas" = log_dropout_alphas,
     "log_alpha_mat" = log_alpha_mat,
-    "other_metrics" = other_metrics,
-    "mlnj_net" = mlnj_net
+    "other_metrics" = other_metrics
   )
   
   res$mlnj <- mlnj_res
