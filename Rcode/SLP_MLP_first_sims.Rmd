@@ -559,6 +559,122 @@ __Model:__
 
 Results averaged from running methods on 100 simulated datasets
 
+```{r FUNCTIONget_restab}
+get_restab <- function(res, tru, log_alpha_threshold = -3, method_name = "Bnn", verbose = TRUE){
+
+  if (verbose){
+    txt <- paste0("log_alpha_threshold = ", log_alpha_threshold, 
+              " (i.e. dropout rate of <",
+              round(exp(log_alpha_threshold), 5), 
+              " required for inclusion)")
+    cat("\n", txt, "\n")
+  }
+
+  method_log_alphas <- t(sapply(res, function(X) X[[1]]$log_dropout_alphas))
+  method_include <- method_log_alphas < log_alpha_threshold
+  
+  method_binary_err <- t(apply(
+    method_include, 1, 
+    function(X) binary_err(est = X, tru = tru)
+  ))
+  method_binary_err_rates <- t(apply(
+    method_include, 1,
+    function(X) binary_err_rate(est = X, tru = tru)
+  ))
+  
+  method_fwer <- mean(method_binary_err_rates[,1] != 0)
+  
+  # other metrics
+  method_metrics <- t(sapply(res, function(X) X[[1]]$other_metrics))
+  
+  # # # # # # # # # # # # # # # # # # # # # # # # #
+  ## LASSO ----
+  # # # # # # # # # # # # # # # # # # # # # # # # #
+  
+  lasso_coefs <- t(sapply(res, function(X) as.vector(X$lasso$coefs)[-1]))
+  lasso_include <- lasso_coefs != 0 
+  lasso_binary_err_rates <- t(apply(
+    lasso_include, 1, 
+    function(X) binary_err_rate(est = X, tru = tru)
+  ))
+  
+  lasso_fwer <- mean(lasso_binary_err_rates[,1] != 0)
+  
+  
+  # # # # # # # # # # # # # # # # # # # # # # # # #
+  ## Spike-&-Slab ----
+  # # # # # # # # # # # # # # # # # # # # # # # # #
+  
+  # use same threshold?
+  
+  
+  ss_post_inclusion_probs <- t(sapply(res, function(X) X$ss$coefs[, 5]))
+  ss_dropout_equiv <- 1 - ss_post_inclusion_probs
+  ss_include <- ss_dropout_equiv < exp(log_alpha_threshold)
+  
+  
+  ss_binary_err_rates <- t(apply(
+    ss_include, 1, 
+    function(X) binary_err_rate(est = X, tru = tru)
+  ))
+  
+  ss_fwer <- mean(ss_binary_err_rates[,1] != 0)
+  
+  method_res <- colMeans(method_binary_err_rates)
+  ss_res <- colMeans(ss_binary_err_rates)
+  lasso_res <- colMeans(lasso_binary_err_rates)
+  
+  
+  method_fwer <- mean(method_binary_err_rates[,1] != 0)
+  ss_fwer <- mean(ss_binary_err_rates[,1] != 0)
+  lasso_fwer <- mean(lasso_binary_err_rates[,1] != 0)
+  
+  method_res <- c(method_res, "FWER" = method_fwer)
+  ss_res <- c(ss_res, "FWER" = ss_fwer)
+  lasso_res <- c(lasso_res, "FWER" = lasso_fwer)
+  
+  restab <- rbind(
+    method_res,
+    ss_res,
+    lasso_res
+  )
+  
+  rownames(restab) <- c(method_name, "Spike-Slab", "LASSO")
+  colnames(restab) <- c("FP", "TP", "FN", "TN", "FWER")
+  
+  return(restab)
+}
+
+
+
+get_mses <- function(res, method_name = "Bnn"){
+  
+  mse_stats <- function(res_MSEs){
+    c(
+      "fit_MSE_avg" = mean(res_MSEs[, 1]),
+      "fit_MSE_sd" = sd(res_MSEs[, 1]),
+      "coef_MSE_avg" = mean(res_MSEs[, 2]),
+      "coef_MSE_sd" = sd(res_MSEs[, 2])
+    )
+  }
+  
+  #mlnj average MSE
+  method_metrics <- t(sapply(res, function(X) X[[1]]$other_metrics))
+  method_MSEs <- method_metrics[, c(2,4)]
+  lasso_MSEs <- t(sapply(res, function(X) c(X$lasso$fit_mse, X$lasso$coef_mse)))
+  ss_MSEs <- t(sapply(res, function(X) c(X$ss$fit_mse, X$ss$coef_mse)))
+  method_mse_vec <- mse_stats(method_MSEs)
+  lasso_mse_vec <- mse_stats(lasso_MSEs)
+  ss_mse_vec <- mse_stats(ss_MSEs)
+  
+  mse_tab <- rbind(
+    method_name = method_mse_vec,
+    "Spike-Slab" = ss_mse_vec,
+    "LASSO" = lasso_mse_vec
+  )
+  return(mse_tab)
+}
+```
 
 
 
@@ -568,6 +684,8 @@ load(fpath)
 
 true_coefs = c(-0.5, 1, -2, 4, rep(0, times = 100))
 tru <- true_coefs != 0 
+
+
 
 # slnj bare results
 
@@ -579,66 +697,13 @@ txt <- paste0("log_alpha_threshold = ", log_alpha_threshold,
               round(exp(log_alpha_threshold), 5), 
               " required for inclusion)")
 
-slnj_log_alphas <- t(sapply(res, function(X) X$slnj$log_dropout_alphas))
-slnj_include <- slnj_log_alphas < log_alpha_threshold
-
-slnj_binary_err <- t(apply(
-  slnj_include, 1, 
-  function(X) binary_err(est = X, tru = tru)
-))
-slnj_binary_err_rates <- t(apply(
-  slnj_include, 1,
-  function(X) binary_err_rate(est = X, tru = tru)
-))
-
-# slnj_binary_err_rates
-slnj_fwer <- mean(slnj_binary_err_rates[,1] != 0)
-
-# other slnj metrics
-slnj_metrics <- t(sapply(res, function(X) X$slnj$other_metrics))
-
-
-# # # # # # # # # # # # # # # # # # # # # # # # #
-## LASSO ----
-# # # # # # # # # # # # # # # # # # # # # # # # #
-
-lasso_coefs <- t(sapply(res, function(X) as.vector(X$lasso$coefs)[-1]))
-lasso_include <- lasso_coefs != 0 
-lasso_binary_err_rates <- t(apply(
-  lasso_include, 1, 
-  function(X) binary_err_rate(est = X, tru = tru)
-))
-
-lasso_fwer <- mean(lasso_binary_err_rates[,1] != 0)
-
-
-# # # # # # # # # # # # # # # # # # # # # # # # #
-## Spike-&-Slab ----
-# # # # # # # # # # # # # # # # # # # # # # # # #
-
-ss_post_inclusion_probs <- t(sapply(res, function(X) X$ss$coefs[, 5]))
-ss_dropout_equiv <- 1 - ss_post_inclusion_probs
-ss_include <- ss_dropout_equiv < exp(log_alpha_threshold)
-
-
-ss_binary_err_rates <- t(apply(
-  ss_include, 1, 
-  function(X) binary_err_rate(est = X, tru = tru)
-))
-
-ss_fwer <- mean(ss_binary_err_rates[,1] != 0)
-
-slnj_res <- colMeans(slnj_binary_err_rates)
-ss_res<- colMeans(ss_binary_err_rates)
-lasso_res<- colMeans(lasso_binary_err_rates)
-
-slnj_tab <- cbind(
-  rbind(slnj_res, ss_res, lasso_res),
-  c(slnj_fwer, ss_fwer, lasso_fwer)
+slnj_tab <- get_restab(
+  res = res, 
+  tru = tru, 
+  log_alpha_threshold = log_alpha_threshold, 
+  method_name = "SLP",
+  verbose = FALSE
 )
-
-rownames(slnj_tab) <- c("SLP", "Spike-Slab", "LASSO")
-colnames(slnj_tab) <- c("FP", "TP", "FN", "TN", "FWER")
 
 mykable(tab = slnj_tab, cap = "SLP results")
 
@@ -652,33 +717,13 @@ Model fit results measured in terms of MSE are in the table below.  Reported MSE
 
 
 ```{r SLNJ_other_metrics}
-
-mse_stats <- function(res_MSEs){
-  c(
-    "fit_MSE_avg" = mean(res_MSEs[, 1]),
-    "fit_MSE_sd" = sd(res_MSEs[, 1]),
-    "coef_MSE_avg" = mean(res_MSEs[, 2]),
-    "coef_MSE_sd" = sd(res_MSEs[, 2])
-  )
-}
-
-#slnj average MSE
-slnj_MSEs <- slnj_metrics[, c(2,4)]
-lasso_MSEs <- t(sapply(res, function(X) c(X$lasso$fit_mse, X$lasso$coef_mse)))
-ss_MSEs <- t(sapply(res, function(X) c(X$ss$fit_mse, X$ss$coef_mse)))
-slnj_mse_vec <- mse_stats(slnj_MSEs)
-lasso_mse_vec <- mse_stats(lasso_MSEs)
-ss_mse_vec <- mse_stats(ss_MSEs)
-
-mse_tab <- rbind(
-  "SLP" = slnj_mse_vec,
-  "Spike-Slab" = ss_mse_vec,
-  "LASSO" = lasso_mse_vec
-)
-
+mse_tab <- get_mses(res, mathod_name = "SLP")
 mykable(tab = round(mse_tab, 4), cap = "fit metrics")
 
 ```
+
+
+I'm looking at the MSE's and realizing that I did not apply the dropout before calculating the coefficient MSE.  So for both the Spike-and-Slab and for our models, the MSEs use the estimated posterior mean even when the decision was to drop the variable from the model (instead of 0).  This applies to the next batch of results as well.  Unfortunately I did not save the network weights, so cannot recalculate it. 
 
 
 
@@ -711,88 +756,13 @@ res <- append(res_non_null, result_non_null)
 # replace with true coefs
 tru <-c(rep(1, 4), rep(0, 100))
 
-
-# mlnj bare results
-
-# threshold log_alphas at -3 (exp(-3) \approx 0.05)
-# what is a reasonable dropout probability?  
-log_alpha_threshold <- -3
-txt <- paste0("log_alpha_threshold = ", log_alpha_threshold, 
-              " (i.e. dropout rate of <",
-              round(exp(log_alpha_threshold), 5), 
-              " required for inclusion)")
-
-mlnj_log_alphas <- t(sapply(res, function(X) X$mlnj$log_dropout_alphas))
-mlnj_include <- mlnj_log_alphas < log_alpha_threshold
-
-mlnj_binary_err <- t(apply(
-  mlnj_include, 1, 
-  function(X) binary_err(est = X, tru = tru)
-))
-mlnj_binary_err_rates <- t(apply(
-  mlnj_include, 1,
-  function(X) binary_err_rate(est = X, tru = tru)
-))
-
-mlnj_fwer <- mean(mlnj_binary_err_rates[,1] != 0)
-
-# other mlnj metrics
-mlnj_metrics <- t(sapply(res, function(X) X$mlnj$other_metrics))
-
-# # # # # # # # # # # # # # # # # # # # # # # # #
-## LASSO ----
-# # # # # # # # # # # # # # # # # # # # # # # # #
-
-lasso_coefs <- t(sapply(res, function(X) as.vector(X$lasso$coefs)[-1]))
-lasso_include <- lasso_coefs != 0 
-lasso_binary_err_rates <- t(apply(
-  lasso_include, 1, 
-  function(X) binary_err_rate(est = X, tru = tru)
-))
-
-lasso_fwer <- mean(lasso_binary_err_rates[,1] != 0)
-
-
-# # # # # # # # # # # # # # # # # # # # # # # # #
-## Spike-&-Slab ----
-# # # # # # # # # # # # # # # # # # # # # # # # #
-
-# use same threshold?
-
-
-ss_post_inclusion_probs <- t(sapply(res, function(X) X$ss$coefs[, 5]))
-ss_dropout_equiv <- 1 - ss_post_inclusion_probs
-ss_include <- ss_dropout_equiv < exp(log_alpha_threshold)
-
-
-ss_binary_err_rates <- t(apply(
-  ss_include, 1, 
-  function(X) binary_err_rate(est = X, tru = tru)
-))
-
-ss_fwer <- mean(ss_binary_err_rates[,1] != 0)
-
-mlnj_res <- colMeans(mlnj_binary_err_rates)
-ss_res <- colMeans(ss_binary_err_rates)
-lasso_res <- colMeans(lasso_binary_err_rates)
-
-
-mlnj_fwer <- mean(mlnj_binary_err_rates[,1] != 0)
-ss_fwer <- mean(ss_binary_err_rates[,1] != 0)
-lasso_fwer <- mean(lasso_binary_err_rates[,1] != 0)
-
-mlnj_res <- c(mlnj_res, "FWER" = mlnj_fwer)
-ss_res <- c(ss_res, "FWER" = ss_fwer)
-lasso_res <- c(lasso_res, "FWER" = lasso_fwer)
-
-mlnj_tab <- rbind(
-  mlnj_res,
-  ss_res,
-  lasso_res
+mlnj_tab <- get_restab(
+  res = res, 
+  tru = tru, 
+  log_alpha_threshold = log_alpha_threshold, 
+  method_name = "MLP",
+  verbose = FALSE
 )
-
-rownames(mlnj_tab) <- c("MLP", "Spike-Slab", "LASSO")
-colnames(mlnj_tab) <- c("FP", "TP", "FN", "TN", "FWER")
 
 mykable(tab = mlnj_tab, cap = "MLP results")
 ```
@@ -804,30 +774,7 @@ Below are metrics for the model fit.  Included are the coefficient MSEs, though 
 
 
 ```{r MLP_fit_results}
-
-mse_stats <- function(res_MSEs){
-  c(
-    "fit_MSE_avg" = mean(res_MSEs[, 1]),
-    "fit_MSE_sd" = sd(res_MSEs[, 1]),
-    "coef_MSE_avg" = mean(res_MSEs[, 2]),
-    "coef_MSE_sd" = sd(res_MSEs[, 2])
-  )
-}
-
-#mlnj average MSE
-mlnj_MSEs <- mlnj_metrics[, c(2,4)]
-lasso_MSEs <- t(sapply(res, function(X) c(X$lasso$fit_mse, X$lasso$coef_mse)))
-ss_MSEs <- t(sapply(res, function(X) c(X$ss$fit_mse, X$ss$coef_mse)))
-mlnj_mse_vec <- mse_stats(mlnj_MSEs)
-lasso_mse_vec <- mse_stats(lasso_MSEs)
-ss_mse_vec <- mse_stats(ss_MSEs)
-
-mse_tab <- rbind(
-  "MLP" = mlnj_mse_vec,
-  "Spike-Slab" = ss_mse_vec,
-  "LASSO" = lasso_mse_vec
-)
-
+mse_tab <- get_mses(res, method_name = "MLP")
 mykable(tab = round(mse_tab, 4), cap = "fit metrics")
 ```
 
@@ -843,14 +790,16 @@ __Setting 1a) (linear data, single neuron model)__ is largely meant as proof of 
 
 - results are encouraging.  Both `SLP` and `Spike-Slab` are more conservative than LASSO, with only a very small loss in power.  `Spike-Slab` is more conservative than `SLP`, but has a somewhat large loss in power. 
 
+- lowest fit MSE.  `SLP` Appears to be overfitting a bit (since we'd expect the fit MSE to be $\approx 1$)
 
 
 __Setting 1b) (linear data, deep neural network)__:  the intention here is to show that simply using the intended form of our method will still work fine with data in which we have more covariates than observations AND the relationship between the response and true covariates is simple (linear) --- i.e. even though the deep neural network is highly overparameterized for the data, we still maintain competitive performance in terms of both variable selection and fit.
 
 - results are again quite encouraging.  Only a very small loss in performance: though the False Positive Rate is about 2x as large as the previous (and precisely minimally parameterized) version of the model, we are still well within desirable limits (by like an order of magnitude).  
 
+- same comments regarding fit MSE (lowest, may be slightly overfitting?)
 
-__FWER__ is somewhat concerning in both settings.  I'm not sure how concerned we are with FWER in this type of setting (100 nuisance variables, only 4 "true" covariates).
+__FWER__ is somewhat concerning in both settings, but I'm not sure what a "good" FWER is when we have 100 nuisance variables but only 4 "true" covariates.
 
 
 __Note__: we might employ a more sophisticated method for setting the inclusion threshold for the dropout parameter $\alpha_i$.  Right now inclusion criteria for the `SLP` and `MLP` methods are based on setting the threshold (approximately) at $\alpha_i < 0.05$.  (For the Spike-and-Slab models, posterior inclusion probability threshold is set to 0.95 to be included in the model).
@@ -860,11 +809,11 @@ __Note__: we might employ a more sophisticated method for setting the inclusion 
 
 __Data generation__: 
 
-- __covariates__: identical to setting 1a)
+- __covariates__: identical to setting 1a), except upped the number of observations to 10,000 observations.
 
 - __response__:  
 
-  - non-linear relationship between response $y$ and $x_1, x_2, x_3, x_4$: $$y = f_1(x_1) + f_2(x_2) + f_3(x_3) + f_4(x_4) + \epsilon$$ with $\epsilon \sim N(0,1)$.
+  - non-linear relationship between response $y$ and $x_1, x_2, x_3, x_4$: $$y = f_1(x_1) + f_2(x_2) + f_3(x_3) + f_4(x_4) + \epsilon$$ with $\epsilon \sim N(0,1)$.  Below is a plot showing $f_1(x), f_2(x), f_3(x), f_4(x)$ (plotted using same x-coords to fit in 1 plot).
 
 ```{r}
 x_grid <- -50:50 / 10
@@ -889,7 +838,7 @@ names(fcn_df) <- c(
 fcn_df %>% 
   pivot_longer(cols = -x) %>% 
   ggplot() + 
-  geom_point(
+  geom_line(
     aes(
       y = value,
       x = x,
@@ -897,8 +846,7 @@ fcn_df %>%
     )
   ) + 
   labs(
-    title = "additive contribution of x1, x2, x3, x4 to response",
-    subtitle = TeX("E(y) = f_1(x_1) + f_2(x_2) + f_3(x_3) + f_4(x_4)"),
+    title = "individual contributions of x1, x2, x3, x4 to response",
     color = ""
   )
 
@@ -914,7 +862,125 @@ __Model__:
 
 
 
+```{r}
+fname <- "MLP_fcnl_sim_sig1"
+partial_fpaths <- here("Rcode", "results", paste0(fname, "_PARTIAL", 1:7, ".Rdata"))
 
+
+fname_part2 <- "MLP_fcnl_sim_sig1_part2"
+partial_fpaths_part2 <- here("Rcode", "results", paste0(fname_part2, "_PARTIAL", 1:5, ".Rdata"))
+
+partial_fpaths_all <- c(partial_fpaths, partial_fpaths_part2)
+
+mlnj_res <- list()
+
+for (i in 1:length(partial_fpaths_all)){
+  load(file = partial_fpaths_all[i])
+  mlnj_res <- append(mlnj_res, partial_res)
+}
+
+tru <- c(rep(1, 4), rep(0, 96))
+
+mlp_tab <- get_restab(res = mlnj_res, tru = tru, method_name = "MLP")
+mykable(tab = mlp_tab, cap = "MLP on functional data")
+```
+
+
+These results are pretty bad.
+
+
+### troubleshooting
+
+```{r}
+# # # # # # # # # # # # # # # # # # # # # # # # #
+## troubleshooting ----
+# # # # # # # # # # # # # # # # # # # # # # # # #
+stop_reasons <- t(sapply(mlnj_res, function(X) X$mlnj$stop_reason))
+stop_epoch <- sapply(mlnj_res, function(X) X$mlnj$epoch)
+stop_reasons[which(stop_epoch == max(stop_epoch)), 1] <- TRUE
+colSums(stop_reasons)
+```
+
+Most stop b/c met convergence criteria.  A few stop b/c max epochs reached.  Convergence criteria appears to be too easy to meet?
+
+Also, perhaps setting the prior at $E[alpha_i] = 0.5$ is making it take a longer time to converge.  Perhaps setting the prior to reflect that we think the truth is sparse will help.
+
+
+__looking at thresholding for alpha__:
+
+Below are summaries of $\log(\alpha_i)$ for the 4 true covariates:
+
+```{r}
+# alphas of true covariates
+log_alpha_mat <- t(sapply(mlnj_res, function(X) X$mlnj$log_dropout_alphas))
+summary(log_alpha_mat[, 1:4])
+```
+
+The expectation was that $f_2(x_2)$ would be the hardest to learn (it's a sine wave), and that appears to be true.  
+
+
+
+And below is a summary of the minimum values of the $\log(\alpha_i)$ for the nuisance variables:
+```{r}
+summary(apply(log_alpha_mat[, 5:100], 2, min))
+```
+
+So the good news is that there is a fair bit of separation between the values of $\log(\alpha_i)$ for the nuisance and true covariates, and that the separation is happening in the expected direction (lower values of $\alpha_i$ correspond to lower dropout / higher inclusion)
+
+
+It appears the main difficulty might simply be figuring out how to set the alpha threshold?
+
+
+```{r}
+get_restab(res = mlnj_res, tru = tru, log_alpha_threshold = -7, method_name = "MLP", verbose = TRUE)
+```
+
+
+Could also try ordering based on alpha:
+
+```{r}
+ord_alpha_mat <- apply(log_alpha_mat, 1, order)
+ord_alpha_mat[1:4,]
+```
+
+Good news is that in every trial, true covariates have the 3 lowest $\alpha_i$ values.  However, only a few are able to pick up on covariate $x_2$
+
+
+```{r}
+# what percentage get all 4 as having the lowest \alpha_i?
+all4 <- apply(ord_alpha_mat, 2, function(X){
+  sum(c(1:4) %in% X[1:4]) == 4
+})  
+mean(all4)
+
+# which trials get all 4 correct?
+which(all4)
+```
+
+So only 1/10 of the trials get all 4 true covariates as having the lowest $\alpha_i$'s.
+
+```{r}
+# why did these simulations stop training?
+all4_inds <- which(all4)
+stop_reasons[all4_inds, ]
+```
+
+None of these reached `max_epochs`, and instead reached the convergence criteria.
+
+
+
+# Next Steps:
+
+1. tweak training parameters (`convergence_crit`, `max_epochs`)  
+
+1. figure out how to set alpha threshold  
+
+  - BH analog?
+  - figure out a Bayesian FDR metric?
+
+1. need better competitors for the functional data analysis (VCBART?  LASSO neural network?)  
+
+1. could also try to implement Adam's model (normalizing flow with non-local prior)  
 
 
 
