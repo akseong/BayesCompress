@@ -142,13 +142,13 @@ We rely heavily here on the formulation and variational Bayes algorithm develope
 
 ## notes:
 
-__How to differentiate ourselves from LUW 2017__:  
+`r colorize("__How to differentiate ourselves from LUW 2017__")`:  
 
 - Need to experiment to see if it's better to only do this for the input layer (as opposed to all layers, which is the current implementation)  
 - a more rigorous interpretation of the dropout parameter $\alpha_i$ as the equivalent to a Wald statistic  
 - (Adam's paper) using normalizing flow to model non-local prior
 - some way to reconcile mean-field assumption of Variational Bayes with group sparsity?  
-- as _LUW 2017_ note, the log-uniform prior does require independence between parameters (i.e. grouping by row is not kosher), so the joint Bayesian model developed in LUW 2017 is not strictly accurate and is more of an approximation
+- as _LUW 2017_ note, the log-uniform prior does require independence between parameters (but grouping by row creates dependence), so the joint Bayesian model developed in LUW 2017 is not strictly accurate and is more of an approximation
 - obvious difference: provide empirical results on how good the method is at variable selection
 
 
@@ -221,7 +221,7 @@ $$\begin{align}
 \end{align}$$
 
 
-__One important item to notice here:__ the (now implied) dropout parameter $\alpha_{i} = \dfrac{\sigma_{z_i}^2}{\mu_{z_i}^2}$ is the inverse of a Wald statistic for $z_i$.  _(Perhaps this being a Wald statistic is just so obvious it doesn't need mentioning, but I don't believe any of the the papers positing this as a dropout parameter say this explicitly)_  This might be used to provide guidance on how to threshold $\alpha_{i}$ appropriately for variable selection (LUW2017 only addresses thresholding $\alpha_i$ in order to achieve a desired level of compression).
+`r colorize("__One important item to notice here:__")` the (now implied) dropout parameter $\alpha_{i} = \dfrac{\sigma_{z_i}^2}{\mu_{z_i}^2}$ is the inverse of a Wald statistic for $z_i$.  _(Perhaps this being a Wald statistic is just so obvious it doesn't need mentioning, but I don't believe any of the the papers positing this as a dropout parameter say this explicitly)_  This might be used to provide guidance on how to threshold $\alpha_{i}$ appropriately for variable selection (LUW2017 only addresses thresholding $\alpha_i$ in order to achieve a desired level of compression).
 
 
 ### need help here
@@ -257,7 +257,7 @@ $$\begin{align}
 \end{align}$$
 
 
-A few things that I do not understand are:  
+`r colorize("A few things that I do not understand are:")`  
 
 1) the model for the data, i.e. $y \sim N(y; f(W, X), \sigma^2)$, is never addressed in _LUW 2017_.  I feel like I'm missing something fundamental here --- none of the literature appears to address this.  
 
@@ -366,10 +366,10 @@ $$\begin{align}
 
 - $-KL \left(q_\phi(z) || p(z)\right)$ is the expectation, *when sampling $z$ from $q_\phi(z)$*, of how surprised we are by $z$ (given that we assume the variational distribution is true) minus how surprised we would have been by $z$ under the prior $p(z)$;
 
-- $E_{q_\phi(z)} \left[\log \dfrac{1}{p(y|z)}$ is the expected surprise of the data under our model *when $z$ is sampled under $q_\phi(z)$*.
+- $E_{q_\phi(z)} \left[\log \dfrac{1}{p(y|z)} \right]$ is the expected surprise of the data under *our model* when $z$ is sampled under *our approximation* $q_\phi(z)$.
 
 
-So the ELBO, essentially, balances 1) the expected difference in surprise between the variational and prior distributions with 2) the expected surprise of the data, all when sampling $z$ under the variational distribution.  So maximizing the ELBO involves minimizing the surprise of the data by adjusting the approximate posterior, while keeping the approximate posterior to the prior.
+So the ELBO, essentially, balances 1) the expected difference in surprise between the variational and prior distributions with 2) the expected surprise of the data according to the model BUT when sampling $z$ under the variational / approximate posterior.  So maximizing the ELBO involves minimizing the surprise of the data by adjusting the approximate posterior, while keeping the approximate posterior near the prior.
 
 
 ## derivations for this specific model
@@ -559,125 +559,6 @@ __Model:__
 
 Results averaged from running methods on 100 simulated datasets
 
-```{r FUNCTIONget_restab}
-get_restab <- function(res, tru, log_alpha_threshold = -3, method_name = "Bnn", verbose = TRUE){
-
-  if (verbose){
-    txt <- paste0("log_alpha_threshold = ", log_alpha_threshold, 
-              " (i.e. dropout rate of <",
-              round(exp(log_alpha_threshold), 5), 
-              " required for inclusion)")
-    cat("\n", txt, "\n")
-  }
-
-  method_log_alphas <- t(sapply(res, function(X) X[[1]]$log_dropout_alphas))
-  method_include <- method_log_alphas < log_alpha_threshold
-  
-  method_binary_err <- t(apply(
-    method_include, 1, 
-    function(X) binary_err(est = X, tru = tru)
-  ))
-  method_binary_err_rates <- t(apply(
-    method_include, 1,
-    function(X) binary_err_rate(est = X, tru = tru)
-  ))
-  
-  method_fwer <- mean(method_binary_err_rates[,1] != 0)
-  
-  # other metrics
-  method_metrics <- t(sapply(res, function(X) X[[1]]$other_metrics))
-  
-  # # # # # # # # # # # # # # # # # # # # # # # # #
-  ## LASSO ----
-  # # # # # # # # # # # # # # # # # # # # # # # # #
-  
-  lasso_coefs <- t(sapply(res, function(X) as.vector(X$lasso$coefs)[-1]))
-  lasso_include <- lasso_coefs != 0 
-  lasso_binary_err_rates <- t(apply(
-    lasso_include, 1, 
-    function(X) binary_err_rate(est = X, tru = tru)
-  ))
-  
-  lasso_fwer <- mean(lasso_binary_err_rates[,1] != 0)
-  
-  
-  # # # # # # # # # # # # # # # # # # # # # # # # #
-  ## Spike-&-Slab ----
-  # # # # # # # # # # # # # # # # # # # # # # # # #
-  
-  # use same threshold?
-  
-  
-  ss_post_inclusion_probs <- t(sapply(res, function(X) X$ss$coefs[, 5]))
-  ss_dropout_equiv <- 1 - ss_post_inclusion_probs
-  ss_include <- ss_dropout_equiv < exp(log_alpha_threshold)
-  
-  
-  ss_binary_err_rates <- t(apply(
-    ss_include, 1, 
-    function(X) binary_err_rate(est = X, tru = tru)
-  ))
-  
-  ss_fwer <- mean(ss_binary_err_rates[,1] != 0)
-  
-  method_res <- colMeans(method_binary_err_rates)
-  ss_res <- colMeans(ss_binary_err_rates)
-  lasso_res <- colMeans(lasso_binary_err_rates)
-  
-  
-  method_fwer <- mean(method_binary_err_rates[,1] != 0)
-  ss_fwer <- mean(ss_binary_err_rates[,1] != 0)
-  lasso_fwer <- mean(lasso_binary_err_rates[,1] != 0)
-  
-  method_res <- c(method_res, "FWER" = method_fwer)
-  ss_res <- c(ss_res, "FWER" = ss_fwer)
-  lasso_res <- c(lasso_res, "FWER" = lasso_fwer)
-  
-  restab <- rbind(
-    method_res,
-    ss_res,
-    lasso_res
-  )
-  
-  rownames(restab) <- c(method_name, "Spike-Slab", "LASSO")
-  colnames(restab) <- c("FP", "TP", "FN", "TN", "FWER")
-  
-  return(restab)
-}
-
-
-
-get_mses <- function(res, method_name = "Bnn"){
-  
-  mse_stats <- function(res_MSEs){
-    c(
-      "fit_MSE_avg" = mean(res_MSEs[, 1]),
-      "fit_MSE_sd" = sd(res_MSEs[, 1]),
-      "coef_MSE_avg" = mean(res_MSEs[, 2]),
-      "coef_MSE_sd" = sd(res_MSEs[, 2])
-    )
-  }
-  
-  #mlnj average MSE
-  method_metrics <- t(sapply(res, function(X) X[[1]]$other_metrics))
-  method_MSEs <- method_metrics[, c(2,4)]
-  lasso_MSEs <- t(sapply(res, function(X) c(X$lasso$fit_mse, X$lasso$coef_mse)))
-  ss_MSEs <- t(sapply(res, function(X) c(X$ss$fit_mse, X$ss$coef_mse)))
-  method_mse_vec <- mse_stats(method_MSEs)
-  lasso_mse_vec <- mse_stats(lasso_MSEs)
-  ss_mse_vec <- mse_stats(ss_MSEs)
-  
-  mse_tab <- rbind(
-    method_name = method_mse_vec,
-    "Spike-Slab" = ss_mse_vec,
-    "LASSO" = lasso_mse_vec
-  )
-  return(mse_tab)
-}
-```
-
-
-
 ```{r SLP_RESULTS}
 fpath <- here("Rcode", "results", "linear_sim_sig1.Rdata")
 load(fpath)
@@ -717,7 +598,7 @@ Model fit results measured in terms of MSE are in the table below.  Reported MSE
 
 
 ```{r SLNJ_other_metrics}
-mse_tab <- get_mses(res, mathod_name = "SLP")
+mse_tab <- get_mses(res, method_name = "SLP")
 mykable(tab = round(mse_tab, 4), cap = "fit metrics")
 
 ```
@@ -859,7 +740,8 @@ __Model__:
 `MLP` = multiple neurons, multiple layers  
       - 2 hidden layers with 50 nodes and 25 nodes respectively
 
-
+- `max_epochs` = 40k
+- convergence tolerance = 1e-6
 
 
 ```{r}
@@ -886,10 +768,10 @@ mykable(tab = mlp_tab, cap = "MLP on functional data")
 ```
 
 
-These results are pretty bad.
+`r colorize("These results are pretty bad.")`
 
 
-### troubleshooting
+### `r colorize("troubleshooting")`
 
 ```{r}
 # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -930,11 +812,19 @@ So the good news is that there is a fair bit of separation between the values of
 
 It appears the main difficulty might simply be figuring out how to set the alpha threshold?
 
+Perhaps not kosher, but meant just as a quick diagnostic: try a Bonferroni correction on the dropout parameter --- threshold at 0.05 / 100:
 
 ```{r}
-get_restab(res = mlnj_res, tru = tru, log_alpha_threshold = -7, method_name = "MLP", verbose = TRUE)
+get_restab(res = mlnj_res, tru = tru, log_alpha_threshold = log(0.05/100), method_name = "MLP", verbose = TRUE)
 ```
 
+I mean, it's not bad.
+
+- just tried this on the linear data simulations, and for both the SLP and MLP, applying a Bonferroni correction decimates the power (TP rate ends up being about 0.25).
+
+
+
+__other idea:__
 
 Could also try ordering based on alpha:
 
@@ -943,7 +833,7 @@ ord_alpha_mat <- apply(log_alpha_mat, 1, order)
 ord_alpha_mat[1:4,]
 ```
 
-Good news is that in every trial, true covariates have the 3 lowest $\alpha_i$ values.  However, only a few are able to pick up on covariate $x_2$
+Good news is that in every trial, true covariates have the 3 lowest $\alpha_i$ values.  However, only a few are able to pick up on covariate $x_2$ (again, somewhat expected.  perhaps a larger nn architecture would be better?)
 
 
 ```{r}
@@ -969,16 +859,122 @@ None of these reached `max_epochs`, and instead reached the convergence criteria
 
 
 
+```{r}
+alpha_mat <- exp(log_alpha_mat)  
+ord_alpha_mat <- t(apply(alpha_mat, 1, order))
+
+
+for (i in 1:ncol(alpha_mat)){
+  alphas <- alpha_mat[i, ]
+  ord_alphas <- order(alphas)
+  cumsum(alphas[ord_alphas])
+}
+
+1 - pnorm(1/sqrt(alphas))
+
+
+```
+
+
+
+# Tweak training parameters 
+
+Just wanted to quickly try changing training params (`convergence_crit`, `max_epochs`) to increase performance, but it did not help (and seems like stumbling around in the dark a little).
+
+I also reduced the number of observations to 100 (from 10k) to see what would happen, but the KL/n term seems to be pretty highly dependent on $n$ (since it's scaled to be KL/n, shouldn't it be similar in magnitude?).
+  
+```{r}
+# current results' KLs
+metrics <- matrix(NA, nrow = length(mlnj_res), ncol = 3)
+colnames(metrics) <- c("epoch", "mse", "kl")
+
+for (i in 1:length(mlnj_res)){ 
+ mat_row_ind <- which(mlnj_res[[i]]$mlnj$log_alpha_mat[, 101] == stop_epoch[i]) 
+ metrics[i,] <- mlnj_res[[i]]$mlnj$log_alpha_mat[mat_row_ind, 101:103]
+}
+
+hist(metrics[,"kl"], breaks = 30, main = "KL term, n = 10k")
+```
+
+
+  
+
+```{r n100_MLP}
+# n100 results (smaller convergence crit, longer max_epochs)
+fname <- "MLP_fcnl_sim_sig1_n100"
+partial_fpaths <- here("Rcode", "results", paste0(fname, "_PARTIAL", 1:3, ".Rdata"))
+
+mlnj_res <- list()
+
+for (i in 1:length(partial_fpaths)){
+  load(file = partial_fpaths[i])
+  mlnj_res <- append(mlnj_res, partial_res)
+}
+
+stop_reasons <- t(sapply(mlnj_res, function(X) X$mlnj$stop_reason))
+stop_epoch <- sapply(mlnj_res, function(X) X$mlnj$epoch)
+stop_reasons[which(stop_epoch == max(stop_epoch)), 1] <- TRUE
+colSums(stop_reasons)
+```
+
+With n = 100, all simulations (not a ton, but still) reached `max_epochs` of 40,000.
+
+
+```{r n100_res}
+metrics <- matrix(NA, nrow = length(mlnj_res), ncol = 3)
+colnames(metrics) <- c("epoch", "mse", "kl")
+
+for (i in 1:length(mlnj_res)){ 
+ mat_row_ind <- which(mlnj_res[[i]]$mlnj$log_alpha_mat[, 101] == stop_epoch[i]) 
+ metrics[i,] <- mlnj_res[[i]]$mlnj$log_alpha_mat[mat_row_ind, 101:103]
+}
+
+hist(metrics[,"kl"], breaks = 30, main = "KL term, n = 100")
+```
+
+
+`r colorize("The range of the KL term is quite different, which seems really weird.")`  Perhaps because the convergence criteria was not reached and the nn just trained for 40k epochs?  I suppose I could re-run the n = 10k trial for a ridiculous number of epochs and see what happens....
+
+
+Also, the overall performance results for n = 100, with 2 different thresholds for $\alpha_i$:
+
+```{r}
+restab <- get_restab(res = mlnj_res, tru = tru, log_alpha_threshold = log(0.05), method_name = "MLP", verbose = TRUE)
+
+mykable(tab = restab, cap = "fcnal data, n = 100, alpha threshold = 0.05")
+
+restab <- get_restab(res = mlnj_res, tru = tru, log_alpha_threshold = log(0.05/100), method_name = "MLP", verbose = TRUE)
+
+mykable(tab = restab, cap = "fcnal data, n = 100, alpha threshold = 0.05/100")
+```
+
+so a Bonferroni-type adjustment doesn't work well here either.
+
+
+
 # Next Steps:
 
-1. tweak training parameters (`convergence_crit`, `max_epochs`)  
+1. does nn architecture need to change?  Make it much larger?  
+
+1. does fcnal data simulation setting seem reasonable?  (functional forms, $n$)
+
+1. figure out effect of $n$ on KL magnitude
+
+1. try a different training paradigm --- train/test/validation split (reasonable $n$ for this?) --- and base stopping rule on train vs test performance?  
+
+  - does this make sense for variational Bayes, since the whole point is making this an optimization problem for the ELBO?
+
+1. alternative training idea --- make the objective function more like the ELBO by using some estimate of the response's error variance (set $\sigma^2$ equal to the average of last 50 epochs' MSE's?).
 
 1. figure out how to set alpha threshold  
 
-  - BH analog?
-  - figure out a Bayesian FDR metric?
+  - Benhamini-Hochberg analog?
+  - figure out a Bayesian FDR decision rule?  seems premature(?)
+  - pursue the idea of thinking about it as an analog to a Wald statistic?
+  
 
-1. need better competitors for the functional data analysis (VCBART?  LASSO neural network?)  
+1. eventually: need better competitors for the functional data analysis (VCBART?  LASSO neural network?)  
+
 
 1. could also try to implement Adam's model (normalizing flow with non-local prior)  
 
