@@ -13,6 +13,7 @@
 library(here)
 library(tidyr)
 library(dplyr)
+library(ggplot2)
 
 # BayesCompress
 library(torch)
@@ -49,6 +50,10 @@ max_train_epochs <- 1000
 ma_length <- 50
 burn_in <- 300
 convergence_crit <- 1e-6
+test_train_split <- TRUE
+test_train_ratio <- 0.2
+
+
 
 
 # # # # # # # # # # # # 
@@ -58,6 +63,21 @@ fcn1 <- function(x) exp(x/2)
 fcn2 <- function(x) cos(pi*x) 
 fcn3 <- function(x) abs(x)^(1.5) 
 fcn4 <- function(x) cos(pi*x) + sin(pi/1.2*x) - x
+
+
+fcn_simdat <- sim_func_data(
+  n_obs = n_obs,
+  d_in = d_in,
+  flist = list(fcn1, fcn2, fcn3, fcn4), 
+  err_sigma = sig)
+
+true_model <- c(
+  rep(1, fcn_simdat$d_true), 
+  rep(0, fcn_simdat$d_in - fcn_simdat$d_true)
+)
+
+
+## plotting functional relationships ----
 
 x_grid <- -50:50 / 10
 y1 <- fcn1(x_grid)
@@ -93,18 +113,9 @@ fcn_df %>%
     color = ""
   )
 
+#### test-train split
 
 
-fcn_simdat <- sim_func_data(
-  n_obs = n_obs,
-  d_in = d_in,
-  flist = list(fcn1, fcn2, fcn3, fcn4), 
-  err_sigma = sig)
-
-true_model <- c(
-  rep(1, fcn_simdat$d_true), 
-  rep(0, fcn_simdat$d_in - fcn_simdat$d_true)
-)
 
 
 
@@ -249,21 +260,53 @@ colnames(log_alpha_mat) <- c(
   "coef_mse"
 )
 
+
+## test-train split
+if (test_train_split){
+  end_train <- floor(n_obs * (1 - test_train_ratio))
+  
+  x_train <- fcn_simdat$x[1:end_train, ]
+  y_train <- fcn_simdat$y[1:end_train, ]
+  
+  x_test <- fcn_simdat$x[(end_train + 1):n_obs, ]
+  y_test <- fcn_simdat$y[(end_train + 1):n_obs, ]
+  
+  tt_mse <- data.frame(
+    "train_mse" = rep(NA, times = max_train_epochs),
+    "test_mse" = rep(NA, times = max_train_epochs),
+    "epoch" = 1:max_train_epochs
+  )
+}
+
+
+
 epoch <- 0
 
 while (epoch < max_train_epochs & !converge_stop & !loss_ma_stop){
   prev_loss <- loss
   epoch <- epoch + 1
+
+  if (test_train_split){
+    y_pred <- mlnj_net(x_train)
+    mse <- nnf_mse_loss(y_pred, y_train)
+    kl <- mlnj_net$get_model_kld() / end_train
+    y_pred_test <- mlnj_net(x_test)
+    mse_test <- nnf_mse_loss(y_pred_test, y_test)
+    
+    tt_mse[epoch, 1:2] <- c(mse$item(), mse_test$item())
+    
+  } else {
+    y_pred <- mlnj_net(fcn_simdat$x)
+    mse <- nnf_mse_loss(y_pred, fcn_simdat$y)
+    kl <- mlnj_net$get_model_kld() / fcn_simdat$n_obs
+  }
   
-  y_pred <- mlnj_net(fcn_simdat$x)
-  
-  mse <- nnf_mse_loss(y_pred, fcn_simdat$y)
-  kl <- mlnj_net$get_model_kld() / fcn_simdat$n_obs
   
   loss <- mse + kl
   loss_diff <- (loss - prev_loss)$item()
   
   if (epoch %% report_every == 0 & verbose){
+    
     txt <- paste0(
       "Epoch: ", epoch, 
       "\n MSE + KL/n = ", mse$item(), " + ", kl$item(), 
@@ -279,6 +322,28 @@ while (epoch < max_train_epochs & !converge_stop & !loss_ma_stop){
     mlnj_bin_err <- binary_err(est = mlnj_keeps, tru = true_model)
     print(round(mlnj_bin_err, 4))
     cat("\n")
+    
+    if (test_train_split){
+      print(tt_mse[epoch, ])
+      
+      p <- na.omit(tt_mse) %>% 
+        slice(which(row_number() %% floor(report_every/2) == 1 )) %>% 
+        pivot_longer(cols = 1:2) %>% 
+        ggplot() + 
+          geom_line(
+            aes(
+              y = value,
+              x = epoch,
+              color = name
+            )
+          ) + 
+        labs(
+          title = "test/train MSE by epoch"
+        )
+      print(p)
+      
+    }
+
     
   }
   
