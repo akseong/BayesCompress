@@ -366,7 +366,7 @@ $$\begin{align}
 
 - $-KL \left(q_\phi(z) || p(z)\right)$ is the expectation, *when sampling $z$ from $q_\phi(z)$*, of how surprised we are by $z$ (given that we assume the variational distribution is true) minus how surprised we would have been by $z$ under the prior $p(z)$;
 
-- $E_{q_\phi(z)} \left[\log \dfrac{1}{p(y|z)}$ is the expected surprise of the data under our model *when $z$ is sampled under $q_\phi(z)$*.
+- $E_{q_\phi(z)} \left[\log \dfrac{1}{p(y|z)} \right]$ is the expected surprise of the data under our model *when $z$ is sampled under $q_\phi(z)$*.
 
 
 So the ELBO, essentially, balances 1) the expected difference in surprise between the variational and prior distributions with 2) the expected surprise of the data, all when sampling $z$ under the variational distribution.  So maximizing the ELBO involves minimizing the surprise of the data by adjusting the approximate posterior, while keeping the approximate posterior to the prior.
@@ -561,6 +561,7 @@ Results averaged from running methods on 100 simulated datasets
 
 ```{r FUNCTIONget_restab}
 get_restab <- function(res, tru, log_alpha_threshold = -3, method_name = "Bnn", verbose = TRUE){
+  require(Matrix)
 
   if (verbose){
     txt <- paste0("log_alpha_threshold = ", log_alpha_threshold, 
@@ -717,7 +718,7 @@ Model fit results measured in terms of MSE are in the table below.  Reported MSE
 
 
 ```{r SLNJ_other_metrics}
-mse_tab <- get_mses(res, mathod_name = "SLP")
+mse_tab <- get_mses(res, method_name = "SLP")
 mykable(tab = round(mse_tab, 4), cap = "fit metrics")
 
 ```
