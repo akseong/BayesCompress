@@ -325,7 +325,7 @@ while (epoch < max_train_epochs & !converge_stop & !loss_ma_stop){
         cv_inds <- gen_cv_inds(n_obs = end_train, cv_k)
       }
       
-      fold_i <- epoch %% cv_k
+      fold_i <- epoch %% cv_k + 1
       fold_i_inds <- gen_cv_fold_inds(cv_inds, fold_i)
       
       x_train_i <- x_train[fold_i_inds$train_inds, ]
@@ -366,7 +366,7 @@ while (epoch < max_train_epochs & !converge_stop & !loss_ma_stop){
     log_alphas <- as_array(mlnj_net$fc1$get_log_dropout_rates())
     mlnj_keeps <- exp(log_alphas) < 0.05
     # print(round(log_alphas, 2)[1:15])
-    print(exp(round(log_alphas, 2)[1:15]))
+    print(round(exp(log_alphas)[1:15], 4))
     mlnj_bin_err <- binary_err(est = mlnj_keeps, tru = true_model)
     print(round(mlnj_bin_err, 4))
     cat("\n")
