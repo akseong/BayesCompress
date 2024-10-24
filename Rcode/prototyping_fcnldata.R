@@ -43,8 +43,8 @@ d_hidden6 <- 25
 init_alpha <- 0.9
 use_cuda <- cuda_is_available()
 verbose <- TRUE
-report_every <- 100
-max_train_epochs <- 1000
+report_every <- 500
+max_train_epochs <- 10000
 
 # loss moving average stopping criterion length
 ma_length <- 50
@@ -153,26 +153,26 @@ MLNJ <- nn_module(
 
     self$fc3 = BayesianLayerNJ(
       in_features =  d_hidden2,
-      out_features = d_hidden3,
-      use_cuda = use_cuda,
-      init_weight = NULL,
-      init_bias = NULL,
-      init_alpha = init_alpha,
-      clip_var = NULL
-    )
-
-    self$fc4 = BayesianLayerNJ(
-      in_features =  d_hidden3,
-      out_features = d_hidden4,
-      use_cuda = use_cuda,
-      init_weight = NULL,
-      init_bias = NULL,
-      init_alpha = init_alpha,
-      clip_var = NULL
-    )
-
-    self$fc5 = BayesianLayerNJ(
-      in_features =  d_hidden4,
+    #   out_features = d_hidden3,
+    #   use_cuda = use_cuda,
+    #   init_weight = NULL,
+    #   init_bias = NULL,
+    #   init_alpha = init_alpha,
+    #   clip_var = NULL
+    # )
+    # 
+    # self$fc4 = BayesianLayerNJ(
+    #   in_features =  d_hidden3,
+    #   out_features = d_hidden4,
+    #   use_cuda = use_cuda,
+    #   init_weight = NULL,
+    #   init_bias = NULL,
+    #   init_alpha = init_alpha,
+    #   clip_var = NULL
+    # )
+    # 
+    # self$fc5 = BayesianLayerNJ(
+    #   in_features =  d_hidden4,
       out_features = d_out,
       use_cuda = use_cuda,
       init_weight = NULL,
@@ -214,20 +214,20 @@ MLNJ <- nn_module(
       nnf_relu() %>%
       self$fc2() %>% 
       nnf_relu() %>% 
-      self$fc3() %>% 
-      nnf_relu() %>%
-      self$fc4() %>%
-      nnf_relu() %>%
-      self$fc5()
+      self$fc3() # %>% 
+      # nnf_relu() %>%
+      # self$fc4() %>%
+      # nnf_relu() %>%
+      # self$fc5()
   },
   
   get_model_kld = function(){
     kl1 = self$fc1$get_kl()
-    # kl2 = self$fc2$get_kl()
-    # kl3 = self$fc3$get_kl()
+    kl2 = self$fc2$get_kl()
+    kl3 = self$fc3$get_kl()
     # kl4 = self$fc4$get_kl()
     # kl5 = self$fc5$get_kl()
-    kld = kl1 # + kl2 + kl3
+    kld = kl1 + kl2 + kl3
     return(kld)
   }
 )
@@ -326,8 +326,15 @@ while (epoch < max_train_epochs & !converge_stop & !loss_ma_stop){
     if (test_train_split){
       print(tt_mse[epoch, ])
       
-      p <- na.omit(tt_mse) %>% 
-        slice(which(row_number() %% floor(report_every/2) == 1 )) %>% 
+      tt_mse_plot <- na.omit(tt_mse) %>% 
+        slice(which(row_number() %% floor(report_every/5) == 1))
+      
+      if (epoch > 1500) {
+        tt_mse_plot <- tt_mse[1000:epoch,] %>% 
+          slice(which(row_number() %% floor(report_every/5) == 1))
+      }
+      
+      p <-  tt_mse_plot %>% 
         pivot_longer(cols = 1:2) %>% 
         ggplot() + 
           geom_line(
@@ -445,3 +452,23 @@ mlnj_res <- list(
   "log_alpha_mat" = log_alpha_mat,
   "other_metrics" = other_metrics
 )
+
+
+
+
+
+# stopping condition
+tt_mse <- tt_mse %>% 
+  mutate(diff_mse = test_mse - train_mse) %>% 
+  mutate(diff_ma = zoo::rollmean(x = diff_mse, k = 50, fill = NA))
+
+tt_mse %>% 
+  ggplot() + 
+  geom_line(
+    aes(
+      y = diff_ma,
+      x = epoch
+    )
+  )
+
+
