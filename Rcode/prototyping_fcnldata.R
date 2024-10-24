@@ -54,6 +54,10 @@ test_train_split <- TRUE
 test_train_ratio <- 0.2
 
 
+# CV
+use_cv <- TRUE
+cv_k <- 5
+refresh_cv_every <- 100
 
 
 # # # # # # # # # # # # 
@@ -112,15 +116,6 @@ fcn_df %>%
     title = "individual contributions of x1, x2, x3, x4 to response",
     color = ""
   )
-
-#### test-train split
-
-
-
-
-
-
-
 
 
 
@@ -280,18 +275,71 @@ if (test_train_split){
 
 
 
+## Cross-val setup ----
+
+gen_cv_inds <- function(n_obs, cv_k){
+  rand_inds <- sample(1:n_obs, n_obs)
+  fold_n <- floor(n_obs / cv_k)
+  cv_inds <- list()
+  for (i in 1:cv_k){
+    if (i < cv_k){
+      cv_inds[[i]] <- rand_inds[(i-1)*fold_n + 1:fold_n]
+    } else if (i == cv_k){
+      cv_inds[[cv_k]] <- rand_inds[((cv_k-1)*fold_n + 1):n_obs]
+    }
+  }
+  return(cv_inds)
+}
+
+gen_cv_fold_inds <- function(cv_inds, fold_i){
+  n_train <- length(do.call(c, cv_inds))
+  test_inds <- cv_inds[[fold_i]]
+  train_inds <- setdiff(1:n_train, test_inds)
+  list(
+    "train_inds" = train_inds,
+    "test_inds" = test_inds
+  )
+}
+
+
 epoch <- 0
+if (test_train_split & use_cv){
+  cv_inds <- gen_cv_inds(n_obs = end_train, cv_k)
+} else if (test_train_split & !use_cv){
+  x_train_i <- x_train
+  y_train_i <- y_train
+  x_test_i <- x_test
+  y_test_i <- y_test  
+}
+
+
 
 while (epoch < max_train_epochs & !converge_stop & !loss_ma_stop){
   prev_loss <- loss
   epoch <- epoch + 1
 
   if (test_train_split){
-    y_pred <- mlnj_net(x_train)
-    mse <- nnf_mse_loss(y_pred, y_train)
+    
+    if (use_cv){
+      if (epoch %% refresh_cv_every == 1) {
+        cv_inds <- gen_cv_inds(n_obs = end_train, cv_k)
+      }
+      
+      fold_i <- epoch %% cv_k
+      fold_i_inds <- gen_cv_fold_inds(cv_inds, fold_i)
+      
+      x_train_i <- x_train[fold_i_inds$train_inds, ]
+      y_train_i <- y_train[fold_i_inds$train_inds]
+      
+      x_test_i <- x_train[fold_i_inds$test_inds, ]
+      y_test_i <- y_train[fold_i_inds$test_inds]
+    }
+    
+    y_pred <- mlnj_net(x_train_i)
+    mse <- nnf_mse_loss(y_pred, y_train_i)
     kl <- mlnj_net$get_model_kld() / end_train
-    y_pred_test <- mlnj_net(x_test)
-    mse_test <- nnf_mse_loss(y_pred_test, y_test)
+    y_pred_test <- mlnj_net(x_test_i)
+    mse_test <- nnf_mse_loss(y_pred_test, y_test_i)
     
     tt_mse[epoch, 1:2] <- c(mse$item(), mse_test$item())
     
@@ -470,5 +518,6 @@ tt_mse %>%
       x = epoch
     )
   )
+
 
 
