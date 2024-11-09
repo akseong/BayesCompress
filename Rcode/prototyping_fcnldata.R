@@ -22,11 +22,11 @@ source(here("Rcode", "sim_functions.R"))
 
 
 # simulated data settings
-n_obs <- 1000
+n_obs <- 10000
 sig <- 1
-d_in <-  100
+d_in <- 100
 d_out <- 1
-d_hidden1 <- 50
+d_hidden1 <- 25
 d_hidden2 <- 25
 d_hidden3 <- 25
 d_hidden4 <- 25
@@ -44,12 +44,14 @@ init_alpha <- 0.9
 use_cuda <- cuda_is_available()
 verbose <- TRUE
 report_every <- 500
-max_train_epochs <- 10000
+max_train_epochs <- 20000
 
 # loss moving average stopping criterion length
 ma_length <- 50
 burn_in <- 300
 convergence_crit <- 1e-6
+
+
 test_train_split <- TRUE
 test_train_ratio <- 0.2
 
@@ -57,23 +59,32 @@ test_train_ratio <- 0.2
 # CV
 use_cv <- TRUE
 cv_k <- 5
-refresh_cv_every <- 100
+refresh_cv_every <- 500
 
 
 # # # # # # # # # # # # 
 ##    SIMULATION START    
 # generate data
-fcn1 <- function(x) exp(x/2)
-fcn2 <- function(x) cos(pi*x) 
+fcn1 <- function(x) exp(x/2) 
+fcn2 <- function(x) 2*cos(pi*x) 
 fcn3 <- function(x) abs(x)^(1.5) 
-fcn4 <- function(x) cos(pi*x) + sin(pi/1.2*x) - x
+fcn4 <- function(x) cos(pi*x) + 2*sin(pi*x/1.5) - 2*x
 
 
-fcn_simdat <- sim_func_data(
+# fcn_simdat <- sim_func_data(
+#   n_obs = n_obs,
+#   d_in = d_in,
+#   flist = list(fcn1, fcn2, fcn3, fcn4), 
+#   err_sigma = sig)
+
+
+fcn_simdat <- sim_func_data_unifx(
   n_obs = n_obs,
   d_in = d_in,
   flist = list(fcn1, fcn2, fcn3, fcn4), 
   err_sigma = sig)
+
+
 
 true_model <- c(
   rep(1, fcn_simdat$d_true), 
@@ -133,7 +144,7 @@ MLNJ <- nn_module(
       init_weight = NULL,
       init_bias = NULL,
       init_alpha = init_alpha,
-      clip_var = NULL
+      clip_var = 0.04
     )
     
     self$fc2 = BayesianLayerNJ(
@@ -314,6 +325,23 @@ if (test_train_split & use_cv){
 
 
 
+
+
+
+
+
+
+
+# make arrays / df for plotting predicted functions
+pred_mats <- make_pred_mats(
+  flist = list(fcn1, fcn2, fcn3, fcn4), 
+  xgrid = seq(-4.9, 5, length.out = 100), 
+  d_in
+)
+
+
+
+## train loop ----
 while (epoch < max_train_epochs & !converge_stop & !loss_ma_stop){
   prev_loss <- loss
   epoch <- epoch + 1
@@ -382,7 +410,16 @@ while (epoch < max_train_epochs & !converge_stop & !loss_ma_stop){
           slice(which(row_number() %% floor(report_every/5) == 1))
       }
       
-      p <-  tt_mse_plot %>% 
+      plt_preds <- plot_fcn_preds(
+        torchmod = mlnj_net, 
+        pred_mats = pred_mats) + 
+        labs(subtitle=paste0(
+          " d_in: ", d_in,
+          "   |   n_obs: ", n_obs,
+          "   |   epoch: ", epoch
+          ))
+      
+      plt_mse <-  tt_mse_plot %>% 
         pivot_longer(cols = 1:2) %>% 
         ggplot() + 
           geom_line(
@@ -395,7 +432,9 @@ while (epoch < max_train_epochs & !converge_stop & !loss_ma_stop){
         labs(
           title = "test/train MSE by epoch"
         )
-      print(p)
+
+      print(plt_mse)
+      print(plt_preds)
       
     }
 
@@ -505,19 +544,71 @@ mlnj_res <- list(
 
 
 
+
+
+
+
+
+
+
 # stopping condition
 tt_mse <- tt_mse %>% 
   mutate(diff_mse = test_mse - train_mse) %>% 
-  mutate(diff_ma = zoo::rollmean(x = diff_mse, k = 50, fill = NA))
+  mutate(diff_ma = zoo::rollmean(x = diff_mse, k = 50, fill = NA)) %>% 
+  mutate(diff_mse_lag1 = diff_mse - lag(diff_mse)) %>% 
+  mutate(test_ma = zoo::rollmean(x = test_mse, k = 50, fill = NA)) %>% 
+  mutate(train_ma = zoo::rollmean(x = train_mse, k = 50, fill = NA))
+
+  
+
 
 tt_mse %>% 
-  ggplot() + 
-  geom_line(
-    aes(
-      y = diff_ma,
-      x = epoch
-    )
-  )
+  subset(epoch > 3000 & epoch < 8000) %>% 
+  ggplot(aes(
+    y = diff_mse_lag1,
+    x = epoch
+  )) + 
+  geom_line() + 
+  geom_smooth()
+
+
+tt_mse %>% 
+  subset(epoch > 3000 & epoch < 8000) %>% 
+  ggplot(aes(
+    y = diff_ma,
+    x = epoch
+  )) + 
+  geom_line() + 
+  geom_smooth()
+
+
+tt_mse %>% 
+  subset(epoch > 3000 & epoch < 8000) %>% 
+  pivot_longer(cols=c("test_mse", "train_mse"), names_to="type") %>% 
+  ggplot(aes(
+    y = value,
+    x = epoch,
+    color = type
+  )) + 
+  geom_line() + 
+  geom_smooth()
+
+
+tt_mse %>% 
+  subset(epoch > 3000 & epoch < 8000) %>% 
+  pivot_longer(cols=c("test_ma", "train_ma"), names_to="type") %>% 
+  ggplot(aes(
+    y = value,
+    x = epoch,
+    color = type
+  )) + 
+  geom_line() 
+
+
+
+
+
+
 
 
 
