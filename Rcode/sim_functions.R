@@ -79,8 +79,42 @@ sim_func_data <- function(
 
 
 
+
+## sim_func_data_unifx----
+sim_func_data_unifx <- function(
+    n_obs = 1000,
+    d_in = 10,
+    flist = list(fcn1, fcn2, fcn3),
+    err_sigma = 1,
+    xlo = -5,
+    xhi = 5
+){
+  # simulate covariates X from uniform distributions
+  # generate x, y
+  x <- (xlo - xhi) * torch_rand(n_obs, d_in) + xhi
+  y <- rep(0, n_obs)
+  for(j in 1:length(flist)){
+    y <- y + flist[[j]](x[,j])
+  }
+  y <- y$unsqueeze(2) + torch_normal(mean = 0, std = err_sigma, size = c(n_obs, 1))
+  
+  return(
+    list(
+      "y" = y,
+      "x" = x,
+      "n_obs" = n_obs,
+      "d_in" = d_in,
+      "d_true" = length(flist)
+    )
+  )
+}
+
+
+
 # ASSESSMENT FUNCS ----
-## binary_err_mat ----
+
+## binary error----
+### binary_err_mat ----
 binary_err_mat <- function(est, tru){
   # returns 4-row matrix of FP, TP, FN, TN
   FP <- est - tru == 1
@@ -90,13 +124,13 @@ binary_err_mat <- function(est, tru){
   return(rbind(FP, TP, FN, TN))
 }
 
-# binary_err----
+### binary_err----
 binary_err <- function(est, tru){
   # returns FP, TP, FN, TN as percentage of all decisions
   rowSums(binary_err_mat(est, tru)) / length(tru)  
 }
 
-# binary_err_rate----
+### binary_err_rate----
 binary_err_rate <- function(est, tru){
   # returns FP, TP, FN, TN rates
   decision_counts <- rowSums(binary_err_mat(est, tru))
@@ -108,6 +142,108 @@ binary_err_rate <- function(est, tru){
   denom <- ifelse(denom == 0, 1, denom) 
   decision_counts / denom
 }
+
+## plotting predicted functions ----
+
+### make_pred_mats----
+make_pred_mats <- function(flist, xgrid = seq(-4.9, 5, length.out = 100), d_in){
+  require(torch)
+  n_truevars <- length(flist)
+  # make torch array to pass into torchmod
+  x_grids <- torch_zeros(n_truevars*length(xgrid), d_in)
+  y_fcn <- rep(NA, n_truevars*length(xgrid))
+  for(i in 1:n_truevars){
+    st_row <- i*length(xgrid)-(length(xgrid)-1)
+    end_row <- i*length(xgrid)
+    x_grids[st_row:end_row, i] <- xgrid
+    y_fcn[st_row:end_row] <- flist[[i]](xgrid)
+  }
+  
+  vis_df <- data.frame(
+    "y_true" = y_fcn,
+    "x" = rep(xgrid, n_truevars),
+    "name" = rep(paste0("x.", 1:n_truevars), each = length(xgrid))
+  ) 
+  
+  return(
+    list(
+      "vis_df" = vis_df,
+      "x_tensor" = x_grids
+    )
+  )
+}
+
+### plot_fcn_preds----
+plot_fcn_preds <- function(torchmod, pred_mats, want_df = FALSE, want_plot = TRUE){
+  vis_df <- pred_mats$vis_df
+  vis_df$y_pred <- as_array(torchmod(pred_mats$x_tensor))
+  plt <- vis_df %>% 
+    ggplot() + 
+    geom_line(
+      aes(y = y_pred, x = x, color = name)
+    ) + 
+    geom_line(
+      aes(
+        y = y_true,
+        x = x,
+        color = name
+      ),
+      size = 1,
+      alpha = 0.25
+    ) + 
+    labs(
+      title = "predicted and true fcns",
+      color = ""
+    )
+  
+  if (want_df & want_plot){
+    return(list(
+      "vis_df" = vis_df,
+      "plt" = plt
+    ))
+  } else if (want_df) {
+    return(vis_df)
+  } else if (want_plot){
+    plt
+  }
+}
+
+
+
+
+# MISC UTILITIES ----
+## time_since ----
+time_since <- function(){
+  # prints time since last called 
+  # (use to print time a loop takes, for example).
+  # usage:
+  # f <- time_since()
+  # f()
+  # f()
+  
+  st <- Sys.time()
+  function(x = Sys.time()) {
+    print(x-st)
+    st <<- x
+  }
+}
+
+
+## cat_color(txt, style = 1, color = 36) ---
+cat_color <- function(txt, style = 1, color = 36){
+  # prints txt with colored font/bkgrnd
+  cat(
+    paste0(
+      "\033[0;",
+      style, ";",
+      color, "m",
+      txt,
+      "\033[0m","\n"
+    )
+  )  
+}
+
+
 
 
 # FOR LM() ----
@@ -150,38 +286,6 @@ get_lm_stats <- function(simdat, alpha = 0.05){
 }
 
 
-# HELPER FUNCS ----
-## time_since ----
-time_since <- function(){
-  # prints time since last called 
-  # (use to print time a loop takes, for example).
-  # usage:
-  # f <- time_since()
-  # f()
-  # f()
-  
-  st <- Sys.time()
-  function(x = Sys.time()) {
-    print(x-st)
-    st <<- x
-  }
-}
-
-
-## cat_color(txt, style = 1, color = 36) ---
-cat_color <- function(txt, style = 1, color = 36){
-  # prints txt with colored font/bkgrnd
-  cat(
-    paste0(
-      "\033[0;",
-      style, ";",
-      color, "m",
-      txt,
-      "\033[0m","\n"
-    )
-  )  
-}
-
 
 # FOR SPIKE-SLAB ----
 
@@ -191,6 +295,5 @@ cat_color <- function(txt, style = 1, color = 36){
 
 
 # FOR LASSO ----
-
 
 
