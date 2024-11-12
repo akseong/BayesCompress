@@ -188,8 +188,8 @@ plot_fcn_preds <- function(torchmod, pred_mats, want_df = FALSE, want_plot = TRU
         x = x,
         color = name
       ),
-      size = 1,
-      alpha = 0.25
+      linewidth = 1,
+      alpha = 0.15
     ) + 
     labs(
       title = "predicted and true fcns",
@@ -241,6 +241,27 @@ cat_color <- function(txt, style = 1, color = 36){
       "\033[0m","\n"
     )
   )  
+}
+
+
+## mathematical operations
+softplus <- function(x){
+  log(1 + exp(x))
+}
+
+sigmoid <- function(x){
+  1/(1 + exp(-x))
+}
+
+softmax <- function(z){
+  exp(z) / sum(exp(z))
+}
+
+clamp <- function(v, lo = 0, hi = 1){
+  #ensure values are in [0, 1]
+  v <- ifelse( v <= hi, v, hi)
+  v <- ifelse( v >= lo, v, lo)
+  return(v)
 }
 
 
