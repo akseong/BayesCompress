@@ -59,29 +59,35 @@ test_train_ratio <- 0.2
 # CV
 use_cv <- TRUE
 cv_k <- 5
-refresh_cv_every <- 500
+refresh_cv_every <- 1000
 
 
 # # # # # # # # # # # # 
 ##    SIMULATION START    
 # generate data
-fcn1 <- function(x) exp(x/2) 
-fcn2 <- function(x) 2*cos(pi*x) 
-fcn3 <- function(x) abs(x)^(1.5) 
-fcn4 <- function(x) cos(pi*x) + 2*sin(pi*x/1.5) - 2*x
+
+fcn1 <- function(x) exp(x/2) / 2
+fcn2 <- function(x) 3*cos(pi*x/2.5) 
+fcn3 <- function(x) abs(x)^(1.5) /2
+fcn4 <- function(x) (cos(pi*x) + 2*sin(pi*x/1.5) - 2*x) / 2
+# fcn5 <- function(x) 2 * sin(pi*x/2)
+
+flist <- list(
+  fcn1, fcn2, fcn3, fcn4
+)
 
 
 # fcn_simdat <- sim_func_data(
 #   n_obs = n_obs,
 #   d_in = d_in,
-#   flist = list(fcn1, fcn2, fcn3, fcn4), 
+#   flist = flist, 
 #   err_sigma = sig)
 
 
 fcn_simdat <- sim_func_data_unifx(
   n_obs = n_obs,
   d_in = d_in,
-  flist = list(fcn1, fcn2, fcn3, fcn4), 
+  flist = flist,
   err_sigma = sig)
 
 
@@ -92,41 +98,34 @@ true_model <- c(
 )
 
 
+
+
+
+
+
 ## plotting functional relationships ----
-
-x_grid <- -50:50 / 10
-y1 <- fcn1(x_grid)
-y2 <- fcn2(x_grid)
-y3 <- fcn3(x_grid)
-y4 <- fcn4(x_grid)
-
-fcn_df <- data.frame(
-  x_grid, y1, y2, y3, y4
-)
-
-names(fcn_df) <- c(
-  "x",
-  "f_1(x)",
-  "f_2(x)",
-  "f_3(x)",
-  "f_4(x)"
+# make arrays / df for plotting predicted functions
+pred_mats <- make_pred_mats(
+  flist = flist, 
+  xgrid = seq(-4.9, 5, length.out = 100), 
+  d_in
 )
 
 
-fcn_df %>% 
-  pivot_longer(cols = -x) %>% 
+pred_mats$vis_df %>% 
   ggplot() + 
   geom_line(
     aes(
-      y = value,
+      y = y_true,
       x = x,
       color = name
     )
   ) + 
   labs(
-    title = "individual contributions of x1, x2, x3, x4 to response",
+    title = "individual contributions of true covs to response",
     color = ""
-  )
+  ) + 
+  facet_wrap(~name)
 
 
 
@@ -332,12 +331,7 @@ if (test_train_split & use_cv){
 
 
 
-# make arrays / df for plotting predicted functions
-pred_mats <- make_pred_mats(
-  flist = list(fcn1, fcn2, fcn3, fcn4), 
-  xgrid = seq(-4.9, 5, length.out = 100), 
-  d_in
-)
+
 
 
 
@@ -395,6 +389,11 @@ while (epoch < max_train_epochs & !converge_stop & !loss_ma_stop){
     mlnj_keeps <- exp(log_alphas) < 0.05
     # print(round(log_alphas, 2)[1:15])
     print(round(exp(log_alphas)[1:15], 4))
+    
+    print("fc1 - fc3")
+    print(summary(as_array(mlnj_net$fc1$get_log_dropout_rates()$exp())))
+    print(summary(as_array(mlnj_net$fc2$get_log_dropout_rates()$exp())))
+    print(summary(as_array(mlnj_net$fc3$get_log_dropout_rates()$exp())))
     mlnj_bin_err <- binary_err(est = mlnj_keeps, tru = true_model)
     print(round(mlnj_bin_err, 4))
     cat("\n")
@@ -417,7 +416,8 @@ while (epoch < max_train_epochs & !converge_stop & !loss_ma_stop){
           " d_in: ", d_in,
           "   |   n_obs: ", n_obs,
           "   |   epoch: ", epoch
-          ))
+          )) + 
+        facet_wrap(~name)
       
       plt_mse <-  tt_mse_plot %>% 
         pivot_longer(cols = 1:2) %>% 
