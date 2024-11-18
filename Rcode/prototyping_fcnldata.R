@@ -44,7 +44,9 @@ init_alpha <- 0.9
 use_cuda <- cuda_is_available()
 verbose <- TRUE
 report_every <- 500
-max_train_epochs <- 20000
+max_train_epochs <- 40000
+keep_thresh <- 0.05
+
 
 # loss moving average stopping criterion length
 ma_length <- 50
@@ -386,12 +388,22 @@ while (epoch < max_train_epochs & !converge_stop & !loss_ma_stop){
     cat_color(txt)
     
     log_alphas <- as_array(mlnj_net$fc1$get_log_dropout_rates())
-    mlnj_keeps <- exp(log_alphas) < 0.05
+    mlnj_keeps <- exp(log_alphas) < keep_thresh
     # print(round(log_alphas, 2)[1:15])
     print(round(exp(log_alphas)[1:15], 4))
+    mlnj_bin_err <- binary_err(est = mlnj_keeps, tru = true_model)
+    print(round(mlnj_bin_err, 4))
+    
+    
     # After taking away geometric mean
-    print(round(exp(log_alphas - mean(log_alphas)), 4)[1:15])
-
+    geom_cent <- exp(log_alphas - mean(log_alphas))
+    print(round(geom_cent, 4)[1:15])
+    geom_keeps <- geom_cent < keep_thresh
+    geom_err <- binary_err(est = geom_keeps, tru = true_model)
+    print(round(geom_err, 4))
+    
+    
+    
     mlnj_bin_err <- binary_err(est = mlnj_keeps, tru = true_model)
     print(round(mlnj_bin_err, 4))
     cat("\n")
