@@ -57,7 +57,7 @@ test_train_ratio <- 0.2
 
 
 # CV
-use_cv <- TRUE
+use_cv <- FALSE
 cv_k <- 5
 refresh_cv_every <- 1000
 
@@ -389,11 +389,9 @@ while (epoch < max_train_epochs & !converge_stop & !loss_ma_stop){
     mlnj_keeps <- exp(log_alphas) < 0.05
     # print(round(log_alphas, 2)[1:15])
     print(round(exp(log_alphas)[1:15], 4))
-    
-    print("fc1 - fc3")
-    print(summary(as_array(mlnj_net$fc1$get_log_dropout_rates()$exp())))
-    print(summary(as_array(mlnj_net$fc2$get_log_dropout_rates()$exp())))
-    print(summary(as_array(mlnj_net$fc3$get_log_dropout_rates()$exp())))
+    # After taking away geometric mean
+    print(round(exp(log_alphas - mean(log_alphas)), 4)[1:15])
+
     mlnj_bin_err <- binary_err(est = mlnj_keeps, tru = true_model)
     print(round(mlnj_bin_err, 4))
     cat("\n")
