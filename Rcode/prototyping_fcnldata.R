@@ -22,7 +22,7 @@ source(here("Rcode", "sim_functions.R"))
 
 
 # simulated data settings
-n_obs <- 10000
+n_obs <- 1000
 sig <- 1
 d_in <- 100
 d_out <- 1
@@ -59,7 +59,7 @@ test_train_ratio <- 0.2
 
 
 # CV
-use_cv <- FALSE
+use_cv <- TRUE
 cv_k <- 5
 refresh_cv_every <- 1000
 
@@ -401,11 +401,6 @@ while (epoch < max_train_epochs & !converge_stop & !loss_ma_stop){
     geom_keeps <- geom_cent < keep_thresh
     geom_err <- binary_err(est = geom_keeps, tru = true_model)
     print(round(geom_err, 4))
-    
-    
-    
-    mlnj_bin_err <- binary_err(est = mlnj_keeps, tru = true_model)
-    print(round(mlnj_bin_err, 4))
     cat("\n")
     
     if (test_train_split){
@@ -414,7 +409,11 @@ while (epoch < max_train_epochs & !converge_stop & !loss_ma_stop){
       tt_mse_plot <- na.omit(tt_mse) %>% 
         slice(which(row_number() %% floor(report_every/5) == 1))
       
-      if (epoch > 1500) {
+      
+      if (epoch > 11000) {
+        tt_mse_plot <- tt_mse[10000:epoch,] %>% 
+          slice(which(row_number() %% floor(report_every/5) == 1))
+      } else if (epoch > 1500) {
         tt_mse_plot <- tt_mse[1000:epoch,] %>% 
           slice(which(row_number() %% floor(report_every/5) == 1))
       }
