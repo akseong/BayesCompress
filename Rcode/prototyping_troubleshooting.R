@@ -11,7 +11,7 @@ k3 = 1.48695
 
 
 
-alph <- 1:1000/1000
+alph <- 1:1000/100
 lalph <- log(alph)
 
 
@@ -19,7 +19,7 @@ lalph <- log(alph)
 klz <- function(x){
   -(k1 * sigmoid(k2 + k3*x) - 0.5 * softplus(-x) - k1)
 }
-exp(0)
+
 
 kldiv <- klz(lalph)
 plot(kldiv~lalph)
@@ -52,6 +52,23 @@ geo_mean <- function(vec){
 }
 
 geo_mean
+
+
+
+
+
+
+
+# stopping methods
+
+
+# keep track of when:
+# - first false positive occurs
+# - when get three correct
+# - when / if get all 4 correct
+# - store tt_mse
+
+# - email Karen for paper reference
 
 
 

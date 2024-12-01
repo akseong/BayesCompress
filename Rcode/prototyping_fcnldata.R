@@ -22,11 +22,12 @@ source(here("Rcode", "sim_functions.R"))
 
 
 # simulated data settings
+set.seed (314)
 n_obs <- 1000
 sig <- 1
-d_in <- 100
+d_in <- 200
 d_out <- 1
-d_hidden1 <- 25
+d_hidden1 <-25
 d_hidden2 <- 25
 d_hidden3 <- 25
 d_hidden4 <- 25
@@ -44,7 +45,7 @@ init_alpha <- 0.9
 use_cuda <- cuda_is_available()
 verbose <- TRUE
 report_every <- 500
-max_train_epochs <- 40000
+max_train_epochs <- 100000
 keep_thresh <- 0.05
 
 
@@ -94,6 +95,32 @@ fcn_simdat <- sim_func_data_unifx(
 
 
 
+
+# # FDR-based selection
+# fcn_simdat_orig <- fcn_simdat
+# 
+# fdr_thresh <- function(log_alphas, keep_thresh){
+#   alph_ord <- order(log_alphas)
+#   alph_ord[cumsum(exp(log_alphas[alph_ord])) < keep_thresh]
+# }
+# 
+# keep_x_inds <- fdr_thresh(log_alphas, keep_thresh)
+# 
+# 
+# fcn_simdat$x <- fcn_simdat$x[, sort(keep_x_inds)]
+# fcn_simdat$d_in <- length(keep_x_inds)
+# fcn_simdat$d_true <- sum(keep_x_inds %in% 1:4)
+
+
+
+
+
+
+
+
+
+
+
 true_model <- c(
   rep(1, fcn_simdat$d_true), 
   rep(0, fcn_simdat$d_in - fcn_simdat$d_true)
@@ -110,7 +137,7 @@ true_model <- c(
 pred_mats <- make_pred_mats(
   flist = flist, 
   xgrid = seq(-4.9, 5, length.out = 100), 
-  d_in
+  d_in = fcn_simdat$d_in
 )
 
 
@@ -258,7 +285,7 @@ converge_stop <- FALSE
 # track loss, alphas for stopping criteria
 loss_store_mat <- array(NA, dim = c(3, 2*ma_length))
 rownames(loss_store_mat) <- c("epoch", "loss", "loss_MA")
-log_alpha_mat <- array(NA, dim = c(2*ma_length, d_in + 4))
+log_alpha_mat <- array(NA, dim = c(2*ma_length, fcn_simdat$d_in + 4))
 colnames(log_alpha_mat) <- c(
   paste0("x", 1:d_in),
   "epoch",
@@ -286,6 +313,11 @@ if (test_train_split){
 }
 
 
+
+# max_train_epochs <- 1000000
+# nullmat <- matrix(NA, nrow = 900000, ncol = 3)
+# colnames(nullmat) <- names(tt_mse)
+# tt_mse <- rbind(tt_mse, nullmat)
 
 ## Cross-val setup ----
 
@@ -327,22 +359,13 @@ if (test_train_split & use_cv){
 
 
 
-
-
-
-
-
-
-
-
-
-
 ## train loop ----
 while (epoch < max_train_epochs & !converge_stop & !loss_ma_stop){
   prev_loss <- loss
   epoch <- epoch + 1
 
   if (test_train_split){
+    kl_denom <- end_train
     
     if (use_cv){
       if (epoch %% refresh_cv_every == 1) {
@@ -357,11 +380,13 @@ while (epoch < max_train_epochs & !converge_stop & !loss_ma_stop){
       
       x_test_i <- x_train[fold_i_inds$test_inds, ]
       y_test_i <- y_train[fold_i_inds$test_inds]
+      
+      kl_denom <- length(fold_i_inds$train_inds)
     }
     
     y_pred <- mlnj_net(x_train_i)
     mse <- nnf_mse_loss(y_pred, y_train_i)
-    kl <- mlnj_net$get_model_kld() / end_train
+    kl <- mlnj_net$get_model_kld() / kl_denom
     y_pred_test <- mlnj_net(x_test_i)
     mse_test <- nnf_mse_loss(y_pred_test, y_test_i)
     
@@ -406,15 +431,14 @@ while (epoch < max_train_epochs & !converge_stop & !loss_ma_stop){
     if (test_train_split){
       print(tt_mse[epoch, ])
       
-      tt_mse_plot <- na.omit(tt_mse) %>% 
-        slice(which(row_number() %% floor(report_every/5) == 1))
-      
-      
-      if (epoch > 11000) {
-        tt_mse_plot <- tt_mse[10000:epoch,] %>% 
+      if (epoch > 400000) {
+        tt_mse_plot <- tt_mse[(epoch - 200000):epoch,] %>% 
           slice(which(row_number() %% floor(report_every/5) == 1))
       } else if (epoch > 1500) {
         tt_mse_plot <- tt_mse[1000:epoch,] %>% 
+          slice(which(row_number() %% floor(report_every/5) == 1))
+      } else {
+        tt_mse_plot <- na.omit(tt_mse) %>% 
           slice(which(row_number() %% floor(report_every/5) == 1))
       }
       
