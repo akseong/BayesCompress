@@ -25,11 +25,11 @@ source(here("Rcode", "sim_functions.R"))
 set.seed (314)
 n_obs <- 1000
 sig <- 1
-d_in <- 200
+d_in <- 100
 d_out <- 1
-d_hidden1 <-25
-d_hidden2 <- 25
-d_hidden3 <- 25
+d_hidden1 <- 32
+d_hidden2 <- 8
+d_hidden3 <- 16
 d_hidden4 <- 25
 d_hidden5 <- 25
 d_hidden6 <- 25
@@ -45,7 +45,7 @@ init_alpha <- 0.9
 use_cuda <- cuda_is_available()
 verbose <- TRUE
 report_every <- 500
-max_train_epochs <- 100000
+max_train_epochs <- 300000
 keep_thresh <- 0.05
 
 
@@ -64,6 +64,7 @@ use_cv <- TRUE
 cv_k <- 5
 refresh_cv_every <- 1000
 
+lalpha_save_every <- 100
 
 # # # # # # # # # # # # 
 ##    SIMULATION START    
@@ -187,16 +188,16 @@ MLNJ <- nn_module(
 
     self$fc3 = BayesianLayerNJ(
       in_features =  d_hidden2,
-    #   out_features = d_hidden3,
-    #   use_cuda = use_cuda,
-    #   init_weight = NULL,
-    #   init_bias = NULL,
-    #   init_alpha = init_alpha,
-    #   clip_var = NULL
-    # )
-    # 
-    # self$fc4 = BayesianLayerNJ(
-    #   in_features =  d_hidden3,
+      out_features = d_hidden3,
+      use_cuda = use_cuda,
+      init_weight = NULL,
+      init_bias = NULL,
+      init_alpha = init_alpha,
+      clip_var = NULL
+    )
+
+    self$fc4 = BayesianLayerNJ(
+      in_features =  d_hidden3,
     #   out_features = d_hidden4,
     #   use_cuda = use_cuda,
     #   init_weight = NULL,
@@ -248,9 +249,9 @@ MLNJ <- nn_module(
       nnf_relu() %>%
       self$fc2() %>% 
       nnf_relu() %>% 
-      self$fc3() # %>% 
-      # nnf_relu() %>%
-      # self$fc4() %>%
+      self$fc3() %>%
+      nnf_relu() %>%
+      self$fc4() # %>%
       # nnf_relu() %>%
       # self$fc5()
   },
@@ -259,9 +260,9 @@ MLNJ <- nn_module(
     kl1 = self$fc1$get_kl()
     kl2 = self$fc2$get_kl()
     kl3 = self$fc3$get_kl()
-    # kl4 = self$fc4$get_kl()
+    kl4 = self$fc4$get_kl()
     # kl5 = self$fc5$get_kl()
-    kld = kl1 + kl2 + kl3
+    kld = kl1 + kl2 + kl3 + kl4
     return(kld)
   }
 )
@@ -313,10 +314,13 @@ if (test_train_split){
 }
 
 
+lalpha_mat <- matrix(NA, nrow = max_train_epochs %/% lalpha_save_every, ncol = d_in)
 
+# 
 # max_train_epochs <- 1000000
 # nullmat <- matrix(NA, nrow = 900000, ncol = 3)
 # colnames(nullmat) <- names(tt_mse)
+# tt_mse <- tt_mse[, 1:3]
 # tt_mse <- rbind(tt_mse, nullmat)
 
 ## Cross-val setup ----
@@ -418,6 +422,12 @@ while (epoch < max_train_epochs & !converge_stop & !loss_ma_stop){
     print(round(exp(log_alphas)[1:15], 4))
     mlnj_bin_err <- binary_err(est = mlnj_keeps, tru = true_model)
     print(round(mlnj_bin_err, 4))
+
+    
+    # store log alphas every `lalpha_save_every` epochs
+    if (epoch %% lalpha_save_every == 0){
+      lalpha_mat[epoch %/% lalpha_save_every, ] <- log_alphas
+    }
     
     
     # After taking away geometric mean
@@ -596,7 +606,8 @@ tt_mse <- tt_mse %>%
 
 
 tt_mse %>% 
-  subset(epoch > 3000 & epoch < 8000) %>% 
+  # subset(epoch > 3000 & epoch < 8000) %>% 
+  subset(epoch > 5000) %>% 
   ggplot(aes(
     y = diff_mse_lag1,
     x = epoch
@@ -606,7 +617,8 @@ tt_mse %>%
 
 
 tt_mse %>% 
-  subset(epoch > 3000 & epoch < 8000) %>% 
+  # subset(epoch > 3000 & epoch < 8000) %>% 
+  subset(epoch > 5000) %>% 
   ggplot(aes(
     y = diff_ma,
     x = epoch
@@ -616,7 +628,8 @@ tt_mse %>%
 
 
 tt_mse %>% 
-  subset(epoch > 3000 & epoch < 8000) %>% 
+  # subset(epoch > 3000 & epoch < 8000) %>% 
+  subset(epoch > 5000) %>% 
   pivot_longer(cols=c("test_mse", "train_mse"), names_to="type") %>% 
   ggplot(aes(
     y = value,
@@ -624,11 +637,13 @@ tt_mse %>%
     color = type
   )) + 
   geom_line() + 
-  geom_smooth()
+  geom_smooth() + 
+  ylim(c(0, 5))
 
 
 tt_mse %>% 
-  subset(epoch > 3000 & epoch < 8000) %>% 
+  # subset(epoch > 3000 & epoch < 8000) %>% 
+  subset(epoch > 80000) %>% 
   pivot_longer(cols=c("test_ma", "train_ma"), names_to="type") %>% 
   ggplot(aes(
     y = value,
@@ -636,6 +651,9 @@ tt_mse %>%
     color = type
   )) + 
   geom_line() 
+
+
+
 
 
 

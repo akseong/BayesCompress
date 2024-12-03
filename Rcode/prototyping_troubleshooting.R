@@ -66,7 +66,10 @@ geo_mean
 # - first false positive occurs
 # - when get three correct
 # - when / if get all 4 correct
-# - store tt_mse
+# - store tt_mse, MSE, KL
+# - store log_alphas
+
+# --- store every 10th?  100th?  model
 
 # - email Karen for paper reference
 
