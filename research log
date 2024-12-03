@@ -1,0 +1,99 @@
+research log:
+
+
+############
+11/8
+############
+
+# need to monitor test-train split along with TP TN rate
+# run 10 times
+# keep track of test, train, FP, TP
+# sweet spot tends to be btwn 5-8k epochs
+
+# start storing at 3000 epochs
+# need to get a sense of how moving average changes?
+# is there a time when it gets all of them correct?
+# check for ranking
+# tt_mse
+# earliest best is at 3500 epochs
+# FP at 6000
+# diverging at 6500
+# just gets worse and worse 
+
+
+# part of the problem might be that we have more parameters than data, so 
+# the network can memorize the data.  So CV will keep going in circles.
+# for the alphas, cap them at 1, then renormalize
+# what if drop nodes in the hidden layers, then retrain? using starting points for hidden layers?
+# some support for this as a VAE procedure
+
+
+
+- training regimes tested
+    - 5-fold CV, 1000 obs, hidden layers 50, 25 - same issues
+        - KL seems inappropriately scaled?  at 2500 epochs in, around 23
+    - no CV - bad
+    - 5-fold CV, 10k obs, hidden layers 25, 25
+        - seems more stable?  KL is better scaled 
+            - 500 epochs, MSE = 5, KL = 1.6
+            - 4000 epochs, MSE = 2.57, KL = 1.15
+            - 7000 epochs, MSE = 1.8, KL = 0.74
+    - tried with only 5 vars (so only 1 nuisance) to see how estimation goes. 
+    	- fcn estimation is actually fairly good BUT
+    	- the 1 nuisance variable's alpha appears to be going to 0 as training goes on
+    	- for some reason all the predicted curves appear to be shifted up
+    	- function estimation is really good around x = 0; because all the covs are generated as N(0,1), so there's the most data there.
+
+
+    - tried simulating covariates from uniform dist'n
+    - 
+
+
+
+
+- monitoring predicted functions
+
+
+
+ideas:
+    - consider training 1x, eliminating nodes with high alpha in hidden layers, retraining
+    - what about eliminating nodes with alpha > 1 at some point
+    - function estimation seems a bit fucky, probably because keeping all these unused vars in?
+    - look at the clip variances thing in Ullrich's code
+
+
+
+
+############
+Nov 12
+############
+
+Variable inclusion factor
+
+
+
+
+############
+Nov 20
+############
+
+testing over the last few weeks suggests that 
+1) when the network's parameters outnumber the observations we have to work with, the unmodified alpha parameter is best to work with, and we should stop training early (otherwise the network will overfit by fitting nuisance variables to noise / fill in gaps)
+
+2) when the number of observations is smaller than the number of parameters, training for a long time is helpful, but we should use the alphas after centering them at the geometric mean
+
+
+
+
+
+3) perhaps the first hidden layer should be smaller in dimension?
+
+16 -> 32 -> 64
+
+
+raymond wang, hanna debray with Farideh
+
+
+
+
+need to save FP TP FN TN alongside tt_mse
