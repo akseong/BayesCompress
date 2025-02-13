@@ -82,18 +82,75 @@ testing over the last few weeks suggests that
 
 2) when the number of observations is smaller than the number of parameters, training for a long time is helpful, but we should use the alphas after centering them at the geometric mean
 
-
-
-
-
 3) perhaps the first hidden layer should be smaller in dimension?
 
 16 -> 32 -> 64
 
 
-raymond wang, hanna debray with Farideh
-
-
-
 
 need to save FP TP FN TN alongside tt_mse
+
+
+
+
+
+
+############
+Feb 2
+############
+(Meeting with Zhaoxia)
+
+
+contact ICS grad office
+  - advancement
+  - petition for Michele to attend
+
+fMRI people in cog sci, particularly junior faculty
+
+Ana Marie Kenney
+Wenjuo
+
+
+Look at junior faculty in cog sci:
+- Aaron Bornstein
+- Nadia Chernyak
+- Anna Leshinskaya
+- Cherlyn Ng
+
+
+
+
+Fix advancement date
+- Babak, Zhaoxia, Veronica
+- Doodle Poll
+
+- set time for last week of February, 2 hours, possibly over Zoom, or before March 5th
+- petition for Michele to be there
+
+
+- email Adam
+
+- Biometrika paper (40 min), current work (10 minutes), then questions
+- just send Biometrika paper
+- proposal --- 1st paper
+   - intro, motivation, first project, 2nd project
+   - send paper and say will also present future work
+
+
+
+
+
+
+
+############
+Feb 11
+############
+
+https://youtu.be/m1dSrXBEZIQ?feature=shared
+https://www.youtube.com/watch?v=m1dSrXBEZIQ
+ELBO good in deep Gaussian Processes (Damianou Lawrence 2)
+
+For linear models, when ensembling, if initialize weights from iid prior, then apply gradient descent w.r.t. squared loss (unregularized)
+ ---> then resulting weights distributed exactly as posterior, i.e. estimated ensemble weights exactly equal to posterior (Matthews et al 2017)
+
+ Also, can get lower bound by summing training losses over observations --- Lyle, Schut, Ru, Gal, van der Wilk
