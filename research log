@@ -82,10 +82,6 @@ testing over the last few weeks suggests that
 
 2) when the number of observations is smaller than the number of parameters, training for a long time is helpful, but we should use the alphas after centering them at the geometric mean
 
-
-
-
-
 3) perhaps the first hidden layer should be smaller in dimension?
 
 16 -> 32 -> 64
@@ -99,29 +95,10 @@ need to save FP TP FN TN alongside tt_mse
 
 
 
-
-
-
-
-
-
-
-
-David A. Van Dyk
-- astrophysics data, specifically spectroscopy
-- covariate shift - high-resolution histograms from 1 type of sensor/telescope, lower resolution histogram from other, more plentiful sensor
-    - method "StratLearn" uses propensity scores to account for covariate shift
-
-
-- patch priors to reconstruct images from noisy photon counts
-
-
-
-
-
-
-
-
+############
+Feb 2
+############
+(Meeting with Zhaoxia)
 
 
 contact ICS grad office
@@ -134,40 +111,30 @@ Ana Marie Kenney
 Wenjuo
 
 
+Look at junior faculty in cog sci:
+- Aaron Bornstein
+- Nadia Chernyak
+- Anna Leshinskaya
+- Cherlyn Ng
 
 
 
 
-cog sci:
+Fix advancement date
+- Babak, Zhaoxia, Veronica
+- Doodle Poll
 
-- Arron Bornstein
-Nadia Chernyak
-Anna Leshinskaya
-Cherlyn Ng
-
-
+- set time for last week of February, 2 hours, possibly over Zoom, or before March 5th
+- petition for Michele to be there
 
 
-practice --- 
+- email Adam
 
-ranger, BART
-torch
-ASR/TTS models
-
-
-
-
-
-
-
-
-introBVS presentation:
-
-
-problem statement - what is variable selection, when useful
-
-- shrinkage / penalization
-    - James Stein estimator / paradox: https://www.youtube.com/watch?v=cUqoHQDinCM
+- Biometrika paper (40 min), current work (10 minutes), then questions
+- just send Biometrika paper
+- proposal --- 1st paper
+   - intro, motivation, first project, 2nd project
+   - send paper and say will also present future work
 
 
 
@@ -175,102 +142,15 @@ problem statement - what is variable selection, when useful
 
 
 
-https://stats.stackexchange.com/questions/646260/variable-selection-strategies
-Established Frequentist methods
-   - Fank Harrell - p 56: file:///C:/Users/akseong/Downloads/978-1-4757-3462-1.pdf 
- - stepwise selection
- regularization / penalization --- loss unction = RSS + penalty * model complexity
- - Ridge regression
- - LASSO
- - elastic-net
- - Group LASSO
+############
+Feb 11
+############
 
-Newer Frequentist methods
- - knockoffs (2015)   
-   - https://statweb.stanford.edu/~candes/publications/downloads/FDR_regression.pdf
-   - https://web.stanford.edu/group/candes/knockoffs/papers.html
+https://youtu.be/m1dSrXBEZIQ?feature=shared
+https://www.youtube.com/watch?v=m1dSrXBEZIQ
+ELBO good in deep Gaussian Processes (Damianou Lawrence 2)
 
+For linear models, when ensembling, if initialize weights from iid prior, then apply gradient descent w.r.t. squared loss (unregularized)
+ ---> then resulting weights distributed exactly as posterior, i.e. estimated ensemble weights exactly equal to posterior (Matthews et al 2017)
 
-
-
- Bayesian Methods
- - bayesian ridge
- - Bayesian LASSO - Park & Casella (2008)
- - Mixture
- - Horseshoe
- - Spike-and-slab
- - BVS via BART
-Bayesian model averaging
-
-
-
-https://www.stata.com/statanow/bayesian-variable-selection-linear-regression/
-
-
-
-
-
-
-
-
-
----
-**Problem statement**
-Why do model / variable selection?  Goals?
-- practical:
-  - observing variables may be costly
-  - eliminate redundancies / inflation of variance
-  - p < n easier computationally
-- theoretical / philosophical
-    - less complex models are more interpretable
-    - if we know the correct model, we can obtain optimal parameter estimates and uncertainty quantification
-
-- model vs. variable selection - model selection is the broader term, comprising things such as link function, assumptions about data generating process, etc.
-
----
-Hurdles?
-- don't want to eliminate variables that explain the outcome
-- don't want to include variables that do not explain the outcome
-- want reliable uncertainty quantification
-- want to preserve T1 error / False discovery rates
-- bonus: it would be great to be able to express our uncertainty about whether a variable has an appreciable effect on the outome of interest
-
-
----
-Prediction / Inference
-Prediction
-- Variable selection is typically less important if the only goal is to make "good" predictions, but can still have an impact on the quality of prediction
-  - overspecification --- including too many variables ---> overfitting, misleadingly good in-sample performance, poor out-of-sample performance
-  - underspec --- including too few ---> underfitting, non-optimal performance
-  - misspecification of functional relationship 
-
-Inference (our focus)
-"As measurements become more complex they often convolve meaningful phenomena with more extraneous phenomena. In order to limit the impact of these irrelevant phenomena on our inferences, and isolate the relevant phenomena, we need models that encourage sparse inferences."
-https://betanalpha.github.io/assets/case_studies/modeling_sparsity.html
-(Michael Betancourt, core developer for STAN)
-
-
-
----
-How to proceed in an inferential setting:
-
-> 1) Use subject matter knowledge before looking at the dataset; (2) Use redundancy analysis/data reduction blinded to Y; (3) Use a method that adequately penalizes for the huge multiple comparison problem caused by doing feature selection (Frank Harrell)
-link: https://stats.stackexchange.com/questions/18214/why-is-variable-selection-necessary
-
-Algorithmic model selection methods:
-Stepwise methods:
-- generally derided
-- do not preserve important operating characteristics such as type I error
-- methods that dropping variables based on significance tests (e.g. partial F-tests) belong here
-
-Frequentist methods:
-- penalization / shrinkage methods, e.g. Ridge or LASSO
-- more recent: knockoffs
-
-Bayesian:
-- mixture models
-- ABC
-
- 
-
-
+ Also, can get lower bound by summing training losses over observations --- Lyle, Schut, Ru, Gal, van der Wilk
