@@ -61,8 +61,19 @@ horseshoe_layer <- nn_module(
     self$deterministic <- FALSE
     
     # trainable parameters
-    self$z_mu <- nn_parameter(torch_randn(in_features))
-    self$z_logvar <- nn_parameter(torch_randn(in_features))
+    # s = global scal param
+    # s^2 = sa*sb
+    self$sa_mu <- nn_parameter(torch_randn(1))
+    self$sa_logvar <- nn_parameter(torch_randn(1))
+    self$sb_mu <- nn_parameter(torch_randn(1))
+    self$sb_logvar <- nn_parameter(torch_randn(1))
+    # z_i_tilde = local scale param
+    # z_i_tilde^2 = alpha_tilde * beta_tilde
+    self$alpha_tilde_mu <- nn_parameter(torch_randn(in_features))
+    self$alpha_tilde_logvar <- nn_parameter(torch_randn(in_features))
+    self$beta_tilde_mu <- nn_parameter(torch_randn(in_features))
+    self$beta_tilde_logvar <- nn_parameter(torch_randn(in_features))
+    # weight dist'n params
     self$weight_mu <- nn_parameter(torch_randn(out_features, in_features))
     self$weight_logvar <- nn_parameter(torch_randn(out_features, in_features))
     self$bias_mu <- nn_parameter(torch_randn(out_features))
@@ -84,6 +95,18 @@ horseshoe_layer <- nn_module(
     
     # initialize means
     stdv <- 1 / sqrt(self$weight_mu$size(1)) # self$weight_mu$size(1) = out_features
+    
+    
+    sa_mu
+    sb_mu
+    alpha_tilde_mu
+    beta_tilde_mu
+    
+    
+    
+    
+    
+    
     self$z_mu <- nn_parameter(torch_normal(1, 1e-2, size = self$z_mu$size()))      # potential issue (if not considered leaf node anymore?)  wrap in nn_parameter()?
     if (!is.null(init_weight)) {
       self$weight_mu <- nn_parameter(torch_tensor(init_weight))
