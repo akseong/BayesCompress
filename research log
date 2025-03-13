@@ -145,8 +145,9 @@ Fix advancement date
 ############
 Feb 11
 ############
+interesting talk at Qualcomm by Van Der Wilk:
 
-https://youtu.be/m1dSrXBEZIQ?feature=shared
+https://youtu.be/m1dSrXBEZIQ
 https://www.youtube.com/watch?v=m1dSrXBEZIQ
 ELBO good in deep Gaussian Processes (Damianou Lawrence 2)
 
@@ -154,3 +155,31 @@ For linear models, when ensembling, if initialize weights from iid prior, then a
  ---> then resulting weights distributed exactly as posterior, i.e. estimated ensemble weights exactly equal to posterior (Matthews et al 2017)
 
  Also, can get lower bound by summing training losses over observations --- Lyle, Schut, Ru, Gal, van der Wilk
+
+
+
+
+
+
+############
+Feb 20
+############
+
+- print Ignacio Saez paper
+- print our paper: "Semi-parametric local variable selection under misspecification"
+
+
+
+
+- problem statement - not only is there an effect, but when/where?
+- steps taken 
+    - 3rd degree splines --- common way of testing for group effect (all splines covering area are 0) is misspecified
+    - 0 degree splines --- works fine in non-correlated data case
+    - orthogonalization
+    - covariance estimation
+    - multi-resolution analysis vs. transition prior
+
+    - computation ---- tempered gibbs, mombf
+        - what does mombf use? laplace approx. for marginal likelihood, how is greedy search implemented?
+
+
