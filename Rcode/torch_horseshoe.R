@@ -41,7 +41,7 @@ KL_lognorm_IG <- function(mu, sig, a = 1/2, b = 1){
 
 
 
-horseshoe_layer <- nn_module(
+torch_hs <- nn_module(
   # last modified 1/3/2025
   classname = "horseshoe_layer",
   
@@ -60,7 +60,7 @@ horseshoe_layer <- nn_module(
     self$clip_var <- clip_var
     self$deterministic <- FALSE
     
-    # trainable parameters
+    #### trainable parameters
     # s = global scal param
     # s^2 = sa*sb
     self$sa_mu <- nn_parameter(torch_randn(1))

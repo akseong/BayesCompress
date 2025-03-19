@@ -183,3 +183,130 @@ Feb 20
         - what does mombf use? laplace approx. for marginal likelihood, how is greedy search implemented?
 
 
+
+
+figure out extra times --- march 4, 5, 14 morning
+
+
+
+tomorrow morning
+ - contact escrow
+ - contact ics counselors (tonight) to see if morning of 14th is OK.
+
+
+
+
+
+################
+March 18
+################
+
+
+
+horseshoe
+
+
+Job
+~Joseph Millar
+
+I’ve just come from walking to and fro
+in the earth, Satan tells God
+before they make the wager
+standing for centuries
+as metaphor of man’s existence— 
+trapped on the wheel like an insect
+under a microscope:
+his disastrous ecology,
+his ravaged immune system,
+even his broken-veined, wine-flushed face
+looking back from the rearview
+and parked alone by the river.
+He should have been born
+with fins, he thinks
+as the swans arch and preen
+and attack one another
+though everyone says they mate for life
+and the afternoon wind
+raises welts of sunlight
+over the torqued and rippling surface
+and the beautiful ravenous fish.
+
+
+
+
+
+3/19 BVS for DNN lit review
+
+---- Variational Inf and dropout/compression
+
+
+- Gal & Ghahramani, 2015; Kingma et al 2015 
+
+- Kingma et al 2015, "Variational Dropout and the local reparameterization trick" --- show that dropout can be seen as a special case of Bayesian regularization
+
+- Molchanov, Ashukha, Vetrov 2017, "Variational Dropout Sparsifies Deep Neural Networks"
+  - each weight has its own, individual dropout rate
+  - __has a good lit review__
+  - in discussion, "Another possible direction for future research is to find a way to obtain __structured sparsity using our framework__"
+
+
+
+- Louizos, Ullrich, Welling 2017, Bayesian Compression for Deep Learning
+  - apply sparsity-inducing Gaussian mixture models to ROWS of a neural network weight matrix (not the nodes, but it also induces sparsity in nodes)
+  - network weights estimated via variational inference
+    - improper log-normal Jeffrey's prior --- later shown to be misspecified
+    - Horseshoe
+  - focus is on compression; dropout parameters treated as tuning parameters
+  - also compress via reducing bit precision
+
+
+
+- Ghosh, Yao, Doshi-Velez 2019, Model Selection in Bayesian Neural Networks via Horseshoe Priors
+  "Model selection" here is about choice of NN architecture, i.e. how many layers, how many nodes
+  - also show that too many nodes in a BNN --> large predictive uncertainty; "more expressive models require more data to concentrate the posterior"
+
+
+- Overweg et al, 2019, Interpretable Outcome Prediction with Sparse Bayesian Neural Networks in Intensive Care
+  - only apply HShoe to input layer
+  - no simulation results --- just applied to datasets in UCI ML repository, and report root mean-squared error and negative log-likelihood
+  - no investigation of variable selection performance, e.g. T1 error, FDR
+  - no decision rule / criteria
+  - little investigation of using larger NN's
+
+
+- Nguyen, et al, 2021, "Structured Dropout Variational Inference for Bayesian Neural Networks"
+  - uses Householder transformation to learn representation for multiplicative Gaussian noise in Varitaionl Dropout
+  - obtain Variational Dropout posterior with structured covariance
+  - hierarchical dropout procedure --- equivalent to inferring a joint posterior 
+
+
+
+
+
+
+
+
+
+---- Normalizing Flows
+
+- Huang, Krueger, Lacoste, Courville 2018, "Neural Autoregressive Flows"
+  - normalizing flows and autoregressive models
+  - "universal approximators for continuous probability distributions, and their greater expressivity allows them to better capture multimodal target distributions"
+
+
+
+
+
+
+
+
+
+- look into: 
+  - bits-back argument and bits-back coding, 
+  - Ghosh, Yao Doshi-Velez paper
+  - Nguyen paper
+  - Automatic Relevance Determination effect
+  - code for Molchanov, Ashukha, Vertrov 2017 ??
+
+
+
