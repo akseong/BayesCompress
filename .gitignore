@@ -20,6 +20,7 @@
 # RStudio files
 .Rproj.user/
 .Rproj
+BayesCompress.Rproj
 
 # produced vignettes
 vignettes/*.html
