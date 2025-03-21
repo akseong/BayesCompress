@@ -648,7 +648,7 @@ get_restab <- function(res, tru, log_alpha_threshold = -3, method_name = "Bnn", 
 
 
 
-get_mses <- function(res, method_name = "Bnn"){
+get_mses <- function(res, method_name = "Bnn", true_coefs){
   
   mse_stats <- function(res_MSEs){
     c(
@@ -680,7 +680,7 @@ get_mses <- function(res, method_name = "Bnn"){
 
 
 ```{r SLP_RESULTS}
-fpath <- here("Rcode", "results", "linear_sim_sig1.Rdata")
+fpath <- here("Rcode", "results", "linear_sim_sig1_2.Rdata")
 load(fpath)
 
 true_coefs = c(-0.5, 1, -2, 4, rep(0, times = 100))
@@ -740,12 +740,12 @@ __Model__: `MLP` = multiple neurons, multiple layers
 
 ```{r MLP_results}
 
-fname <- "MLP_linear_sim_sig1.Rdata"
-fname2 <- "MLP_linear_sim_sig1_part2.Rdata"
-fpath <- here::here("Rcode", "results", fname)
+# fname <- "MLP_linear_sim_sig1.Rdata"
+fname2 <- "MLP_linear_sim_sig1_part2_2.Rdata"
+# fpath <- here::here("Rcode", "results", fname)
 fpath2 <- here::here("Rcode", "results", fname2)
 
-load(fpath)
+# load(fpath)
 load(fpath2)
 
 # some results null (stopped simulation b/c needed to use computer)

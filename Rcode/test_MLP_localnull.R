@@ -1,13 +1,12 @@
 ##################################################
-## Project:   MLP linear data sim
-## Date:      Aug 20, 2024
+## Project:   MLP functional data sim
+## Date:      Aug 14, 2024
 ## Author:    Arnie Seong
 ##################################################
 
 library(here)
 library(tidyr)
 library(dplyr)
-library(parallel)
 
 # BayesCompress
 library(torch)
@@ -17,62 +16,38 @@ source(here("Rcode", "sim_functions.R"))
 #competitors
 library(BoomSpikeSlab)
 library(glmnet)
-library(pbapply)
 
 
-
-# parallelization params ----
-on_server <- FALSE
-use_cuda <- FALSE
-ncpus <- detectCores()
-
-cl_size <- ifelse(on_server, floor(ncpus / 2), 5)
-cl_size <- ifelse(cl_size < 1, 1, cl_size)
 
 
 # sim params --------------------------------------------------------------
-testing <- FALSE
+testing <- TRUE
 
-fname <- ifelse(testing, "MLP_linear_sim_sig1_TEST", "MLP_linear_sim_sig1_part2_2")
-fpath <- here("Rcode", "results", paste0(fname, ".Rdata"))
+fname <- ifelse(testing, "MLP_local_TEST.Rdata", "MLP_local.Rdata")
+fpath <- here("Rcode", "results", fname)
 
-n_sims <- ifelse(testing, 5, 100)
-cl_size <- ifelse(testing, 2, cl_size)
+n_sims <- ifelse(testing, 3, 100)
 
-n_sims_each_partial <- cl_size * ifelse(testing, 1, 2)
-# separate save files for parallelization
-num_saves <- n_sims %/% n_sims_each_partial + ifelse(n_sims %% n_sims_each_partial == 0, 0, 1)
-partial_fpaths <- here("Rcode", "results", paste0(fname, "_PARTIAL", 1:num_saves, ".Rdata"))
-
+res <- sapply(1:n_sims, function(x) NULL)
 
 # simulated data settings
-n_obs <- 100 
+n_obs <- 10000
 sig <- 1
-true_coefs <- c(-0.5, 1, -2, 4, rep(0, times = 100))
-d_in <- length(true_coefs)
-true_model <- true_coefs != 0
-
-
-lin_simdat <- sim_linear_data(
-    n_obs = n_obs,
-    err_sigma = 1,
-    intercept = 0,
-    true_coefs = true_coefs 
-)
+d_in <-  100
+d_hidden1 <- 50
+d_hidden2 <- 25
 
 
 
 
 
 # # # # # # # # # # # # 
-##    MLNJ parameters
-d_hidden1 <- 50
-d_hidden2 <- 25
-dropout_thresh <- 0.05
+##    MLNJ training parameters
 
 # set initial value for dropout rate alpha
 # (default value is 1/2)
 init_alpha <- 0.5
+use_cuda <- cuda_is_available()
 max_train_epochs <- ifelse(testing, 500, 40000)
 verbose <- testing
 burn_in <- ifelse(testing, 100, 10000)
@@ -83,36 +58,35 @@ ma_length <- 50
 
 
 
-
-# # # # # # # # # # # # # # # # # # # # # # # # #
-## SIM FUNCTION ----
-# # # # # # # # # # # # # # # # # # # # # # # # #
-MLP_lindata_sim <- function(
-  n_obs,
-  sig,
-  true_coefs,
-  d_hidden1,
-  d_hidden2,
-  use_cuda,
-  init_alpha,
-  ma_length,
-  max_train_epochs,
-  verbose,
-  burn_in,
-  convergence_crit
-){
-
+for(sim_num in 1:n_sims){
+  
   # # # # # # # # # # # # 
   ##    SIMULATION START    
-  res <- list()
-  true_model <- true_coefs != 0
+  # generate data
+  fcn1 <- function(x) exp(x/2)
+  fcn2 <- function(x) cos(pi*x)
+  fcn3 <- function(x) abs(x)^(1.5)
+  fcn4 <- function(x) cos(pi*x) + sin(pi/1.2*x) - x
   
-  lin_simdat <- sim_linear_data(
+  fcn_simdat <- sim_func_data(
     n_obs = n_obs,
-    err_sigma = sig,
-    intercept = 0,
-    true_coefs = true_coefs 
+    d_in = 100,
+    flist = list(fcn1, fcn2, fcn3, fcn4), 
+    err_sigma = 1)
+
+  true_model <- c(
+    rep(1, fcn_simdat$d_true), 
+    rep(0, fcn_simdat$d_in-fcn_simdat$d_true)
   )
+  
+  # plot functions
+  # xsamp <- -500:500 / 100
+  # library(ggplot2)
+  # qplot(y = fcn1(xsamp), x = xsamp)
+  # qplot(y = fcn2(xsamp), x = xsamp)
+  # qplot(y = fcn3(xsamp), x = xsamp)
+  # qplot(y = fcn4(xsamp), x = xsamp)
+
   
   # # # # # # # # # # # # # # # # # # # # # # # # #
   ## BAYESIAN LAYER NJ ----
@@ -122,7 +96,7 @@ MLP_lindata_sim <- function(
     "MLNJ",
     initialize = function() {
       self$fc1 = BayesianLayerNJ(    
-        in_features = lin_simdat$d_in, 
+        in_features = fcn_simdat$d_in, 
         out_features = d_hidden1,
         use_cuda = use_cuda,
         init_weight = NULL,
@@ -203,10 +177,10 @@ MLP_lindata_sim <- function(
     prev_loss <- loss
     epoch <- epoch + 1
     
-    y_pred <- mlnj_net(lin_simdat$x)
+    y_pred <- mlnj_net(fcn_simdat$x)
     
-    mse <- nnf_mse_loss(y_pred, lin_simdat$y)
-    kl <- mlnj_net$get_model_kld() / lin_simdat$n_obs
+    mse <- nnf_mse_loss(y_pred, fcn_simdat$y)
+    kl <- mlnj_net$get_model_kld() / fcn_simdat$n_obs
     
     loss <- mse + kl
     loss_diff <- (loss - prev_loss)$item()
@@ -232,18 +206,12 @@ MLP_lindata_sim <- function(
       store_ind <- epoch %% (2*ma_length) + 1
       loss_store_mat[1, store_ind] <- epoch
       loss_store_mat[2, store_ind] <- loss$item()
-      
-      mlnj_keeps <- mlnj_net$fc1$get_log_dropout_rates()$exp() < 0.05
-      post_mu_params <- mlnj_net$fc1$compute_posterior_param()$post_weight_mu
-      post_mu_params[1, !mlnj_keeps] <- 0
-      
-      
       log_alpha_mat[store_ind, ] <- c(
         as_array(mlnj_net$fc1$get_log_dropout_rates()),
         epoch,
         mse$item(), 
         kl$item(),
-        mean((post_mu_params - true_coefs)^2)$item()
+        NA
       )
       
       # store loss moving average
@@ -308,7 +276,7 @@ MLP_lindata_sim <- function(
   
   
   if (verbose){
-    mlnj_keeps <- exp(log_dropout_alphas) < dropout_thresh
+    mlnj_keeps <- exp(log_dropout_alphas) < 0.05
     mlnj_bin_err <- binary_err(est = mlnj_keeps, tru = true_model)
     
     cat("binary error: \n")
@@ -330,34 +298,34 @@ MLP_lindata_sim <- function(
     "other_metrics" = other_metrics
   )
   
-  res$mlnj <- mlnj_res
+  res[[sim_num]]$mlnj <- mlnj_res
   
   
   
   # # # # # # # # # # # # # # # # # # # # # # # # #
   ## lm ----
   # # # # # # # # # # # # # # # # # # # # # # # # #
-  lm_res <- get_lm_stats(simdat = lin_simdat)
-  res$lm <- lm_res
+  lm_res <- get_lm_stats(simdat = fcn_simdat)
+  res[[sim_num]]$lm <- lm_res
   
   
   
   # # # # # # # # # # # # # # # # # # # # # # # # #
   ## LASSO ----
   # # # # # # # # # # # # # # # # # # # # # # # # #
-  x <- as_array(lin_simdat$x)
-  y <- as_array(lin_simdat$y)
+  x <- as_array(fcn_simdat$x)
+  y <- as_array(fcn_simdat$y)
   
   cvfit <- glmnet::cv.glmnet(x, y)
   lasso_coefs <- coef(cvfit, s = "lambda.1se")
   lasso_mse <- cvfit$cvm[cvfit$lambda == cvfit$lambda.1se]
   lasso_bin_err <- binary_err(est = !(lasso_coefs[-1]==0), tru = true_model)
   
-  res$lasso <- list(
+  res[[sim_num]]$lasso <- list(
     "coefs" = lasso_coefs,
     "binary_err" = lasso_bin_err,
     "fit_mse" = lasso_mse,
-    "coef_mse" = mean((lasso_coefs[-1] - true_coefs)^2)
+    "coef_mse" = NA
   )
   
   
@@ -371,7 +339,7 @@ MLP_lindata_sim <- function(
   prior = IndependentSpikeSlabPrior(X, y, 
                                     expected.model.size = 1,
                                     prior.beta.sd = rep(1, ncol(X))) 
-  lm_ss = lm.spike(y ~ x, niter = 1000, prior = prior, ping = 0)
+  lm_ss = lm.spike(y ~ x, niter = 1000, prior = prior)
   ss_allcoefs_unordered <- summary(lm_ss)$coef
   
   # reorder results
@@ -387,149 +355,37 @@ MLP_lindata_sim <- function(
     est = ss_coefs[, 4] > 0.05, 
     tru = true_model)
   
-  
-  ss_coefs_include <- ss_coefs[, 4] > 0.05
-  
   # get median mse from last quarter of draws
   ss_mse <- median(lm_ss$sse[751:1000]) / n_obs
   
-  ss_coefs_formse <- ss_coefs[, 1]
-  ss_coefs_formse[!ss_coefs_include] <- 0
   
   ss_res <- list(
     "coefs" = ss_coefs,
     "binary_err" = ss_bin_err,
     "fit_mse" = ss_mse,
-    "coef_mse" = mean((ss_coefs_formse - true_coefs)^2)
+    "coef_mse" = NA
   )
   
-  res$ss <- ss_res
   
-  return(res)
+  res[[sim_num]]$ss <- ss_res
+  
+  # # # # # # # # # # # # # # # # # # # # # # # # #
+  ## mombf ----
+  # # # # # # # # # # # # # # # # # # # # # # # # #
+  
+  
+  
+  
+  
+  # # # # # # # # # # # # 
+  ##    partial save
+  
+  if (sim_num %% 25 == 0){
+    save(res, true_model, file = fpath)
+    txt <- paste0("finished ", sim_num, " of ", n_sims)
+    cat_color(txt)
+  }
 }
 
-
-
-
-
-
-# # # # # # # # # # # # # # # # # # # # # # # # #
-## RUN SIMULATION ----
-# # # # # # # # # # # # # # # # # # # # # # # # #
-# each partial save contains cl_size simulations
-
-sim_params <- list(
-  "n_obs" = n_obs,
-  "true_coefs" = true_coefs,
-  "sig" = sig,
-  "d_in" = d_in,
-  "d_hidden1" = d_hidden1,
-  "d_hidden2" = d_hidden2,
-  "init_alpha" = init_alpha,
-  "ma_length" = ma_length,
-  "max_train_epochs" = max_train_epochs,
-  "verbose" = verbose,
-  "burn_in" = burn_in,
-  "convergence_crit" = convergence_crit,
-  "n_sims" = n_sims,
-  "true_model" = true_model,
-  "MLP_lindata_sim" = MLP_lindata_sim
-)
-
-for (partial_num in 1:length(partial_fpaths)) {
-  gc()
-  # parallelize
-  cl <- makeCluster(cl_size,
-                    type="PSOCK",
-                    outfile=paste0(fpath, "_monitor.txt"))
-  
-  # EXPORT variables, libraries
-  # export libraries
-  parallel::clusterEvalQ(cl = cl, library(here))
-  parallel::clusterEvalQ(cl = cl, library(tidyr))
-  parallel::clusterEvalQ(cl = cl, library(dplyr))
-  parallel::clusterEvalQ(cl = cl, library(torch))
-  parallel::clusterEvalQ(cl = cl, library(BoomSpikeSlab))
-  parallel::clusterEvalQ(cl = cl, library(glmnet))
-
-  
-  # SOURCE functions
-  parallel::clusterCall(cl, function() { source(here::here("Rcode", "BayesianLayers.R")) })
-  parallel::clusterCall(cl, function() { source(here::here("Rcode", "sim_functions.R")) })
-
-  # export variables
-  parallel::clusterExport(
-    cl = cl,
-    envir = environment(),
-    varlist = ls()
-  )
-  
-  # Set seed
-  parallel::clusterSetRNGStream(cl, iseed = 0L)
-  
-  # save partial results as diff files
-  partial_res <- pblapply(
-    1:n_sims_each_partial, 
-    function(X)
-      MLP_lindata_sim(
-        n_obs,
-        sig,
-        true_coefs,
-        d_hidden1,
-        d_hidden2,
-        use_cuda = FALSE,
-        init_alpha,
-        ma_length,
-        max_train_epochs,
-        verbose,
-        burn_in,
-        convergence_crit
-      ),
-    cl = cl
-  )
-  save(partial_res, file = partial_fpaths[partial_num])
-  txt <- paste0("saved partial_save ", partial_num, " of ", length(partial_fpaths))
-  cat(txt)
-  cat("\n")
-  
-  parallel::stopCluster(cl)
-}
-##### end parallelized simulations
-
-
-
-
-# # # # # # # # # # # # 
-##    stitch partial result files back together
-result <- list()
-for (partial_num in 1:length(partial_fpaths)){
-  load(file = partial_fpaths[partial_num])
-  result <- append(
-    result,
-    partial_res
-  )
-}
-
-
-save(result, sim_params, file = fpath)
-cat("\n simulation results saved \n")
-
-
-
-# # check
-# rm(result, sim_params)
-# load(fpath)
-# names(sim_params)
-# 
-# length(sim_params)
-# sapply(result, function(X) X$mlnj$other_metrics)
-# sapply(result, function(X) X$mlnj$log_dropout_alphas)
-
-
-
-
-
-
-
-
+save(res, true_model, file = fpath)
 
