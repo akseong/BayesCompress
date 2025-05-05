@@ -14,11 +14,11 @@ reparameterize <- function(mu, logvar, use_cuda = FALSE, sampling = TRUE) {
   # Last modified 2024/07/16
   if (sampling) {
     std <- logvar$mul(0.5)$exp_()
-  if (use_cuda) {
-      eps <- torch_randn(std$size(), device = "gpu", requires_grad = TRUE)
-    } else {
-      eps <- torch_randn(std$size(), device = "cpu", requires_grad = TRUE)
-    }
+    if (use_cuda) {
+        eps <- torch_randn(std$size(), device = "gpu", requires_grad = TRUE)
+      } else {
+        eps <- torch_randn(std$size(), device = "cpu", requires_grad = TRUE)
+      }
     return(mu$add(eps$mul(std)))
   } else {
     return(mu)

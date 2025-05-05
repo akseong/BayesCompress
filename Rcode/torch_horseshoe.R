@@ -34,7 +34,7 @@ KL_lognorm_gamma <- function(mu, sig, a = 1/2, b = 1){
 
 KL_lognorm_IG <- function(mu, sig, a = 1/2, b = 1){
   # for s_b, beta_i
-  # log(b) - 1/b * exp(1/2 * (sig^2) - mu) + 1/2 * (- mu + 2*log(sig) + 1 + log(2))
+  # log(b) - 1/b * exp(1/2 * sig^2 - mu) + 1/2 * (- mu + 2*log(sig) + 1 + log(2))
   KL_lognorm_gamma(-mu, sig, a, b)
 }
 
@@ -165,6 +165,9 @@ torch_hs <- nn_module(
         )
       )
     }
+    
+    # generate layer activations from Variational specification
+    
     batch_size <- x$size(1)
     z <- reparameterize(
       mu = self$z_mu$'repeat'(c(batch_size, 1)), 
@@ -175,7 +178,8 @@ torch_hs <- nn_module(
     xz <- x*z
     mu_activations <- nnf_linear(
       input = xz, 
-      weight = self$weight_mu, 
+      weight = 
+        , 
       bias = self$bias_mu
     )
     var_activations <- nnf_linear(
