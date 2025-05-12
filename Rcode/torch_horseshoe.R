@@ -40,6 +40,68 @@ KL_lognorm_IG <- function(mu, sig, a = 1/2, b = 1){
 
 
 
+E_lognorm <- function(mu, sig){
+  exp(mu + (sig^2)/2)
+  # ln_mu <- mu$add( (sig$pow(2))$mul(0.5) )
+  # return(ln_mu$exp())
+  # alternatively:
+  # mu$add( (sig$pow(2))$mul(0.5) )$exp()
+}
+
+
+V_lognorm <- function(mu, sig){
+  (exp(sig^2) - 1) * exp(2*mu + sig^2)
+  # first <- sig$pow(2)$exp()$add(-1)
+  # second <- mu$mul(2)$add(sig$pow(2))
+  # return(first$mul(second$exp()))
+  # alternatively
+  # sig$pow(2)$exp()$add(-1)$mul(    mu$mul(2)$add(sig$pow(2))   )
+}
+
+
+
+V_sqrt_lognorm <- function(mu, sig){
+  EX <- E_lognorm(mu, sig)
+  # E[X^{1/2}] = E[e^{Y/2}] = mgf_Y(1/2) for Y ~ N(mu, sig)
+  EsqrtX <- exp(mu/2 + (sig^2)/8)
+  EX - EsqrtX^2
+  
+  #EsqrtX <- mu$mul(0.5)$add(sig$pow(2)$mul(0.125))$exp()
+  #EX$add(-EsqrtX$pow(2))
+}
+
+V_xy <- function(Ex, Ey, Vx, Vy){
+  Vx*Vy + Vx*(Ey^2) + Vy*(Ex^2)
+}
+
+
+z_mu_fcn <- function(sa_mu, sb_mu, atilde_mu, btilde_mu,
+                     sa_logvar, sb_logvar, atilde_logvar, btilde_logvar){
+  E_sa <- E_lognorm(sa_mu, sa_logvar$exp()) 
+  E_sb <- E_lognorm(sb_mu, sb_logvar$exp())
+  E_at <- E_lognorm(atilde_mu, atilde_logvar$exp())
+  E_bt <- E_lognorm(btilde_mu, btilde_logvar$exp())
+  E_sa$mul(E_sb$mul(E_at$mul(E_bt)))$exp(0.5)
+}
+
+z_logvar_fcn <- function(sa_mu, sb_mu, atilde_mu, btilde_mu,
+                         sa_logvar, sb_logvar, atilde_logvar, btilde_logvar){
+  E_sa <- E_lognorm(sa_mu, sa_logvar$exp()) 
+  E_sb <- E_lognorm(sb_mu, sb_logvar$exp())
+  E_at <- E_lognorm(atilde_mu, atilde_logvar$exp())
+  E_bt <- E_lognorm(btilde_mu, btilde_logvar$exp())
+  
+  
+  
+  
+}
+
+
+
+
+
+
+
 
 torch_hs <- nn_module(
   # last modified 1/3/2025
@@ -69,15 +131,28 @@ torch_hs <- nn_module(
     self$sb_logvar <- nn_parameter(torch_randn(1))
     # z_i_tilde = local scale param
     # z_i_tilde^2 = alpha_tilde * beta_tilde
-    self$alpha_tilde_mu <- nn_parameter(torch_randn(in_features))
-    self$alpha_tilde_logvar <- nn_parameter(torch_randn(in_features))
-    self$beta_tilde_mu <- nn_parameter(torch_randn(in_features))
-    self$beta_tilde_logvar <- nn_parameter(torch_randn(in_features))
+    self$atilde_mu <- nn_parameter(torch_randn(in_features))
+    self$atilde_logvar <- nn_parameter(torch_randn(in_features))
+    self$btilde_mu <- nn_parameter(torch_randn(in_features))
+    self$btilde_logvar <- nn_parameter(torch_randn(in_features))
+    
     # weight dist'n params
     self$weight_mu <- nn_parameter(torch_randn(out_features, in_features))
     self$weight_logvar <- nn_parameter(torch_randn(out_features, in_features))
     self$bias_mu <- nn_parameter(torch_randn(out_features))
     self$bias_logvar <- nn_parameter(torch_randn(out_features))
+    
+  
+    # composite vars
+    # z = \sqrt{  s_a s_b \tilde{\alpha} \tilde{\beta}}
+    # s = \sqrt{  s_a s_b  }
+    # \tilde{z} = \sqrt{  \tilde{\alpha} \tilde{\beta}  }
+    
+    
+    
+    
+      
+    
     
     # initialize parameters randomly or with pretrained net
     self$reset_parameters(init_weight, init_bias, init_alpha)
@@ -95,19 +170,13 @@ torch_hs <- nn_module(
     
     # initialize means
     stdv <- 1 / sqrt(self$weight_mu$size(1)) # self$weight_mu$size(1) = out_features
+    self$sa_mu <- nn_parameter(torch_normal(1, 1e-2, size = 1))
+    self$sb_mu <- nn_parameter(torch_normal(1, 1e-2, size = 1))
+    self$atilde_mu <- nn_parameter(torch_normal(1, 1e-2, size = self$atilde_mu$size()))
+    self$btilde_mu <- nn_parameter(torch_normal(1, 1e-2, size = self$atilde_mu$size()))
     
     
-    sa_mu
-    sb_mu
-    alpha_tilde_mu
-    beta_tilde_mu
-    
-    
-    
-    
-    
-    
-    self$z_mu <- nn_parameter(torch_normal(1, 1e-2, size = self$z_mu$size()))      # potential issue (if not considered leaf node anymore?)  wrap in nn_parameter()?
+    # self$z_mu <- nn_parameter(torch_normal(1, 1e-2, size = self$z_mu$size()))      # potential issue (if not considered leaf node anymore?)  wrap in nn_parameter()?
     if (!is.null(init_weight)) {
       self$weight_mu <- nn_parameter(torch_tensor(init_weight))
     } else {
@@ -121,8 +190,9 @@ torch_hs <- nn_module(
     }
     
     # initialize log variances
-    self$z_logvar <- nn_parameter(torch_normal(mean = log(init_alpha), 1e-2, size = self$in_features)) 
-    # z_logvar init changed from original proposed init value to make dropout parameter alpha ~ 1/2
+    # self$z_logvar <- nn_parameter(torch_normal(mean = log(init_alpha), 1e-2, size = self$in_features)) 
+    self$sa_logvar <- nn_parameter(torch_normal(mean = log(.5), 1e-2, size = self$in_features))
+    
     self$weight_logvar <- nn_parameter(torch_normal(-9, 1e-2, size = c(self$out_features, self$in_features)))
     self$bias_logvar <- nn_parameter(torch_normal(-9, 1e-2, size = self$out_features))
   },
