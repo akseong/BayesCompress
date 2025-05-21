@@ -79,41 +79,53 @@ V_xy <- function(Ex, Ey, Vx, Vy){
   Vx$mul(Vy)$add(Vx$mul(Ey$pow(2)))$add(Vy$mul(Ex$pow(2)))
 }
 
-# z_i = sqrt(atilde_i btilde_i s_a s_b) = ztilde_i s
+# z_i = \sqrt(atilde_i btilde_i s_a s_b) = ztilde_i s
 
-ztilde <- sqrt( atilde * btilde )
-s <- sqrt(s_a * s_b)
-E_ztilde <- E_sqrt_lognorm() * E_sqrt_lognorm()
+ztilde <- (atilde$mul(btilde))$pow(1/2)
+s <- (sa$mul(sb))$pow(1/2)
 
-
-
-
-
-z_mu_fcn <- function(sa_mu, sb_mu, atilde_mu, btilde_mu,
-                     sa_logvar, sb_logvar, atilde_logvar, btilde_logvar){
-  # compute mu_z
-  E_sa <- E_lognorm(sa_mu, sa_logvar$exp()) 
-  E_sb <- E_lognorm(sb_mu, sb_logvar$exp())
-  E_at <- E_lognorm(atilde_mu, atilde_logvar$exp())
-  E_bt <- E_lognorm(btilde_mu, btilde_logvar$exp())
-  E_sa$mul(E_sb$mul(E_at$mul(E_bt)))$exp(0.5)
+## \tilde{z} = \sqrt{\tilde{\alpha}_i \tilde{\beta}_i}    
+##   \sim  LogNormal with 
+##         mu =     \frac{1}{2}   (\mu_{\tilde{alpha}_i} + \mu_{\tilde{beta}_i} )
+##         variance = \frac{1}{4}   (\sigma^2_{\tilde{\alpha}_i} + \sigma^2_{\tilde{\beta}_i}) 
+mu_sqrt_prod_LN <- function(mu_1, mu_2){
+  (mu_1$add(mu_2))$mul(1/2)
 }
 
-z_logvar_fcn <- function(sa_mu, sb_mu, atilde_mu, btilde_mu,
-                         sa_logvar, sb_logvar, atilde_logvar, btilde_logvar){
-  # compute variance of Z
-  E_sa <- E_lognorm(sa_mu, sa_logvar$exp()) 
-  E_sb <- E_lognorm(sb_mu, sb_logvar$exp())
-  E_at <- E_lognorm(atilde_mu, atilde_logvar$exp())
-  E_bt <- E_lognorm(btilde_mu, btilde_logvar$exp())
-  
-  V_sa <- V
-  V_sb <- V
-  V_at <- V
-  V_bt <- V 
-  
-  
+logvar_sqrt_prod_LN <- function(logvar_1, logvar_2){
+  ((logvar_1$exp())$add(logvar_2$exp()))$log() - log(4)
 }
+
+ztilde_mu <- mu_sqrt_prod_LN(atilde_mu, btilde_mu)
+ztilde_logvar <- logvar_sqrt_prod_LN(atilde_logvar, btilde_logvar)
+
+s_mu <- mu_sqrt_prod_LN(atilde_mu, btilde_mu)
+s_logvar <- logvar_sqrt_prod_LN(sa_mu, sb_mu)
+
+
+# z_mu_fcn <- function(sa_mu, sb_mu, atilde_mu, btilde_mu,
+#                      sa_logvar, sb_logvar, atilde_logvar, btilde_logvar){
+#   # compute mu_z
+#   E_sa <- E_lognorm(sa_mu, sa_logvar$exp()) 
+#   E_sb <- E_lognorm(sb_mu, sb_logvar$exp())
+#   E_at <- E_lognorm(atilde_mu, atilde_logvar$exp())
+#   E_bt <- E_lognorm(btilde_mu, btilde_logvar$exp())
+#   E_sa$mul(E_sb$mul(E_at$mul(E_bt)))$exp(0.5)
+# }
+# 
+# z_logvar_fcn <- function(sa_mu, sb_mu, atilde_mu, btilde_mu,
+#                          sa_logvar, sb_logvar, atilde_logvar, btilde_logvar){
+#   # compute variance of Z
+#   E_sa <- E_lognorm(sa_mu, sa_logvar$exp()) 
+#   E_sb <- E_lognorm(sb_mu, sb_logvar$exp())
+#   E_at <- E_lognorm(atilde_mu, atilde_logvar$exp())
+#   E_bt <- E_lognorm(btilde_mu, btilde_logvar$exp())
+#   
+#   V_sa <- V_lognorm()
+#   V_sb <- V_lognorm()
+#   V_at <- V_lognorm()
+#   V_bt <- V_lognorm() 
+# }
 
 
 
