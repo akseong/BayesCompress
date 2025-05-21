@@ -29,13 +29,18 @@ reparameterize <- function(mu, logvar, use_cuda = FALSE, sampling = TRUE) {
 
 KL_lognorm_gamma <- function(mu, sig, a = 1/2, b = 1){
   # for s_a, alpha_i
-  log(b) - 1/b * (exp(1/2 * sig^2 + mu)) + 1/2 * (mu + 2*log(sig) + 1 + log(2))
+  # (LogNormal q || Gamma p)
+  # log(b) - 1/b * (exp(1/2 * sig^2 + mu)) + 1/2 * (mu + 2*log(sig) + 1 + log(2))
+  expr2 <- (((sig$pow(2))$mul(1/2))$add(mu))$mul(1/b)
+  expr3 <- (((sig$log())$mul(2))$add(mu)$add(1)$add(log(2)))$mul(1/2)
+  return(log(b)$add(expr2)$add(expr3))
 }
 
 KL_lognorm_IG <- function(mu, sig, a = 1/2, b = 1){
   # for s_b, beta_i
+  # i.e. (LogNormal q || Inverse-Gamma p)
   # log(b) - 1/b * exp(1/2 * sig^2 - mu) + 1/2 * (- mu + 2*log(sig) + 1 + log(2))
-  KL_lognorm_gamma(-mu, sig, a, b)
+  KL_lognorm_gamma(-mu, sig, a, b=1)
 }
 
 
