@@ -50,17 +50,17 @@ E_lognorm <- function(mu, sig){
   # ln_mu <- mu$add( (sig$pow(2))$mul(0.5) )
   # return(ln_mu$exp())
   # alternatively:
-  mu$add( (sig$pow(2))$mul(0.5) )$exp()
+  (mu$add( (sig$pow(2))$mul(0.5) ))$exp()
 }
 
 
 V_lognorm <- function(mu, sig){
   # (exp(sig^2) - 1) * exp(2*mu + sig^2)
-  # first <- sig$pow(2)$exp()$add(-1)
-  # second <- mu$mul(2)$add(sig$pow(2))
-  # return(first$mul(second$exp()))
+  expr1 <- ((sig$pow(2))$exp())$add(-1)
+  expr2 <- (mu$mul(2))$add(sig$pow(2))
+  return(expr1$mul(expr2$exp()))
   # alternatively
-  sig$pow(2)$exp()$add(-1)$mul(    mu$mul(2)$add(sig$pow(2))   )
+  # sig$pow(2)$exp()$add(-1)$mul(    (mu$mul(2)$add(sig$pow(2)))$exp()   )
 }
 
 
