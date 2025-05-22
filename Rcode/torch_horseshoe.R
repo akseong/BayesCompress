@@ -27,20 +27,21 @@ reparameterize <- function(mu, logvar, use_cuda = FALSE, sampling = TRUE) {
 
 
 
-KL_lognorm_gamma <- function(mu, sig, a = 1/2, b = 1){
+KL_lognorm_gamma <- function(mu, logvar, a = 1/2, b = 1){
   # for s_a, alpha_i
   # (LogNormal q || Gamma p)
-  # log(b) - 1/b * (exp(1/2 * sig^2 + mu)) + 1/2 * (mu + 2*log(sig) + 1 + log(2))
-  expr2 <- ((mu$add( (sig$pow(2))$mul(1/2) ))$exp())$mul(1/b)
+  # log(b) - 1/b * (exp(1/2 * sig^2 + mu)) + 1/2 * (mu + log(sig^2) + 1 + log(2))
+  
+  expr2 <- ((mu$add( (logvar$exp() )$mul(1/2) ))$exp())$mul(1/b)
   expr3 <- (mu$add( (sig$log())$mul(2) )$add(1)$add(log(2)))$mul(1/2)
   return(log(b)$add(expr2)$add(expr3))
 }
 
-KL_lognorm_IG <- function(mu, sig, a = 1/2, b = 1){
+KL_lognorm_IG <- function(mu, logvar, a = 1/2, b = 1){
   # for s_b, beta_i
   # i.e. (LogNormal q || Inverse-Gamma p)
-  # log(b) - 1/b * exp(1/2 * sig^2 - mu) + 1/2 * (- mu + 2*log(sig) + 1 + log(2))
-  KL_lognorm_gamma(-mu, sig, a, b=1)
+  # log(b) - 1/b * exp(1/2 * sig^2 - mu) + 1/2 * (- mu + log(sig^2) + 1 + log(2))
+  KL_lognorm_gamma(-mu, logvar, a, b=1)
 }
 
 
@@ -88,6 +89,8 @@ V_xy <- function(Ex, Ey, Vx, Vy){
 ##   \sim  LogNormal with 
 ##         mu =     \frac{1}{2}   (\mu_{\tilde{alpha}_i} + \mu_{\tilde{beta}_i} )
 ##         variance = \frac{1}{4}   (\sigma^2_{\tilde{\alpha}_i} + \sigma^2_{\tilde{\beta}_i}) 
+##
+## NOTE: for \tilde{z} and s, these are not used in training, but in post-hoc analysis
 mu_sqrt_prod_LN <- function(mu_1, mu_2){
   # \frac{mu_1 + mu_2}{2}
   (mu_1$add(mu_2))$mul(1/2)
@@ -98,11 +101,7 @@ logvar_sqrt_prod_LN <- function(logvar_1, logvar_2){
   ((logvar_1$exp())$add(logvar_2$exp()))$log() - log(4)
 }
 
-ztilde_mu <- mu_sqrt_prod_LN(atilde_mu, btilde_mu)
-ztilde_logvar <- logvar_sqrt_prod_LN(atilde_logvar, btilde_logvar)
 
-s_mu <- mu_sqrt_prod_LN(atilde_mu, btilde_mu)
-s_logvar <- logvar_sqrt_prod_LN(sa_mu, sb_mu)
 
 
 # z_mu_fcn <- function(sa_mu, sb_mu, atilde_mu, btilde_mu,
@@ -130,12 +129,6 @@ s_logvar <- logvar_sqrt_prod_LN(sa_mu, sb_mu)
 # }
 
 
-
-
-
-
-
-
 torch_hs <- nn_module(
   # last modified 1/3/2025
   classname = "horseshoe_layer",
@@ -143,6 +136,7 @@ torch_hs <- nn_module(
   initialize = function(
     in_features, out_features,
     use_cuda = FALSE,
+    init_tau = 1, # scale parameter for global shrinkage prior
     init_weight = NULL,
     init_bias = NULL,
     init_alpha = 1/2,
@@ -180,13 +174,6 @@ torch_hs <- nn_module(
     # z = \sqrt{  s_a s_b \tilde{\alpha} \tilde{\beta}}
     # s = \sqrt{  s_a s_b  }
     # \tilde{z} = \sqrt{  \tilde{\alpha} \tilde{\beta}  }
-    
-    
-    
-    
-      
-    
-    
     # initialize parameters randomly or with pretrained net
     self$reset_parameters(init_weight, init_bias, init_alpha)
     
@@ -224,7 +211,16 @@ torch_hs <- nn_module(
     
     # initialize log variances
     # self$z_logvar <- nn_parameter(torch_normal(mean = log(init_alpha), 1e-2, size = self$in_features)) 
-    self$sa_logvar <- nn_parameter(torch_normal(mean = log(.5), 1e-2, size = self$in_features))
+    self$sa_logvar <- nn_parameter(torch_normal(mean = log(.5), 1e-2, size = 1))
+    self$sb_logvar <- nn_parameter(torch_normal(mean = log(.5), 1e-2, size = 1))
+    self$atilde_logvar <- nn_parameter(torch_normal(mean = log(.5), 1e-2, size = self$in_features))
+    self$btilde_logvar <- nn_parameter(torch_normal(mean = log(.5), 1e-2, size = self$in_features))
+    
+    self$ztilde_mu <- mu_sqrt_prod_LN(self$atilde_mu, self$btilde_mu)
+    self$ztilde_logvar <- logvar_sqrt_prod_LN(self$atilde_logvar, self$btilde_logvar)
+    
+    self$s_mu <- mu_sqrt_prod_LN(self$atilde_mu, self$btilde_mu)
+    self$s_logvar <- logvar_sqrt_prod_LN(self$sa_mu, self$sb_mu)
     
     self$weight_logvar <- nn_parameter(torch_normal(-9, 1e-2, size = c(self$out_features, self$in_features)))
     self$bias_logvar <- nn_parameter(torch_normal(-9, 1e-2, size = self$out_features))
@@ -247,7 +243,10 @@ torch_hs <- nn_module(
   
   compute_posterior_param = function() {
     weight_var <- self$weight_logvar$exp()
-    z_var <- self$z_logvar$exp()
+    # z_var <- self$z_logvar$exp()
+    
+    
+    
     self$post_weight_var <- self$z_mu$pow(2) * weight_var + z_var * self$weight_mu$pow(2) + z_var * weight_var
     self$post_weight_mu <- self$weight_mu * self$z_mu
     return(list(
@@ -269,20 +268,21 @@ torch_hs <- nn_module(
       )
     }
     
-    # generate layer activations from Variational specification
+    # batch_size <- x$size(1)
     
-    batch_size <- x$size(1)
-    z <- reparameterize(
-      mu = self$z_mu$'repeat'(c(batch_size, 1)), 
-      logvar = self$z_logvar$'repeat'(c(batch_size, 1)),
-      sampling = !self$deterministic,
-      use_cuda = self$use_cuda
-    )
+    # generate layer activations from Variational specification
+    log_atilde <- reparameterize(mu = self$atilde_mu, logvar = self$atilde_logvar)
+    log_btilde <- reparameterize(mu = self$btilde_mu, logvar = self$btilde_logvar)
+    log_sa <- reparameterize(mu = self$sa_mu, logvar = self$sa_logvar)
+    log_sb <- reparameterize(mu = self$sb_mu, logvar = self$sb_logvar)
+    log_s <- 1/2 * (log_sa + log_sb)
+    log_ztilde <- 1/2 * (log_atilde + log_btilde)
+    z <- (log_s + log_ztilde)$exp()
+    
     xz <- x*z
     mu_activations <- nnf_linear(
       input = xz, 
-      weight = 
-        , 
+      weight = self$weight_mu, 
       bias = self$bias_mu
     )
     var_activations <- nnf_linear(
@@ -303,11 +303,19 @@ torch_hs <- nn_module(
   
   
   get_kl = function() {
+
+    # KL(q(s_a) || p(s_a));   logNormal || Gamma
+    kl_sa <- KL_lognorm_gamma(mu = self$sa_mu, sig, a = 1/2, b = 1)
     
-    k1 = 0.63576
-    k2 = 1.87320
-    k3 = 1.48695
-    log_alpha = self$get_log_dropout_rates()
+    # KL(q(s_b) || p(s_b));   logNormal || invGamma
+    kl_sb <- KL_lognorm_IG(mu, sig, a = 1/2, b = 1)
+    
+    KL_lognorm_IG
+    
+    kl_atilde
+    
+    kl_btilde
+    
     
     # KL(q(z) || p(z))
     kl_z <- -torch_sum(
