@@ -234,8 +234,13 @@ torch_hs <- nn_module(
   
   
   get_log_dropout_rates = function() {
+    
+    
     log_alpha = self$z_logvar - torch_log(self$z_mu$pow(2) + self$epsilon)
-    return(log_alpha)
+    return(log_alpha) 
+    
+    
+    
   },
   
   
