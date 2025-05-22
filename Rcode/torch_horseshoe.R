@@ -27,57 +27,55 @@ reparameterize <- function(mu, logvar, use_cuda = FALSE, sampling = TRUE) {
 
 
 
-KL_lognorm_gamma <- function(mu, logvar, a = 1/2, b = 1){
+negKL_lognorm_gamma <- function(mu, logvar, a = 1/2, b = 1){
   # for s_a, alpha_i
   # (LogNormal q || Gamma p)
   # log(b) - 1/b * (exp(1/2 * sig^2 + mu)) + 1/2 * (mu + log(sig^2) + 1 + log(2))
   
-  expr2 <- ((mu$add( (logvar$exp() )$mul(1/2) ))$exp())$mul(1/b)
-  expr3 <- (mu$add( (sig$log())$mul(2) )$add(1)$add(log(2)))$mul(1/2)
-  return(log(b)$add(expr2)$add(expr3))
+  # expr2 <- ((mu$add( logvar$exp()$mul(1/2) ))$exp())$mul(1/b)
+  # expr3 <- (mu$add(logvar)$add(1)$add(log(2)))$mul(1/2)
+  # return(log(b)$add(-expr2)$add(expr3))
+  inner1 <- mu + logvar$exp()$mul(1/2)
+  inner2 <- 1 + log(2) + mu + logvar
+  log(b) - inner1$exp() / b + inner2 / 2
 }
 
-KL_lognorm_IG <- function(mu, logvar, a = 1/2, b = 1){
+negKL_lognorm_IG <- function(mu, logvar, a = 1/2, b = 1){
   # for s_b, beta_i
   # i.e. (LogNormal q || Inverse-Gamma p)
   # log(b) - 1/b * exp(1/2 * sig^2 - mu) + 1/2 * (- mu + log(sig^2) + 1 + log(2))
-  KL_lognorm_gamma(-mu, logvar, a, b=1)
+  negKL_lognorm_gamma(-mu, logvar, a, b=1)
 }
 
 
-
-E_lognorm <- function(mu, sig){
+## fcns to compute expectation and variance of lognormals & fcns of lognormals
+E_lognorm <- function(mu, logvar){
+  # expectation of X ~ logNormal(mu, var)
   # exp(mu + (sig^2)/2)
-  # ln_mu <- mu$add( (sig$pow(2))$mul(0.5) )
+  # ln_mu <- mu$add( logvar$exp()$mul(0.5) )
   # return(ln_mu$exp())
   # alternatively:
-  (mu$add( (sig$pow(2))$mul(0.5) ))$exp()
+  (mu$add(  logvar$exp()$mul(0.5) ))$exp()
 }
 
 
-V_lognorm <- function(mu, sig){
-  # (exp(sig^2) - 1) * exp(2*mu + sig^2)
-  expr1 <- ((sig$pow(2))$exp())$add(-1)
-  expr2 <- (mu$mul(2))$add(sig$pow(2))
+V_lognorm <- function(mu, logvar){
+  # variance of X ~ logNormal(mu, var)
+  # (exp(var) - 1) * exp(2*mu + var)
+  expr1 <- logvar$exp()$exp() - 1
+  expr2 <- (mu$mul(2))$add(logvar$exp())
   return(expr1$mul(expr2$exp()))
-  # alternatively
-  # sig$pow(2)$exp()$add(-1)$mul(    (mu$mul(2)$add(sig$pow(2)))$exp()   )
 }
 
 
-E_sqrt_lognorm <- function(mu, sig){
-  # if X ~ LN(mu, sig), then X = exp(Y) with Y~N(mu, sig)
-  # The sqrt(X) = sqrt(exp^Y) = exp^{Y/2} and Y/2 ~ N(mu/2, sig/2)
-  E_lognorm(mu/2, sig/2)
+E_sqrt_lognorm <- function(mu, logvar){
+  # if X ~ LN(mu, var), then X = exp(Y) with Y~N(mu, var)
+  # The sqrt(X) = sqrt(exp^Y) = exp^{Y/2} and Y/2 ~ N(mu/2, var/4)
+  E_lognorm(mu/2, logvar - log(4))
 }
 
-V_sqrt_lognorm <- function(mu, sig){
-  V_lognorm(mu/2, sig/2)
-}
-
-V_xy <- function(Ex, Ey, Vx, Vy){
-  # Vx*Vy + Vx*(Ey^2) + Vy*(Ex^2)
-  Vx$mul(Vy)$add(Vx$mul(Ey$pow(2)))$add(Vy$mul(Ex$pow(2)))
+V_sqrt_lognorm <- function(mu, logvar){
+  V_lognorm(mu/2, logvar - log(4))
 }
 
 
@@ -136,14 +134,14 @@ torch_hs <- nn_module(
   initialize = function(
     in_features, out_features,
     use_cuda = FALSE,
-    init_tau = 1, # scale parameter for global shrinkage prior
+    tau = 1, # scale parameter for global shrinkage prior
     init_weight = NULL,
     init_bias = NULL,
-    init_alpha = 1/2,
     clip_var = NULL
   ){
     
     self$use_cuda <- use_cuda
+    self$tau <- tau
     self$in_features <- in_features
     self$out_features <- out_features
     self$clip_var <- clip_var
@@ -244,11 +242,17 @@ torch_hs <- nn_module(
   compute_posterior_param = function() {
     weight_var <- self$weight_logvar$exp()
     # z_var <- self$z_logvar$exp()
+    Vz <- V_lognorm(
+      mu = (self$atilde_mu + self$btilde_mu + self$sa_mu + self$sb_mu) / 2, 
+      logvar = (self$atilde_logvar + self$btilde_logvar + self$sa_logvar + self$sb_logvar) - log(4)
+    )
+    Ez <- E_lognorm(
+      mu = (self$atilde_mu + self$btilde_mu + self$sa_mu + self$sb_mu) / 2, 
+      logvar = (self$atilde_logvar + self$btilde_logvar + self$sa_logvar + self$sb_logvar) - log(4)
+    )
     
-    
-    
-    self$post_weight_var <- self$z_mu$pow(2) * weight_var + z_var * self$weight_mu$pow(2) + z_var * weight_var
-    self$post_weight_mu <- self$weight_mu * self$z_mu
+    self$post_weight_var <- Ez$pow(2) * weight_var + Vz * self$weight_mu$pow(2) + Vz * weight_var
+    self$post_weight_mu <- self$weight_mu * Ez
     return(list(
       "post_weight_mu" = self$post_weight_mu,
       "post_weight_var" = self$post_weight_var
@@ -305,22 +309,23 @@ torch_hs <- nn_module(
   get_kl = function() {
 
     # KL(q(s_a) || p(s_a));   logNormal || Gamma
-    kl_sa <- KL_lognorm_gamma(mu = self$sa_mu, sig, a = 1/2, b = 1)
+    kl_sa <- -negKL_lognorm_gamma(mu = self$sa_mu, logvar = self$sa_logvar, a = 1/2, b = self$tau)
     
     # KL(q(s_b) || p(s_b));   logNormal || invGamma
-    kl_sb <- KL_lognorm_IG(mu, sig, a = 1/2, b = 1)
+    kl_sb <- -negKL_lognorm_IG(mu = self$sb_mu, logvar = self$sb_logvar, a = 1/2, b = 1)
     
-    KL_lognorm_IG
+    # KL(q(atilde) || p(atilde));   logNormal || Gamma
+    kl_atilde <- -torch_sum(negKL_lognorm_gamma(mu = self$atilde_mu, logvar = self$atilde_logvar, a = 1/2, b = 1))
     
-    kl_atilde
+    # KL(q(btilde) || p(btilde));   logNormal || invGamma
+    kl_btilde <- -torch_sum(negKL_lognorm_IG(mu = self$btilde_mu, logvar = self$btilde_logvar, a = 1/2, b = 1))
     
-    kl_btilde
     
+    # # KL(q(z) || p(z))
+    # kl_z <- -torch_sum(
+    #   k1 * nnf_sigmoid(k2 + k3*log_alpha) - 0.5 * nnf_softplus(-log_alpha) - k1
+    # )
     
-    # KL(q(z) || p(z))
-    kl_z <- -torch_sum(
-      k1 * nnf_sigmoid(k2 + k3*log_alpha) - 0.5 * nnf_softplus(-log_alpha) - k1
-    )
     
     # KL(q(w|z) || p(w|z))
     kl_w_z <- torch_sum(
@@ -333,7 +338,7 @@ torch_hs <- nn_module(
     )
     
     # sum
-    kl <- kl_z + kl_w_z + kl_bias
+    kl <- kl_sa + kl_sb + kl_atilde + kl_btilde + kl_w_z + kl_bias
     return(kl)
   }
 )
