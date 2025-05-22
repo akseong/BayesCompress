@@ -79,20 +79,22 @@ V_xy <- function(Ex, Ey, Vx, Vy){
   Vx$mul(Vy)$add(Vx$mul(Ey$pow(2)))$add(Vy$mul(Ex$pow(2)))
 }
 
+
+
+
+## VARIATIONAL DISTRIBUTION PARAMETERS FOR \tilde{z}, s
 # z_i = \sqrt(atilde_i btilde_i s_a s_b) = ztilde_i s
-
-ztilde <- (atilde$mul(btilde))$pow(1/2)
-s <- (sa$mul(sb))$pow(1/2)
-
 ## \tilde{z} = \sqrt{\tilde{\alpha}_i \tilde{\beta}_i}    
 ##   \sim  LogNormal with 
 ##         mu =     \frac{1}{2}   (\mu_{\tilde{alpha}_i} + \mu_{\tilde{beta}_i} )
 ##         variance = \frac{1}{4}   (\sigma^2_{\tilde{\alpha}_i} + \sigma^2_{\tilde{\beta}_i}) 
 mu_sqrt_prod_LN <- function(mu_1, mu_2){
+  # \frac{mu_1 + mu_2}{2}
   (mu_1$add(mu_2))$mul(1/2)
 }
 
 logvar_sqrt_prod_LN <- function(logvar_1, logvar_2){
+  # \frac{sig^2_1 + sig^2_2}{4}
   ((logvar_1$exp())$add(logvar_2$exp()))$log() - log(4)
 }
 
