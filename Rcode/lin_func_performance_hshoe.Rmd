@@ -149,32 +149,32 @@ lin_simdat <- sim_linear_data(
 - multivariate response also generated (but not used for now)
 
 
-## Normal-Jeffreys SLP fit
+<!-- ## Normal-Jeffreys SLP fit -->
 
-Let $l$ index the layer of the weight matrix $W_l$ (here, $l \in \{1, 2\}$), and $i$ index the row of $W_l$, and $j$ index the columns. The Bayesian model $p(w_{lij} | z_{l i \cdot} p(z_{l i \cdot})$ and variational distribution $q(W_l, z)$ are:
+<!-- Let $l$ index the layer of the weight matrix $W_l$ (here, $l \in \{1, 2\}$), and $i$ index the row of $W_l$, and $j$ index the columns. The Bayesian model $p(w_{lij} | z_{l i \cdot} p(z_{l i \cdot})$ and variational distribution $q(W_l, z)$ are: -->
 
-$$\begin{align} 
-  p(z_{li \cdot}) &\propto |z_{li \cdot}|^{-1}
-  \\
-  p(w_{lij} | z_{l i \cdot}) &= N \left(w_{lij} | 0, z_{l i \cdot}^2 \right)
-  \\
-  q(W_l, z) &= \prod_{l, i} N \left(z_{li \cdot} | \mu_{z_{l i \cdot}}, \mu_{z_{l i \cdot} }^2 \alpha_{l i \cdot} \right) \prod_{l,i,j} N \left( w_{lij} | z_{l i \cdot} \mu_{lij}, z_{l i \cdot}^2 \sigma_{lij}^2 \right)
-\end{align}$$
+<!-- $$\begin{align}  -->
+<!--   p(z_{li \cdot}) &\propto |z_{li \cdot}|^{-1} -->
+<!--   \\ -->
+<!--   p(w_{lij} | z_{l i \cdot}) &= N \left(w_{lij} | 0, z_{l i \cdot}^2 \right) -->
+<!--   \\ -->
+<!--   q(W_l, z) &= \prod_{l, i} N \left(z_{li \cdot} | \mu_{z_{l i \cdot}}, \mu_{z_{l i \cdot} }^2 \alpha_{l i \cdot} \right) \prod_{l,i,j} N \left( w_{lij} | z_{l i \cdot} \mu_{lij}, z_{l i \cdot}^2 \sigma_{lij}^2 \right) -->
+<!-- \end{align}$$ -->
 
-Since the data here is linear, we apply the variational Bayes model to a single neuron / single layer (i.e. regular multivariate linear regression model).
+<!-- Since the data here is linear, we apply the variational Bayes model to a single neuron / single layer (i.e. regular multivariate linear regression model). -->
 
 
 ```{r DEFINE_NET}
-SLNJ <- nn_module(
-  "SLNJ",
+SLHS <- nn_module(
+  "SLHS",
   initialize = function() {
-    self$fc1 = BayesianLayerNJ(    
+    self$fc1 = torch_hs(    
       in_features = lin_simdat$d_in, 
       out_features = 1,
       use_cuda = FALSE,
+      tau = 1,
       init_weight = NULL,
       init_bias = NULL,
-      init_alpha =  0.9,
       clip_var = NULL
     )
   },
@@ -185,12 +185,11 @@ SLNJ <- nn_module(
   },
 
   get_model_kld = function(){
-    kl1 = self$fc1$get_kl()
-    kld = kl1
+    kld = self$fc1$get_kl()
     return(kld)
   }
 )
-slnj_net <- SLNJ()
+slhs_net <- SLHS()
 ```
 
 
@@ -202,15 +201,15 @@ lin_simdat <- sim_linear_data(
   true_coefs = true_coefs
 )
 
-train_epochs <- 10000
+train_epochs <- 100
 epoch <- 1
 convergence_crit <- 1e-5
 
 
 
-slnj_net(lin_simdat$x)
+slhs_net(lin_simdat$x)
 
-optim_slnj <- optim_adam(slnj_net$parameters)
+optim_slhs <- optim_adam(slhs_net$parameters)
 loss_diff <- 1
 loss <- torch_zeros(1)
 
@@ -218,10 +217,10 @@ while (epoch < train_epochs & abs(loss_diff) > convergence_crit){
   prev_loss <- loss
   epoch <- epoch + 1
   
-  y_pred <- slnj_net(lin_simdat$x)
+  y_pred <- slhs_net(lin_simdat$x)
   
   mse <- nnf_mse_loss(y_pred, lin_simdat$y)
-  kl <- slnj_net$get_model_kld() / lin_simdat$n
+  kl <- slhs_net$get_model_kld() / lin_simdat$n
   
   loss <- mse + kl
   loss_diff <- (loss - prev_loss)$item()
