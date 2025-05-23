@@ -191,16 +191,18 @@ SLHS <- nn_module(
     return(kld)
   }
 )
-slhs_net <- SLHS()
+
 ```
 
 
 
 ```{r TRAIN_SLNJ}
+slhs_net <- SLHS()
 
 lin_simdat <- sim_linear_data(
   n = n_obs,
-  true_coefs = true_coefs
+  true_coefs = true_coefs,
+  err_sigma = 0
 )
 
 train_epochs <- 10000
@@ -212,6 +214,7 @@ optim_slhs <- optim_adam(slhs_net$parameters)
 loss_diff <- 1
 loss <- torch_zeros(1)
 
+verbose <- TRUE
 epoch <- 1
 while (epoch < train_epochs & abs(loss_diff) > convergence_crit){
   prev_loss <- loss
@@ -225,19 +228,20 @@ while (epoch < train_epochs & abs(loss_diff) > convergence_crit){
   loss <- mse + kl
   loss_diff <- (loss - prev_loss)$item()
   
-  if(epoch %% 500 == 0){
+  if(epoch %% 500 == 0 & verbose){
     cat(
-      "\n ",
       "Epoch: ", epoch, 
       "MSE + KL/n = ", mse$item(), " + ", kl$item(), 
       " = ", loss$item(), 
       "\n "
     )
-    Eztilde <- slhs_net$fc1$get_Eztilde_i()
-    Vztilde <- slhs_net$fc1$get_Vztilde_i()
-    cat("E[ztilde_i]: ", round(as_array(Eztilde), 4), "\n ")
-    cat("V[ztilde_i]: ", round(as_array(Vztilde), 4), "\n ")
+    # Eztilde <- slhs_net$fc1$get_Eztilde_i()
+    # Vztilde <- slhs_net$fc1$get_Vztilde_i()
+    # cat("E[ztilde_i]: ", round(as_array(Eztilde), 4), "\n \n")
+    # cat("V[ztilde_i]: ", round(as_array(Vztilde), 4), "\n \n \n")
     # cat(round(as_array(slnj_net$fc1$z_mu), 4), "\n")
+    w_mu <- slhs_net$fc1$compute_posterior_param()$post_weight_mu
+    cat("E[W]: ", round(as_array(w_mu), 2), "\n \n")
   }
   
   # zero out previous gradients
@@ -253,6 +257,7 @@ while (epoch < train_epochs & abs(loss_diff) > convergence_crit){
 slhs_net$fc1$compute_posterior_param()$post_weight_mu
 # after enough training, post_weight_mu looks good
 
+# investigating
 self <- slhs_net$fc1 
 Vz <- V_lognorm(
   mu = (self$atilde_mu + self$btilde_mu + self$sa_mu + self$sb_mu) / 2,
@@ -264,13 +269,61 @@ Ez <- E_lognorm(
   )
 
 
+Vztilde <- V_lognorm(
+  mu = (self$atilde_mu + self$btilde_mu) / 2,
+  logvar = (self$atilde_logvar + self$btilde_logvar) - log(4)
+  )
+Eztilde <- E_lognorm(
+  mu = (self$atilde_mu + self$btilde_mu) / 2,
+  logvar = (self$atilde_logvar + self$btilde_logvar) - log(4)
+  )
 
-torch_log(Vz) - 2*torch_log(Ez) + self$epsilon
+
+
+
+
+
+
+# previous formulation for log_dropout_alphas
+torch_exp(torch_log(Vztilde) - 2*torch_log(Eztilde) + self$epsilon)
 
 
 true_coefs
 
 ```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 ```{r SLNJ_STATS, results="hold"}
