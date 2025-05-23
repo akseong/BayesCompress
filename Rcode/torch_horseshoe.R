@@ -233,16 +233,19 @@ torch_hs <- nn_module(
   },
   
   
-  get_log_dropout_rates = function() {
-    
-    
-    log_alpha = self$z_logvar - torch_log(self$z_mu$pow(2) + self$epsilon)
-    return(log_alpha) 
-    
-    
-    
+  get_Eztilde_i = function(){
+    E_lognorm(
+      mu = (self$atilde_mu + self$btilde_mu) / 2, 
+      logvar = (self$atilde_logvar + self$btilde_logvar) - log(4)
+    )
   },
   
+  get_Vztilde_i = function(){
+    V_lognorm(
+      mu = (self$atilde_mu + self$btilde_mu) / 2, 
+      logvar = (self$atilde_logvar + self$btilde_logvar) - log(4)
+    )
+  },
   
   compute_posterior_param = function() {
     weight_var <- self$weight_logvar$exp()

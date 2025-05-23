@@ -20,6 +20,8 @@ output:
 urlcolor: blue
 params:
   retrain: FALSE
+editor_options: 
+  chunk_output_type: console
 ---
 
 
@@ -201,18 +203,16 @@ lin_simdat <- sim_linear_data(
   true_coefs = true_coefs
 )
 
-train_epochs <- 100
-epoch <- 1
-convergence_crit <- 1e-5
+train_epochs <- 10000
 
-
+convergence_crit <- 1e-8
 
 slhs_net(lin_simdat$x)
-
 optim_slhs <- optim_adam(slhs_net$parameters)
 loss_diff <- 1
 loss <- torch_zeros(1)
 
+epoch <- 1
 while (epoch < train_epochs & abs(loss_diff) > convergence_crit){
   prev_loss <- loss
   epoch <- epoch + 1
@@ -225,26 +225,51 @@ while (epoch < train_epochs & abs(loss_diff) > convergence_crit){
   loss <- mse + kl
   loss_diff <- (loss - prev_loss)$item()
   
-  if(epoch %% 1000 == 0){
+  if(epoch %% 500 == 0){
     cat(
+      "\n ",
       "Epoch: ", epoch, 
       "MSE + KL/n = ", mse$item(), " + ", kl$item(), 
       " = ", loss$item(), 
-      "\n"
+      "\n "
     )
-    dropout_alphas <- slnj_net$fc1$get_log_dropout_rates()$exp()
-    cat(round(as_array(dropout_alphas), 4), "\n")
+    Eztilde <- slhs_net$fc1$get_Eztilde_i()
+    Vztilde <- slhs_net$fc1$get_Vztilde_i()
+    cat("E[ztilde_i]: ", round(as_array(Eztilde), 4), "\n ")
+    cat("V[ztilde_i]: ", round(as_array(Vztilde), 4), "\n ")
     # cat(round(as_array(slnj_net$fc1$z_mu), 4), "\n")
   }
   
   # zero out previous gradients
-  optim_slnj$zero_grad()
+  optim_slhs$zero_grad()
   # backprop
   loss$backward()
   # update weights
-  optim_slnj$step()
+  optim_slhs$step()
 
 }
+
+
+slhs_net$fc1$compute_posterior_param()$post_weight_mu
+# after enough training, post_weight_mu looks good
+
+self <- slhs_net$fc1 
+Vz <- V_lognorm(
+  mu = (self$atilde_mu + self$btilde_mu + self$sa_mu + self$sb_mu) / 2,
+  logvar = (self$atilde_logvar + self$btilde_logvar + self$sa_logvar + self$sb_logvar) - log(4)
+  )
+Ez <- E_lognorm(
+  mu = (self$atilde_mu + self$btilde_mu + self$sa_mu + self$sb_mu) / 2,
+  logvar = (self$atilde_logvar + self$btilde_logvar + self$sa_logvar + self$sb_logvar) - log(4)
+  )
+
+
+
+torch_log(Vz) - 2*torch_log(Ez) + self$epsilon
+
+
+true_coefs
+
 ```
 
 
