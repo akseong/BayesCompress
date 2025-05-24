@@ -70,6 +70,36 @@ mlnj_metrics <- t(sapply(mlnj_res, function(X) X$mlnj$other_metrics))
 
 
 
+mlnj_res[[1]]$mlnj$log_dropout_alphas
+
+
+
+softmax_vec <- function(vec){
+  exp(vec) / sum(exp(vec))
+}
+
+prop_vec <- function(vec){
+  prop_vec / sum(prop_vec)
+}
+
+
+softmax_vec(mlnj_res[[1]]$mlnj$log_dropout_alphas)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # # # # # # # # # # # # # # # # # # # # # # # # #
 ## LASSO ----
 # # # # # # # # # # # # # # # # # # # # # # # # #

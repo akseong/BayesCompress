@@ -1,0 +1,649 @@
+---
+title: "LUW2017 Horseshoe testing"
+author: "Arnie Seong"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+header-includes:
+  - \usepackage{bm}
+  - \usepackage{xcolor}
+  - \usepackage{amssymb}
+output: 
+  html_document:
+    df_print: paged
+    theme: cerulean
+    highlight: tango
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
+    code_fold: show
+urlcolor: blue
+params:
+  retrain: FALSE
+editor_options: 
+  chunk_output_type: console
+---
+
+
+```{r setup, include=FALSE, message=F, echo=F, warning=F}
+# LIBRARIES----
+
+#### plotting:
+library(ggplot2)
+library(gridExtra)
+
+# #### Misc:
+library(here)
+library(tidyr)
+library(knitr)
+library(kableExtra)
+library(dplyr)
+
+# DOCUMENT SETUP ----
+# detect pdf/html output, set chunk options, sci.notation 
+latex_out <- knitr::is_latex_output()
+knitr::opts_chunk$set(
+  cache = FALSE, 
+  message = FALSE, 
+  echo = !knitr::is_latex_output(), 
+  warning = FALSE
+)
+
+
+if (knitr::is_latex_output()) {
+  knitr::opts_chunk$set(fig.height=4, 
+                        fig.width=6)
+} else {
+  knitr::opts_chunk$set(out.width = "100%")
+}
+
+options(scipen=10)
+
+
+# TEXT/TABLE FORMATTING----
+
+custom_purple <- ifelse(
+  knitr::is_latex_output(),
+  "purple",
+  "#b51ced"
+)
+
+custom_blue <- ifelse(
+  knitr::is_latex_output(),
+  "blue",
+  "#11579e"
+)
+
+colorize <- function(x, color=custom_purple) {
+  # text color conditional on latex/html output
+  # from rmarkdown cookbook
+  if (knitr::is_latex_output()) {
+    sprintf("\\textcolor{ %s}{ %s}", color, x)
+  } else if (knitr::is_html_output()) {
+    sprintf("<span style='color: %s;'>%s</span>", color, x)
+  } else x
+}
+
+
+
+cat_color <- function(txt, style = 1, color = 36){
+  cat(
+    paste0(
+      "\033[0;",
+      style, ";",
+      color, "m",
+      txt,
+      "\033[0m","\n"
+    )
+  )  
+}
+
+# kable NA handling
+options(knitr.kable.NA = '')
+
+# mykable function
+mykable <- function(tab, cap,
+                    latex_options=c("hold_position", "scale_down", "striped"), 
+                    bootstrap_options=c("striped", "hover", "condensed"), 
+                    full_width=F, position="center", ...){
+  # kable formatting conditional on latex or html output
+  if (knitr::is_latex_output()){
+    kable(x=tab, caption=cap, ...) %>%
+      kableExtra::kable_styling(latex_options = latex_options)
+  } else if (knitr::is_html_output()){
+    kable(x=tab, caption=cap, ...) %>%
+      kableExtra::kable_styling(bootstrap_options = bootstrap_options, full_width=full_width, position=position)
+  }
+}
+
+source(here("Rcode", "torch_horseshoe.R"))
+source(here("Rcode", "sim_functions.R"))
+
+```
+
+
+# Linear data (1 run)
+
+basic simulation setting:  
+
+- p > n
+- sparse truth (4 true covariates, 100 nuisance)
+- p = 104, n = 100
+
+
+## generate linear data  
+
+```{r GENERATE_DATA}
+library(torch)
+n_obs <- 100
+true_coefs = c(-0.5, 1, -2, 4, rep(0, times = 100))
+
+lin_simdat <- sim_linear_data(
+  n = n_obs,
+  true_coefs = true_coefs
+)
+```
+
+
+
+- `r lin_simdat$n` obs generated as basic linear regression $y = X\beta + \epsilon$, with $\epsilon_i \sim N(0,1)$
+- Only first `r lin_simdat$d_true` covariates in $X$ (out of `r lin_simdat$d_in`) actually have an effect (rest are nuisance var.s).  
+- multivariate response also generated (but not used for now)
+
+
+<!-- ## Normal-Jeffreys SLP fit -->
+
+<!-- Let $l$ index the layer of the weight matrix $W_l$ (here, $l \in \{1, 2\}$), and $i$ index the row of $W_l$, and $j$ index the columns. The Bayesian model $p(w_{lij} | z_{l i \cdot} p(z_{l i \cdot})$ and variational distribution $q(W_l, z)$ are: -->
+
+<!-- $$\begin{align}  -->
+<!--   p(z_{li \cdot}) &\propto |z_{li \cdot}|^{-1} -->
+<!--   \\ -->
+<!--   p(w_{lij} | z_{l i \cdot}) &= N \left(w_{lij} | 0, z_{l i \cdot}^2 \right) -->
+<!--   \\ -->
+<!--   q(W_l, z) &= \prod_{l, i} N \left(z_{li \cdot} | \mu_{z_{l i \cdot}}, \mu_{z_{l i \cdot} }^2 \alpha_{l i \cdot} \right) \prod_{l,i,j} N \left( w_{lij} | z_{l i \cdot} \mu_{lij}, z_{l i \cdot}^2 \sigma_{lij}^2 \right) -->
+<!-- \end{align}$$ -->
+
+<!-- Since the data here is linear, we apply the variational Bayes model to a single neuron / single layer (i.e. regular multivariate linear regression model). -->
+
+
+```{r DEFINE_NET}
+SLHS <- nn_module(
+  "SLHS",
+  initialize = function() {
+    self$fc1 = torch_hs(    
+      in_features = lin_simdat$d_in, 
+      out_features = 1,
+      use_cuda = FALSE,
+      tau = 1,
+      init_weight = NULL,
+      init_bias = NULL,
+      clip_var = NULL
+    )
+  },
+  
+  forward = function(x) {
+    x %>% 
+      self$fc1() 
+  },
+
+  get_model_kld = function(){
+    kld = self$fc1$get_kl()
+    return(kld)
+  }
+)
+
+```
+
+
+
+```{r TRAIN_SLNJ}
+slhs_net <- SLHS()
+
+lin_simdat <- sim_linear_data(
+  n = n_obs,
+  true_coefs = true_coefs,
+  err_sigma = 0
+)
+
+train_epochs <- 10000
+
+convergence_crit <- 1e-8
+
+slhs_net(lin_simdat$x)
+optim_slhs <- optim_adam(slhs_net$parameters)
+loss_diff <- 1
+loss <- torch_zeros(1)
+
+verbose <- TRUE
+epoch <- 1
+while (epoch < train_epochs & abs(loss_diff) > convergence_crit){
+  prev_loss <- loss
+  epoch <- epoch + 1
+  
+  y_pred <- slhs_net(lin_simdat$x)
+  
+  mse <- nnf_mse_loss(y_pred, lin_simdat$y)
+  kl <- slhs_net$get_model_kld() / lin_simdat$n
+  
+  loss <- mse + kl
+  loss_diff <- (loss - prev_loss)$item()
+  
+  if(epoch %% 500 == 0 & verbose){
+    cat(
+      "Epoch: ", epoch, 
+      "MSE + KL/n = ", mse$item(), " + ", kl$item(), 
+      " = ", loss$item(), 
+      "\n "
+    )
+    # Eztilde <- slhs_net$fc1$get_Eztilde_i()
+    # Vztilde <- slhs_net$fc1$get_Vztilde_i()
+    # cat("E[ztilde_i]: ", round(as_array(Eztilde), 4), "\n \n")
+    # cat("V[ztilde_i]: ", round(as_array(Vztilde), 4), "\n \n \n")
+    # cat(round(as_array(slnj_net$fc1$z_mu), 4), "\n")
+    w_mu <- slhs_net$fc1$compute_posterior_param()$post_weight_mu
+    cat("E[W]: ", round(as_array(w_mu), 2), "\n \n")
+  }
+  
+  # zero out previous gradients
+  optim_slhs$zero_grad()
+  # backprop
+  loss$backward()
+  # update weights
+  optim_slhs$step()
+
+}
+
+
+slhs_net$fc1$compute_posterior_param()$post_weight_mu
+# after enough training, post_weight_mu looks good
+
+# investigating
+self <- slhs_net$fc1 
+Vz <- V_lognorm(
+  mu = (self$atilde_mu + self$btilde_mu + self$sa_mu + self$sb_mu) / 2,
+  logvar = (self$atilde_logvar + self$btilde_logvar + self$sa_logvar + self$sb_logvar) - log(4)
+  )
+Ez <- E_lognorm(
+  mu = (self$atilde_mu + self$btilde_mu + self$sa_mu + self$sb_mu) / 2,
+  logvar = (self$atilde_logvar + self$btilde_logvar + self$sa_logvar + self$sb_logvar) - log(4)
+  )
+
+
+Vztilde <- V_lognorm(
+  mu = (self$atilde_mu + self$btilde_mu) / 2,
+  logvar = (self$atilde_logvar + self$btilde_logvar) - log(4)
+  )
+Eztilde <- E_lognorm(
+  mu = (self$atilde_mu + self$btilde_mu) / 2,
+  logvar = (self$atilde_logvar + self$btilde_logvar) - log(4)
+  )
+
+
+
+
+
+
+
+# previous formulation for log_dropout_alphas
+torch_exp(torch_log(Vztilde) - 2*torch_log(Eztilde) + self$epsilon)
+
+
+true_coefs
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r SLNJ_STATS, results="hold"}
+
+dropout_alphas <- slnj_net$fc1$get_log_dropout_rates()$exp()
+mse <- sum((slnj_net$fc1$compute_posterior_param()$post_weight_mu - true_coefs)^2)
+
+slnj_keeps <- slnj_net$fc1$get_log_dropout_rates()$exp() < 0.05
+slnj_bin_err <- binary_err(est = as_array(slnj_keeps), tru = lin_simdat$true_coefs != 0 )
+slnj_bin_err_rates <- binary_err_rate(est = as_array(slnj_keeps), tru = lin_simdat$true_coefs != 0 )
+
+cat("mse ", as_array(mse), "\n")
+cat("binary error as percentages (sums to 1): \n")
+slnj_bin_err
+
+cat("binary error rates (FP + TP = 1, FN + PN = 1): \n")
+slnj_bin_err_rates
+
+alphas_df <- data.frame(
+  "nuisance_var" = lin_simdat$true_coefs==0,
+  "alphas" = as_array(slnj_net$fc1$get_log_dropout_rates()$exp())
+)
+
+```
+
+not bad!
+
+
+
+
+## lm fit 
+
+```{r LM_PERFORMANCE}
+calc_lm_stats <- function(lm_fit, true_coefs, alpha = 0.05){
+  beta_hat <- summary(lm_fit)$coef[-1, 1]
+  binary_err <- binary_err_rate(
+    est = summary(lm_fit)$coef[-1, 4] < alpha, 
+    tru = true_coefs != 0)
+  fit_mse <- mean(lm_fit$residuals^2)
+  coef_mse <- mean((beta_hat - true_coefs)^2)
+  list(
+      "binary_err" = binary_err,
+      "fit_mse" = fit_mse,
+      "coef_mse" = coef_mse
+    )
+}
+
+get_lm_stats <- function(simdat, alpha = 0.05){
+  lm_df <- data.frame(
+    "y" = as_array(simdat$y), 
+    "x" = as_array(simdat$x)
+  )
+  if (simdat$d_in > simdat$n){
+    lm_df <- lm_df[, 1:(ceiling(simdat$n/2)+1)]
+  }
+  
+  lm_fit <- lm(y ~ ., lm_df)
+  if (length(simdat$true_coefs) >= n_obs){
+    warning("p >= n; (p - n) + floor(n/2) spurious covariates eliminated to accomodate lm")
+    calc_lm_stats(
+      lm_fit = lm_fit, 
+      true_coefs = simdat$true_coefs[1:ceiling(simdat$n/2)], 
+      alpha = alpha
+    )
+  } else {
+    calc_lm_stats(lm_fit = lm_fit, true_coefs = simdat$true_coefs, alpha = alpha)
+  }
+}
+
+get_lm_stats(simdat = lin_simdat)
+```
+
+- note that these results are after giving `lm()` quite a large advantage (keeping only half of the nuisance variables)
+
+- results from 1 run are quite encouraging!
+
+
+
+
+
+
+
+
+
+
+# Functional Data setting
+
+
+
+```{r}
+sim_func_data <- function(
+  n = 1000,
+  d_in = 10,
+  flist = list(f1, f2, f3),
+  err_sigma = 1
+){
+  # generate x, y
+  x <- torch_randn(n, d_in)
+  y <- rep(0, n)
+  for(j in 1:length(flist)){
+    y <- y + flist[[j]](x[,j])
+  }
+  y <- y$unsqueeze(2) + torch_normal(mean = 0, std = err_sigma, size = c(n, 1))
+  
+  return(
+    list(
+      "y" = y,
+      "x" = x,
+      "n" = n,
+      "d_in" = d_in,
+      "d_true" = length(flist)
+    )
+  )
+}
+
+```
+
+
+## checking data generation
+
+```{r}
+f1 <- function(x) exp(x/2)
+f2 <- function(x) cos(pi*x)
+f3 <- function(x) abs(x)^(1.5)
+
+# checking
+td <- sim_func_data(flist = list(f1, f2, f3), err_sigma = 0)
+
+y <- as_array(td$y)
+x1 <- as_array(td$x[,1])
+x2 <- as_array(td$x[, 2])
+x3 <- as_array(td$x[, 3])
+x4 <- as_array(td$x[, 4])
+
+
+plot(x1, y, main = "checking f1 = exp(x1/2)")
+plot(x2, y, main = "checking f2 = cos(pi*x2")
+plot(x3, y, main = "checking x3 = abs(x)^(1.5)")
+plot(x4, y, main = "checking x4 (should be white noise)")
+
+```
+
+
+
+## model
+
+Generate data with 3 covariates that are non-linearly related to the outcome, and 97 nuisance covariates.  See if we can pick them out.
+
+
+```{r}
+fdat <- sim_func_data(
+  n = 10000,
+  d_in = 100,
+  flist = list(f1, f2, f3), 
+  err_sigma = 1)
+
+d_hidden1 <- 50
+d_hidden2 <- 25
+d_out <- 1
+
+net <- nn_module(
+  "mlp_NJ",
+  
+  initialize = function() {
+    
+    self$fc1 = BayesianLayerNJ(    
+      in_features = fdat$d_in, 
+      out_features = d_hidden1,
+      use_cuda = FALSE,
+      init_weight = NULL,
+      init_bias = NULL,
+      clip_var = NULL
+    )
+    
+    self$fc2 = BayesianLayerNJ(    
+      in_features = d_hidden1, 
+      out_features = d_hidden2,
+      use_cuda = FALSE,
+      init_weight = NULL,
+      init_bias = NULL,
+      clip_var = NULL
+    )
+    
+    self$fc3 = BayesianLayerNJ(    
+      in_features = d_hidden2, 
+      out_features = d_out,
+      use_cuda = FALSE,
+      init_weight = NULL,
+      init_bias = NULL,
+      clip_var = NULL
+    )
+
+  },
+
+  forward = function(x) {
+    x %>% 
+      self$fc1() %>%
+      nnf_relu() %>%
+      self$fc2() %>% 
+      nnf_relu() %>% 
+      self$fc3()
+  },
+  
+  
+  get_masks = function(thresholds){
+    # implement later?
+  },
+  
+  
+  get_model_kld = function(){
+    kl1 = self$fc1$get_kl()
+    kl2 = self$fc2$get_kl()
+    kl3 = self$fc3$get_kl()
+    kld = kl1 + kl2 + kl3
+    return(kld)
+  }
+)
+
+
+```
+
+
+## train
+
+```{r}
+fcn_model <- net()
+x <- fdat$x
+y <- fdat$y
+# fcn_model(fdat$x)
+
+optim <- optim_adam(fcn_model$parameters)
+
+train_epochs <- 5000
+loss_mat <- array(data = NA, dim = c(train_epochs/100, 4))
+colnames(loss_mat) <- c("epoch", "mse", "kl", "loss")
+  
+for (epoch in 1:train_epochs){
+  
+  y_pred <- fcn_model(x)
+  
+  mse <- nnf_mse_loss(y_pred, y)
+  kl <- fcn_model$get_model_kld() / fdat$n
+  
+  loss <- mse + kl
+  
+  if(epoch %% 100 == 0){
+    cat(
+      "Epoch: ", epoch, 
+      "MSE + KL/n = ", mse$item(), " + ", kl$item(), 
+      " = ", loss$item(), 
+      "\n"
+    )
+    dropout_alphas <- fcn_model$fc1$get_log_dropout_rates()$exp()
+    cat(round(as_array(dropout_alphas), 4), "\n")
+    loss_mat[epoch/100, ] = c(epoch, mse$item(), kl$item(), loss$item())
+  }
+  
+  # zero out previous gradients
+  optim$zero_grad()
+  # backprop
+  loss$backward()
+  # update weights
+  optim$step()
+
+}
+
+
+dropout_alphas <- fcn_model$fc1$get_log_dropout_rates()$exp()
+
+fcn_model_keeps <- fcn_model$fc1$get_log_dropout_rates()$exp() < 0.05
+true_gam <- c(
+  rep(T, times = fdat$d_true),
+  rep(F, times = fdat$d_in - fdat$d_true)
+)
+fcn_model_bin_err <- binary_err_rate(est = as_array(fcn_model_keeps), tru =  true_gam)
+
+cat("binary error: \n")
+fcn_model_bin_err
+
+
+post_w1 <- fcn_model$fc1$compute_posterior_param()
+
+post_w1$post_weight_mu
+
+
+
+
+```
+
+
+
+- takes a looong time to start to get to larger alpha (dropout) values
+- maybe should initialize with dropout ~ 1/2
+- yup!  helps.
+- test with more nuisance vars
+
+
+# Functional Data setting with group diffs
+
+- how to adapt to Saez data setting?
+- how to decide on model complexity?
+   - 1 hidden layer, 32 nodes?
+   - better to start off overparameterizing since algorithm prunes itself?
+   
+- use Saez data and same basic simulation procedures (orthog design matrix, cut basis, etc.), and add nuisance vars?
+
+- is there a way to avoid projecting time variable onto 0-deg spline basis?  i.e. work with time variable directly to identify when time variable is important?
+
+```{r}
+# BoomSpikeSlab doesn't pick up on these; only on covariate 1 (which has somewhat linear relationship)
+library(BoomSpikeSlab)
+X <- cbind(1, as_array(x))
+prior = IndependentSpikeSlabPrior(X, as_array(y), 
+                                  expected.model.size = 1,
+                                  prior.beta.sd = rep(1, ncol(X))) 
+lm.ss = lm.spike(as_array(y) ~ as_array(x), niter = 1000, prior = prior)
+summary(lm.ss)$coef
+```
+
+
+
+
+

@@ -26,14 +26,14 @@ on_server <- FALSE
 use_cuda <- FALSE
 ncpus <- detectCores()
 
-cl_size <- ifelse(on_server, ncpus / 2, 5)
+cl_size <- ifelse(on_server, floor(ncpus / 2), 5)
 cl_size <- ifelse(cl_size < 1, 1, cl_size)
 
 
 # sim params --------------------------------------------------------------
 testing <- FALSE
 
-fname <- ifelse(testing, "MLP_linear_sim_sig1_TEST", "MLP_linear_sim_sig1_part2")
+fname <- ifelse(testing, "MLP_linear_sim_sig1_TEST", "MLP_linear_sim_sig1_part2_2")
 fpath <- here("Rcode", "results", paste0(fname, ".Rdata"))
 
 n_sims <- ifelse(testing, 5, 100)
@@ -232,12 +232,18 @@ MLP_lindata_sim <- function(
       store_ind <- epoch %% (2*ma_length) + 1
       loss_store_mat[1, store_ind] <- epoch
       loss_store_mat[2, store_ind] <- loss$item()
+      
+      mlnj_keeps <- mlnj_net$fc1$get_log_dropout_rates()$exp() < 0.05
+      post_mu_params <- mlnj_net$fc1$compute_posterior_param()$post_weight_mu
+      post_mu_params[1, !mlnj_keeps] <- 0
+      
+      
       log_alpha_mat[store_ind, ] <- c(
         as_array(mlnj_net$fc1$get_log_dropout_rates()),
         epoch,
         mse$item(), 
         kl$item(),
-        mean((mlnj_net$fc1$compute_posterior_param()$post_weight_mu - true_coefs)^2)$item()
+        mean((post_mu_params - true_coefs)^2)$item()
       )
       
       # store loss moving average
@@ -381,14 +387,20 @@ MLP_lindata_sim <- function(
     est = ss_coefs[, 4] > 0.05, 
     tru = true_model)
   
+  
+  ss_coefs_include <- ss_coefs[, 4] > 0.05
+  
   # get median mse from last quarter of draws
   ss_mse <- median(lm_ss$sse[751:1000]) / n_obs
+  
+  ss_coefs_formse <- ss_coefs[, 1]
+  ss_coefs_formse[!ss_coefs_include] <- 0
   
   ss_res <- list(
     "coefs" = ss_coefs,
     "binary_err" = ss_bin_err,
     "fit_mse" = ss_mse,
-    "coef_mse" = mean((ss_coefs[, 1] - true_coefs)^2)
+    "coef_mse" = mean((ss_coefs_formse - true_coefs)^2)
   )
   
   res$ss <- ss_res

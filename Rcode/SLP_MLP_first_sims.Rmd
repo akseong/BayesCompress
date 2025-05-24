@@ -366,7 +366,11 @@ $$\begin{align}
 
 - $-KL \left(q_\phi(z) || p(z)\right)$ is the expectation, *when sampling $z$ from $q_\phi(z)$*, of how surprised we are by $z$ (given that we assume the variational distribution is true) minus how surprised we would have been by $z$ under the prior $p(z)$;
 
+<<<<<<< HEAD
 - $E_{q_\phi(z)} \left[\log \dfrac{1}{p(y|z)} \right]$ is the expected surprise of the data under *our model* when $z$ is sampled under *our approximation* $q_\phi(z)$.
+=======
+- $E_{q_\phi(z)} \left[\log \dfrac{1}{p(y|z)} \right]$ is the expected surprise of the data under our model *when $z$ is sampled under $q_\phi(z)$*.
+>>>>>>> ebd2efcf17580cfa056ad29e492bc23d6d925326
 
 
 So the ELBO, essentially, balances 1) the expected difference in surprise between the variational and prior distributions with 2) the expected surprise of the data according to the model BUT when sampling $z$ under the variational / approximate posterior.  So maximizing the ELBO involves minimizing the surprise of the data by adjusting the approximate posterior, while keeping the approximate posterior near the prior.
@@ -559,8 +563,131 @@ __Model:__
 
 Results averaged from running methods on 100 simulated datasets
 
+<<<<<<< HEAD
+=======
+```{r FUNCTIONget_restab}
+get_restab <- function(res, tru, log_alpha_threshold = -3, method_name = "Bnn", verbose = TRUE){
+  require(Matrix)
+
+  if (verbose){
+    txt <- paste0("log_alpha_threshold = ", log_alpha_threshold, 
+              " (i.e. dropout rate of <",
+              round(exp(log_alpha_threshold), 5), 
+              " required for inclusion)")
+    cat("\n", txt, "\n")
+  }
+
+  method_log_alphas <- t(sapply(res, function(X) X[[1]]$log_dropout_alphas))
+  method_include <- method_log_alphas < log_alpha_threshold
+  
+  method_binary_err <- t(apply(
+    method_include, 1, 
+    function(X) binary_err(est = X, tru = tru)
+  ))
+  method_binary_err_rates <- t(apply(
+    method_include, 1,
+    function(X) binary_err_rate(est = X, tru = tru)
+  ))
+  
+  method_fwer <- mean(method_binary_err_rates[,1] != 0)
+  
+  # other metrics
+  method_metrics <- t(sapply(res, function(X) X[[1]]$other_metrics))
+  
+  # # # # # # # # # # # # # # # # # # # # # # # # #
+  ## LASSO ----
+  # # # # # # # # # # # # # # # # # # # # # # # # #
+  
+  lasso_coefs <- t(sapply(res, function(X) as.vector(X$lasso$coefs)[-1]))
+  lasso_include <- lasso_coefs != 0 
+  lasso_binary_err_rates <- t(apply(
+    lasso_include, 1, 
+    function(X) binary_err_rate(est = X, tru = tru)
+  ))
+  
+  lasso_fwer <- mean(lasso_binary_err_rates[,1] != 0)
+  
+  
+  # # # # # # # # # # # # # # # # # # # # # # # # #
+  ## Spike-&-Slab ----
+  # # # # # # # # # # # # # # # # # # # # # # # # #
+  
+  # use same threshold?
+  
+  
+  ss_post_inclusion_probs <- t(sapply(res, function(X) X$ss$coefs[, 5]))
+  ss_dropout_equiv <- 1 - ss_post_inclusion_probs
+  ss_include <- ss_dropout_equiv < exp(log_alpha_threshold)
+  
+  
+  ss_binary_err_rates <- t(apply(
+    ss_include, 1, 
+    function(X) binary_err_rate(est = X, tru = tru)
+  ))
+  
+  ss_fwer <- mean(ss_binary_err_rates[,1] != 0)
+  
+  method_res <- colMeans(method_binary_err_rates)
+  ss_res <- colMeans(ss_binary_err_rates)
+  lasso_res <- colMeans(lasso_binary_err_rates)
+  
+  
+  method_fwer <- mean(method_binary_err_rates[,1] != 0)
+  ss_fwer <- mean(ss_binary_err_rates[,1] != 0)
+  lasso_fwer <- mean(lasso_binary_err_rates[,1] != 0)
+  
+  method_res <- c(method_res, "FWER" = method_fwer)
+  ss_res <- c(ss_res, "FWER" = ss_fwer)
+  lasso_res <- c(lasso_res, "FWER" = lasso_fwer)
+  
+  restab <- rbind(
+    method_res,
+    ss_res,
+    lasso_res
+  )
+  
+  rownames(restab) <- c(method_name, "Spike-Slab", "LASSO")
+  colnames(restab) <- c("FP", "TP", "FN", "TN", "FWER")
+  
+  return(restab)
+}
+
+
+
+get_mses <- function(res, method_name = "Bnn", true_coefs){
+  
+  mse_stats <- function(res_MSEs){
+    c(
+      "fit_MSE_avg" = mean(res_MSEs[, 1]),
+      "fit_MSE_sd" = sd(res_MSEs[, 1]),
+      "coef_MSE_avg" = mean(res_MSEs[, 2]),
+      "coef_MSE_sd" = sd(res_MSEs[, 2])
+    )
+  }
+  
+  #mlnj average MSE
+  method_metrics <- t(sapply(res, function(X) X[[1]]$other_metrics))
+  method_MSEs <- method_metrics[, c(2,4)]
+  lasso_MSEs <- t(sapply(res, function(X) c(X$lasso$fit_mse, X$lasso$coef_mse)))
+  ss_MSEs <- t(sapply(res, function(X) c(X$ss$fit_mse, X$ss$coef_mse)))
+  method_mse_vec <- mse_stats(method_MSEs)
+  lasso_mse_vec <- mse_stats(lasso_MSEs)
+  ss_mse_vec <- mse_stats(ss_MSEs)
+  
+  mse_tab <- rbind(
+    method_name = method_mse_vec,
+    "Spike-Slab" = ss_mse_vec,
+    "LASSO" = lasso_mse_vec
+  )
+  return(mse_tab)
+}
+```
+
+
+
+>>>>>>> ebd2efcf17580cfa056ad29e492bc23d6d925326
 ```{r SLP_RESULTS}
-fpath <- here("Rcode", "results", "linear_sim_sig1.Rdata")
+fpath <- here("Rcode", "results", "linear_sim_sig1_2.Rdata")
 load(fpath)
 
 true_coefs = c(-0.5, 1, -2, 4, rep(0, times = 100))
@@ -620,12 +747,12 @@ __Model__: `MLP` = multiple neurons, multiple layers
 
 ```{r MLP_results}
 
-fname <- "MLP_linear_sim_sig1.Rdata"
-fname2 <- "MLP_linear_sim_sig1_part2.Rdata"
-fpath <- here::here("Rcode", "results", fname)
+# fname <- "MLP_linear_sim_sig1.Rdata"
+fname2 <- "MLP_linear_sim_sig1_part2_2.Rdata"
+# fpath <- here::here("Rcode", "results", fname)
 fpath2 <- here::here("Rcode", "results", fname2)
 
-load(fpath)
+# load(fpath)
 load(fpath2)
 
 # some results null (stopped simulation b/c needed to use computer)

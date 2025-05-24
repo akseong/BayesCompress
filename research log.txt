@@ -1,0 +1,312 @@
+research log:
+
+
+############
+11/8
+############
+
+# need to monitor test-train split along with TP TN rate
+# run 10 times
+# keep track of test, train, FP, TP
+# sweet spot tends to be btwn 5-8k epochs
+
+# start storing at 3000 epochs
+# need to get a sense of how moving average changes?
+# is there a time when it gets all of them correct?
+# check for ranking
+# tt_mse
+# earliest best is at 3500 epochs
+# FP at 6000
+# diverging at 6500
+# just gets worse and worse 
+
+
+# part of the problem might be that we have more parameters than data, so 
+# the network can memorize the data.  So CV will keep going in circles.
+# for the alphas, cap them at 1, then renormalize
+# what if drop nodes in the hidden layers, then retrain? using starting points for hidden layers?
+# some support for this as a VAE procedure
+
+
+
+- training regimes tested
+    - 5-fold CV, 1000 obs, hidden layers 50, 25 - same issues
+        - KL seems inappropriately scaled?  at 2500 epochs in, around 23
+    - no CV - bad
+    - 5-fold CV, 10k obs, hidden layers 25, 25
+        - seems more stable?  KL is better scaled 
+            - 500 epochs, MSE = 5, KL = 1.6
+            - 4000 epochs, MSE = 2.57, KL = 1.15
+            - 7000 epochs, MSE = 1.8, KL = 0.74
+    - tried with only 5 vars (so only 1 nuisance) to see how estimation goes. 
+    	- fcn estimation is actually fairly good BUT
+    	- the 1 nuisance variable's alpha appears to be going to 0 as training goes on
+    	- for some reason all the predicted curves appear to be shifted up
+    	- function estimation is really good around x = 0; because all the covs are generated as N(0,1), so there's the most data there.
+
+
+    - tried simulating covariates from uniform dist'n
+    - 
+
+
+
+
+- monitoring predicted functions
+
+
+
+ideas:
+    - consider training 1x, eliminating nodes with high alpha in hidden layers, retraining
+    - what about eliminating nodes with alpha > 1 at some point
+    - function estimation seems a bit fucky, probably because keeping all these unused vars in?
+    - look at the clip variances thing in Ullrich's code
+
+
+
+
+############
+Nov 12
+############
+
+Variable inclusion factor
+
+
+
+
+############
+Nov 20
+############
+
+testing over the last few weeks suggests that 
+1) when the network's parameters outnumber the observations we have to work with, the unmodified alpha parameter is best to work with, and we should stop training early (otherwise the network will overfit by fitting nuisance variables to noise / fill in gaps)
+
+2) when the number of observations is smaller than the number of parameters, training for a long time is helpful, but we should use the alphas after centering them at the geometric mean
+
+3) perhaps the first hidden layer should be smaller in dimension?
+
+16 -> 32 -> 64
+
+
+
+need to save FP TP FN TN alongside tt_mse
+
+
+
+
+
+
+############
+Feb 2
+############
+(Meeting with Zhaoxia)
+
+
+contact ICS grad office
+  - advancement
+  - petition for Michele to attend
+
+fMRI people in cog sci, particularly junior faculty
+
+Ana Marie Kenney
+Wenjuo
+
+
+Look at junior faculty in cog sci:
+- Aaron Bornstein
+- Nadia Chernyak
+- Anna Leshinskaya
+- Cherlyn Ng
+
+
+
+
+Fix advancement date
+- Babak, Zhaoxia, Veronica
+- Doodle Poll
+
+- set time for last week of February, 2 hours, possibly over Zoom, or before March 5th
+- petition for Michele to be there
+
+
+- email Adam
+
+- Biometrika paper (40 min), current work (10 minutes), then questions
+- just send Biometrika paper
+- proposal --- 1st paper
+   - intro, motivation, first project, 2nd project
+   - send paper and say will also present future work
+
+
+
+
+
+
+
+############
+Feb 11
+############
+interesting talk at Qualcomm by Van Der Wilk:
+
+https://youtu.be/m1dSrXBEZIQ
+https://www.youtube.com/watch?v=m1dSrXBEZIQ
+ELBO good in deep Gaussian Processes (Damianou Lawrence 2)
+
+For linear models, when ensembling, if initialize weights from iid prior, then apply gradient descent w.r.t. squared loss (unregularized)
+ ---> then resulting weights distributed exactly as posterior, i.e. estimated ensemble weights exactly equal to posterior (Matthews et al 2017)
+
+ Also, can get lower bound by summing training losses over observations --- Lyle, Schut, Ru, Gal, van der Wilk
+
+
+
+
+
+
+############
+Feb 20
+############
+
+- print Ignacio Saez paper
+- print our paper: "Semi-parametric local variable selection under misspecification"
+
+
+
+
+- problem statement - not only is there an effect, but when/where?
+- steps taken 
+    - 3rd degree splines --- common way of testing for group effect (all splines covering area are 0) is misspecified
+    - 0 degree splines --- works fine in non-correlated data case
+    - orthogonalization
+    - covariance estimation
+    - multi-resolution analysis vs. transition prior
+
+    - computation ---- tempered gibbs, mombf
+        - what does mombf use? laplace approx. for marginal likelihood, how is greedy search implemented?
+
+
+
+
+figure out extra times --- march 4, 5, 14 morning
+
+
+
+tomorrow morning
+ - contact escrow
+ - contact ics counselors (tonight) to see if morning of 14th is OK.
+
+
+
+
+
+################
+March 18
+################
+
+
+
+horseshoe
+
+
+Job
+~Joseph Millar
+
+I’ve just come from walking to and fro
+in the earth, Satan tells God
+before they make the wager
+standing for centuries
+as metaphor of man’s existence— 
+trapped on the wheel like an insect
+under a microscope:
+his disastrous ecology,
+his ravaged immune system,
+even his broken-veined, wine-flushed face
+looking back from the rearview
+and parked alone by the river.
+He should have been born
+with fins, he thinks
+as the swans arch and preen
+and attack one another
+though everyone says they mate for life
+and the afternoon wind
+raises welts of sunlight
+over the torqued and rippling surface
+and the beautiful ravenous fish.
+
+
+
+
+
+3/19 BVS for DNN lit review
+
+---- Variational Inf and dropout/compression
+
+
+- Gal & Ghahramani, 2015; Kingma et al 2015 
+
+- Kingma et al 2015, "Variational Dropout and the local reparameterization trick" --- show that dropout can be seen as a special case of Bayesian regularization
+
+- Molchanov, Ashukha, Vetrov 2017, "Variational Dropout Sparsifies Deep Neural Networks"
+  - each weight has its own, individual dropout rate
+  - __has a good lit review__
+  - in discussion, "Another possible direction for future research is to find a way to obtain __structured sparsity using our framework__"
+
+
+
+- Louizos, Ullrich, Welling 2017, Bayesian Compression for Deep Learning
+  - apply sparsity-inducing Gaussian mixture models to ROWS of a neural network weight matrix (not the nodes, but it also induces sparsity in nodes)
+  - network weights estimated via variational inference
+    - improper log-normal Jeffrey's prior --- later shown to be misspecified
+    - Horseshoe
+  - focus is on compression; dropout parameters treated as tuning parameters
+  - also compress via reducing bit precision
+
+
+
+- Ghosh, Yao, Doshi-Velez 2019, Model Selection in Bayesian Neural Networks via Horseshoe Priors
+  "Model selection" here is about choice of NN architecture, i.e. how many layers, how many nodes
+  - also show that too many nodes in a BNN --> large predictive uncertainty; "more expressive models require more data to concentrate the posterior"
+
+
+- Overweg et al, 2019, Interpretable Outcome Prediction with Sparse Bayesian Neural Networks in Intensive Care
+  - only apply HShoe to input layer
+  - no simulation results --- just applied to datasets in UCI ML repository, and report root mean-squared error and negative log-likelihood
+  - no investigation of variable selection performance, e.g. T1 error, FDR
+  - no decision rule / criteria
+  - little investigation of using larger NN's
+
+
+- Nguyen, et al, 2021, "Structured Dropout Variational Inference for Bayesian Neural Networks"
+  - uses Householder transformation to learn representation for multiplicative Gaussian noise in Varitaionl Dropout
+  - obtain Variational Dropout posterior with structured covariance
+  - hierarchical dropout procedure --- equivalent to inferring a joint posterior 
+
+
+
+
+
+
+
+
+
+---- Normalizing Flows
+
+- Huang, Krueger, Lacoste, Courville 2018, "Neural Autoregressive Flows"
+  - normalizing flows and autoregressive models
+  - "universal approximators for continuous probability distributions, and their greater expressivity allows them to better capture multimodal target distributions"
+
+
+
+
+
+
+
+
+
+- look into: 
+  - bits-back argument and bits-back coding, 
+  - Ghosh, Yao Doshi-Velez paper
+  - Nguyen paper
+  - Automatic Relevance Determination effect
+  - code for Molchanov, Ashukha, Vertrov 2017 ??
+
+
+
