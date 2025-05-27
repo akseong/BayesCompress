@@ -1,0 +1,772 @@
+starting worker pid=19824 on localhost:11852 at 07:13:26.151
+starting worker pid=28780 on localhost:11852 at 07:13:26.156
+starting worker pid=12040 on localhost:11852 at 07:13:26.168
+starting worker pid=16192 on localhost:11852 at 07:13:26.171
+starting worker pid=32400 on localhost:11852 at 07:13:26.175
+here() starts at C:/Users/ArnoldSeong/Github/Classes/BayesCompress
+here() starts at C:/Users/ArnoldSeong/Github/Classes/BayesCompress
+here() starts at C:/Users/ArnoldSeong/Github/Classes/BayesCompress
+here() starts at C:/Users/ArnoldSeong/Github/Classes/BayesCompress
+here() starts at C:/Users/ArnoldSeong/Github/Classes/BayesCompress
+
+Attaching package: 'dplyr'
+
+
+Attaching package: 'dplyr'
+
+
+Attaching package: 'dplyr'
+
+
+Attaching package: 'dplyr'
+
+The following objects are masked from 'package:stats':
+
+    filter, lag
+
+
+Attaching package: 'dplyr'
+
+The following objects are masked from 'package:base':
+
+    intersect, setdiff, setequal, union
+
+The following objects are masked from 'package:stats':
+
+    filter, lag
+
+The following objects are masked from 'package:stats':
+
+    filter, lag
+
+The following objects are masked from 'package:stats':
+
+    filter, lag
+
+The following objects are masked from 'package:stats':
+
+    filter, lag
+
+The following objects are masked from 'package:base':
+
+    intersect, setdiff, setequal, union
+
+The following objects are masked from 'package:base':
+
+    intersect, setdiff, setequal, union
+
+The following objects are masked from 'package:base':
+
+    intersect, setdiff, setequal, union
+
+The following objects are masked from 'package:base':
+
+    intersect, setdiff, setequal, union
+
+Loading required package: Boom
+Loading required package: Boom
+Loading required package: Boom
+Loading required package: Boom
+Loading required package: Boom
+
+Attaching package: 'Boom'
+
+The following object is masked from 'package:stats':
+
+    rWishart
+
+
+Attaching package: 'Boom'
+
+The following object is masked from 'package:stats':
+
+    rWishart
+
+
+Attaching package: 'Boom'
+
+
+Attaching package: 'Boom'
+
+The following object is masked from 'package:stats':
+
+    rWishart
+
+The following object is masked from 'package:stats':
+
+    rWishart
+
+
+Attaching package: 'Boom'
+
+The following object is masked from 'package:stats':
+
+    rWishart
+
+
+Attaching package: 'BoomSpikeSlab'
+
+The following object is masked from 'package:stats':
+
+    knots
+
+
+Attaching package: 'BoomSpikeSlab'
+
+The following object is masked from 'package:stats':
+
+    knots
+
+
+Attaching package: 'BoomSpikeSlab'
+
+
+Attaching package: 'BoomSpikeSlab'
+
+The following object is masked from 'package:stats':
+
+    knots
+
+The following object is masked from 'package:stats':
+
+    knots
+
+
+Attaching package: 'BoomSpikeSlab'
+
+The following object is masked from 'package:stats':
+
+    knots
+
+Loading required package: Matrix
+Loading required package: Matrix
+Loading required package: Matrix
+Loading required package: Matrix
+
+Attaching package: 'Matrix'
+
+The following objects are masked from 'package:tidyr':
+
+    expand, pack, unpack
+
+
+Attaching package: 'Matrix'
+
+The following objects are masked from 'package:tidyr':
+
+    expand, pack, unpack
+
+
+Attaching package: 'Matrix'
+
+The following objects are masked from 'package:tidyr':
+
+    expand, pack, unpack
+
+
+Attaching package: 'Matrix'
+
+The following objects are masked from 'package:tidyr':
+
+    expand, pack, unpack
+
+
+Attaching package: 'Matrix'
+
+Loaded glmnet 4.1-8
+The following objects are masked from 'package:tidyr':
+
+    expand, pack, unpack
+
+Loaded glmnet 4.1-8
+Loaded glmnet 4.1-8
+Loaded glmnet 4.1-8
+Loaded glmnet 4.1-8
+starting worker pid=8452 on localhost:11743 at 07:32:38.609
+starting worker pid=15848 on localhost:11743 at 07:32:38.615
+starting worker pid=35844 on localhost:11743 at 07:32:38.615
+starting worker pid=17512 on localhost:11743 at 07:32:38.617
+here() starts at C:/Users/ArnoldSeong/Github/Classes/BayesCompress
+here() starts at C:/Users/ArnoldSeong/Github/Classes/BayesCompress
+here() starts at C:/Users/ArnoldSeong/Github/Classes/BayesCompress
+here() starts at C:/Users/ArnoldSeong/Github/Classes/BayesCompress
+here() starts at C:/Users/ArnoldSeong/Github/Classes/BayesCompress
+
+Attaching package: 'dplyr'
+
+
+Attaching package: 'dplyr'
+
+
+Attaching package: 'dplyr'
+
+The following objects are masked from 'package:stats':
+
+    filter, lag
+
+The following objects are masked from 'package:stats':
+
+    filter, lag
+
+
+Attaching package: 'dplyr'
+
+The following objects are masked from 'package:base':
+
+    intersect, setdiff, setequal, union
+
+The following objects are masked from 'package:base':
+
+    intersect, setdiff, setequal, union
+
+
+Attaching package: 'dplyr'
+
+The following objects are masked from 'package:stats':
+
+    filter, lag
+
+The following objects are masked from 'package:stats':
+
+    filter, lag
+
+The following objects are masked from 'package:base':
+
+    intersect, setdiff, setequal, union
+
+The following objects are masked from 'package:base':
+
+    intersect, setdiff, setequal, union
+
+The following objects are masked from 'package:stats':
+
+    filter, lag
+
+The following objects are masked from 'package:base':
+
+    intersect, setdiff, setequal, union
+
+Loading required package: Boom
+Loading required package: Boom
+Loading required package: Boom
+Loading required package: Boom
+
+Attaching package: 'Boom'
+
+The following object is masked from 'package:stats':
+
+    rWishart
+
+
+Attaching package: 'Boom'
+
+The following object is masked from 'package:stats':
+
+    rWishart
+
+
+Attaching package: 'Boom'
+
+The following object is masked from 'package:stats':
+
+    rWishart
+
+
+Attaching package: 'Boom'
+
+The following object is masked from 'package:stats':
+
+    rWishart
+
+
+Attaching package: 'BoomSpikeSlab'
+
+The following object is masked from 'package:stats':
+
+    knots
+
+
+Attaching package: 'BoomSpikeSlab'
+
+
+Attaching package: 'BoomSpikeSlab'
+
+The following object is masked from 'package:stats':
+
+    knots
+
+
+Attaching package: 'BoomSpikeSlab'
+
+The following object is masked from 'package:stats':
+
+    knots
+
+The following object is masked from 'package:stats':
+
+    knots
+
+
+Attaching package: 'BoomSpikeSlab'
+
+The following object is masked from 'package:stats':
+
+    knots
+
+Loading required package: Matrix
+Loading required package: Matrix
+Loading required package: Matrix
+Loading required package: Matrix
+Loading required package: Matrix
+
+Attaching package: 'Matrix'
+
+The following objects are masked from 'package:tidyr':
+
+    expand, pack, unpack
+
+
+Attaching package: 'Matrix'
+
+The following objects are masked from 'package:tidyr':
+
+    expand, pack, unpack
+
+
+Attaching package: 'Matrix'
+
+The following objects are masked from 'package:tidyr':
+
+    expand, pack, unpack
+
+
+Attaching package: 'Matrix'
+
+The following objects are masked from 'package:tidyr':
+
+    expand, pack, unpack
+
+
+Attaching package: 'Matrix'
+
+The following objects are masked from 'package:tidyr':
+
+    expand, pack, unpack
+
+Loaded glmnet 4.1-8
+Loaded glmnet 4.1-8
+Loaded glmnet 4.1-8
+Loaded glmnet 4.1-8
+Loaded glmnet 4.1-8
+Warning messages:
+1: In get_lm_stats(simdat = lin_simdat) :
+  p >= n; (p - n) + floor(n/2) spurious covariates eliminated to accomodate lm
+2: In get_lm_stats(simdat = lin_simdat) :
+  p >= n; (p - n) + floor(n/2) spurious covariates eliminated to accomodate lm
+Warning messages:
+1: In get_lm_stats(simdat = lin_simdat) :
+  p >= n; (p - n) + floor(n/2) spurious covariates eliminated to accomodate lm
+2: In get_lm_stats(simdat = lin_simdat) :
+  p >= n; (p - n) + floor(n/2) spurious covariates eliminated to accomodate lm
+Warning messages:
+1: Warning messages:
+In get_lm_stats(simdat = lin_simdat) :
+ 1: >= n; (p - n) + floor(n/2) spurious covariates eliminated to accomodate lm
+In get_lm_stats(simdat = lin_simdat) :
+  p >= n; (p - n) + floor(n/2) spurious covariates eliminated to accomodate lm
+2: In get_lm_stats(simdat = lin_simdat) :
+  p >= n; (p - n) + floor(n/2) spurious covariates eliminated to accomodate lm
+Warning messages:
+1: In get_lm_stats(simdat = lin_simdat) :
+  p >= n; (p - n) + floor(n/2) spurious covariates eliminated to accomodate lm
+2: In get_lm_stats(simdat = lin_simdat) :
+  p >= n; (p - n) + floor(n/2) spurious covariates eliminated to accomodate lm
+2: In get_lm_stats(simdat = lin_simdat) :
+  p >= n; (p - n) + floor(n/2) spurious covariates eliminated to accomodate lm
+starting worker pid=13896 on localhost:11743 at 08:35:58.719
+starting worker pid=12004 on localhost:11743 at 08:35:58.735
+starting worker pid=15000 on localhost:11743 at 08:35:58.748
+starting worker pid=14360 on localhost:11743 at 08:35:58.749
+starting worker pid=21140 on localhost:11743 at 08:35:58.749
+here() starts at C:/Users/ArnoldSeong/Github/Classes/BayesCompress
+here() starts at C:/Users/ArnoldSeong/Github/Classes/BayesCompress
+here() starts at C:/Users/ArnoldSeong/Github/Classes/BayesCompress
+here() starts at C:/Users/ArnoldSeong/Github/Classes/BayesCompress
+here() starts at C:/Users/ArnoldSeong/Github/Classes/BayesCompress
+
+Attaching package: 'dplyr'
+
+The following objects are masked from 'package:stats':
+
+    filter, lag
+
+
+Attaching package: 'dplyr'
+
+The following objects are masked from 'package:base':
+
+    intersect, setdiff, setequal, union
+
+The following objects are masked from 'package:stats':
+
+    filter, lag
+
+
+Attaching package: 'dplyr'
+
+
+Attaching package: 'dplyr'
+
+The following objects are masked from 'package:base':
+
+    intersect, setdiff, setequal, union
+
+
+Attaching package: 'dplyr'
+
+The following objects are masked from 'package:stats':
+
+    filter, lag
+
+The following objects are masked from 'package:stats':
+
+    filter, lag
+
+The following objects are masked from 'package:stats':
+
+    filter, lag
+
+The following objects are masked from 'package:base':
+
+    intersect, setdiff, setequal, union
+
+The following objects are masked from 'package:base':
+
+    intersect, setdiff, setequal, union
+
+The following objects are masked from 'package:base':
+
+    intersect, setdiff, setequal, union
+
+Loading required package: Boom
+Loading required package: Boom
+Loading required package: Boom
+Loading required package: Boom
+Loading required package: Boom
+
+Attaching package: 'Boom'
+
+The following object is masked from 'package:stats':
+
+    rWishart
+
+
+Attaching package: 'Boom'
+
+The following object is masked from 'package:stats':
+
+    rWishart
+
+
+Attaching package: 'Boom'
+
+The following object is masked from 'package:stats':
+
+    rWishart
+
+
+Attaching package: 'Boom'
+
+
+Attaching package: 'Boom'
+
+The following object is masked from 'package:stats':
+
+    rWishart
+
+The following object is masked from 'package:stats':
+
+    rWishart
+
+
+Attaching package: 'BoomSpikeSlab'
+
+The following object is masked from 'package:stats':
+
+    knots
+
+
+Attaching package: 'BoomSpikeSlab'
+
+The following object is masked from 'package:stats':
+
+    knots
+
+
+Attaching package: 'BoomSpikeSlab'
+
+The following object is masked from 'package:stats':
+
+    knots
+
+
+Attaching package: 'BoomSpikeSlab'
+
+
+Attaching package: 'BoomSpikeSlab'
+
+The following object is masked from 'package:stats':
+
+    knots
+
+The following object is masked from 'package:stats':
+
+    knots
+
+Loading required package: Matrix
+Loading required package: Matrix
+Loading required package: Matrix
+Loading required package: Matrix
+Loading required package: Matrix
+
+Attaching package: 'Matrix'
+
+The following objects are masked from 'package:tidyr':
+
+    expand, pack, unpack
+
+
+Attaching package: 'Matrix'
+
+The following objects are masked from 'package:tidyr':
+
+    expand, pack, unpack
+
+
+Attaching package: 'Matrix'
+
+The following objects are masked from 'package:tidyr':
+
+    expand, pack, unpack
+
+
+Attaching package: 'Matrix'
+
+The following objects are masked from 'package:tidyr':
+
+    expand, pack, unpack
+
+
+Attaching package: 'Matrix'
+
+The following objects are masked from 'package:tidyr':
+
+    expand, pack, unpack
+
+Loaded glmnet 4.1-8
+Loaded glmnet 4.1-8
+Loaded glmnet 4.1-8
+Loaded glmnet 4.1-8
+Loaded glmnet 4.1-8
+Warning messages:
+Warning messages:
+1: 1: In get_lm_stats(simdat = lin_simdat) :
+ Warning messages:
+dat = lin_simdat) : p >= n; (p - n) + floor(n/2) spurious covariates eliminated to accomodate lm
+
+  p >= n; (p - n) + floor(n/2) spurious covariates eliminated to accomodate lm
+1: 1: 2: In get_lm_stats(simdat = lin_simdat) :
+ In get_lm_stats(simdat = lin_simdat) : p >= n; (p - n) + floor(n/2) spurious
+ variates eliminated to accomodate lm
+Warning messages:
+floor(n/2) spurious covariates eliminated to accomodate lm
+2: In get_lm_stats(simdat = lin_simdat) :
+  p >= n; (p - n) + floor(n/2) spurious
+ >= n; (p - n) + floor(n/2) spurious covariates eliminated to accomodate lm
+In get_lm_stats(simdat = lin_simdat) :2:  p >= n; (p - n) + floor(n/2) spurious covariates eliminated to accomodate lm
+2: In get_lm_stats(simdat = lin_simdat) :
+  p >= n; (p - n) + floor(n/2) spurious covariates eliminated to accomodate lm
+In get_lm_stats(simdat = lin_simdat) :
+  p >= n; (p - n) + floor(n/2) spurious covariates eliminated to accomodate lm
+ p >= n; (p - n) + floor(n/2) spurious covariates eliminated to accomodate lm
+starting worker pid=36744 on localhost:11743 at 09:51:17.993
+starting worker pid=8440 on localhost:11743 at 09:51:18.022
+starting worker pid=32760 on localhost:11743 at 09:51:18.032
+starting worker pid=2412 on localhost:11743 at 09:51:18.059
+starting worker pid=31988 on localhost:11743 at 09:51:18.075
+here() starts at C:/Users/ArnoldSeong/Github/Classes/BayesCompress
+here() starts at C:/Users/ArnoldSeong/Github/Classes/BayesCompress
+here() starts at C:/Users/ArnoldSeong/Github/Classes/BayesCompress
+here() starts at C:/Users/ArnoldSeong/Github/Classes/BayesCompress
+here() starts at C:/Users/ArnoldSeong/Github/Classes/BayesCompress
+
+Attaching package: 'dplyr'
+
+The following objects are masked from 'package:stats':
+
+    filter, lag
+
+
+Attaching package: 'dplyr'
+
+
+Attaching package: 'dplyr'
+
+The following objects are masked from 'package:base':
+
+    intersect, setdiff, setequal, union
+
+
+Attaching package: 'dplyr'
+
+
+Attaching package: 'dplyr'
+
+The following objects are masked from 'package:stats':
+
+    filter, lag
+
+The following objects are masked from 'package:stats':
+
+    filter, lag
+
+The following objects are masked from 'package:stats':
+
+    filter, lag
+
+The following objects are masked from 'package:base':
+
+    intersect, setdiff, setequal, union
+
+The following objects are masked from 'package:base':
+
+    intersect, setdiff, setequal, union
+
+The following objects are masked from 'package:stats':
+
+    filter, lag
+
+The following objects are masked from 'package:base':
+
+    intersect, setdiff, setequal, union
+
+The following objects are masked from 'package:base':
+
+    intersect, setdiff, setequal, union
+
+Loading required package: Boom
+Loading required package: Boom
+Loading required package: Boom
+Loading required package: Boom
+
+Attaching package: 'Boom'
+
+The following object is masked from 'package:stats':
+
+    rWishart
+
+
+Attaching package: 'Boom'
+
+The following object is masked from 'package:stats':
+
+    rWishart
+
+
+Attaching package: 'Boom'
+
+The following object is masked from 'package:stats':
+
+    rWishart
+
+
+Attaching package: 'Boom'
+
+
+Attaching package: 'Boom'
+
+The following object is masked from 'package:stats':
+
+    rWishart
+
+The following object is masked from 'package:stats':
+
+    rWishart
+
+
+Attaching package: 'BoomSpikeSlab'
+
+
+Attaching package: 'BoomSpikeSlab'
+
+kage:stats':
+
+    knots
+
+
+Attaching package: 'BoomSpikeSlab'
+
+The following object is masked from 'package:stats':
+
+    knots
+
+The following object is masked from 'package:stats':
+
+    knots
+
+
+Attaching package: 'BoomSpikeSlab'
+
+The following object is masked from 'package:stats':
+
+    knots
+
+
+Attaching package: 'BoomSpikeSlab'
+
+The following object is masked from 'package:stats':
+
+    knots
+
+Loading required package: Matrix
+Loading required package: Matrix
+
+Attaching package: 'Matrix'
+
+The following objects are masked from 'package:tidyr':
+
+    expand, pack, unpack
+
+
+Attaching package: 'Matrix'
+
+The following objects are masked from 'package:tidyr':
+
+    expand, pack, unpack
+
+
+Attaching package: 'Matrix'
+
+The following objects are masked from 'package:tidyr':
+
+    expand, pack, unpack
+
+
+Attaching package: 'Matrix'
+
+The following objects are masked from 'package:tidyr':
+
+    expand, pack, unpack
+
+
+Attaching package: 'Matrix'
+
+The following objects are masked from 'package:tidyr':
+
+    expand, pack, unpack
+
+Loaded glmnet 4.1-8
+Loaded glmnet 4.1-8
+Loaded glmnet 4.1-8
+Loaded glmnet 4.1-8
+Loaded glmnet 4.1-8

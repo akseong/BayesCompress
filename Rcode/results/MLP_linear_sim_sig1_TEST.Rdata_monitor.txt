@@ -1,0 +1,322 @@
+starting worker pid=8284 on localhost:11526 at 07:29:18.571
+starting worker pid=29656 on localhost:11526 at 07:29:18.714
+here() starts at C:/Users/ArnoldSeong/Github/Classes/BayesCompress
+here() starts at C:/Users/ArnoldSeong/Github/Classes/BayesCompress
+
+Attaching package: 'dplyr'
+
+
+Attaching package: 'dplyr'
+
+The following objects are masked from 'package:stats':
+
+    filter, lag
+
+The following objects are masked from 'package:stats':
+
+    filter, lag
+
+The following objects are masked from 'package:base':
+
+    intersect, setdiff, setequal, union
+
+The following objects are masked from 'package:base':
+
+    intersect, setdiff, setequal, union
+
+Loading required package: Boom
+Loading required package: Boom
+
+Attaching package: 'Boom'
+
+The following object is masked from 'package:stats':
+
+    rWishart
+
+
+Attaching package: 'Boom'
+
+The following object is masked from 'package:stats':
+
+    rWishart
+
+
+Attaching package: 'BoomSpikeSlab'
+
+The following object is masked from 'package:stats':
+
+    knots
+
+
+Attaching package: 'BoomSpikeSlab'
+
+The following object is masked from 'package:stats':
+
+    knots
+
+Loading required package: Matrix
+Loading required package: Matrix
+
+Attaching package: 'Matrix'
+
+
+Attaching package: 'Matrix'
+
+The following objects are masked from 'package:tidyr':
+
+    expand, pack, unpack
+
+The following objects are masked from 'package:tidyr':
+
+    expand, pack, unpack
+
+Loaded glmnet 4.1-8
+Loaded glmnet 4.1-8
+starting worker pid=36220 on localhost:11526 at 07:30:57.156
+starting worker pid=28660 on localhost:11526 at 07:30:57.300
+here() starts at C:/Users/ArnoldSeong/Github/Classes/BayesCompress
+here() starts at C:/Users/ArnoldSeong/Github/Classes/BayesCompress
+
+Attaching package: 'dplyr'
+
+The following objects are masked from 'package:stats':
+
+    filter, lag
+
+
+Attaching package: 'dplyr'
+
+The following objects are masked from 'package:base':
+
+    intersect, setdiff, setequal, union
+
+The following objects are masked from 'package:stats':
+
+    filter, lag
+
+The following objects are masked from 'package:base':
+
+    intersect, setdiff, setequal, union
+
+Loading required package: Boom
+Loading required package: Boom
+
+Attaching package: 'Boom'
+
+The following object is masked from 'package:stats':
+
+    rWishart
+
+
+Attaching package: 'Boom'
+
+The following object is masked from 'package:stats':
+
+    rWishart
+
+
+Attaching package: 'BoomSpikeSlab'
+
+The following object is masked from 'package:stats':
+
+    knots
+
+
+Attaching package: 'BoomSpikeSlab'
+
+The following object is masked from 'package:stats':
+
+    knots
+
+Loading required package: Matrix
+Loading required package: Matrix
+
+Attaching package: 'Matrix'
+
+The following objects are masked from 'package:tidyr':
+
+    expand, pack, unpack
+
+
+Attaching package: 'Matrix'
+
+The following objects are masked from 'package:tidyr':
+
+    expand, pack, unpack
+
+Loaded glmnet 4.1-8
+Loaded glmnet 4.1-8
+binary error: 
+Warning message:
+Warning message:
+mdat = lin_simdat) :
+  p >= n; (p - n) + floor(n/2) spurious covariates eliminated to accomodate lm
+In get_lm_stats(simdat = lin_simdat) :
+  p >= n; (p - n) + floor(n/2) spurious covariates eliminated to accomodate lm
+Error in unserialize(node$con) : error reading from connection
+Calls: <Anonymous> ... doTryCatch -> recvData -> recvData.SOCKnode -> unserialize
+Execution halted
+Error in unserialize(node$con) : error reading from connection
+Calls: <Anonymous> ... doTryCatch -> recvData -> recvData.SOCKnode -> unserialize
+Execution halted
+starting worker pid=18628 on localhost:11526 at 07:31:15.710
+starting worker pid=11008 on localhost:11526 at 07:31:15.843
+here() starts at C:/Users/ArnoldSeong/Github/Classes/BayesCompress
+here() starts at C:/Users/ArnoldSeong/Github/Classes/BayesCompress
+
+Attaching package: 'dplyr'
+
+
+Attaching package: 'dplyr'
+
+The following objects are masked from 'package:stats':
+
+    filter, lag
+
+The following objects are masked from 'package:base':
+
+    intersect, setdiff, setequal, union
+
+The following objects are masked from 'package:stats':
+
+    filter, lag
+
+The following objects are masked from 'package:base':
+
+    intersect, setdiff, setequal, union
+
+Loading required package: Boom
+Loading required package: Boom
+
+Attaching package: 'Boom'
+
+The following object is masked from 'package:stats':
+
+    rWishart
+
+
+Attaching package: 'Boom'
+
+The following object is masked from 'package:stats':
+
+    rWishart
+
+
+Attaching package: 'BoomSpikeSlab'
+
+The following object is masked from 'package:stats':
+
+    knots
+
+
+Attaching package: 'BoomSpikeSlab'
+
+The following object is masked from 'package:stats':
+
+    knots
+
+Loading required package: Matrix
+Loading required package: Matrix
+
+Attaching package: 'Matrix'
+
+The following objects are masked from 'package:tidyr':
+
+    expand, pack, unpack
+
+
+Attaching package: 'Matrix'
+
+The following objects are masked from 'package:tidyr':
+
+    expand, pack, unpack
+
+Loaded glmnet 4.1-8
+Loaded glmnet 4.1-8
+binary error: 
+Warning message:
+In get_lm_stats(simdat = lin_simdat) :
+  p >= n; (p - n) + floor(n/2) spurious covariates eliminated to accomodate lm
+Warning message:
+In get_lm_stats(simdat = lin_simdat) :
+  p >= n; (p - n) + floor(n/2) spurious covariates eliminated to accomodate lm
+starting worker pid=4360 on localhost:11526 at 07:31:33.452
+starting worker pid=10568 on localhost:11526 at 07:31:33.589
+here() starts at C:/Users/ArnoldSeong/Github/Classes/BayesCompress
+here() starts at C:/Users/ArnoldSeong/Github/Classes/BayesCompress
+
+Attaching package: 'dplyr'
+
+
+Attaching package: 'dplyr'
+
+The following objects are masked from 'package:stats':
+
+    filter, lag
+
+The following objects are masked from 'package:stats':
+
+    filter, lag
+
+The following objects are masked from 'package:base':
+
+    intersect, setdiff, setequal, union
+
+The following objects are masked from 'package:base':
+
+    intersect, setdiff, setequal, union
+
+Loading required package: Boom
+Loading required package: Boom
+
+Attaching package: 'Boom'
+
+
+Attaching package: 'Boom'
+
+The following object is masked from 'package:stats':
+
+    rWishart
+
+The following object is masked from 'package:stats':
+
+    rWishart
+
+
+Attaching package: 'BoomSpikeSlab'
+
+
+Attaching package: 'BoomSpikeSlab'
+
+The following object is masked from 'package:stats':
+
+    knots
+
+The following object is masked from 'package:stats':
+
+    knots
+
+Loading required package: Matrix
+Loading required package: Matrix
+
+Attaching package: 'Matrix'
+
+The following objects are masked from 'package:tidyr':
+
+    expand, pack, unpack
+
+
+Attaching package: 'Matrix'
+
+The following objects are masked from 'package:tidyr':
+
+    expand, pack, unpack
+
+Loaded glmnet 4.1-8
+Loaded glmnet 4.1-8
+binary error: 
+Warning message:
+In get_lm_stats(simdat = lin_simdat) :
+  p >= n; (p - n) + floor(n/2) spurious covariates eliminated to accomodate lm
+
+  p >= n; (p - n) + floor(n/2) spurious covariates eliminated to accomodate lm
