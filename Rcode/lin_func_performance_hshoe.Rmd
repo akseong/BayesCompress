@@ -202,12 +202,12 @@ slhs_net <- SLHS()
 lin_simdat <- sim_linear_data(
   n = n_obs,
   true_coefs = true_coefs,
-  err_sigma = 0
+  err_sigma = 1
 )
 
-train_epochs <- 10000
+train_epochs <- 100000
 
-convergence_crit <- 1e-8
+convergence_crit <- 1e-7
 
 slhs_net(lin_simdat$x)
 optim_slhs <- optim_adam(slhs_net$parameters)
@@ -228,12 +228,12 @@ while (epoch < train_epochs & abs(loss_diff) > convergence_crit){
   loss <- mse + kl
   loss_diff <- (loss - prev_loss)$item()
   
-  if(epoch %% 500 == 0 & verbose){
+  if(epoch %% 1000 == 0 & verbose){
     cat(
       "Epoch: ", epoch, 
       "MSE + KL/n = ", mse$item(), " + ", kl$item(), 
       " = ", loss$item(), 
-      "\n "
+      "\n"
     )
     # Eztilde <- slhs_net$fc1$get_Eztilde_i()
     # Vztilde <- slhs_net$fc1$get_Vztilde_i()
@@ -241,7 +241,10 @@ while (epoch < train_epochs & abs(loss_diff) > convergence_crit){
     # cat("V[ztilde_i]: ", round(as_array(Vztilde), 4), "\n \n \n")
     # cat(round(as_array(slnj_net$fc1$z_mu), 4), "\n")
     w_mu <- slhs_net$fc1$compute_posterior_param()$post_weight_mu
-    cat("E[W]: ", round(as_array(w_mu), 2), "\n \n")
+    cat("E[W]: ", round(as_array(w_mu), 2), "\n")
+    dropout_alphas <- exp(slhs_net$fc1$get_log_dropout_rates())
+    cat("alphas: ", round(as_array(dropout_alphas), 2), "\n \n")
+    
   }
   
   # zero out previous gradients
@@ -254,47 +257,76 @@ while (epoch < train_epochs & abs(loss_diff) > convergence_crit){
 }
 
 
-slhs_net$fc1$compute_posterior_param()$post_weight_mu
+post_wmu <- slhs_net$fc1$compute_posterior_param()$post_weight_mu
+post_wvar <- slhs_net$fc1$compute_posterior_param()$post_weight_var
+post_wmu^2 / post_wvar > 2
 # after enough training, post_weight_mu looks good
 
 # investigating
-self <- slhs_net$fc1 
-Vz <- V_lognorm(
-  mu = (self$atilde_mu + self$btilde_mu + self$sa_mu + self$sb_mu) / 2,
-  logvar = (self$atilde_logvar + self$btilde_logvar + self$sa_logvar + self$sb_logvar) - log(4)
-  )
-Ez <- E_lognorm(
-  mu = (self$atilde_mu + self$btilde_mu + self$sa_mu + self$sb_mu) / 2,
-  logvar = (self$atilde_logvar + self$btilde_logvar + self$sa_logvar + self$sb_logvar) - log(4)
-  )
+log_dropout <- function(hslayer, type = "local"){
+  # calculates dropout rates based on :
+  # type == "local":    ztilde = sqrt(atilde btilde)
+  # type == "global":    s = sqrt(sa sb)
+  # type == "marginal":    z = ztilde * s
 
+  if (type == "local"){
+    logvar_sum <- hslayer$atilde_logvar + hslayer$btilde_logvar
+  } else if (type == "global"){
+    logvar_sum <- hslayer$sa_logvar + hslayer$sb_logvar
+  } else if (type == "marginal"){
+    logvar_sum <- hslayer$atilde_logvar + hslayer$btilde_logvar + hslayer$sa_logvar + hslayer$sb_logvar
+  }
+  
+  type_var <- exp(logvar_sum - log(4))
+  log_dropout <- log(exp(type_var) - 1)
+  return(log_dropout)
+}
 
-Vztilde <- V_lognorm(
-  mu = (self$atilde_mu + self$btilde_mu) / 2,
-  logvar = (self$atilde_logvar + self$btilde_logvar) - log(4)
-  )
-Eztilde <- E_lognorm(
-  mu = (self$atilde_mu + self$btilde_mu) / 2,
-  logvar = (self$atilde_logvar + self$btilde_logvar) - log(4)
-  )
-
-
-
-
+log_dropout(hslayer = slhs_net$fc1)
+slhs_net$fc1$get_log_dropout_rates()
 
 
 
-# previous formulation for log_dropout_alphas
-torch_exp(torch_log(Vztilde) - 2*torch_log(Eztilde) + self$epsilon)
+hskeep <- exp(log_dropout(hslayer = slhs_net$fc1)) < .05
 
+binary_err_rate(est = as_array(hskeep), tru = true_coefs != 0)
 
-true_coefs
 
 ```
 
 
 
+## dropout rate:
 
+under the variational distribution, 
+
+$$\begin{aligned}
+\tilde{z_i} 
+  &= \sqrt{ \tilde{\alpha_i} \tilde{\beta_i} }
+  \\
+\tilde{\beta_i} 
+  & \sim Log-Normal \left( \mu_{\tilde{\beta_i}}, \sigma^2_\tilde{{\beta_i}}  \right)
+  \\
+\tilde{\alpha} 
+  & \sim Log-Normal \left( \mu_{\tilde{\alpha}}, \sigma^2_{\tilde{\alpha}}  \right)
+  \\ 
+\end{aligned}$$
+
+If $Y \sim N(\mu_y, \sigma^2_Y)$, then $X = \e^Y \sim Log-Normal(\mu_Y, \sigma^2_Y)$, and the mean and variance of the log-normal-distributed RV $X$ are given by:  
+- $E[X] = \exp{\mu + \frac{\sigma^2}{2}}$  
+- $Var[X] = \left( \exp{\sigma^2_Y} - 1  \right) \exp{2 \mu_Y + \sigma^2_Y}$  
+
+Then, for the dropout rate, we can use the variational parameters of the local shrinkage parameter $\tilde z$, where
+
+$$\tilde z = \sqrt{\tilde{\alpha} \tilde{\beta}} \sim Log-Normal \left( \dfrac{1}{2} (\mu_{\tilde{\alpha}} + \mu_{\tilde{\beta}}),  \dfrac{1}{4} (\sigma^2_{\tilde{\alpha}} + \sigma^2_{\tilde{\beta}})  \right)$$ 
+Then, for the local dropout rate $\alpha_i$, we get:
+
+$$\begin{aligned}
+\alpha & = 
+  dfrac{Var[\tilde{z}]} {E[\tilde{z}]} \\
+  & = 
+exp(\sigma^2_{\tilde{z}} - 1)
+\end{aligned}$$
 
 
 
