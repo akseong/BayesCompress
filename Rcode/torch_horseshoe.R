@@ -267,17 +267,23 @@ torch_hs <- nn_module(
     ))
   },
   
-  get_log_dropout_rates = function() {
-    Vztilde <- V_lognorm(
-      mu = (self$atilde_mu + self$btilde_mu) / 2,
-      logvar = (self$atilde_logvar + self$btilde_logvar) - log(4)
-    )
-    Eztilde <- E_lognorm(
-      mu = (self$atilde_mu + self$btilde_mu) / 2,
-      logvar = (self$atilde_logvar + self$btilde_logvar) - log(4)
-    )
-    log_alpha <- (torch_log(Vztilde) - 2*torch_log(Eztilde) + self$epsilon)
-    return(log_alpha)
+  get_log_dropout_rates = function(type = "local"){
+  # calculates dropout rates based on :
+  # type == "local":    ztilde = sqrt(atilde btilde)
+  # type == "global":    s = sqrt(sa sb)
+  # type == "marginal":    z = ztilde * s
+  
+  if (type == "local"){
+    logvar_sum <- self$atilde_logvar + self$btilde_logvar
+  } else if (type == "global"){
+    logvar_sum <- self$sa_logvar + self$sb_logvar
+  } else if (type == "marginal"){
+    logvar_sum <- self$atilde_logvar + self$btilde_logvar + self$sa_logvar + self$sb_logvar
+  }
+  
+  type_var <- exp(logvar_sum - log(4))
+  log_dropout <- log(exp(type_var) - 1)
+  return(log_dropout)
   },
   
   forward = function(x){
