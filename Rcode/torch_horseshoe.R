@@ -24,9 +24,6 @@ reparameterize <- function(mu, logvar, use_cuda = FALSE, sampling = TRUE) {
   }
 }
 
-
-
-
 negKL_lognorm_gamma <- function(mu, logvar, a = 1/2, b = 1){
   # for s_a, alpha_i
   # (LogNormal q || Gamma p)
@@ -99,32 +96,25 @@ logvar_sqrt_prod_LN <- function(logvar_1, logvar_2){
   ((logvar_1$exp())$add(logvar_2$exp()))$log() - log(4)
 }
 
+log_dropout <- function(hs_layer, type = "local"){
+  # calculates dropout rates based on :
+  # type == "local":    ztilde = sqrt(atilde btilde)
+  # type == "global":    s = sqrt(sa sb)
+  # type == "marginal":    z = ztilde * s
+  
+  if (type == "local"){
+    logvar_sum <- hs_layer$atilde_logvar + hs_layer$btilde_logvar
+  } else if (type == "global"){
+    logvar_sum <- hs_layer$sa_logvar + hs_layer$sb_logvar
+  } else if (type == "marginal"){
+    logvar_sum <- hs_layer$atilde_logvar + hs_layer$btilde_logvar + hs_layer$sa_logvar + hs_layer$sb_logvar
+  }
+  
+  type_var <- exp(logvar_sum - log(4))
+  log_dropout <- log(exp(type_var) - 1)
+  return(log_dropout)
+}
 
-
-
-# z_mu_fcn <- function(sa_mu, sb_mu, atilde_mu, btilde_mu,
-#                      sa_logvar, sb_logvar, atilde_logvar, btilde_logvar){
-#   # compute mu_z
-#   E_sa <- E_lognorm(sa_mu, sa_logvar$exp()) 
-#   E_sb <- E_lognorm(sb_mu, sb_logvar$exp())
-#   E_at <- E_lognorm(atilde_mu, atilde_logvar$exp())
-#   E_bt <- E_lognorm(btilde_mu, btilde_logvar$exp())
-#   E_sa$mul(E_sb$mul(E_at$mul(E_bt)))$exp(0.5)
-# }
-# 
-# z_logvar_fcn <- function(sa_mu, sb_mu, atilde_mu, btilde_mu,
-#                          sa_logvar, sb_logvar, atilde_logvar, btilde_logvar){
-#   # compute variance of Z
-#   E_sa <- E_lognorm(sa_mu, sa_logvar$exp()) 
-#   E_sb <- E_lognorm(sb_mu, sb_logvar$exp())
-#   E_at <- E_lognorm(atilde_mu, atilde_logvar$exp())
-#   E_bt <- E_lognorm(btilde_mu, btilde_logvar$exp())
-#   
-#   V_sa <- V_lognorm()
-#   V_sb <- V_lognorm()
-#   V_at <- V_lognorm()
-#   V_bt <- V_lognorm() 
-# }
 
 
 torch_hs <- nn_module(
