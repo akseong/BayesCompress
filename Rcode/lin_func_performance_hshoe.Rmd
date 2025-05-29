@@ -574,7 +574,7 @@ Generate data with 4 covariates that are non-linearly related to the outcome (as
 
 
 ```{r}
-n_obs <- 1000
+n_obs <- 5000
 
 set.seed(params$seed)
 fdat <- sim_func_data(
@@ -583,8 +583,8 @@ fdat <- sim_func_data(
   flist = flist,
   err_sigma = 0)
 
-d_hidden1 <- 50
-d_hidden2 <- 25
+d_hidden1 <- 64
+d_hidden2 <- 32
 d_out <- 1
 
 MLHS <- nn_module(
@@ -650,7 +650,7 @@ MLHS <- nn_module(
 
 ## train
 
-```{r}
+```{r TRAIN_MULTILAYER_HS, eval = params$retrain}
 fcn_model <- MLHS()
 x <- fdat$x
 y <- fdat$y
