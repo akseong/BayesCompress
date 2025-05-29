@@ -241,68 +241,68 @@ SLHS <- nn_module(
 
 
 ```{r TRAIN_SLNJ, eval=params$retrain}
-# ## This chunk only runs if params$retrain == TRUE
-# ## generate linear data  
-# n_obs <- 100
-# true_coefs = c(-0.5, 1, -2, 4, rep(0, times = 100))
-# slhs_net <- SLHS()
-# set.seed(params$seed)
-# err_sig <- 1
-# lin_simdat <- sim_linear_data(
-#   n = n_obs,
-#   true_coefs = true_coefs,
-#   err_sigma = err_sig
-# )
-# 
-# train_epochs <- 200000
-# 
-# convergence_crit <- 1e-7
-# 
-# slhs_net(lin_simdat$x)
-# optim_slhs <- optim_adam(slhs_net$parameters)
-# loss_diff <- 1
-# loss <- torch_zeros(1)
-# 
-# verbose <- TRUE
-# epoch <- 1
-# while (epoch < train_epochs & abs(loss_diff) > convergence_crit){
-#   prev_loss <- loss
-#   epoch <- epoch + 1
-#   
-#   y_pred <- slhs_net(lin_simdat$x)
-#   
-#   mse <- nnf_mse_loss(y_pred, lin_simdat$y)
-#   kl <- slhs_net$get_model_kld() / lin_simdat$n
-#   
-#   loss <- mse + kl
-#   loss_diff <- (loss - prev_loss)$item()
-#   
-#   if(epoch %% 1000 == 0 & verbose){
-#     cat(
-#       "Epoch: ", epoch, 
-#       "MSE + KL/n = ", mse$item(), " + ", kl$item(), 
-#       " = ", loss$item(), 
-#       "\n"
-#     )
-#     # Eztilde <- slhs_net$fc1$get_Eztilde_i()
-#     # Vztilde <- slhs_net$fc1$get_Vztilde_i()
-#     # cat("E[ztilde_i]: ", round(as_array(Eztilde), 4), "\n \n")
-#     # cat("V[ztilde_i]: ", round(as_array(Vztilde), 4), "\n \n \n")
-#     # cat(round(as_array(slnj_net$fc1$z_mu), 4), "\n")
-#     w_mu <- slhs_net$fc1$compute_posterior_param()$post_weight_mu
-#     cat("E[W]: ", round(as_array(w_mu), 2), "\n")
-#     dropout_alphas <- exp(slhs_net$fc1$get_log_dropout_rates())
-#     cat("alphas: ", round(as_array(dropout_alphas), 2), "\n \n")
-#     
-#   }
-#   
-#   # zero out previous gradients
-#   optim_slhs$zero_grad()
-#   # backprop
-#   loss$backward()
-#   # update weights
-#   optim_slhs$step()
-# }
+## This chunk only runs if params$retrain == TRUE
+## generate linear data
+n_obs <- 100
+true_coefs = c(-0.5, 1, -2, 4, rep(0, times = 100))
+slhs_net <- SLHS()
+set.seed(params$seed)
+err_sig <- 1
+lin_simdat <- sim_linear_data(
+  n = n_obs,
+  true_coefs = true_coefs,
+  err_sigma = err_sig
+)
+
+train_epochs <- 200000
+
+convergence_crit <- 1e-7
+
+slhs_net(lin_simdat$x)
+optim_slhs <- optim_adam(slhs_net$parameters)
+loss_diff <- 1
+loss <- torch_zeros(1)
+
+verbose <- TRUE
+epoch <- 1
+while (epoch < train_epochs & abs(loss_diff) > convergence_crit){
+  prev_loss <- loss
+  epoch <- epoch + 1
+
+  y_pred <- slhs_net(lin_simdat$x)
+
+  mse <- nnf_mse_loss(y_pred, lin_simdat$y)
+  kl <- slhs_net$get_model_kld() / lin_simdat$n
+
+  loss <- mse + kl
+  loss_diff <- (loss - prev_loss)$item()
+
+  if(epoch %% 1000 == 0 & verbose){
+    cat(
+      "Epoch: ", epoch,
+      "MSE + KL/n = ", mse$item(), " + ", kl$item(),
+      " = ", loss$item(),
+      "\n"
+    )
+    # Eztilde <- slhs_net$fc1$get_Eztilde_i()
+    # Vztilde <- slhs_net$fc1$get_Vztilde_i()
+    # cat("E[ztilde_i]: ", round(as_array(Eztilde), 4), "\n \n")
+    # cat("V[ztilde_i]: ", round(as_array(Vztilde), 4), "\n \n \n")
+    # cat(round(as_array(slnj_net$fc1$z_mu), 4), "\n")
+    w_mu <- slhs_net$fc1$compute_posterior_param()$post_weight_mu
+    cat("E[W]: ", round(as_array(w_mu), 2), "\n")
+    dropout_alphas <- exp(slhs_net$fc1$get_log_dropout_rates())
+    cat("alphas: ", round(as_array(dropout_alphas), 2), "\n \n")
+
+  }
+
+  # zero out previous gradients
+  optim_slhs$zero_grad()
+  # backprop
+  loss$backward()
+  # update weights
+  optim_slhs$step()
+}
 # 
 # 
 # 
@@ -521,10 +521,10 @@ get_lm_stats(simdat = lin_simdat, include = which(hskeep_50))
 
 ```{r}
 fcn1 <- function(x) exp(x/2)
-fcn2 <- function(x) cos(pi*x)
+fcn2 <- function(x) cos(pi*x) + sin(pi/1.2*x) - x
 fcn3 <- function(x) abs(x)^(1.5)
-fcn4 <- function(x) cos(pi*x) + sin(pi/1.2*x) - x
-
+fcn4 <- function(x) -x^2 / 2 -3
+fcn4 <- function(x) - log(abs(x))
 flist = list(fcn1, fcn2, fcn3, fcn4)
 
 xshow <- seq(-3, 3, length.out = 100)
@@ -543,12 +543,12 @@ df %>%
   labs(title = "functions used to create data")
 
 
-fdat <- sim_func_data(
-  n_obs = 1000,
-  d_in = d_in,
-  flist = flist,
-  err_sigma = 1
-)
+
+x <- torch_randn(500, d_in)
+  y <- rep(0, 500)
+  for(j in 1:length(flist)){
+    y <- y + flist[[j]](x[,j])
+  }
 
 # checking
 td <- sim_func_data(flist = flist, err_sigma = 0)
@@ -567,6 +567,21 @@ plot(x4, y, main = "y vs x4. \n f4 = cos(pi*x4) + sin(pi/1.2*x4) - x4 \n y = f1(
 ```
 
 
+```{r DOUBLECHECK}
+y1 <- as_array(td$y$squeeze(2) - fcn2(td$x[,2]) - fcn3(td$x[,3])- fcn4(td$x[,4]))
+y2 <- as_array(td$y$squeeze(2) - fcn1(td$x[,1]) - fcn3(td$x[,3])- fcn4(td$x[,4]))
+y3 <- as_array(td$y$squeeze(2) - fcn2(td$x[,2]) - fcn1(td$x[,1])- fcn4(td$x[,4]))
+y4 <- as_array(td$y$squeeze(2) - fcn2(td$x[,2]) - fcn3(td$x[,3])- fcn1(td$x[,1]))
+
+plot(x1, y1, main = "y1 vs x1. \n y1 = y - [f2(x2) + f3(x3) + f4(x4)]")
+plot(x2, y2, main = "y2 vs x2. \n y2 = y - [f1(x1) + f3(x3) + f4(x4)]")
+plot(x3, y3, main = "y3 vs x3.")
+plot(x4, y4, main = "y4 vs x4.")
+
+```
+
+
+
 
 ## gen data, define NNet
 
@@ -574,8 +589,8 @@ Generate data with 4 covariates that are non-linearly related to the outcome (as
 
 
 ```{r}
-n_obs <- 5000
-
+n_obs <- 50000
+d_in <- 10
 set.seed(params$seed)
 fdat <- sim_func_data(
   n = n_obs,
@@ -583,8 +598,8 @@ fdat <- sim_func_data(
   flist = flist,
   err_sigma = 0)
 
-d_hidden1 <- 64
-d_hidden2 <- 32
+d_hidden1 <- 16
+# d_hidden2 <- 16
 d_out <- 1
 
 MLHS <- nn_module(
@@ -604,16 +619,6 @@ MLHS <- nn_module(
 
     self$fc2 = torch_hs(
       in_features = d_hidden1,
-      out_features = d_hidden2,
-      use_cuda = FALSE,
-      tau = 1,
-      init_weight = NULL,
-      init_bias = NULL,
-      clip_var = NULL
-    )
-
-    self$fc3 = torch_hs(
-      in_features = d_hidden2,
       out_features = d_out,
       use_cuda = FALSE,
       tau = 1,
@@ -622,15 +627,25 @@ MLHS <- nn_module(
       clip_var = NULL
     )
 
+    # self$fc3 = torch_hs(
+    #   in_features = d_hidden2,
+    #   out_features = d_out,
+    #   use_cuda = FALSE,
+    #   tau = 1,
+    #   init_weight = NULL,
+    #   init_bias = NULL,
+    #   clip_var = NULL
+    # )
+
   },
 
   forward = function(x) {
     x %>%
       self$fc1() %>%
       nnf_relu() %>%
-      self$fc2() %>%
-      nnf_relu() %>%
-      self$fc3()
+      self$fc2() # %>%
+      # nnf_relu() %>%
+      # self$fc3()
   },
 
 
@@ -638,8 +653,8 @@ MLHS <- nn_module(
   get_model_kld = function(){
     kl1 = self$fc1$get_kl()
     kl2 = self$fc2$get_kl()
-    kl3 = self$fc3$get_kl()
-    kld = kl1 + kl2 + kl3
+    # kl3 = self$fc3$get_kl()
+    kld = kl1 + kl2 # + kl3
     return(kld)
   }
 )
@@ -692,8 +707,18 @@ for (epoch in 1:train_epochs){
 
 }
 
+# investigating --- alphas not moving, all staying ~ 0.05
+as_array(fcn_model$fc1$get_log_dropout_rates()$exp())
+as_array(fcn_model$fc2$get_log_dropout_rates()$exp())
+as_array(fcn_model$fc3$get_log_dropout_rates()$exp())
 
-dropout_alphas <- fcn_model$fc1$get_log_dropout_rates()$exp()
+fcn_model$fc1$compute_posterior_param()
+
+
+
+
+
+
 
 fcn_model_keeps <- fcn_model$fc1$get_log_dropout_rates()$exp() < 0.05
 true_gam <- c(
