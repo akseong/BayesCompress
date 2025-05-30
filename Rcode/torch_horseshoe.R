@@ -127,6 +127,7 @@ torch_hs <- nn_module(
     tau = 1, # scale parameter for global shrinkage prior
     init_weight = NULL,
     init_bias = NULL,
+    init_alpha = NULL,
     clip_var = NULL
   ){
     
@@ -199,10 +200,17 @@ torch_hs <- nn_module(
     
     # initialize log variances
     # self$z_logvar <- nn_parameter(torch_normal(mean = log(init_alpha), 1e-2, size = self$in_features)) 
+    # init_alpha: set atilde_logvar = btilde_logvar = log(2*log(1 + init_alpha))
+    # default is init_alpha = 0.5
+    if (!is.null(init_alpha)) {
+      logvar_abtilde_mu <- log(2*log(1 + init_alpha))
+    } else {
+      logvar_abtilde_mu <- log(2*log(1.5))
+    }
     self$sa_logvar <- nn_parameter(torch_normal(mean = log(.5), 1e-2, size = 1))
     self$sb_logvar <- nn_parameter(torch_normal(mean = log(.5), 1e-2, size = 1))
-    self$atilde_logvar <- nn_parameter(torch_normal(mean = log(.5), 1e-2, size = self$in_features))
-    self$btilde_logvar <- nn_parameter(torch_normal(mean = log(.5), 1e-2, size = self$in_features))
+    self$atilde_logvar <- nn_parameter(torch_normal(mean = logvar_abtilde_mu, 1e-2, size = self$in_features))
+    self$btilde_logvar <- nn_parameter(torch_normal(mean = logvar_abtilde_mu, 1e-2, size = self$in_features))
     
     self$ztilde_mu <- mu_sqrt_prod_LN(self$atilde_mu, self$btilde_mu)
     self$ztilde_logvar <- logvar_sqrt_prod_LN(self$atilde_logvar, self$btilde_logvar)
