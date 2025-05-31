@@ -523,7 +523,7 @@ get_lm_stats(simdat = lin_simdat, include = which(hskeep_50))
 fcn1 <- function(x) exp(x/2)
 fcn2 <- function(x) cos(pi*x) + sin(pi/1.2*x) - x
 fcn3 <- function(x) abs(x)^(1.5)
-fcn4 <- function(x) -x^2 / 2 -3
+# fcn4 <- function(x) -x^2 / 2 -3
 fcn4 <- function(x) - log(abs(x))
 flist = list(fcn1, fcn2, fcn3, fcn4)
 
@@ -567,7 +567,7 @@ plot(x4, y, main = "y vs x4. \n f4 = cos(pi*x4) + sin(pi/1.2*x4) - x4 \n y = f1(
 ```
 
 
-```{r DOUBLECHECK}
+```{r DOUBLECHECK, eval = F, echo = F}
 y1 <- as_array(td$y$squeeze(2) - fcn2(td$x[,2]) - fcn3(td$x[,3])- fcn4(td$x[,4]))
 y2 <- as_array(td$y$squeeze(2) - fcn1(td$x[,1]) - fcn3(td$x[,3])- fcn4(td$x[,4]))
 y3 <- as_array(td$y$squeeze(2) - fcn2(td$x[,2]) - fcn1(td$x[,1])- fcn4(td$x[,4]))
