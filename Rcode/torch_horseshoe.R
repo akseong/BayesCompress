@@ -212,12 +212,6 @@ torch_hs <- nn_module(
     self$atilde_logvar <- nn_parameter(torch_normal(mean = logvar_abtilde_mu, 1e-2, size = self$in_features))
     self$btilde_logvar <- nn_parameter(torch_normal(mean = logvar_abtilde_mu, 1e-2, size = self$in_features))
     
-    self$ztilde_mu <- mu_sqrt_prod_LN(self$atilde_mu, self$btilde_mu)
-    self$ztilde_logvar <- logvar_sqrt_prod_LN(self$atilde_logvar, self$btilde_logvar)
-    
-    self$s_mu <- mu_sqrt_prod_LN(self$atilde_mu, self$btilde_mu)
-    self$s_logvar <- logvar_sqrt_prod_LN(self$sa_mu, self$sb_mu)
-    
     self$weight_logvar <- nn_parameter(torch_normal(-9, 1e-2, size = c(self$out_features, self$in_features)))
     self$bias_logvar <- nn_parameter(torch_normal(-9, 1e-2, size = self$out_features))
   },
@@ -265,23 +259,23 @@ torch_hs <- nn_module(
     ))
   },
   
-  get_log_dropout_rates = function(type = "local"){
+  get_dropout_rates = function(type = "local"){
   # calculates dropout rates based on :
   # type == "local":    ztilde = sqrt(atilde btilde)
   # type == "global":    s = sqrt(sa sb)
   # type == "marginal":    z = ztilde * s
   
   if (type == "local"){
-    logvar_sum <- self$atilde_logvar + self$btilde_logvar
+    var_sum <- self$atilde_logvar$exp() + self$btilde_logvar$exp()
   } else if (type == "global"){
-    logvar_sum <- self$sa_logvar + self$sb_logvar
+    var_sum <- self$sa_logvar$exp() + self$sb_logvar$exp()
   } else if (type == "marginal"){
-    logvar_sum <- self$atilde_logvar + self$btilde_logvar + self$sa_logvar + self$sb_logvar
+    var_sum <- self$atilde_logvar$exp() + self$btilde_logvar$exp() + self$sa_logvar$exp() + self$sb_logvar$exp()
   }
   
-  type_var <- exp(logvar_sum - log(4))
-  log_dropout <- log(exp(type_var) - 1)
-  return(log_dropout)
+  type_var <- var_sum / 4
+  alpha = type_var$exp() - 1
+  return(alpha)
   },
   
   forward = function(x){
