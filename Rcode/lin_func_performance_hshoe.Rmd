@@ -221,6 +221,7 @@ SLHS <- nn_module(
       tau = 1,
       init_weight = NULL,
       init_bias = NULL,
+      init_alpha = 0.5,
       clip_var = NULL
     )
   },
@@ -243,66 +244,66 @@ SLHS <- nn_module(
 ```{r TRAIN_SLNJ, eval=params$retrain}
 # ## This chunk only runs if params$retrain == TRUE
 # ## generate linear data
-# n_obs <- 100
-# true_coefs = c(-0.5, 1, -2, 4, rep(0, times = 100))
-# slhs_net <- SLHS()
-# set.seed(params$seed)
-# err_sig <- 1
-# lin_simdat <- sim_linear_data(
-#   n = n_obs,
-#   true_coefs = true_coefs,
-#   err_sigma = err_sig
-# )
-# 
-# train_epochs <- 200000
-# 
-# convergence_crit <- 1e-7
-# 
-# slhs_net(lin_simdat$x)
-# optim_slhs <- optim_adam(slhs_net$parameters)
-# loss_diff <- 1
-# loss <- torch_zeros(1)
-# 
-# verbose <- TRUE
-# epoch <- 1
-# while (epoch < train_epochs & abs(loss_diff) > convergence_crit){
-#   prev_loss <- loss
-#   epoch <- epoch + 1
-# 
-#   y_pred <- slhs_net(lin_simdat$x)
-# 
-#   mse <- nnf_mse_loss(y_pred, lin_simdat$y)
-#   kl <- slhs_net$get_model_kld() / lin_simdat$n
-# 
-#   loss <- mse + kl
-#   loss_diff <- (loss - prev_loss)$item()
-# 
-#   if(epoch %% 1000 == 0 & verbose){
-#     cat(
-#       "Epoch: ", epoch,
-#       "MSE + KL/n = ", mse$item(), " + ", kl$item(),
-#       " = ", loss$item(),
-#       "\n"
-#     )
-#     # Eztilde <- slhs_net$fc1$get_Eztilde_i()
-#     # Vztilde <- slhs_net$fc1$get_Vztilde_i()
-#     # cat("E[ztilde_i]: ", round(as_array(Eztilde), 4), "\n \n")
-#     # cat("V[ztilde_i]: ", round(as_array(Vztilde), 4), "\n \n \n")
-#     # cat(round(as_array(slnj_net$fc1$z_mu), 4), "\n")
-#     w_mu <- slhs_net$fc1$compute_posterior_param()$post_weight_mu
-#     cat("E[W]: ", round(as_array(w_mu), 2), "\n")
-#     dropout_alphas <- exp(slhs_net$fc1$get_log_dropout_rates())
-#     cat("alphas: ", round(as_array(dropout_alphas), 2), "\n \n")
-# 
-#   }
-# 
-#   # zero out previous gradients
-#   optim_slhs$zero_grad()
-#   # backprop
-#   loss$backward()
-#   # update weights
-#   optim_slhs$step()
-# }
+n_obs <- 100
+true_coefs = c(-0.5, 1, -2, 4, rep(0, times = 100))
+slhs_net <- SLHS()
+set.seed(params$seed)
+err_sig <- 1
+lin_simdat <- sim_linear_data(
+  n = n_obs,
+  true_coefs = true_coefs,
+  err_sigma = err_sig
+)
+
+train_epochs <- 200000
+
+convergence_crit <- 1e-7
+
+slhs_net(lin_simdat$x)
+optim_slhs <- optim_adam(slhs_net$parameters)
+loss_diff <- 1
+loss <- torch_zeros(1)
+
+verbose <- TRUE
+epoch <- 1
+while (epoch < train_epochs & abs(loss_diff) > convergence_crit){
+  prev_loss <- loss
+  epoch <- epoch + 1
+
+  y_pred <- slhs_net(lin_simdat$x)
+
+  mse <- nnf_mse_loss(y_pred, lin_simdat$y)
+  kl <- slhs_net$get_model_kld() / lin_simdat$n
+
+  loss <- mse + kl
+  loss_diff <- (loss - prev_loss)$item()
+  
+  
+  if(epoch %% 1000 == 0 & verbose){
+    cat(
+      "Epoch: ", epoch,
+      "MSE + KL/n = ", mse$item(), " + ", kl$item(),
+      " = ", loss$item(),
+      "\n"
+    )
+    # Eztilde <- slhs_net$fc1$get_Eztilde_i()
+    # Vztilde <- slhs_net$fc1$get_Vztilde_i()
+    # cat("E[ztilde_i]: ", round(as_array(Eztilde), 4), "\n \n")
+    # cat("V[ztilde_i]: ", round(as_array(Vztilde), 4), "\n \n \n")
+    # cat(round(as_array(slnj_net$fc1$z_mu), 4), "\n")
+    w_mu <- slhs_net$fc1$compute_posterior_param()$post_weight_mu
+    cat("E[W|y]: ", round(as_array(w_mu), 2), "\n")
+    dropout_alphas <- slhs_net$fc1$get_dropout_rates()
+    cat("alphas: ", round(as_array(dropout_alphas), 2), "\n \n")
+  }
+
+  # zero out previous gradients
+  optim_slhs$zero_grad()
+  # backprop
+  loss$backward()
+  # update weights
+  optim_slhs$step()
+}
 # 
 # 
 # 
@@ -683,7 +684,9 @@ for (epoch in 1:train_epochs){
 
   mse <- nnf_mse_loss(y_pred, y)
   kl <- fcn_model$get_model_kld() / fdat$n
-
+  
+  
+  
   loss <- mse + kl
 
   if(epoch %% 1000 == 0){
@@ -734,6 +737,24 @@ fcn_model_bin_err
 post_w1 <- fcn_model$fc1$compute_posterior_param()
 
 post_w1$post_weight_mu
+
+
+fcn_model$fc1$atilde_logvar
+fcn_model$fc1$atilde_mu
+fcn_model$fc1$btilde_logvar
+fcn_model$fc1$btilde_mu
+
+
+fcn_model$fc1$sa_logvar
+fcn_model$fc1$sa_mu
+fcn_model$fc1$sb_logvar
+fcn_model$fc1$sb_mu
+fcn_model$fc1$weight_logvar
+fcn_model$fc1$weight_mu
+
+fcn_model$fc1$bias_logvar
+fcn_model$fc1$bias_mu
+
 
 
 
