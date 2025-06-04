@@ -687,7 +687,7 @@ y <- fdat$y
 
 optim <- optim_adam(fcn_model$parameters)
 
-train_epochs <- 200000
+train_epochs <- 2000000
 loss_mat <- array(data = NA, dim = c(train_epochs/100, 4))
 colnames(loss_mat) <- c("epoch", "mse", "kl", "loss")
 
@@ -702,7 +702,7 @@ for (epoch in 1:train_epochs){
   
   loss <- mse + kl
 
-  if(epoch %% 100 == 0){
+  if(epoch %% 10000 == 0){
     cat(
       "Epoch: ", epoch,
       "MSE + KL/n = ", mse$item(), " + ", kl$item(),
