@@ -246,8 +246,9 @@ SLHS <- nn_module(
 # ## generate linear data
 # n_obs <- 100
 # true_coefs = c(-0.5, 1, -2, 4, rep(0, times = 100))
-# slhs_net <- SLHS()
 # set.seed(params$seed)
+# torch_manual_seed(params$seed)
+# slhs_net <- SLHS()
 # err_sig <- 1
 # lin_simdat <- sim_linear_data(
 #   n = n_obs,
@@ -593,6 +594,7 @@ Generate data with 4 covariates that are non-linearly related to the outcome (as
 n_obs <- 1000
 d_in <- 10
 set.seed(params$seed)
+torch_manual_seed(params$seed)
 # fdat <- sim_func_data(
 #   n = n_obs,
 #   d_in = d_in,
@@ -603,7 +605,7 @@ fdat <- sim_linear_data(
   n_obs = n_obs, 
   d_in = d_in, 
   d_true = 4,
-  err_sigma = 0, 
+  err_sigma = 1, 
   true_coefs = true_coefs[1:d_in]
 )
 
