@@ -595,24 +595,24 @@ n_obs <- 5000
 d_in <- 104
 set.seed(params$seed)
 torch_manual_seed(params$seed)
-fdat <- sim_func_data(
-  n = n_obs,
+# fdat <- sim_func_data(
+#   n = n_obs,
+#   d_in = d_in,
+#   flist = flist,
+#   err_sigma = 0)
+
+fdat <- sim_linear_data(
+  n_obs = n_obs,
   d_in = d_in,
-  flist = flist,
-  err_sigma = 0)
-
-# fdat <- sim_linear_data(
-#   n_obs = n_obs, 
-#   d_in = d_in, 
-#   d_true = 4,
-#   err_sigma = 1, 
-#   true_coefs = true_coefs[1:d_in]
-# )
+  d_true = 4,
+  err_sigma = 1,
+  true_coefs = true_coefs[1:d_in]
+)
 
 
 
-d_hidden1 <- 4
-d_hidden2 <- 4
+d_hidden1 <- 16
+d_hidden2 <- 8
 d_out <- 1
 
 MLHS <- nn_module(
