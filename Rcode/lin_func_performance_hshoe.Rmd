@@ -725,6 +725,22 @@ for (epoch in 1:train_epochs){
 
 }
 
+contents <- list(
+  "n_obs" = n_obs,
+  "true_coefs" = true_coefs,
+  "seed" = params$seed,
+  "err_sig" = err_sig,
+  "d_in" = d_in,
+  "d_hidden1" = d_hidden1,
+  "d_hidden2" = d_hidden2,
+  "d_out" = d_out
+)
+
+save(contents, file = here::here("Rcode", "results", "hshoe_func_lindata.Rdata"))
+torch_save(fcn_model, path = here::here("Rcode", "results", "hshoe_func_lindata.pt"))
+
+
+
 # investigating --- alphas not moving, all staying ~ 0.05
 as_array(fcn_model$fc1$get_dropout_rates())
 as_array(fcn_model$fc2$get_dropout_rates())
