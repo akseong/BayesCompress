@@ -595,19 +595,19 @@ n_obs <- 5000
 d_in <- 104
 set.seed(params$seed)
 torch_manual_seed(params$seed)
-# fdat <- sim_func_data(
-#   n = n_obs,
-#   d_in = d_in,
-#   flist = flist,
-#   err_sigma = 0)
-
-fdat <- sim_linear_data(
-  n_obs = n_obs,
+fdat <- sim_func_data(
+  n = n_obs,
   d_in = d_in,
-  d_true = 4,
-  err_sigma = 1,
-  true_coefs = true_coefs[1:d_in]
-)
+  flist = flist,
+  err_sigma = 1)
+
+# fdat <- sim_linear_data(
+#   n_obs = n_obs,
+#   d_in = d_in,
+#   d_true = 4,
+#   err_sigma = 1,
+#   true_coefs = true_coefs[1:d_in]
+# )
 
 
 
@@ -736,8 +736,8 @@ contents <- list(
   "d_out" = d_out
 )
 
-save(contents, file = here::here("Rcode", "results", "hshoe_func_lindata.Rdata"))
-torch_save(fcn_model, path = here::here("Rcode", "results", "hshoe_func_lindata.pt"))
+save(contents, file = here::here("Rcode", "results", "hshoe_funcdata.Rdata"))
+torch_save(fcn_model, path = here::here("Rcode", "results", "hshoe_funcdata.pt"))
 
 
 
