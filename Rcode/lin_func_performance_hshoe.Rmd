@@ -739,7 +739,8 @@ contents <- list(
 save(contents, file = here::here("Rcode", "results", "hshoe_funcdata_n50k.Rdata"))
 torch_save(fcn_model, path = here::here("Rcode", "results", "hshoe_funcdata_n50k.pt"))
 
-
+load(here::here("Rcode", "results", "hshoe_funcdata_n50k.Rdata"))
+fcn_model <- torch_load(here::here("Rcode", "results", "hshoe_funcdata_n50k.pt"))
 
 xgrid <- -50:50/10
 length(xgrid)
