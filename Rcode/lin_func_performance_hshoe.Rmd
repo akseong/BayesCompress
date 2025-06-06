@@ -591,7 +591,7 @@ Generate data with 4 covariates that are non-linearly related to the outcome (as
 
 
 ```{r}
-n_obs <- 5000
+n_obs <- 50000
 d_in <- 104
 set.seed(params$seed)
 torch_manual_seed(params$seed)
@@ -736,8 +736,39 @@ contents <- list(
   "d_out" = d_out
 )
 
-save(contents, file = here::here("Rcode", "results", "hshoe_funcdata.Rdata"))
-torch_save(fcn_model, path = here::here("Rcode", "results", "hshoe_funcdata.pt"))
+save(contents, file = here::here("Rcode", "results", "hshoe_funcdata_n50k.Rdata"))
+torch_save(fcn_model, path = here::here("Rcode", "results", "hshoe_funcdata_n50k.pt"))
+
+
+
+xgrid <- -50:50/10
+length(xgrid)
+curvmat <- cbind(
+  c(xgrid, rep(0, 101*3)),
+  c(rep(0, 101), xgrid, rep(0, 101*2)),
+  c(rep(0, 101*2), xgrid, rep(0, 101)),
+  c(rep(0, 101*3), xgrid)
+)
+mat0 <- matrix(0, nrow = 404, ncol = 100)
+x_plot <- torch_tensor(cbind(curvmat, mat0))
+
+y_plot <- fcn_model(x_plot)
+
+plotmat <- cbind(as_array(y_plot), curvmat)
+colnames(plotmat) <- c("y", "x1", "x2", "x3", "x4")
+plotdf <- as.data.frame(plotmat)
+plotdf %>% 
+  gather(key = "fcn", value = "x", -y) %>% 
+  ggplot(aes(y = y, x = x, color = fcn)) + 
+  geom_line()
+
+
+df %>% 
+  pivot_longer(cols = -x, names_to = "fcn") %>% 
+  ggplot(aes(y = value, x = x, color = fcn)) +
+  geom_line() + 
+  labs(title = "functions used to create data")
+
 
 
 
