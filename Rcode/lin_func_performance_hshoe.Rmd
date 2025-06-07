@@ -682,11 +682,32 @@ MLHS <- nn_module(
 ## train
 
 ```{r TRAIN_MULTILAYER_HS, eval = params$retrain}
+
 fcn_model <- MLHS()
 x <- fdat$x
 y <- fdat$y
-# fcn_model(fdat$x)
 
+
+
+# setup plotting while training
+curvmat <- cbind(
+  c(xshow, rep(0, 100*3)),
+  c(rep(0, 100), xshow, rep(0, 100*2)),
+  c(rep(0, 100*2), xshow, rep(0, 100)),
+  c(rep(0, 100*3), xshow)
+)
+mat0 <- matrix(0, nrow = 400, ncol = 100)
+x_plot <- torch_tensor(cbind(curvmat, mat0))
+y_plot <- fcn_model(x_plot)
+plotmat <- cbind(as_array(y_plot), curvmat)
+colnames(plotmat) <- c("y", "x1", "x2", "x3", "x4")
+plotdf <- as.data.frame(plotmat)
+
+
+
+
+
+# training params / results
 optim <- optim_adam(fcn_model$parameters)
 
 train_epochs <- 2000000
@@ -696,12 +717,8 @@ colnames(loss_mat) <- c("epoch", "mse", "kl", "loss")
 for (epoch in 1:train_epochs){
 
   y_pred <- fcn_model(x)
-
   mse <- nnf_mse_loss(y_pred, y)
   kl <- fcn_model$get_model_kld() / fdat$n
-  
-  
-  
   loss <- mse + kl
 
   if(epoch %% 10000 == 0){
@@ -714,6 +731,11 @@ for (epoch in 1:train_epochs){
     dropout_alphas <- fcn_model$fc1$get_dropout_rates()
     cat(round(as_array(dropout_alphas), 4), "\n")
     loss_mat[epoch/100, ] = c(epoch, mse$item(), kl$item(), loss$item())
+    plotdf$y <- as_array(fcn_model(x_plot))
+    plotdf %>% 
+      gather(key = "fcn", value = "x", -y) %>% 
+      ggplot(aes(y = y, x = x, color = fcn)) + 
+      geom_line()
   }
 
   # zero out previous gradients
@@ -722,7 +744,6 @@ for (epoch in 1:train_epochs){
   loss$backward()
   # update weights
   optim$step()
-
 }
 
 contents <- list(
@@ -733,7 +754,8 @@ contents <- list(
   "d_in" = d_in,
   "d_hidden1" = d_hidden1,
   "d_hidden2" = d_hidden2,
-  "d_out" = d_out
+  "d_out" = d_out,
+  "plot_df" = plot_df
 )
 
 save(contents, file = here::here("Rcode", "results", "hshoe_funcdata_n100k.Rdata"))
@@ -742,22 +764,8 @@ torch_save(fcn_model, path = here::here("Rcode", "results", "hshoe_funcdata_n100
 load(here::here("Rcode", "results", "hshoe_funcdata_n50k.Rdata"))
 fcn_model <- torch_load(here::here("Rcode", "results", "hshoe_funcdata_n50k.pt"))
 
-xgrid <- -50:50/10
-length(xgrid)
-curvmat <- cbind(
-  c(xgrid, rep(0, 101*3)),
-  c(rep(0, 101), xgrid, rep(0, 101*2)),
-  c(rep(0, 101*2), xgrid, rep(0, 101)),
-  c(rep(0, 101*3), xgrid)
-)
-mat0 <- matrix(0, nrow = 404, ncol = 100)
-x_plot <- torch_tensor(cbind(curvmat, mat0))
 
-y_plot <- fcn_model(x_plot)
-
-plotmat <- cbind(as_array(y_plot), curvmat)
-colnames(plotmat) <- c("y", "x1", "x2", "x3", "x4")
-plotdf <- as.data.frame(plotmat)
+plotdf$y <- as_array(fcn_model(x_plot))
 plotdf %>% 
   gather(key = "fcn", value = "x", -y) %>% 
   ggplot(aes(y = y, x = x, color = fcn)) + 
