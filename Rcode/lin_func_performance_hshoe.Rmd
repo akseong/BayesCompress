@@ -591,7 +591,7 @@ Generate data with 4 covariates that are non-linearly related to the outcome (as
 
 
 ```{r}
-n_obs <- 50000
+n_obs <- 100000
 d_in <- 104
 set.seed(params$seed)
 torch_manual_seed(params$seed)
@@ -736,8 +736,8 @@ contents <- list(
   "d_out" = d_out
 )
 
-save(contents, file = here::here("Rcode", "results", "hshoe_funcdata_n50k.Rdata"))
-torch_save(fcn_model, path = here::here("Rcode", "results", "hshoe_funcdata_n50k.pt"))
+save(contents, file = here::here("Rcode", "results", "hshoe_funcdata_n100k.Rdata"))
+torch_save(fcn_model, path = here::here("Rcode", "results", "hshoe_funcdata_n100k.pt"))
 
 load(here::here("Rcode", "results", "hshoe_funcdata_n50k.Rdata"))
 fcn_model <- torch_load(here::here("Rcode", "results", "hshoe_funcdata_n50k.pt"))
