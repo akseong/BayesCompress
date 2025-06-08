@@ -732,10 +732,11 @@ for (epoch in 1:train_epochs){
     cat(round(as_array(dropout_alphas), 4), "\n")
     loss_mat[epoch/100, ] = c(epoch, mse$item(), kl$item(), loss$item())
     plotdf$y <- as_array(fcn_model(x_plot))
-    plotdf %>% 
+    plt <- plotdf %>% 
       gather(key = "fcn", value = "x", -y) %>% 
       ggplot(aes(y = y, x = x, color = fcn)) + 
       geom_line()
+    print(plt)
   }
 
   # zero out previous gradients
