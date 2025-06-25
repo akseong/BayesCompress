@@ -591,7 +591,7 @@ Generate data with 4 covariates that are non-linearly related to the outcome (as
 
 
 ```{r}
-n_obs <- 100000
+n_obs <- 10000
 d_in <- 104
 set.seed(params$seed)
 torch_manual_seed(params$seed)
@@ -710,7 +710,7 @@ plotdf <- as.data.frame(plotmat)
 # training params / results
 optim <- optim_adam(fcn_model$parameters)
 
-train_epochs <- 2000000
+train_epochs <- 500000
 loss_mat <- array(data = NA, dim = c(train_epochs/100, 4))
 colnames(loss_mat) <- c("epoch", "mse", "kl", "loss")
 
@@ -732,9 +732,9 @@ for (epoch in 1:train_epochs){
     cat(round(as_array(dropout_alphas), 4), "\n")
     loss_mat[epoch/100, ] = c(epoch, mse$item(), kl$item(), loss$item())
     plotdf$y <- as_array(fcn_model(x_plot))
-    plt <- plotdf %>% 
-      gather(key = "fcn", value = "x", -y) %>% 
-      ggplot(aes(y = y, x = x, color = fcn)) + 
+    plt <- plotdf %>%
+      gather(key = "fcn", value = "x", -y) %>%
+      ggplot(aes(y = y, x = x, color = fcn)) +
       geom_line()
     print(plt)
   }
@@ -749,21 +749,22 @@ for (epoch in 1:train_epochs){
 
 contents <- list(
   "n_obs" = n_obs,
-  "true_coefs" = true_coefs,
   "seed" = params$seed,
   "err_sig" = err_sig,
   "d_in" = d_in,
   "d_hidden1" = d_hidden1,
   "d_hidden2" = d_hidden2,
   "d_out" = d_out,
-  "plot_df" = plot_df
+  "df" = df,
+  "plotdf" = plotdf,
+  "loss_mat" = loss_mat
 )
 
-save(contents, file = here::here("Rcode", "results", "hshoe_funcdata_n100k.Rdata"))
-torch_save(fcn_model, path = here::here("Rcode", "results", "hshoe_funcdata_n100k.pt"))
+save(contents, file = here::here("Rcode", "results", "hshoe_funcdata_n10k.Rdata"))
+torch_save(fcn_model, path = here::here("Rcode", "results", "hshoe_funcdata_n10k.pt"))
 
-load(here::here("Rcode", "results", "hshoe_funcdata_n100k.Rdata"))
-fcn_model <- torch_load(here::here("Rcode", "results", "hshoe_funcdata_n100k.pt"))
+load(here::here("Rcode", "results", "hshoe_funcdata_n10k.Rdata"))
+fcn_model <- torch_load(here::here("Rcode", "results", "hshoe_funcdata_n10k.pt"))
 
 
 plotdf$y <- as_array(fcn_model(x_plot))
@@ -811,39 +812,14 @@ post_w1 <- fcn_model$fc1$compute_posterior_param()
 post_w1$post_weight_mu
 
 
-fcn_model$fc1$atilde_logvar
-fcn_model$fc1$atilde_mu
-fcn_model$fc1$btilde_logvar
-fcn_model$fc1$btilde_mu
 
-
-fcn_model$fc1$sa_logvar
-fcn_model$fc1$sa_mu
-fcn_model$fc1$sb_logvar
-fcn_model$fc1$sb_mu
-fcn_model$fc1$weight_logvar
-fcn_model$fc1$weight_mu
-
-fcn_model$fc1$bias_logvar
-fcn_model$fc1$bias_mu
-
-
-
-
-# check if mult done correctly --- check means and logvar products
-# problem seems to be when adding extra layers
-
-
-
-
-param_vis <- function(val_range = c(0,1)){
-  
-  
-  
-  
-}
 
 ```
+
+
+- how to get exact functions?  functions from `fcn_model` look good shape-wise, but scale is off.  
+  - retrain model with only chosen covariates?
+
 
 
 
