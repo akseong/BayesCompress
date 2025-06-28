@@ -292,14 +292,16 @@ $$\begin{aligned}
 Note that if we let $w_{l,i,j} = \tilde{w}_{l,i,j} z_{l, i}$, then $\tilde{w}_{l,i,j} | z_{l,i} \sim N(0,1)$.
 
 So that we will not need to formulate variational approximations to the half-Cauchy directly, we further decompose 
-$\tilde{z}_{l,i} = \tilde{\alpha}_{l,i} \tilde{\beta}_{l,i}$ 
-and $s_l= a_l b_l$ as follows:
+$\tilde{z}_{l,i} = \sqrt{\tilde{\alpha}_{l,i} \tilde{\beta}_{l,i}}$ 
+and $s_l= \sqrt{a_l b_l}$ as follows:
 
 $$\begin{aligned}
   \tilde{z}_{l,i} 
     & =  
-    \tilde{\alpha}_{l,i} 
-    \tilde{\beta}_{l,i}
+    \sqrt{
+      \tilde{\alpha}_{l,i} 
+      \tilde{\beta}_{l,i}
+    }
     \\
   & \tilde{\alpha}_{l,i}
     \sim \Gamma(1/2, 1)
@@ -307,7 +309,7 @@ $$\begin{aligned}
   & \tilde{\beta}_{l,i}
     \sim \text{Inv}\Gamma(1/2, 1)
     \\
-  s_l &= a_l b_l
+  s_l &= \sqrt{a_l b_l}
     \\
   & a_l
     \sim \Gamma(1/2, \tau_0^2)

@@ -2939,6 +2939,12 @@ activation function, we might represent a deep neural network with <span class="
   \sigma(H_{L-1})W_L + b_L = \hat{y}
     &amp;&amp; \text{output layer}
 \end{aligned}\]</span></p>
+<p>Where the dimensions of the matrices (starting with <span class="math inline">\(l = 2\)</span>) are:</p>
+<ul>
+<li><span class="math inline">\(W_l: J_{l-1} \times J_l\)</span></li>
+<li><span class="math inline">\(b_l: n \times J_l\)</span></li>
+<li><span class="math inline">\(H_l: n \times J_l\)</span></li>
+</ul>
 </div>
 </div>
 <div id="horseshoe-model" class="section level1">
@@ -2948,11 +2954,13 @@ activation function, we might represent a deep neural network with <span class="
 <li><p><span class="math inline">\(l \in \{1, 2, ..., L\}\)</span> index
 the layers of the deep neural network,</p></li>
 <li><p><span class="math inline">\(i \in \{1, 2, ..., I_l\}\)</span>
-index the rows of <span class="math inline">\(W_l\)</span>, and</p></li>
+index the rows of <span class="math inline">\(W_l\)</span> (weight
+matrix in layer <span class="math inline">\(l\)</span>), and</p></li>
 <li><p><span class="math inline">\(j \in \{1, 2, ..., J_l\}\)</span>
 index the columns.</p></li>
 </ul>
-<p>Then Bayesian model with a group-horseshoe prior is:</p>
+<p>Then the Bayesian model with a group-horseshoe prior on the rows of
+the weight matrices is:</p>
 <p><span class="math display">\[\begin{aligned}
   y
     &amp; \sim
@@ -2961,8 +2969,8 @@ index the columns.</p></li>
     \\
   p(W|z)
     &amp; \sim
-    \prod_{l, i \in \{1, 2, ..., I_l\}, j \in \{1, 2, ..., J_l\}}
-N(w_{l, i,j} | 0, z_{l, i}^2)
+    \prod_{l \in \{1, 2, ..., L\}, i \in \{1, 2, ..., I_l\}, j \in \{1,
+2, ..., J_l\}} N(w_{l, i,j} | 0, z_{l, i}^2)
     &amp;&amp; i, j \text{ index the columns and rows}
     \\
   z_{l,i}
@@ -2992,8 +3000,10 @@ b_l\)</span> as follows:</p>
 <p><span class="math display">\[\begin{aligned}
   \tilde{z}_{l,i}
     &amp; =  
-    \tilde{\alpha}_{l,i}
-    \tilde{\beta}_{l,i}
+    \sqrt{
+      \tilde{\alpha}_{l,i}
+      \tilde{\beta}_{l,i}
+    }
     \\
   &amp; \tilde{\alpha}_{l,i}
     \sim \Gamma(1/2, 1)
@@ -3001,7 +3011,7 @@ b_l\)</span> as follows:</p>
   &amp; \tilde{\beta}_{l,i}
     \sim \text{Inv}\Gamma(1/2, 1)
     \\
-  s_l &amp;= a_l b_l
+  s_l &amp;= \sqrt{a_l b_l}
     \\
   &amp; a_l
     \sim \Gamma(1/2, \tau_0^2)
@@ -3016,7 +3026,8 @@ b_l\)</span> as follows:</p>
 <h1>Variational distributions</h1>
 <p>As we will have a large number of parameters, an MCMC approach is
 cost-prohibitive. Instead, we use variational Bayes with the following
-approximate posterior distributions <span class="math inline">\(q_\phi(\cdot)\)</span>:</p>
+approximate posterior distributions <span class="math inline">\(q_\phi(\cdot)\)</span> (all are for an individual
+layer <span class="math inline">\(l\)</span>)</p>
 <p><span class="math display">\[\begin{aligned}
   q_{\phi}(a_l)
     &amp; =
