@@ -1,5 +1,5 @@
 ---
-title: "LUW2017 Horseshoe testing results"
+title: "Horseshoe model background"
 author: "Arnie Seong"
 date: "`r format(Sys.time(), '%d %B %Y')`"
 header-includes:
@@ -497,7 +497,7 @@ $$\begin{aligned}
 
 This dropout parameter $\alpha_{\tilde{z}_i}$ (referred to from now on just as $\alpha_i$) is our object of interest. 
 
-
+Also nice: the local shrinkage parameter controls the variational dropout rate only via its variance, which conforms nicely to the model since the _model_ distribution $p(\tilde{z})$ is half-Cauchy (nonexistent expectation).
 
 
 

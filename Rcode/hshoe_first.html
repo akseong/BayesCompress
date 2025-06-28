@@ -13,7 +13,7 @@
 
 <meta name="date" content="2025-06-27" />
 
-<title>LUW2017 Horseshoe testing results</title>
+<title>Horseshoe model background</title>
 
 <script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
 // be compatible with the behavior of Pandoc < 2.8).
@@ -2821,7 +2821,7 @@ font-size: 0.95em;
 
 
 
-<h1 class="title toc-ignore">LUW2017 Horseshoe testing results</h1>
+<h1 class="title toc-ignore">Horseshoe model background</h1>
 <h4 class="author">Arnie Seong</h4>
 <h4 class="date">27 June 2025</h4>
 
@@ -3252,6 +3252,10 @@ LogNormal(\mu_2, \sigma^2_2)\)</span> are independent, then</li>
 <p>This dropout parameter <span class="math inline">\(\alpha_{\tilde{z}_i}\)</span> (referred to from
 now on just as <span class="math inline">\(\alpha_i\)</span>) is our
 object of interest.</p>
+<p>Also nice: the local shrinkage parameter controls the variational
+dropout rate only via its variance, which conforms nicely to the model
+since the <em>model</em> distribution <span class="math inline">\(p(\tilde{z})\)</span> is half-Cauchy (nonexistent
+expectation).</p>
 </div>
 </div>
 <div id="to-do" class="section level1">
