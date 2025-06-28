@@ -2879,25 +2879,58 @@ for principled variable selection.</p>
 from LUW 2017</strong></span>:</p>
 <ul>
 <li><p>obvious, easy-to-accomplish contribution: provide empirical
-results on how good the method is at variable selection</p></li>
+results on how good the method is at variable selection</p>
+<ul>
+<li>different settings:
+<ul>
+<li>linear regression model<br />
+</li>
+<li>scalar-on-function regression<br />
+</li>
+<li>local null testing<br />
+</li>
+<li>under effect modification?</li>
+</ul></li>
+<li>can we figure out a way to identify subgroups within population?
+<ul>
+<li>clues in first layer activations?
+<ul>
+<li>can we induce patterning in first layer activations? e.g. ReLU
+activations might give us a bunch of zeroes. Can we induce it to give
+one pattern of zeroes for one subgroup, another pattern for another
+subgroup? (This is more broadly applicable than just this method.)</li>
+</ul></li>
+</ul></li>
+</ul></li>
 <li><p>a more rigorous interpretation of the dropout parameter <span class="math inline">\(\alpha_i\)</span> as an analog to a Wald
-statistic</p></li>
+statistic</p>
+<ul>
+<li><a href="https://www.sciencedirect.com/science/article/abs/pii/S0304407621002608">Posterior-based
+Wald tests</a><br />
+</li>
+<li><a href="http://www.mysmu.edu/faculty/yujun/Research/ABT33.pdf">pdf
+without VPN</a></li>
+</ul></li>
 <li><p>(Adam’s paper) using normalizing flow to model non-local
 prior</p></li>
-<li><p>some way to reconcile the mean-field assumption of Variational
-Bayes with group sparsity?</p>
+<li><p>(not a priority:) reconcile the mean-field assumption of
+Variational Bayes with group sparsity?</p>
 <ul>
-<li>as <em>LUW 2017</em> note, the log-uniform prior does require
-independence between parameters (but grouping by row creates
+<li>as <em>LUW 2017</em> note, <strong>the priors do require
+independence between parameters</strong> (but grouping by row creates
 dependence), so the joint Bayesian model developed in LUW 2017 is not
-strictly accurate and is more of an approximation</li>
+strictly accurate and is more of an approximation (and then an
+approximation to an approximation b/c variational inference)</li>
 </ul></li>
-<li><p>note that we do not use the log-uniform / Normal-Jeffrey’s prior,
-as it will shrink all parameters to 0 given enough training time due to
-the asymptote in the prior <span class="math inline">\(p(z_i) \propto 1
-/ |z_i|\)</span> (pointed out by <strong>Hron 2018</strong>).</p></li>
+<li><p>brief note that we do not use the log-uniform / Normal-Jeffrey’s
+prior, as it will shrink all parameters to 0 given enough training time
+due to the asymptote in the prior <span class="math inline">\(p(z_i)
+\propto 1 / |z_i|\)</span> (pointed out by <a href="https://proceedings.mlr.press/v80/hron18a/hron18a.pdf">Hron
+2018</a>).</p></li>
 </ul>
-<p><strong>Note on indices</strong>:</p>
+</div>
+<div id="single-layer-to-multiple-layers" class="section level2">
+<h2>single layer to multiple layers</h2>
 <ul>
 <li><p><span class="math inline">\(i \in \{1, 2, ..., I\}\)</span>
 indexes the rows of the weight matrix <span class="math inline">\(W\)</span>, i.e. the inputs or
@@ -2920,9 +2953,9 @@ i.e. duplicated and stacked/rowbound to form a <span class="math inline">\(n \t
 pre-activation</li>
 </ul>
 <p>In a single-layer neural network, i.e. the familiar linear regression
-model, <span class="math inline">\(H\)</span> is our prediction <span class="math inline">\(\hat{y}\)</span>.<br />
-In a multi-layer neural network, <span class="math inline">\(H\)</span>
-passes through some activation function <span class="math inline">\(\sigma()\)</span>. This <span class="math inline">\(\sigma(H) = \tilde H\)</span> then becomes the
+model, <span class="math inline">\(H\)</span> is our prediction <span class="math inline">\(\hat{y}\)</span>.</p>
+<p>In a multi-layer neural network, <span class="math inline">\(H\)</span> passes through some activation function
+<span class="math inline">\(\sigma()\)</span>. This <span class="math inline">\(\sigma(H) = \tilde H\)</span> then becomes the
 input for the next layer.</p>
 <p>Letting <span class="math inline">\(\sigma()\)</span> denote a chosen
 activation function, we might represent a deep neural network with <span class="math inline">\(L\)</span> layers as:</p>
@@ -2990,13 +3023,22 @@ the weight matrices is:</p>
     &amp;&amp; \text{global scale parameter prior; } \tau_0 \text{ a
 tuning parameter}
 \end{aligned}\]</span></p>
-<p>Note that if we let <span class="math inline">\(w_{l,i,j} =
+<ul>
+<li>Note that if we let <span class="math inline">\(w_{l,i,j} =
 \tilde{w}_{l,i,j} z_{l, i}\)</span>, then <span class="math inline">\(\tilde{w}_{l,i,j} | z_{l,i} \sim
-N(0,1)\)</span>.</p>
+N(0,1)\)</span>.</li>
+</ul>
 <p>So that we will not need to formulate variational approximations to
-the half-Cauchy directly, we further decompose <span class="math inline">\(\tilde{z}_{l,i} = \tilde{\alpha}_{l,i}
-\tilde{\beta}_{l,i}\)</span> and <span class="math inline">\(s_l= a_l
-b_l\)</span> as follows:</p>
+the half-Cauchy directly, we further decompose <span class="math inline">\(\tilde{z}_{l,i} = \sqrt{\tilde{\alpha}_{l,i}
+\tilde{\beta}_{l,i}}\)</span> and <span class="math inline">\(s_l=
+\sqrt{s_{a_l} s_{b_l}}\)</span> as follows:</p>
+<ul>
+<li>note: one <span class="math inline">\(s\)</span> per layer,
+i.e. <span class="math inline">\(s_l\)</span>. In the decomposition
+<span class="math inline">\(s_{a_l}\)</span> and <span class="math inline">\(s_{b_l}\)</span>, the <em>subscripts have
+subscripts</em>, i.e. <span class="math inline">\(a_l\)</span> and <span class="math inline">\(b_l\)</span>. <strong>Is this too
+confusing?</strong></li>
+</ul>
 <p><span class="math display">\[\begin{aligned}
   \tilde{z}_{l,i}
     &amp; =  
@@ -3011,12 +3053,13 @@ b_l\)</span> as follows:</p>
   &amp; \tilde{\beta}_{l,i}
     \sim \text{Inv}\Gamma(1/2, 1)
     \\
-  s_l &amp;= \sqrt{a_l b_l}
+  s_l &amp;= \sqrt{s_{a_l} s_{b_l}}
+    &amp;&amp; \text{dropping layer subcript: } s = \sqrt{s_a s_b}
     \\
-  &amp; a_l
+  &amp; s_{a_l}
     \sim \Gamma(1/2, \tau_0^2)
     \\
-  &amp; b_l
+  &amp; s_{b_l}
     \sim \text{Inv}\Gamma(1/2, 1)
     &amp;&amp;
     \\
@@ -3029,13 +3072,13 @@ cost-prohibitive. Instead, we use variational Bayes with the following
 approximate posterior distributions <span class="math inline">\(q_\phi(\cdot)\)</span> (all are for an individual
 layer <span class="math inline">\(l\)</span>)</p>
 <p><span class="math display">\[\begin{aligned}
-  q_{\phi}(a_l)
+  q_{\phi}(s_{a_l})
     &amp; =
-      logNormal(a_l | \mu_{a_l}, \sigma^2_{a_l})
+      logNormal(a_l | \mu_{s_{a_l}}, \sigma^2_{s_{a_l}})
       \\
-  q_{\phi}(b_l)
+  q_{\phi}(s_{b_l})
     &amp; =
-      logNormal(b_l | \mu_{b_l}, \sigma^2_{b_l})
+      logNormal(s_{b_l} | \mu_{s_{b_l}}, \sigma^2_{s_{b_l}})
       \\
   q_{\phi}(\tilde{\alpha}_l)
     &amp; =
@@ -3051,24 +3094,180 @@ layer <span class="math inline">\(l\)</span>)</p>
   q_{\phi}(\tilde{W}_l)
     &amp; =
       \prod_{i \in \{1, 2, ..., I_l\}, j \in \{1, 2, ..., J_l\}}
-logNormal(\tilde{w}_{l, i, j} | \mu_{\tilde{w}_{l, i, j}},
+Normal(\tilde{w}_{l, i, j} | \mu_{\tilde{w}_{l, i, j}},
 \sigma^2_{\tilde{w}_{l, i, j}})
       \\
 \end{aligned}\]</span></p>
 </div>
-<div id="linear-data-1-run" class="section level1">
-<h1>Linear data (1 run)</h1>
-<p>basic simulation setting:</p>
+<div id="elbo-and-kl-divergences" class="section level1">
+<h1>ELBO and KL divergences</h1>
+<p><span class="math display">\[\begin{aligned}
+  -KL \left(
+             \underset{LogNorm}{q_\phi(s_a)}  ||
+             \underset{Gamma}{p(s_a)}      
+      \right)
+    &amp; =
+    \log \tau_0
+    - \tau_0 \exp{\left(  \mu_{s_a} +
+\frac{1}{2}\sigma^2_{s_a}   \right)}
+    + \frac{1}{2}  \left(  \mu_{s_a} + \log \sigma^2_{s_a} + 1 + \log
+2  \right)
+    \\
+  -KL \left(
+             \underset{LogNorm}{q_\phi(\tilde{\alpha})}  ||
+             \underset{Gamma}{p(\tilde{\alpha})}      
+      \right)
+    &amp; =
+    \sum_i \left(
+      - \exp{\left(  \mu_{\alpha_i} +
+\frac{1}{2}\sigma^2_{\alpha_i}   \right)}
+      + \frac{1}{2}  
+        \left( \mu_{\alpha_i} + \log \sigma^2_{\alpha_i} + 1 + \log 2
+\right)  
+      \right)
+    \\
+  -KL \left(
+             \underset{LogNorm}{q_\phi(s_b)}  ||
+             \underset{InvGamma}{p(s_b)}      
+      \right)
+    &amp; =
+    - \exp{\left(  - \mu_{s_b} + \frac{1}{2}\sigma^2_{s_b}   \right)}
+    + \frac{1}{2}  \left(  - \mu_{s_b} + \log \sigma^2_{s_b} + 1 + \log
+2  \right)
+    \\  
+  -KL \left(
+             \underset{LogNorm}{q_\phi(\tilde{\beta})}  ||
+             \underset{InvGamma}{p(\tilde{\beta})}      
+      \right)
+    &amp; =
+    \sum_i
+    \left(
+      - \exp{
+        \left(  
+          -\mu_{\tilde{\beta}_i}
+          + \frac{1}{2} \sigma^2_{\tilde{\beta}_i}   
+        \right)}
+      + \frac{1}{2}  
+        \left(  
+          - \mu_{\tilde{\beta}_i} + \log \sigma^2_{\tilde{\beta}_i} + 1
++ \log 2  
+        \right)
+    \right)
+    \\  
+  -KL \left(
+             \underset{Norm}{q_\phi(W|z)}  ||
+             \underset{Norm}{p(W|z)}      
+      \right)
+    &amp; =
+    - \frac{1}{2}
+    \sum_i \left(
+      \log{\frac{1}{\sigma^2_{\tilde{w}_{i,j}}}} +
+\sigma^2_{\tilde{w}_i,j} + \mu^2_{\tilde{w}_{i,j}} - 1
+    \right)
+\end{aligned}\]</span></p>
 <ul>
-<li><p>p &gt; n</p></li>
-<li><p>sparse truth (4 true covariates, 100 nuisance)</p></li>
-<li><p>p = 104, n = 100</p></li>
-<li><p>100 obs generated as basic linear regression <span class="math inline">\(y = X\beta + \epsilon\)</span>, with <span class="math inline">\(\epsilon_i \sim N(0,1)\)</span></p></li>
-<li><p>Only first 4 covariates in <span class="math inline">\(X\)</span>
-(out of 104) actually have an effect (rest are nuisance var.s).<br />
-</p></li>
-<li><p>multivariate response also generated (but not used for
-now)</p></li>
+<li>note: The expression for <span class="math inline">\(-KL \left(
+q_\phi(W|z)  || p(W|z) \right)\)</span> is not dependent on <span class="math inline">\(z\)</span> because, under both the Bayesian model
+and the variational posterior formulation, <span class="math inline">\(W
+= \tilde{W}z\)</span>:
+<ul>
+<li>under the model: <span class="math inline">\(p(W|z) = \prod_{i,j}
+N(w_{i,j} | 0, z_i^2)\)</span>. Thus, if <span class="math inline">\(W =
+\tilde{W}z\)</span>, then <span class="math inline">\(\tilde{W}|z \sim
+\prod_{i,j} N(0,1)\)</span>, i.e. <span class="math inline">\(\tilde{W}\)</span> is independent of <span class="math inline">\(z\)</span><br />
+</li>
+<li>under the variational approximation, <span class="math inline">\(\tilde{W} \sim \prod_{i,j}
+N(\mu_{\tilde{w}_{i,j}}, \sigma^2_{\tilde{w}_{i,j}})\)</span> is
+independent of <span class="math inline">\(z\)</span> by construction
+(mean-field approximation)</li>
+</ul></li>
+</ul>
+</div>
+<div id="dropout-parameter-alpha_i" class="section level1">
+<h1>dropout parameter <span class="math inline">\(\alpha_i\)</span></h1>
+<p>For each row of the weight matrix <span class="math inline">\(W_l\)</span>, we can obtain a dropout parameter
+<span class="math inline">\(\alpha(\tilde{z}_i)\)</span> based on the
+local shrinkage parameter <span class="math inline">\(\tilde{z}_{i}\)</span> i.e.</p>
+<p><span class="math display">\[\alpha(\tilde{z}_i) = \frac{  Var \left(
+\tilde{z}_{i} \right)  }{  E^2 \left( \tilde{z}_{i}
+\right)  }\]</span></p>
+<div id="note-that-this-looks-a-whole-lot-like-the-inverse-of-a-wald-statistic." class="section level4">
+<h4>Note that this looks a whole lot like the inverse of a Wald
+statistic.</h4>
+<ul>
+<li><a href="https://www.sciencedirect.com/science/article/abs/pii/S0304407621002608" class="uri">https://www.sciencedirect.com/science/article/abs/pii/S0304407621002608</a>
+<ul>
+<li><a href="http://www.mysmu.edu/faculty/yujun/Research/ABT33.pdf">link
+to pdf without VPN</a></li>
+</ul></li>
+</ul>
+<p>To derive this, we draw on properties of the LogNormal distribution
+(the variational distribution for the local shrinkage parameter <span class="math inline">\(\tilde{z}_i\)</span>):</p>
+<ul>
+<li>If <span class="math inline">\(Z \sim N(\mu, \sigma^2)\)</span> and
+<span class="math inline">\(X = e^Z \sim LogNormal(\mu,
+\sigma^2)\)</span>, then</li>
+</ul>
+<p><span class="math display">\[\begin{aligned}
+  Var[X]
+    &amp; =
+    \left(  e^{\sigma^2} - 1 \right)
+    e^{\left(   2 \mu + \sigma^2   \right)}
+    \\
+  E[X]
+    &amp; =
+    e^{ \left( \mu + \frac{\sigma^2}{2} \right) }
+    \\
+  \frac{Var{X}}{E^2[X]}
+    &amp; =
+    e^{\sigma^2} - 1
+    \\
+\end{aligned}\]</span></p>
+<ul>
+<li>if <span class="math inline">\(X_1 \sim logNormal(\mu_1,
+\sigma^2_1)\)</span> and <span class="math inline">\(X_2 \sim
+LogNormal(\mu_2, \sigma^2_2)\)</span> are independent, then</li>
+</ul>
+<p><span class="math display">\[\sqrt{X_1 X_2} = \exp{
+\left(  \frac{1}{2}(Z_1 + Z_2)  \right)} \sim LogNormal
+\left(  \frac{\mu_1 + \mu_2}{2}, \frac{\sigma^2_1 + \sigma^2_2}{4}
+\right)\]</span></p>
+<ul>
+<li>Thus, since <span class="math inline">\(\tilde{z}_i =
+\sqrt{\tilde{\alpha}_i \tilde{\beta}_i}\)</span>:</li>
+</ul>
+<p><span class="math display">\[\begin{aligned}
+  \alpha(\tilde{z}_i)
+    &amp; =
+    \frac{  Var \left( \tilde{z}_{i} \right)  }
+         {  E^2 \left( \tilde{z}_{i} \right)  }
+    =
+    \exp{\left(
+        \frac{  \sigma^2_{\tilde{\alpha}_i}
+              + \sigma^2_{\tilde{\beta}_i }  }
+             {4}    
+    \right)}  
+    - 1.
+\end{aligned}\]</span></p>
+<p>This dropout parameter <span class="math inline">\(\alpha_{\tilde{z}_i}\)</span> (referred to from
+now on just as <span class="math inline">\(\alpha_i\)</span>) is our
+object of interest.</p>
+</div>
+</div>
+<div id="to-do" class="section level1">
+<h1>TO DO:</h1>
+<ul>
+<li><p>get simulations running on servers</p></li>
+<li><p>read <a href="https://www.sciencedirect.com/science/article/abs/pii/S0304407621002608">Liu
+et al 2022, Posterior-based Wald-type statistics for hypothesis
+testing</a></p>
+<ul>
+<li>hope to clarify ideas on dropout parameter <span class="math inline">\(\alpha_i\)</span> as (the inverse of) a Wald-type
+statistic</li>
+</ul></li>
+<li><p>test to see how method performs under effect
+modification</p></li>
+<li><p>test to see how method performs using orthogonal basis</p></li>
 </ul>
 </div>
 

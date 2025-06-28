@@ -194,22 +194,36 @@ We rely heavily here on the formulation and variational Bayes algorithm develope
 
 `r colorize("__How to differentiate ourselves from LUW 2017__")`:  
 
-- obvious, easy-to-accomplish contribution: provide empirical results on how good the method is at variable selection
+- obvious, easy-to-accomplish contribution: provide empirical results on how good the method is at variable selection  
+
+  - different settings:  
+    - linear regression model  
+    - scalar-on-function regression  
+    - local null testing  
+    - under effect modification?  
+    
+  - can we figure out a way to identify subgroups within population?  
+    - clues in first layer activations?  
+      - can we induce patterning in first layer activations? e.g. ReLU activations might give us a bunch of zeroes.  Can we induce it to give one pattern of zeroes for one subgroup, another pattern for another subgroup?  (This is more broadly applicable than just this method.)  
+        
 
 - a more rigorous interpretation of the dropout parameter $\alpha_i$ as an analog to a Wald statistic  
 
-- (Adam's paper) using normalizing flow to model non-local prior
+  - [Posterior-based Wald tests](https://www.sciencedirect.com/science/article/abs/pii/S0304407621002608)  
+  - [pdf without VPN](http://www.mysmu.edu/faculty/yujun/Research/ABT33.pdf)  
 
-- some way to reconcile the mean-field assumption of Variational Bayes with group sparsity?  
+- (Adam's paper) using normalizing flow to model non-local prior  
 
-  - as _LUW 2017_ note, the log-uniform prior does require independence between parameters (but grouping by row creates dependence), so the joint Bayesian model developed in LUW 2017 is not strictly accurate and is more of an approximation
-
-- note that we do not use the log-uniform / Normal-Jeffrey's prior, as it will shrink all parameters to 0 given enough training time due to the asymptote in the prior $p(z_i) \propto 1 / |z_i|$ (pointed out by __Hron 2018__).
-
-
+- (not a priority:) reconcile the mean-field assumption of Variational Bayes with group sparsity?  
+  - as _LUW 2017_ note, __the priors do require independence between parameters__ (but grouping by row creates dependence), so the joint Bayesian model developed in LUW 2017 is not strictly accurate and is more of an approximation (and then an approximation to an approximation b/c variational inference)  
 
 
-__Note on indices__: 
+- brief note that we do not use the log-uniform / Normal-Jeffrey's prior, as it will shrink all parameters to 0 given enough training time due to the asymptote in the prior $p(z_i) \propto 1 / |z_i|$ (pointed out by [Hron 2018](https://proceedings.mlr.press/v80/hron18a/hron18a.pdf)).
+
+
+
+
+## single layer to multiple layers 
 
 - $i \in \{1, 2, ..., I\}$ indexes the rows of the weight matrix $W$, i.e. the inputs or covariates.  
 
@@ -223,6 +237,8 @@ Thus, representing a fully connected layer of a neural network as $XW + b = H$, 
 - $H$: $n \times J$ matrix representing the pre-activation
 
 In a single-layer neural network, i.e. the familiar linear regression model, $H$ is our prediction $\hat{y}$.  
+
+
 In a multi-layer neural network, $H$ passes through some activation function $\sigma()$.  This $\sigma(H) = \tilde H$ then becomes the input for the next layer.
 
 Letting $\sigma()$ denote a chosen activation function, we might represent a deep neural network with $L$ layers as:
@@ -246,6 +262,7 @@ Where the dimensions of the matrices (starting with $l = 2$) are:
 - $W_l: J_{l-1} \times J_l$
 - $b_l: n \times J_l$
 - $H_l: n \times J_l$
+
 
 
 # Horseshoe Model
@@ -289,11 +306,13 @@ $$\begin{aligned}
     && \text{global scale parameter prior; } \tau_0 \text{ a tuning parameter}
 \end{aligned}$$
 
-Note that if we let $w_{l,i,j} = \tilde{w}_{l,i,j} z_{l, i}$, then $\tilde{w}_{l,i,j} | z_{l,i} \sim N(0,1)$.
+- Note that if we let $w_{l,i,j} = \tilde{w}_{l,i,j} z_{l, i}$, then $\tilde{w}_{l,i,j} | z_{l,i} \sim N(0,1)$.
 
 So that we will not need to formulate variational approximations to the half-Cauchy directly, we further decompose 
 $\tilde{z}_{l,i} = \sqrt{\tilde{\alpha}_{l,i} \tilde{\beta}_{l,i}}$ 
-and $s_l= \sqrt{a_l b_l}$ as follows:
+and $s_l= \sqrt{s_{a_l} s_{b_l}}$ as follows:
+
+- note: one $s$ per layer, i.e. $s_l$.  In the decomposition $s_{a_l}$ and $s_{b_l}$, the _subscripts have subscripts_, i.e. $a_l$ and $b_l$.  __Is this too confusing?__
 
 $$\begin{aligned}
   \tilde{z}_{l,i} 
@@ -309,12 +328,13 @@ $$\begin{aligned}
   & \tilde{\beta}_{l,i}
     \sim \text{Inv}\Gamma(1/2, 1)
     \\
-  s_l &= \sqrt{a_l b_l}
+  s_l &= \sqrt{s_{a_l} s_{b_l}}
+    && \text{dropping layer subcript: } s = \sqrt{s_a s_b}
     \\
-  & a_l
+  & s_{a_l}
     \sim \Gamma(1/2, \tau_0^2)
     \\
-  & b_l
+  & s_{b_l}
     \sim \text{Inv}\Gamma(1/2, 1)
     &&
     \\
@@ -329,13 +349,13 @@ $$\begin{aligned}
 As we will have a large number of parameters, an MCMC approach is cost-prohibitive.  Instead, we use variational Bayes with the following approximate posterior distributions $q_\phi(\cdot)$ (all are for an individual layer $l$)
 
 $$\begin{aligned}
-  q_{\phi}(a_l) 
+  q_{\phi}(s_{a_l}) 
     & = 
-      logNormal(a_l | \mu_{a_l}, \sigma^2_{a_l})
+      logNormal(a_l | \mu_{s_{a_l}}, \sigma^2_{s_{a_l}})
       \\
-  q_{\phi}(b_l) 
+  q_{\phi}(s_{b_l}) 
     & = 
-      logNormal(b_l | \mu_{b_l}, \sigma^2_{b_l})
+      logNormal(s_{b_l} | \mu_{s_{b_l}}, \sigma^2_{s_{b_l}})
       \\
   q_{\phi}(\tilde{\alpha}_l) 
     & = 
@@ -348,28 +368,152 @@ $$\begin{aligned}
       \\
   q_{\phi}(\tilde{W}_l) 
     & = 
-      \prod_{i \in \{1, 2, ..., I_l\}, j \in \{1, 2, ..., J_l\}} logNormal(\tilde{w}_{l, i, j} | \mu_{\tilde{w}_{l, i, j}}, \sigma^2_{\tilde{w}_{l, i, j}})
+      \prod_{i \in \{1, 2, ..., I_l\}, j \in \{1, 2, ..., J_l\}} Normal(\tilde{w}_{l, i, j} | \mu_{\tilde{w}_{l, i, j}}, \sigma^2_{\tilde{w}_{l, i, j}})
       \\
 \end{aligned}$$
 
 
 
 
+# ELBO and KL divergences
+
+$$\begin{aligned}
+  -KL \left( 
+             \underset{LogNorm}{q_\phi(s_a)}  || 
+             \underset{Gamma}{p(s_a)}      
+      \right)
+    & =
+    \log \tau_0 
+    - \tau_0 \exp{\left(  \mu_{s_a} + \frac{1}{2}\sigma^2_{s_a}   \right)} 
+    + \frac{1}{2}  \left(  \mu_{s_a} + \log \sigma^2_{s_a} + 1 + \log 2  \right)
+    \\
+  -KL \left( 
+             \underset{LogNorm}{q_\phi(\tilde{\alpha})}  || 
+             \underset{Gamma}{p(\tilde{\alpha})}      
+      \right)
+    & =
+    \sum_i \left(
+      - \exp{\left(  \mu_{\alpha_i} + \frac{1}{2}\sigma^2_{\alpha_i}   \right)} 
+      + \frac{1}{2}  
+        \left( \mu_{\alpha_i} + \log \sigma^2_{\alpha_i} + 1 + \log 2 \right)  
+      \right)
+    \\
+  -KL \left( 
+             \underset{LogNorm}{q_\phi(s_b)}  || 
+             \underset{InvGamma}{p(s_b)}      
+      \right)
+    & =
+    - \exp{\left(  - \mu_{s_b} + \frac{1}{2}\sigma^2_{s_b}   \right)} 
+    + \frac{1}{2}  \left(  - \mu_{s_b} + \log \sigma^2_{s_b} + 1 + \log 2  \right)
+    \\  
+  -KL \left( 
+             \underset{LogNorm}{q_\phi(\tilde{\beta})}  || 
+             \underset{InvGamma}{p(\tilde{\beta})}      
+      \right)
+    & =
+    \sum_i 
+    \left(
+      - \exp{
+        \left(  
+          -\mu_{\tilde{\beta}_i} 
+          + \frac{1}{2} \sigma^2_{\tilde{\beta}_i}   
+        \right)} 
+      + \frac{1}{2}  
+        \left(  
+          - \mu_{\tilde{\beta}_i} + \log \sigma^2_{\tilde{\beta}_i} + 1 + \log 2  
+        \right)
+    \right)
+    \\  
+  -KL \left( 
+             \underset{Norm}{q_\phi(W|z)}  || 
+             \underset{Norm}{p(W|z)}      
+      \right)
+    & = 
+    - \frac{1}{2}
+    \sum_i \left(
+      \log{\frac{1}{\sigma^2_{\tilde{w}_{i,j}}}} + \sigma^2_{\tilde{w}_i,j} + \mu^2_{\tilde{w}_{i,j}} - 1
+    \right)
+\end{aligned}$$
 
 
 
-# Linear data (1 run)
-
-basic simulation setting:  
-
-- p > n
-- sparse truth (4 true covariates, 100 nuisance)
-- p = 104, n = 100
+- note:  The expression for $-KL \left( q_\phi(W|z)  || p(W|z) \right)$ is not dependent on $z$ because, under both the Bayesian model and the variational posterior formulation, $W = \tilde{W}z$:    
+  - under the model: $p(W|z) = \prod_{i,j} N(w_{i,j} | 0, z_i^2)$.  Thus, if $W = \tilde{W}z$, then $\tilde{W}|z \sim \prod_{i,j} N(0,1)$, i.e. $\tilde{W}$ is independent of $z$  
+  - under the variational approximation, $\tilde{W} \sim \prod_{i,j} N(\mu_{\tilde{w}_{i,j}}, \sigma^2_{\tilde{w}_{i,j}})$ is independent of $z$ by construction (mean-field approximation)  
 
 
-- 100 obs generated as basic linear regression $y = X\beta + \epsilon$, with $\epsilon_i \sim N(0,1)$
-- Only first 4 covariates in $X$ (out of 104) actually have an effect (rest are nuisance var.s).  
-- multivariate response also generated (but not used for now)
+# dropout parameter $\alpha_i$
+
+For each row of the weight matrix $W_l$, we can obtain a dropout parameter $\alpha(\tilde{z}_i)$ based on the local shrinkage parameter $\tilde{z}_{i}$ i.e.
+
+$$\alpha(\tilde{z}_i) = \frac{  Var \left( \tilde{z}_{i} \right)  }{  E^2 \left( \tilde{z}_{i} \right)  }$$
+
+#### Note that this looks a whole lot like the inverse of a Wald statistic.
+
+- https://www.sciencedirect.com/science/article/abs/pii/S0304407621002608  
+  - [link to pdf without VPN](http://www.mysmu.edu/faculty/yujun/Research/ABT33.pdf)
+
+
+To derive this, we draw on properties of the LogNormal distribution (the variational distribution for the local shrinkage parameter $\tilde{z}_i$):
+
+- If $Z \sim N(\mu, \sigma^2)$ and $X = e^Z \sim LogNormal(\mu, \sigma^2)$, then 
+
+$$\begin{aligned}
+  Var[X] 
+    & = 
+    \left(  e^{\sigma^2} - 1 \right) 
+    e^{\left(   2 \mu + \sigma^2   \right)}
+    \\
+  E[X] 
+    & = 
+    e^{ \left( \mu + \frac{\sigma^2}{2} \right) }
+    \\
+  \frac{Var{X}}{E^2[X]} 
+    & = 
+    e^{\sigma^2} - 1
+    \\
+\end{aligned}$$
+
+- if $X_1 \sim logNormal(\mu_1, \sigma^2_1)$ and $X_2 \sim LogNormal(\mu_2, \sigma^2_2)$ are independent, then
+
+$$\sqrt{X_1 X_2} = \exp{ \left(  \frac{1}{2}(Z_1 + Z_2)  \right)} \sim LogNormal \left(  \frac{\mu_1 + \mu_2}{2}, \frac{\sigma^2_1 + \sigma^2_2}{4} \right)$$
+
+- Thus, since $\tilde{z}_i = \sqrt{\tilde{\alpha}_i \tilde{\beta}_i}$:
+
+$$\begin{aligned} 
+  \alpha(\tilde{z}_i) 
+    & = 
+    \frac{  Var \left( \tilde{z}_{i} \right)  }
+         {  E^2 \left( \tilde{z}_{i} \right)  }
+    = 
+    \exp{\left( 
+        \frac{  \sigma^2_{\tilde{\alpha}_i} 
+              + \sigma^2_{\tilde{\beta}_i }  }
+             {4}    
+    \right)}  
+    - 1.
+\end{aligned}$$
+
+
+This dropout parameter $\alpha_{\tilde{z}_i}$ (referred to from now on just as $\alpha_i$) is our object of interest. 
+
+
+
+
+
+
+# TO DO:
+
+- get simulations running on servers
+
+- read [Liu et al 2022, Posterior-based Wald-type statistics for hypothesis testing](https://www.sciencedirect.com/science/article/abs/pii/S0304407621002608)
+
+  - hope to clarify ideas on dropout parameter $\alpha_i$ as (the inverse of) a Wald-type statistic    
+
+- test to see how method performs under effect modification
+
+- test to see how method performs using orthogonal basis
+
 
 
 
