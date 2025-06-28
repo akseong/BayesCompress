@@ -394,7 +394,7 @@ $$\begin{aligned}
 
 If $Y \sim N(\mu_y, \sigma^2_Y)$, then $X = \e^Y \sim Log-Normal(\mu_Y, \sigma^2_Y)$, and the mean and variance of the log-normal-distributed RV $X$ are given by:  
 - $E[X] = \exp \left\{  {\mu + \frac{\sigma^2}{2}} \right\}$  
-- $Var[X] = \left( \exp\{{\sigma^2_Y}\} - 1  \right) \exp \left\{2 \mu_Y + \sigma^2_Y \right\}$  
+- $Var[X] = \left( \exp{{\sigma^2_Y}} - 1  \right) \exp \left\{2 \mu_Y + \sigma^2_Y \right\}$  
 
 Then, for the variational dropout rate, we use the variational parameters of the local shrinkage parameter $\tilde z$, where
 
