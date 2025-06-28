@@ -1,0 +1,383 @@
+---
+title: "LUW2017 Horseshoe testing results"
+author: "Arnie Seong"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+header-includes:
+  - \usepackage{bm}
+  - \usepackage{xcolor}
+  - \usepackage{amssymb}
+output: 
+  html_document:
+    df_print: paged
+    theme: cerulean
+    highlight: tango
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
+    code_fold: show
+urlcolor: blue
+params:
+  retrain: FALSE
+  seed: 314
+editor_options: 
+  chunk_output_type: console
+---
+
+
+```{r setup, include=FALSE, message=F, echo=F, warning=F}
+# LIBRARIES----
+
+#### plotting:
+library(ggplot2)
+library(gridExtra)
+
+# #### Misc:
+library(here)
+library(tidyr)
+library(knitr)
+library(kableExtra)
+library(dplyr)
+
+# DOCUMENT SETUP ----
+# detect pdf/html output, set chunk options, sci.notation 
+latex_out <- knitr::is_latex_output()
+knitr::opts_chunk$set(
+  cache = FALSE, 
+  message = FALSE, 
+  echo = !knitr::is_latex_output(), 
+  warning = FALSE
+)
+
+
+if (knitr::is_latex_output()) {
+  knitr::opts_chunk$set(fig.height=4, 
+                        fig.width=6)
+} else {
+  knitr::opts_chunk$set(out.width = "100%")
+}
+
+options(scipen=10)
+
+
+# TEXT/TABLE FORMATTING----
+
+custom_purple <- ifelse(
+  knitr::is_latex_output(),
+  "purple",
+  "#b51ced"
+)
+
+custom_blue <- ifelse(
+  knitr::is_latex_output(),
+  "blue",
+  "#11579e"
+)
+
+colorize <- function(x, color=custom_purple) {
+  # text color conditional on latex/html output
+  # from rmarkdown cookbook
+  if (knitr::is_latex_output()) {
+    sprintf("\\textcolor{ %s}{ %s}", color, x)
+  } else if (knitr::is_html_output()) {
+    sprintf("<span style='color: %s;'>%s</span>", color, x)
+  } else x
+}
+
+
+
+cat_color <- function(txt, style = 1, color = 36){
+  cat(
+    paste0(
+      "\033[0;",
+      style, ";",
+      color, "m",
+      txt,
+      "\033[0m","\n"
+    )
+  )  
+}
+
+# kable NA handling
+options(knitr.kable.NA = '')
+
+# mykable function
+mykable <- function(tab, cap,
+                    latex_options=c("hold_position", "scale_down", "striped"), 
+                    bootstrap_options=c("striped", "hover", "condensed"), 
+                    full_width=F, position="center", ...){
+  # kable formatting conditional on latex or html output
+  if (is.null(getOption("knitr.in.progress"))){
+    print(tab)
+  } else if (knitr::is_latex_output()){
+    kable(x=tab, caption=cap, ...) %>%
+      kableExtra::kable_styling(latex_options = latex_options)
+  } else if (knitr::is_html_output()){
+    kable(x=tab, caption=cap, ...) %>%
+      kableExtra::kable_styling(bootstrap_options = bootstrap_options, full_width=full_width, position=position)
+  }
+}
+
+source(here("Rcode", "torch_horseshoe.R"))
+source(here("Rcode", "sim_functions.R"))
+
+```
+
+
+```{r MISC_FUNCTIONS, echo = FALSE}
+`%notin%` <- Negate(`%in%`)
+
+vismat <- function(mat, cap = NULL, lims = NULL, leg = TRUE, na0 = TRUE, square){
+  # outputs visualization of matrix with few unique values
+  # colnames should be strings, values represented as factors
+  # sci_not=TRUE puts legend in scientific notation
+  require(ggplot2)
+  require(scales)
+  require(reshape2)
+  
+  melted <- melt(mat)
+  melted$value <- ifelse(
+    melted$value == 0 & na0,
+    NA,
+    melted$value
+  )
+  p <- ggplot(melted) + 
+    geom_raster(aes(y = Var1, 
+                    x = Var2, 
+                    fill = value)) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
+    scale_fill_viridis_c(limits = lims)
+  
+  if (is.numeric(melted$Var1)){
+    p <- p + 
+      scale_y_reverse()
+  } else {
+    p <- p + 
+      scale_y_discrete(limits = rev(levels(melted$Var1)))
+  }
+  
+  if (missing(square)) square <- nrow(mat) / ncol(mat) > .9 & nrow(mat) / ncol(mat) < 1.1
+  if (square) p <- p + coord_fixed(1)
+  
+  if (!is.null(cap)) p <- p + labs(title=cap)
+  
+  if (!leg) p <- p + theme(legend.position = "none")
+  
+  return(p)
+}
+
+```
+
+
+
+# Background
+The motivation for this model is to combine the variable selection properties of Bayesian spike-and-slab with the expressivity of a neural network.  We do this by placing a spike-and-slab prior on the _rows_ of a weight matrix $W$ representing one layer of a neural network.
+
+## Notation:
+
+- $X$: a $n \times I$ matrix, representing $n$ observations of $I$ covariates;  
+
+- $W$: an $I \times J$ weight matrix, representing $J$ neurons each receiving $I$ inputs;  
+
+- $b$: a length $J$ vector of biases (duplicated $n$ times and stacked into a $n \times J$ matrix)
+
+We can then represent the computation performed by the first layer of a neural network as $$XW + b = H,$$ where the output $H$ is the pre-activation.  If $\sigma ()$ denotes the activation function (ReLU or otherwise), $\sigma(H) = \tilde{H}$ is the input for the next layer in the neural network).
+
+Note that if all of the weights $w_{ij}$ in row $i$ of $W$ are 0, then the covariate in column $i$ of $X$ does not contribute to $H$ and therefore also has no effect on the final prediction.  Thus by placing a spike-and-slab prior on the rows of $W$, we obtain variable selection.
+
+We rely heavily here on the formulation and variational Bayes algorithm developed by _Louizos, Ullrich, Welling 2017_, who proposed using a group sparsity prior in order to reduce the size of the weight matrices in a neural network.  Their primary focus is on decreasing the size of the neural network while preserving quality of prediction.  Their method of placing a sparsity prior on the __rows__ (indexed by $i \in \{1, 2, ..., I \}$) of $W$ leads to compression of the entire deep neural network, since if an entire row (or column) of weights is 0, then the dimension of the weight matrix can be reduced.  Furthermore, if entire rows of a downstream layer are dropped, then the corresponding columns of _the preceding layer's activations $H$_ (and thus also the columns of the preceding layer's $W$) can also be dropped.  As their main concern is compression of the weight matrices, their discussion of what they term "the dropout parameter" ($\alpha_i$), is based around desired compression rates.  Our work examines the potential of their formulation for principled variable selection.
+
+
+
+## notes:
+
+`r colorize("__How to differentiate ourselves from LUW 2017__")`:  
+
+- obvious, easy-to-accomplish contribution: provide empirical results on how good the method is at variable selection
+
+- a more rigorous interpretation of the dropout parameter $\alpha_i$ as an analog to a Wald statistic  
+
+- (Adam's paper) using normalizing flow to model non-local prior
+
+- some way to reconcile the mean-field assumption of Variational Bayes with group sparsity?  
+
+  - as _LUW 2017_ note, the log-uniform prior does require independence between parameters (but grouping by row creates dependence), so the joint Bayesian model developed in LUW 2017 is not strictly accurate and is more of an approximation
+
+- note that we do not use the log-uniform / Normal-Jeffrey's prior, as it will shrink all parameters to 0 given enough training time due to the asymptote in the prior $p(z_i) \propto 1 / |z_i|$ (pointed out by __Hron 2018__).
+
+
+
+
+__Note on indices__: 
+
+- $i \in \{1, 2, ..., I\}$ indexes the rows of the weight matrix $W$, i.e. the inputs or covariates.  
+
+- $j \in \{1, 2, ...., J\}$ indexes the columns of $W$, i.e. the output's dimensionality.  
+
+Thus, representing a fully connected layer of a neural network as $XW + b = H$, the components are:  
+
+- $X$: $n \times I$ matrix of covariates ($n$ observations of $I$ covariates)  
+- $W$: $I \times J$ weight matrix  
+- $b$: length $J$ intercept vector (gets "broadcast", i.e. duplicated and stacked/rowbound to form a $n \times J$ matrix)  
+- $H$: $n \times J$ matrix representing the pre-activation
+
+In a single-layer neural network, i.e. the familiar linear regression model, $H$ is our prediction $\hat{y}$.  
+In a multi-layer neural network, $H$ passes through some activation function $\sigma()$.  This $\sigma(H) = \tilde H$ then becomes the input for the next layer.
+
+Letting $\sigma()$ denote a chosen activation function, we might represent a deep neural network with $L$ layers as:
+
+$$\begin{aligned}
+  X W_1 + b_1 = H_1 
+    && \text{first or input layer}
+    \\
+  \sigma(H_1)W_2 + b_2 = H_2
+    && \text{first hidden layer}
+    \\
+  ...
+    && \text{more hidden layers}
+    \\
+  \sigma(H_{L-1})W_L + b_L = \hat{y}
+    && \text{output layer}
+\end{aligned}$$
+
+Where the dimensions of the matrices (starting with $l = 2$) are:
+
+- $W_l: J_{l-1} \times J_l$
+- $b_l: n \times J_l$
+- $H_l: n \times J_l$
+
+
+# Horseshoe Model
+
+Let  
+
+- $l \in \{1, 2, ..., L\}$ index the layers of the deep neural network,  
+
+- $i \in \{1, 2, ..., I_l\}$ index the rows of $W_l$ (weight matrix in layer $l$), and  
+
+- $j \in \{1, 2, ..., J_l\}$ index the columns.  
+
+
+Then the Bayesian model with a group-horseshoe prior on the rows of the weight matrices is:
+
+$$\begin{aligned}
+  y 
+    & \sim
+    N \left( f(W, X), \sigma^2 \right)
+    && f(W, X) \text{ is the neural network }
+    \\
+  p(W|z) 
+    & \sim 
+    \prod_{l \in \{1, 2, ..., L\}, i \in \{1, 2, ..., I_l\}, j \in \{1, 2, ..., J_l\}} N(w_{l, i,j} | 0, z_{l, i}^2)
+    && i, j \text{ index the columns and rows}
+    \\
+  z_{l,i} 
+    & = 
+    \underset{\text{local}}{\tilde{z}_{l,i}} 
+    \times
+    \overset{\text{global}}{s_{l}}
+    \\
+  & \quad 
+    \tilde{z}_{l, i} 
+    \sim C^+(0,1)
+    && \text{local scale parameter prior}
+    \\
+  & \quad 
+    s
+    \sim C^+(0, \tau_0)
+    && \text{global scale parameter prior; } \tau_0 \text{ a tuning parameter}
+\end{aligned}$$
+
+Note that if we let $w_{l,i,j} = \tilde{w}_{l,i,j} z_{l, i}$, then $\tilde{w}_{l,i,j} | z_{l,i} \sim N(0,1)$.
+
+So that we will not need to formulate variational approximations to the half-Cauchy directly, we further decompose 
+$\tilde{z}_{l,i} = \tilde{\alpha}_{l,i} \tilde{\beta}_{l,i}$ 
+and $s_l= a_l b_l$ as follows:
+
+$$\begin{aligned}
+  \tilde{z}_{l,i} 
+    & =  
+    \tilde{\alpha}_{l,i} 
+    \tilde{\beta}_{l,i}
+    \\
+  & \tilde{\alpha}_{l,i}
+    \sim \Gamma(1/2, 1)
+    \\
+  & \tilde{\beta}_{l,i}
+    \sim \text{Inv}\Gamma(1/2, 1)
+    \\
+  s_l &= a_l b_l
+    \\
+  & a_l
+    \sim \Gamma(1/2, \tau_0^2)
+    \\
+  & b_l
+    \sim \text{Inv}\Gamma(1/2, 1)
+    &&
+    \\
+\end{aligned}$$
+
+
+
+
+
+# Variational distributions
+
+As we will have a large number of parameters, an MCMC approach is cost-prohibitive.  Instead, we use variational Bayes with the following approximate posterior distributions $q_\phi(\cdot)$ (all are for an individual layer $l$)
+
+$$\begin{aligned}
+  q_{\phi}(a_l) 
+    & = 
+      logNormal(a_l | \mu_{a_l}, \sigma^2_{a_l})
+      \\
+  q_{\phi}(b_l) 
+    & = 
+      logNormal(b_l | \mu_{b_l}, \sigma^2_{b_l})
+      \\
+  q_{\phi}(\tilde{\alpha}_l) 
+    & = 
+      \prod_{i \in \{1, 2, ..., I_l\}} 
+      logNormal(\tilde{\alpha}_{l, i} | \mu_{\tilde{\alpha}_{l, i}}, \sigma^2_{\tilde{\alpha}_{l, i}})
+      \\
+  q_{\phi}(\tilde{\beta}_l) 
+    & = 
+      \prod_{i \in \{1, 2, ..., I_l\}} logNormal(\tilde{\beta}_{l, i} | \mu_{\tilde{\beta}_{l, i}}, \sigma^2_{\tilde{\beta}_{l, i}})
+      \\
+  q_{\phi}(\tilde{W}_l) 
+    & = 
+      \prod_{i \in \{1, 2, ..., I_l\}, j \in \{1, 2, ..., J_l\}} logNormal(\tilde{w}_{l, i, j} | \mu_{\tilde{w}_{l, i, j}}, \sigma^2_{\tilde{w}_{l, i, j}})
+      \\
+\end{aligned}$$
+
+
+
+
+
+
+
+# Linear data (1 run)
+
+basic simulation setting:  
+
+- p > n
+- sparse truth (4 true covariates, 100 nuisance)
+- p = 104, n = 100
+
+
+- 100 obs generated as basic linear regression $y = X\beta + \epsilon$, with $\epsilon_i \sim N(0,1)$
+- Only first 4 covariates in $X$ (out of 104) actually have an effect (rest are nuisance var.s).  
+- multivariate response also generated (but not used for now)
+
+
+
+
+
+
+
+
+
+
+
+
+
