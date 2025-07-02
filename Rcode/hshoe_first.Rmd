@@ -502,6 +502,56 @@ Also nice: the local shrinkage parameter controls the variational dropout rate o
 
 
 
+
+
+
+
+
+# Functional data test:
+
+Simulation setting:  
+
+- sparse truth (4 true covariates, 100 nuisance)
+- number obs = 1000, 10000, 100000
+
+- obs generated via additive model $$y = f_1(x_1) + f_2(x_2) + f_3(x_3) = f_4(x-4) + \epsilon, \quad \text{ with }\epsilon_i \sim N(0,1)$$
+
+i.e. only the first 4 covariates in $X$ (out of 104) actually have an effect.  Functions $f_1, f_2, f_3, f_4$ plotted below.
+
+
+```{r FCN_PLOT}
+fcn1 <- function(x) exp(x/2)
+fcn2 <- function(x) cos(pi*x) + sin(pi/1.2*x) - x
+fcn3 <- function(x) abs(x)^(1.5)
+# fcn4 <- function(x) -x^2 / 2 -3
+fcn4 <- function(x) - log(abs(x))
+flist = list(fcn1, fcn2, fcn3, fcn4)
+
+xshow <- seq(-3, 3, length.out = 100)
+yshow <- sapply(flist, function(fcn) fcn(xshow))
+df <- data.frame(
+  "f1" = yshow[, 1],
+  "f2" = yshow[, 2],
+  "f3" = yshow[, 3],
+  "f4" = yshow[, 4],
+  "x"  = xshow
+)
+fcn_plt <- df %>% 
+  pivot_longer(cols = -x, names_to = "fcn") %>% 
+  ggplot(aes(y = value, x = x, color = fcn)) +
+  geom_line() + 
+  labs(title = "functions used to create data")
+
+fcn_plt
+```
+
+
+
+
+
+
+
+
 # TO DO:
 
 - get simulations running on servers
@@ -512,16 +562,11 @@ Also nice: the local shrinkage parameter controls the variational dropout rate o
 
 - test to see how method performs under effect modification
 
-- test to see how method performs using orthogonal basis
+- test to see how method performs using orthogonal cut basis
 
+- use batch norming (pre-activation?  or post-activation?) to speed up training?
 
-
-
-
-
-
-
-
+- 
 
 
 
