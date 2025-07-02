@@ -698,7 +698,8 @@ curvmat <- cbind(
 )
 mat0 <- matrix(0, nrow = 400, ncol = 100)
 x_plot <- torch_tensor(cbind(curvmat, mat0))
-y_plot <- fcn_model(x_plot)
+
+y_plot <- fcn_model(x_plot)  # need to add deterministic argument
 plotmat <- cbind(as_array(y_plot), curvmat)
 colnames(plotmat) <- c("y", "x1", "x2", "x3", "x4")
 plotdf <- as.data.frame(plotmat)
@@ -756,7 +757,9 @@ contents <- list(
   "d_hidden2" = d_hidden2,
   "d_out" = d_out,
   "df" = df,
+  "flist" = flist,
   "plotdf" = plotdf,
+  "x_plot" = x_plot,
   "loss_mat" = loss_mat
 )
 
