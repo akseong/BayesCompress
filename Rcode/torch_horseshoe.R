@@ -128,7 +128,8 @@ torch_hs <- nn_module(
     init_weight = NULL,
     init_bias = NULL,
     init_alpha = NULL,
-    clip_var = NULL
+    clip_var = NULL, 
+    deterministic = FALSE
   ){
     
     self$use_cuda <- use_cuda
@@ -136,7 +137,7 @@ torch_hs <- nn_module(
     self$in_features <- in_features
     self$out_features <- out_features
     self$clip_var <- clip_var
-    self$deterministic <- FALSE
+    self$deterministic <- deterministic
     
     #### trainable parameters
     # s = global scal param
