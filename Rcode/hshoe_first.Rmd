@@ -16,7 +16,7 @@ output:
     toc_float:
       collapsed: false
       smooth_scroll: true
-    code_fold: show
+    code_fold: hide
 urlcolor: blue
 params:
   retrain: FALSE
@@ -85,17 +85,20 @@ colorize <- function(x, color=custom_purple) {
   } else x
 }
 
+ascii_colorize <- function(txt, style = 1, color = 36){
+  paste0(
+    "\033[0;",
+    style, ";",
+    color, "m",
+    txt,
+    "\033[0m"
+  )
+}
 
-
-cat_color <- function(txt, style = 1, color = 36){
+cat_color <- function(txt, style = 1, color = 36, sep = " "){
   cat(
-    paste0(
-      "\033[0;",
-      style, ";",
-      color, "m",
-      txt,
-      "\033[0m","\n"
-    )
+    ascii_colorize(text, style, color),
+    sep = sep
   )  
 }
 
@@ -121,7 +124,6 @@ mykable <- function(tab, cap,
 
 source(here("Rcode", "torch_horseshoe.R"))
 source(here("Rcode", "sim_functions.R"))
-
 ```
 
 
@@ -503,13 +505,9 @@ Also nice: the local shrinkage parameter controls the variational dropout rate o
 
 
 
-
-
-
-
 # Functional data test:
 
-Simulation setting:  
+## Simulation setting:  
 
 - sparse truth (4 true covariates, 100 nuisance)
 - number obs = 1000, 10000, 100000
@@ -546,6 +544,125 @@ fcn_plt
 ```
 
 
+## single run performance
+
+Need to run simulations on server, but results from 1 test are encouraging:
+
+
+### n = 10k
+
+```{r}
+load(here::here("Rcode", "results", "hshoe_funcdata_n10k.Rdata"))
+fcn_model <- torch_load(here::here("Rcode", "results", "hshoe_funcdata_n10k.pt"))
+
+curvmat <- cbind(
+  c(xshow, rep(0, 100*3)),
+  c(rep(0, 100), xshow, rep(0, 100*2)),
+  c(rep(0, 100*2), xshow, rep(0, 100)),
+  c(rep(0, 100*3), xshow)
+)
+mat0 <- matrix(0, nrow = 400, ncol = 100)
+x_plot <- torch_tensor(cbind(curvmat, mat0))
+
+contents$plotdf$y <- as_array(fcn_model(x_plot))
+```
+
+
+#### dropout $\alpha_i$ (n = 10k)
+
+For first layer only; $\alpha_i < 0.05$ in color.
+
+```{r 10K_ALPHAS}
+thresh <- 0.05
+alph_tab <- round(as_array(fcn_model$fc1$get_dropout_rates()), 6)
+
+alph_kable <- matrix(cell_spec(alph_tab, color = ifelse(alph_tab > thresh, "black", "blue")), ncol = 8)
+
+mykable(alph_kable, cap = "dropout parameter $\\alpha_i$", escape = F)
+
+```
+
+
+#### predicted/true functions (n=10k)
+
+```{r}
+pred_plt <- contents$plotdf %>% 
+  gather(key = "fcn", value = "x", -y) %>% 
+  ggplot(aes(y = y, x = x, color = fcn)) + 
+  geom_line() +
+  labs(title = "predicted functions") + 
+  theme(legend.position="none")
+
+fcn_plt <- fcn_plt + 
+  labs(title = "true fcns") + 
+  theme(legend.position="none")
+
+grid.arrange(pred_plt, fcn_plt, nrow = 1)
+```
+
+
+
+
+
+### n = 100k
+
+```{r}
+load(here::here("Rcode", "results", "hshoe_funcdata_n100k.Rdata"))
+fcn_model <- torch_load(here::here("Rcode", "results", "hshoe_funcdata_n100k.pt"))
+
+curvmat <- cbind(
+  c(xshow, rep(0, 100*3)),
+  c(rep(0, 100), xshow, rep(0, 100*2)),
+  c(rep(0, 100*2), xshow, rep(0, 100)),
+  c(rep(0, 100*3), xshow)
+)
+mat0 <- matrix(0, nrow = 400, ncol = 100)
+x_plot <- torch_tensor(cbind(curvmat, mat0))
+
+contents$plotdf$y <- as_array(fcn_model(x_plot))
+```
+
+
+#### dropout $\alpha_i$ (n =100k)
+
+For first layer only; $\alpha_i < 0.05$ in color.
+
+```{r 100K_ALPHAS}
+thresh <- 0.05
+alph_tab <- round(as_array(fcn_model$fc1$get_dropout_rates()), 6)
+
+alph_kable <- matrix(cell_spec(alph_tab, color = ifelse(alph_tab > thresh, "black", "blue")), ncol = 8)
+
+mykable(alph_kable, cap = "dropout parameter $\\alpha_i$", escape = F)
+
+```
+
+
+#### predicted/true functions (n=100k)
+
+```{r}
+pred_plt <- contents$plotdf %>% 
+  gather(key = "fcn", value = "x", -y) %>% 
+  ggplot(aes(y = y, x = x, color = fcn)) + 
+  geom_line() +
+  labs(title = "predicted functions") + 
+  theme(legend.position="none")
+
+fcn_plt <- fcn_plt + 
+  labs(title = "true fcns") + 
+  theme(legend.position="none")
+
+grid.arrange(pred_plt, fcn_plt, nrow = 1)
+```
+
+
+
+
+
+
+
+
+
 
 
 
@@ -556,7 +673,7 @@ fcn_plt
 
 - get simulations running on servers
 
-- read [Liu et al 2022, Posterior-based Wald-type statistics for hypothesis testing](https://www.sciencedirect.com/science/article/abs/pii/S0304407621002608)
+- read [Liu et al 2022, Posterior-based Wald-type statistics for hypothesis testing](https://www.sciencedirect.com/science/article/abs/pii/S0304407621002608); link to [pdf without VPN](http://www.mysmu.edu/faculty/yujun/Research/ABT33.pdf)  
 
   - hope to clarify ideas on dropout parameter $\alpha_i$ as (the inverse of) a Wald-type statistic    
 
