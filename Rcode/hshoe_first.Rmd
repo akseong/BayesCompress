@@ -570,7 +570,7 @@ contents$plotdf$y <- as_array(fcn_model(x_plot))
 
 #### dropout $\alpha_i$ (n = 10k)
 
-For first layer only; $\alpha_i < 0.05$ in color.
+For first layer only; $\alpha_i < 0.05$ in color.  Might consider using some type of correction (e.g. Bonferroni would get rid of all spurious detections).  But overall fairly good performance!  2 orders of magnitude lower dropout parameter values for active covariates vs. nuisance variables.
 
 ```{r 10K_ALPHAS}
 thresh <- 0.05
@@ -625,7 +625,7 @@ contents$plotdf$y <- as_array(fcn_model(x_plot))
 
 #### dropout $\alpha_i$ (n =100k)
 
-For first layer only; $\alpha_i < 0.05$ in color.
+For first layer only; $\alpha_i < 0.05$ in color.  Perfect.  %\geq 4$ orders of magnitude lower dropout parameter values for active covariates vs. nuisance variables.
 
 ```{r 100K_ALPHAS}
 thresh <- 0.05
