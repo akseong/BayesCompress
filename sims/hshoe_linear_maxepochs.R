@@ -4,6 +4,7 @@ library(here)
 library(tidyr)
 library(dplyr)
 library(ggplot2)
+library(gridExtra)
 
 library(torch)
 source(here("Rcode", "torch_horseshoe.R"))
@@ -16,7 +17,7 @@ source(here("Rcode", "sim_functions.R"))
 #    check whenever changing setting (testing / single vs parallel, etc) ##
 #           n_sims, verbose, want_plots, train_epochs
 params <- list(
-  "sim_name" = "horseshoe, linear regression setting",
+  "sim_name" = "horseshoe, linear regression setting, unscaled KL",
   "n_sims" = 5, 
   "d_in" = 104,
   "n_obs" = 125,
@@ -109,9 +110,10 @@ alpha_mat <- matrix(
 )
 rownames(alpha_mat) <- report_epochs
 
+# store: weight posterior params
 w_mu_mat <- w_var_mat <- alpha_mat
 
-
+# store: alpha_tilde, beta_tilde?   s_a, s_b, tau? ---- 
 
 
 
@@ -159,7 +161,7 @@ while (!stop_criteria_met){
   # fit & metrics
   yhat_train <- slhs_net(x_train)
   mse <- nnf_mse_loss(yhat_train, y_train)
-  kl <- slhs_net$get_model_kld()
+  kl <- slhs_net$get_model_kld() / log(ttsplit_ind)
   loss <- mse + kl
   # loss_diff <- loss - prev_loss
   
@@ -179,8 +181,6 @@ while (!stop_criteria_met){
     yhat_test <- slhs_net(x_test) 
     # **WOULD LIKE THIS TO BE DETERMINISTIC, i.e. based on post pred means** ----
     mse_test <- nnf_mse_loss(yhat_test, y_test)
-    kl_test <- slhs_net$get_model_kld()
-    loss <- mse + kl
   }
   
   
@@ -201,17 +201,73 @@ while (!stop_criteria_met){
     # in-console updates
     if (params$verbose){
       cat(
-        "Epoch: ", epoch,
-        "MSE + KL/n = ", mse$item(), " + ", kl$item(),
-        " = ", loss$item(),
-        "\n"
+        "Epoch:", epoch,
+        "MSE + KL/n =", mse$item(), "+", kl$item(),
+        "=", loss$item(),
+        "\n",
+        "train mse:", round(mse$item(), 4), 
+        "; test_mse:", round(mse_test$item(), 4),
+        sep = " "
       )
       cat("alphas: ", round(as_array(dropout_alphas), 2), "\n \n")
     }
     
     if (params$want_plots & row_ind > 5){
       
-          
+      # don't want to always show the "burn-in" period
+      start_plot_row_ind <- 1
+      if (row_ind > 20){
+        start_plot_row_ind <- 10
+      } else if (row_inds > 60){
+        start_plot_row_ind <- row_inds - 50
+      }
+      
+      # set up plotting df
+      temp_lmat <- cbind(
+        loss_mat[start_plot_row_ind:row_ind,],
+        "epoch" = report_epochs[start_plot_row_ind:row_ind]
+      )
+      # mserange <- range(temp_lmat[, 2:3])
+      # klrange <- range(temp_lmat[,1])
+      # scale_factor <- diff(mserange)/diff(klrange)
+      # scaled_kl <- (temp_lmat[,1] - min(klrange)) * scale_factor + min(mserange)
+      # temp_lmat[, 1] <- scaled_kl
+      
+      mse_plotdf <- temp_lmat %>% 
+        data.frame() %>% 
+        pivot_longer(
+          cols = -epoch,
+          names_to = "metric"
+        )
+      
+      # MSE train vs test, and KL
+      
+      mse_plt <- mse_plotdf %>% 
+        filter(metric != "kl") %>% 
+        ggplot(aes(y = value, x = epoch, color = metric)) + 
+        geom_line() + 
+        labs(
+          subtitle = paste0("MSE for epochs ", 
+                         report_epochs[start_plot_row_ind],
+                         " through ",
+                         report_epochs[row_ind])
+        )
+
+      # KL
+      kl_plt <- mse_plotdf %>%
+        filter(metric == "kl") %>%
+        ggplot(aes(y = value, x = epoch, color = metric)) +
+        geom_line() +
+        labs(
+          subtitle = paste0("KL for epochs ",
+                         report_epochs[start_plot_row_ind],
+                         " through ",
+                         report_epochs[row_ind])
+        )
+      gridExtra::grid.arrange(
+        grobs = list(mse_plt, kl_plt),
+        nrow = 2
+      )
     }
   }
   
@@ -220,10 +276,7 @@ while (!stop_criteria_met){
 
 
 contents <- list(
-  "n_obs" = n_obs,
-  "true_coefs" = true_coefs,
-  "seed" = params$seed,
-  "err_sig" = err_sig
+  params
 )
 
 
