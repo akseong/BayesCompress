@@ -55,7 +55,7 @@ fcn4 <- function(x) cos(pi*x) + sin(pi/1.2*x) - x
 sim_func_data <- function(
   n_obs = 1000,
   d_in = 10,
-  flist = list(fcn1, fcn2, fcn3),
+  flist = list(fcn1, fcn2, fcn3, fcn4),
   err_sigma = 1
 ){
   # generate x, y
@@ -84,7 +84,7 @@ sim_func_data <- function(
 sim_func_data_unifx <- function(
     n_obs = 1000,
     d_in = 10,
-    flist = list(fcn1, fcn2, fcn3),
+    flist = list(fcn1, fcn2, fcn3, fcn4),
     err_sigma = 1,
     xlo = -5,
     xhi = 5
@@ -212,6 +212,10 @@ plot_fcn_preds <- function(torchmod, pred_mats, want_df = FALSE, want_plot = TRU
 
 
 # MISC UTILITIES ----
+
+## %notin% ----
+`%notin%` <- Negate(`%in%`)
+
 ## time_since ----
 time_since <- function(){
   # prints time since last called 
@@ -228,6 +232,50 @@ time_since <- function(){
   }
 }
 
+## find_array_ind ----
+find_array_ind <- function(array, name, marg = 1){
+  # marg = 1 --> rows;    marg = 2 --> cols
+  # generalizes to higher-dim arrays
+  inds <- which(dimnames(array)[[marg]] == name)
+  
+  if (length(inds) == 0){
+    warning("no corresponding row found")
+  } else if (length(inds) > 1) {
+    warning("multiple corresponding rows found")
+    return(inds)
+  } else if (length(inds) == 1) {
+    return(inds)
+  }
+}
+
+
+
+## update mat during training
+update_matrix_row <- function(mat, epoch, update_vec, reportevery = 100, verbose = FALSE){
+  # USAGE EXAMPLE:  
+  #    mat <- matrix(NA, nrow = 20, update_vec = rep(1, 5) ncol = 5)
+  #    for (i in 1:1000){
+  #      mat <- matfunc(mat, epoch = i)
+  #    }
+  
+  if (!epoch%%reportevery){
+    row_ind <- epoch%/%reportevery
+    mat[row_ind, ] <- update_vec
+    if (verbose) {
+      cat("row", row_ind, 
+          "updated on epoch", epoch, 
+          "with", update_vec,
+          sep = " ")
+    }
+  } else if (epoch%%reportevery & verbose){
+    cat("no update on epoch ", epoch)
+  }
+  return(mat)
+}
+
+
+
+
 
 ## cat_color(txt, style = 1, color = 36) ---
 cat_color <- function(txt, style = 1, color = 36){
@@ -242,6 +290,8 @@ cat_color <- function(txt, style = 1, color = 36){
     )
   )  
 }
+
+
 
 
 ## mathematical operations
