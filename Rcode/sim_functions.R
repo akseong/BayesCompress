@@ -278,7 +278,7 @@ update_matrix_row <- function(mat, epoch, update_vec, reportevery = 100, verbose
 
 
 ## cat_color(txt, style = 1, color = 36) ---
-cat_color <- function(txt, style = 1, color = 36){
+cat_color <- function(txt, sep_char = ", ", style = 1, color = 36){
   # prints txt with colored font/bkgrnd
   cat(
     paste0(
@@ -286,8 +286,9 @@ cat_color <- function(txt, style = 1, color = 36){
       style, ";",
       color, "m",
       txt,
-      "\033[0m","\n"
-    )
+      "\033[0m"
+    ),
+    sep = sep_char
   )  
 }
 
