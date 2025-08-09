@@ -27,7 +27,7 @@ params <- list(
   "verbose" = TRUE,      # set to FALSE when running in parallel
   "report_every" = 1000, # training epochs between display/store results
   "want_plots" = TRUE,   # set to FALSE when running in parallel
-  "train_epochs" = 200000,
+  "train_epochs" = 3000,
   "burn_in" = 1,
   "convergence_crit" = 1e-7,
   "ttsplit" = 4/5,
@@ -74,9 +74,6 @@ SLHS <- nn_module(
 
 
 #### DISTRIBUTED FROM HERE ----
-sim_ind <- 1
-
-
 
 sim_fcn_hshoe_linreg <- function(sim_ind, params){
   ## generate linear data
@@ -298,6 +295,23 @@ sim_fcn_hshoe_linreg <- function(sim_ind, params){
   )
   return(sim_res)
 }
+
+
+
+
+res <- lapply(1:params$n_sims, function(X) sim_fcn_hshoe_linreg(sim_ind = X, params))
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
