@@ -676,6 +676,8 @@ sim_fcn_hshoe_linreg <- function(
     sim_res$true_coefs = lin_simdat$true_coefs
   }
   
+  completed_msg <- paste0("sim #", sim_ind, " completed \n \n")
+  cat_color(txt = completed_msg, style = 5, color = 5)
   return(sim_res)
 }
 
