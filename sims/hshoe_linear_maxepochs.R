@@ -18,7 +18,7 @@ source(here("Rcode", "sim_functions.R"))
 #           n_sims, verbose, want_plots, train_epochs
 sim_params <- list(
   "sim_name" = "horseshoe, linear regression setting, KL scaled by n",
-  "n_sims" = 10, 
+  "n_sims" = 100, 
   "d_in" = 104,
   "n_obs" = 125,
   "true_coefs" = c(-0.5, 1, -2, 4, rep(0, times = 100)),
@@ -76,12 +76,37 @@ res <- lapply(
     sim_ind = X, 
     sim_params = sim_params,
     nn_model = SLHS,
-    train_epochs = 75000,
-    verbose = TRUE,
-    report_every = 1000,
+    train_epochs = 100000,
+    verbose = FALSE,
+    report_every = 100,
     want_plots = FALSE,
     want_all_params = FALSE,
     want_data = FALSE
   )
 )
+
+# set each simulation result unique name
+res <- setNames(res, paste0("sim_", 1:length(res)))
+
+
+contents <- list(
+  "res" = res, 
+  "sim_params" = sim_params
+)
+save(contents, file = here::here("sims", "results", "hshoe_linreg_maxepochs.RData"))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
