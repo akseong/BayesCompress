@@ -1,0 +1,283 @@
+---
+title: "hshoe stopping criteria investigation"
+author: "Arnie Seong"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+header-includes:
+  - \usepackage{bm}
+  - \usepackage{xcolor}
+  - \usepackage{amssymb}
+output: 
+  html_document:
+    df_print: paged
+    theme: cerulean
+    highlight: tango
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
+    code_fold: hide
+urlcolor: blue
+params:
+  retrain: FALSE
+  seed: 314
+editor_options: 
+  chunk_output_type: console
+---
+
+
+```{r setup, include=FALSE, message=F, echo=F, warning=F}
+# LIBRARIES----
+
+#### plotting:
+library(ggplot2)
+library(gridExtra)
+
+# #### Misc:
+library(here)
+library(tidyr)
+library(knitr)
+library(kableExtra)
+library(dplyr)
+library(DT)
+
+# DOCUMENT SETUP ----
+# detect pdf/html output, set chunk options, sci.notation 
+latex_out <- knitr::is_latex_output()
+knitr::opts_chunk$set(
+  cache = FALSE, 
+  message = FALSE, 
+  echo = !knitr::is_latex_output(), 
+  warning = FALSE
+)
+
+
+if (knitr::is_latex_output()) {
+  knitr::opts_chunk$set(fig.height=4, 
+                        fig.width=6)
+} else {
+  knitr::opts_chunk$set(out.width = "100%")
+}
+
+options(scipen=10)
+
+
+# TEXT/TABLE FORMATTING----
+
+custom_purple <- ifelse(
+  knitr::is_latex_output(),
+  "purple",
+  "#b51ced"
+)
+
+custom_blue <- ifelse(
+  knitr::is_latex_output(),
+  "blue",
+  "#11579e"
+)
+
+colorize <- function(x, color=custom_purple) {
+  # text color conditional on latex/html output
+  # from rmarkdown cookbook
+  if (knitr::is_latex_output()) {
+    sprintf("\\textcolor{ %s}{ %s}", color, x)
+  } else if (knitr::is_html_output()) {
+    sprintf("<span style='color: %s;'>%s</span>", color, x)
+  } else x
+}
+
+ascii_colorize <- function(txt, style = 1, color = 36){
+  paste0(
+    "\033[0;",
+    style, ";",
+    color, "m",
+    txt,
+    "\033[0m"
+  )
+}
+
+cat_color <- function(txt, style = 1, color = 36, sep = " "){
+  cat(
+    ascii_colorize(text, style, color),
+    sep = sep
+  )  
+}
+
+# kable NA handling
+options(knitr.kable.NA = '')
+
+# mykable function
+mykable <- function(tab, cap,
+                    latex_options=c("hold_position", "scale_down", "striped"), 
+                    bootstrap_options=c("striped", "hover", "condensed"), 
+                    full_width=F, position="center", ...){
+  # kable formatting conditional on latex or html output
+  if (is.null(getOption("knitr.in.progress"))){
+    print(tab)
+  } else if (knitr::is_latex_output()){
+    kable(x=tab, caption=cap, ...) %>%
+      kableExtra::kable_styling(latex_options = latex_options)
+  } else if (knitr::is_html_output()){
+    kable(x=tab, caption=cap, ...) %>%
+      kableExtra::kable_styling(bootstrap_options = bootstrap_options, full_width=full_width, position=position)
+  }
+}
+
+source(here("Rcode", "torch_horseshoe.R"))
+source(here("Rcode", "sim_functions.R"))
+```
+
+
+```{r MISC_FUNCTIONS, echo = FALSE}
+`%notin%` <- Negate(`%in%`)
+
+vismat <- function(mat, cap = NULL, lims = NULL, leg = TRUE, na0 = TRUE, square){
+  # outputs visualization of matrix with few unique values
+  # colnames should be strings, values represented as factors
+  # sci_not=TRUE puts legend in scientific notation
+  require(ggplot2)
+  require(scales)
+  require(reshape2)
+  
+  melted <- melt(mat)
+  melted$value <- ifelse(
+    melted$value == 0 & na0,
+    NA,
+    melted$value
+  )
+  p <- ggplot(melted) + 
+    geom_raster(aes(y = Var1, 
+                    x = Var2, 
+                    fill = value)) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
+    scale_fill_viridis_c(limits = lims)
+  
+  if (is.numeric(melted$Var1)){
+    p <- p + 
+      scale_y_reverse()
+  } else {
+    p <- p + 
+      scale_y_discrete(limits = rev(levels(melted$Var1)))
+  }
+  
+  if (missing(square)) square <- nrow(mat) / ncol(mat) > .9 & nrow(mat) / ncol(mat) < 1.1
+  if (square) p <- p + coord_fixed(1)
+  
+  if (!is.null(cap)) p <- p + labs(title=cap)
+  
+  if (!leg) p <- p + theme(legend.position = "none")
+  
+  return(p)
+}
+
+```
+
+
+
+# Purpose
+trying to figure out stopping criteria to use.  Based on 10 simulations of basic linear regression horseshoe architecture (i.e. only 1 neuron):
+
+- 4 covariates truly related to outcome (__linearly related__), 100 nuisance variables.  All generated from N(0, 1) via `torch_randn()`
+- N(0,1) noise
+- 100 observations in training set, 25 in test set
+- true coefficients: -0.5, 1, -2, 4, 0, 0, 0, ....
+- only stopping criteria employed was max number of epochs (training epochs = 70k)
+
+# mainline results
+
+```{r}
+load(file = here::here("sims", "results", "hshoe_linreg_maxepochs1.RData"))
+
+final_alphas <- t(sapply(contents$res,
+       function(X) X$alpha_mat[nrow(X$alpha_mat),]
+       ))
+```
+
+
+## Power
+
+
+
+Values above 0.05 in red below (0.05 chosen out of convenience)
+
+```{r T2_err}
+dt <- DT::datatable(data.frame(round(final_alphas[, 1:4], 3)))
+dt %>% formatStyle(1:4, color = styleInterval(0.05, c("black","red")))
+```
+
+- simulations 5, 6, 8, 9 have false negatives based on a (naive) threshold of 0.05
+
+
+
+## T1 error
+
+No spurious covariates chosen setting alpha threshold at 0.05
+
+```{r T1_err}
+sum(final_alphas[, 5:104] < 0.05)
+```
+
+
+
+
+```{r}
+
+sum(final_alphas[, 5:104] < 0.2)
+
+hist(final_alphas[, 5:104])
+```
+
+
+
+## Questions: 
+
+- Distribution of alpha?
+
+- Do all the alphas seem to still be decreasing?
+
+
+
+
+
+s5 <- contents$res$sim_5$alpha_mat[, 2]
+s6 <- contents$res$sim_6$alpha_mat[, 2]
+s8 <- contents$res$sim_8$alpha_mat[, 2]
+s9 <- contents$res$sim_9$alpha_mat[, 2]
+df <- data.frame(
+  s5, s6, s8, s9,
+  "x" = 1:length(s9)
+)
+
+df %>% 
+  # filter(x > 60) %>% 
+  pivot_longer(cols = -"x") %>% 
+  ggplot(aes(y = value, x = x, color = name)) + 
+  geom_line()
+
+
+
+loss_arr <- sapply(contents$res,
+                 function(X) X$loss_mat,
+                 simplify = "array")
+kl_mat <- loss_arr[, 1, ]
+tr_mat <- loss_arr[, 2, ]
+te_mat <- loss_arr[, 3, ]
+sp_mat <- tr_mat - te_mat
+
+
+
+kl_roll <- apply(kl_mat, 2, function(X) zoo::rollmean(X, k = 10))
+tr_roll <- apply(loss_arr[, 2, ], 2, function(X) zoo::rollmean(X, k = 10))
+te_roll <- apply(loss_arr[, 3, ], 2, function(X) zoo::rollmean(X, k = 10))
+
+
+
+
+
+
+
+
+
+
+
+
