@@ -18,11 +18,11 @@ source(here("Rcode", "sim_functions.R"))
 #           n_sims, verbose, want_plots, train_epochs
 sim_params <- list(
   "sim_name" = "horseshoe, linear regression setting, KL scaled by n",
-  "n_sims" = 100, 
+  "n_sims" = 10, 
   "d_in" = 104,
   "n_obs" = 125,
   "true_coefs" = c(-0.5, 1, -2, 4, rep(0, times = 100)),
-  "seed" = 314,
+  "seed" = 4,
   "err_sig" = 1,
   "burn_in" = 1,
   "convergence_crit" = 1e-7,
@@ -93,7 +93,7 @@ contents <- list(
   "res" = res, 
   "sim_params" = sim_params
 )
-save(contents, file = here::here("sims", "results", "hshoe_linreg_maxepochs.RData"))
+save(contents, file = here::here("sims", "results", "hshoe_linreg_maxepochs4.RData"))
 
 
 
