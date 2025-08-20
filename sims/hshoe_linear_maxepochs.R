@@ -78,7 +78,7 @@ res <- lapply(
     nn_model = SLHS,
     train_epochs = 100000,
     verbose = FALSE,
-    report_every = 100,
+    report_every = 1000,
     want_plots = FALSE,
     want_all_params = FALSE,
     want_data = FALSE

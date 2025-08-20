@@ -678,7 +678,10 @@ sim_fcn_hshoe_linreg <- function(
   
   completed_msg <- paste0("\n \n ******************** \n sim #", 
                           sim_ind, 
-                          " completed \n ********************\n \n")
+                          " completed \n ",
+                          "final alphas: ",
+                          paste0(round(as_array(dropout_alphas), 3), collapse = ", "),
+                          "\n ********************\n \n")
   cat_color(txt = completed_msg)
   return(sim_res)
 }
