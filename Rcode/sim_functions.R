@@ -502,14 +502,11 @@ sim_fcn_hshoe_linreg <- function(
   ## initialize training params
   loss_diff <- 1
   loss <- torch_zeros(1)
-  epoch <- 0
+  epoch <- 1
   stop_criteria_met <- FALSE
   
   while (!stop_criteria_met){
     prev_loss <- loss
-    epoch <- epoch + 1
-    stop_criteria_met <- epoch > train_epochs
-    
     
     # fit & metrics
     yhat_train <- slhs_net(x_train)
@@ -643,6 +640,9 @@ sim_fcn_hshoe_linreg <- function(
       } # end graphical training updates (want_plots = TRUE)
     } # end training updates (verbose = TRUE)
     
+    # increment epoch counter
+    epoch <- epoch + 1
+    stop_criteria_met <- epoch > train_epochs
   } # end training WHILE loop
   
   # compile results ----
