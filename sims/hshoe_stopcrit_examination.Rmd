@@ -186,9 +186,20 @@ trying to figure out stopping criteria to use.  Based on 10 simulations of basic
 # mainline results
 
 ```{r}
-load(file = here::here("sims", "results", "hshoe_linreg_maxepochs1.RData"))
+# combine results files
+fname_stem <- here::here("sims", "results", "hshoe_linreg_maxepochs")
+sim_seeds <- c()
+res_comp <- list()
 
-final_alphas <- t(sapply(contents$res,
+for (i in 1:10){
+  fname <- paste0(fname_stem, i, ".Rdata")
+  load(fname)
+  sim_seeds <- c(sim_seeds, contents$sim_params$sim_seeds)
+  res_comp <- append(res_comp, contents$res)
+}
+
+res_comp <- setNames(res_comp, paste0("sim_", 1:length(res_comp)))
+final_alphas <- t(sapply(res_comp,
        function(X) X$alpha_mat[nrow(X$alpha_mat),]
        ))
 ```
@@ -197,21 +208,36 @@ final_alphas <- t(sapply(contents$res,
 ## Power
 
 
+### naive threshold of 0.05
 
-Values above 0.05 in red below (0.05 chosen out of convenience)
+Naive threshold: essentially, is the "dropout rate parameter" $\alpha$ lower than our T1 error threshold.  This interprets $\alpha$ as a probability, which is not great (esp. since $\alpha$ is commonly > 1 for the nuisance variables)
+
+Type II errors:
+
+```{r}
+sum(final_alphas[, 1:4] > 0.05)
+```
+
+Type II error rate:
+```{r}
+mean(final_alphas[, 1:4] > 0.05)
+```
+
+
+All errors are from the first covariate ($\beta = 0.5$).  
 
 ```{r T2_err}
 dt <- DT::datatable(data.frame(round(final_alphas[, 1:4], 3)))
 dt %>% formatStyle(1:4, color = styleInterval(0.05, c("black","red")))
 ```
 
-- simulations 5, 6, 8, 9 have false negatives based on a (naive) threshold of 0.05
 
 
+## Spurious Covariates / T1 error
 
-## T1 error
+### naive 0.05 threshold
 
-No spurious covariates chosen setting alpha threshold at 0.05
+No spurious covariates chosen setting alpha threshold at 0.05.
 
 ```{r T1_err}
 sum(final_alphas[, 5:104] < 0.05)
@@ -219,13 +245,98 @@ sum(final_alphas[, 5:104] < 0.05)
 
 
 
+## threshold based on posterior-based Wald
+
+A more principled approach might be to compare the dropout parameter $\alpha$ against the inverse of a $\chi^2$ distribution with 1 degree of freedom and applying Bonferroni.  This is based on the idea that
+
+1. (to justify using $\chi^2 (1)$ distribution) the $\alpha$ parameter looks like the inverse of a posterior-based Wald statistic [http://www.mysmu.edu/faculty/yujun/Research/ABT33.pdf](reference - Liu, Li, Yu 2020);  
+
+
+1. (to justify Bonferroni) the mean-field assumption used in variational inference assumes independence between these parameters.
+
+
+### posterior Wald:
+
+LLY 2020 propose the posterior-based Wald statistic
+
+<!-- $$\begin{aligned} -->
+<!--   T(y, \theta_0)  -->
+<!--     & = \int (\theta - \theta_0)'[V_{\theta \theta} (\bar\nu)]^{-1} (\theta - \theta_0) p(\nu | y) d\theta -->
+<!--     \\ -->
+<!--     & = q_\theta + (\bar\theta - \theta_0)'[V_{\theta \theta} (\bar\nu)]^{-1} (\bar\theta - \theta_0) -->
+<!--     \\ -->
+<!--     & = q_\theta + W -->
+<!-- \end{aligned}$$ -->
+
+$$W = (\bar\theta - \theta_0)'[V_{\theta \theta} (\bar\nu)]^{-1} (\bar\theta - \theta_0) \overset{d}{\rightarrow} \chi^2(q_\theta)$$
+
+- $\theta$ is the parameter(s) of interest ($\bar\theta$ refers to the posterior mean), 
+
+- $q_\theta$ the dimension of $\theta$, 
+
+- $V_{\theta \theta} (\bar\nu)$ the portion of the posterior covariance matrix relevant to $\theta$ ($\nu$ refers to all estimated parameters),
+
+
+### results for posterior-based Wald interpretation of $\alpha$
+
+#### T2 error
 
 ```{r}
-
-sum(final_alphas[, 5:104] < 0.2)
-
-hist(final_alphas[, 5:104])
+wald_thresh <- 1 / qchisq(1 - (0.05 / 104), df = 1)
+t2_sum <- sum(final_alphas[, 1:4] > wald_thresh)
+t2_sum # T2 errors
 ```
+
+Results: `r t2_sum` errors total out of a possible 400 (4 true covariates, 100 simulations)
+
+I.e. T2 error rate of `r mean(final_alphas[, 1:4] > wald_thresh)`.
+
+
+#### T1 error
+
+T1 errors (out of 100 nuisance variables * 100 simulations):
+
+```{r}
+sum(final_alphas[, 5:104] < wald_thresh)
+```
+
+so a T1 error rate of `r mean(final_alphas[, 5:104] < wald_thresh)`
+
+
+
+
+
+
+
+
+
+#### one problem with posterior Wald interpretation:
+
+Below is a histogram of the $\alpha$ parameters, _for the 100 nuisance parameters_,  appearing in the last training epoch of the 100 simulations, followed by a histogram of 1000 draws from a $\chi^2(1)$.
+
+```{r, out.height="60%", out.width="60%"}
+hist(1/final_alphas[, 5:104], xlim = c(0, 5), breaks = 250)
+hist(rchisq(1000, df=1), xlim = c(0, 5), breaks = 250)
+```
+
+The two do not match well.  However, there are a few possible explanations:
+
+1. variational inference is known to underestimate variance (which would push the mode to the right);
+
+1. maybe explaining why there are NO values below 0.7: in LLY 2020, Theorem 3.1, it is clarified that the Bayesian $W$ and the Frequentist $Wald$ are not quite the same:
+
+$$W = Wald + o_p(1) \overset{d}{\rightarrow} \chi^2(q_\theta)$$
+
+
+Last, we are just looking at the final training epochs.  These simulations simply set a maximum number of 70k training epochs, so it's possible that the network should have trained for a longer period of time.
+
+
+
+
+
+#### notes / thoughts:
+
+- any way to get ELBOs for competing models to approximate bayes factors?  Is this even useful / desirable?  Avoiding this kind of computation is kind of the reason we're using NN's in the first place....
 
 
 
