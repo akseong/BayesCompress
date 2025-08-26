@@ -4,6 +4,153 @@
 ## Author:    Arnie Seong
 ##################################################
 
+
+# MISC UTILITIES ----
+
+## %notin% ----
+`%notin%` <- Negate(`%in%`)
+
+## time_since ----
+time_since <- function(){
+  # prints time since last called 
+  # (use to print time a loop takes, for example).
+  # usage:
+  # f <- time_since()
+  # f()
+  # f()
+  
+  st <- Sys.time()
+  function(x = Sys.time()) {
+    print(x-st)
+    st <<- x
+  }
+}
+
+## find_array_ind ----
+find_array_ind <- function(array, name, marg = 1){
+  # marg = 1 --> rows;    marg = 2 --> cols
+  # generalizes to higher-dim arrays
+  inds <- which(dimnames(array)[[marg]] == name)
+  
+  if (length(inds) == 0){
+    warning("no corresponding row found")
+  } else if (length(inds) > 1) {
+    warning("multiple corresponding rows found")
+    return(inds)
+  } else if (length(inds) == 1) {
+    return(inds)
+  }
+}
+
+
+
+## update mat during training
+update_matrix_row <- function(mat, epoch, update_vec, reportevery = 100, verbose = FALSE){
+  # USAGE EXAMPLE:  
+  #    mat <- matrix(NA, nrow = 20, update_vec = rep(1, 5) ncol = 5)
+  #    for (i in 1:1000){
+  #      mat <- matfunc(mat, epoch = i)
+  #    }
+  
+  if (!epoch%%reportevery){
+    row_ind <- epoch%/%reportevery
+    mat[row_ind, ] <- update_vec
+    if (verbose) {
+      cat("row", row_ind, 
+          "updated on epoch", epoch, 
+          "with", update_vec,
+          sep = " ")
+    }
+  } else if (epoch%%reportevery & verbose){
+    cat("no update on epoch ", epoch)
+  }
+  return(mat)
+}
+
+
+
+
+
+## cat_color(txt, style = 1, color = 36) ---
+cat_color <- function(txt, sep_char = ", ", style = 1, color = 36){
+  # prints txt with colored font/bkgrnd
+  cat(
+    paste0(
+      "\033[0;",
+      style, ";",
+      color, "m",
+      txt,
+      "\033[0m"
+    ),
+    sep = sep_char
+  )  
+}
+
+
+
+
+## mathematical operations
+softplus <- function(x){
+  log(1 + exp(x))
+}
+
+sigmoid <- function(x){
+  1/(1 + exp(-x))
+}
+
+softmax <- function(z){
+  exp(z) / sum(exp(z))
+}
+
+clamp <- function(v, lo = 0, hi = 1){
+  #ensure values are in [0, 1]
+  v <- ifelse( v <= hi, v, hi)
+  v <- ifelse( v >= lo, v, lo)
+  return(v)
+}
+
+
+
+
+## vismat ----
+vismat <- function(mat, cap = NULL, lims = NULL, leg = TRUE, na0 = TRUE, square){
+  # outputs visualization of matrix with few unique values
+  # colnames should be strings, values represented as factors
+  # sci_not=TRUE puts legend in scientific notation
+  require(ggplot2)
+  require(scales)
+  require(reshape2)
+  
+  melted <- melt(mat)
+  melted$value <- ifelse(
+    melted$value == 0 & na0,
+    NA,
+    melted$value
+  )
+  p <- ggplot(melted) + 
+    geom_raster(aes(y = Var1, 
+                    x = Var2, 
+                    fill = value)) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
+    scale_fill_viridis_c(limits = lims)
+  
+  if (is.numeric(melted$Var1)){
+    p <- p + 
+      scale_y_reverse()
+  } else {
+    p <- p + 
+      scale_y_discrete(limits = rev(levels(melted$Var1)))
+  }
+  
+  if (missing(square)) square <- nrow(mat) / ncol(mat) > .9 & nrow(mat) / ncol(mat) < 1.1
+  if (square) p <- p + coord_fixed(1)
+  
+  if (!is.null(cap)) p <- p + labs(title=cap)
+  
+  if (!leg) p <- p + theme(legend.position = "none")
+  
+  return(p)
+}
 # DATA GENERATION ----
 ## sim_linear_data ----
 sim_linear_data <- function(
@@ -206,113 +353,6 @@ plot_fcn_preds <- function(torchmod, pred_mats, want_df = FALSE, want_plot = TRU
   } else if (want_plot){
     plt
   }
-}
-
-
-
-
-# MISC UTILITIES ----
-
-## %notin% ----
-`%notin%` <- Negate(`%in%`)
-
-## time_since ----
-time_since <- function(){
-  # prints time since last called 
-  # (use to print time a loop takes, for example).
-  # usage:
-  # f <- time_since()
-  # f()
-  # f()
-  
-  st <- Sys.time()
-  function(x = Sys.time()) {
-    print(x-st)
-    st <<- x
-  }
-}
-
-## find_array_ind ----
-find_array_ind <- function(array, name, marg = 1){
-  # marg = 1 --> rows;    marg = 2 --> cols
-  # generalizes to higher-dim arrays
-  inds <- which(dimnames(array)[[marg]] == name)
-  
-  if (length(inds) == 0){
-    warning("no corresponding row found")
-  } else if (length(inds) > 1) {
-    warning("multiple corresponding rows found")
-    return(inds)
-  } else if (length(inds) == 1) {
-    return(inds)
-  }
-}
-
-
-
-## update mat during training
-update_matrix_row <- function(mat, epoch, update_vec, reportevery = 100, verbose = FALSE){
-  # USAGE EXAMPLE:  
-  #    mat <- matrix(NA, nrow = 20, update_vec = rep(1, 5) ncol = 5)
-  #    for (i in 1:1000){
-  #      mat <- matfunc(mat, epoch = i)
-  #    }
-  
-  if (!epoch%%reportevery){
-    row_ind <- epoch%/%reportevery
-    mat[row_ind, ] <- update_vec
-    if (verbose) {
-      cat("row", row_ind, 
-          "updated on epoch", epoch, 
-          "with", update_vec,
-          sep = " ")
-    }
-  } else if (epoch%%reportevery & verbose){
-    cat("no update on epoch ", epoch)
-  }
-  return(mat)
-}
-
-
-
-
-
-## cat_color(txt, style = 1, color = 36) ---
-cat_color <- function(txt, sep_char = ", ", style = 1, color = 36){
-  # prints txt with colored font/bkgrnd
-  cat(
-    paste0(
-      "\033[0;",
-      style, ";",
-      color, "m",
-      txt,
-      "\033[0m"
-    ),
-    sep = sep_char
-  )  
-}
-
-
-
-
-## mathematical operations
-softplus <- function(x){
-  log(1 + exp(x))
-}
-
-sigmoid <- function(x){
-  1/(1 + exp(-x))
-}
-
-softmax <- function(z){
-  exp(z) / sum(exp(z))
-}
-
-clamp <- function(v, lo = 0, hi = 1){
-  #ensure values are in [0, 1]
-  v <- ifelse( v <= hi, v, hi)
-  v <- ifelse( v >= lo, v, lo)
-  return(v)
 }
 
 
