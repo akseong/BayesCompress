@@ -16,7 +16,8 @@ output:
     toc_float:
       collapsed: false
       smooth_scroll: true
-    code_fold: hide
+    number_sections: true
+    # code_fold: show
 urlcolor: blue
 params:
   retrain: FALSE
@@ -128,62 +129,36 @@ source(here("Rcode", "sim_functions.R"))
 ```
 
 
-```{r MISC_FUNCTIONS, echo = FALSE}
-`%notin%` <- Negate(`%in%`)
+<style>
 
-vismat <- function(mat, cap = NULL, lims = NULL, leg = TRUE, na0 = TRUE, square){
-  # outputs visualization of matrix with few unique values
-  # colnames should be strings, values represented as factors
-  # sci_not=TRUE puts legend in scientific notation
-  require(ggplot2)
-  require(scales)
-  require(reshape2)
+  <!-- changes TOC section number color -->
+  .header-section-number {
+    color: #032285; 
+  } 
   
-  melted <- melt(mat)
-  melted$value <- ifelse(
-    melted$value == 0 & na0,
-    NA,
-    melted$value
-  )
-  p <- ggplot(melted) + 
-    geom_raster(aes(y = Var1, 
-                    x = Var2, 
-                    fill = value)) +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
-    scale_fill_viridis_c(limits = lims)
-  
-  if (is.numeric(melted$Var1)){
-    p <- p + 
-      scale_y_reverse()
-  } else {
-    p <- p + 
-      scale_y_discrete(limits = rev(levels(melted$Var1)))
-  }
-  
-  if (missing(square)) square <- nrow(mat) / ncol(mat) > .9 & nrow(mat) / ncol(mat) < 1.1
-  if (square) p <- p + coord_fixed(1)
-  
-  if (!is.null(cap)) p <- p + labs(title=cap)
-  
-  if (!leg) p <- p + theme(legend.position = "none")
-  
-  return(p)
-}
+  <!-- changes header color -->
+  h1, h2{
+      .font-weight: bolder
+    }
+</style>
 
-```
 
 
 
 # Purpose
-trying to figure out stopping criteria to use.  Based on 10 simulations of basic linear regression horseshoe architecture (i.e. only 1 neuron):
+trying to figure out stopping criteria to use.  Based on 10 simulations of basic linear regression horseshoe architecture (i.e. only 1 neuron).
 
-- 4 covariates truly related to outcome (__linearly related__), 100 nuisance variables.  All generated from N(0, 1) via `torch_randn()`
-- N(0,1) noise
+Data generation:  
+
+- 4 covariates truly related to outcome (__linearly related__), 100 nuisance variables.  Covariate values all generated from N(0, 1) via `torch_randn()`.  N(0,1) noise
+
+  - i.e. $y = -0.5 x_1 + 1x_2 -2 x_3 + 4 x_4 + \epsilon$
+  
 - 100 observations in training set, 25 in test set
-- true coefficients: -0.5, 1, -2, 4, 0, 0, 0, ....
-- only stopping criteria employed was max number of epochs (training epochs = 70k)
 
-# mainline results
+- true coefficients: -0.5, 1, -2, 4, 0, 0, 0, 0, 0 .... (4 non-zero coefficients, 100 0 coefficients)
+
+- only stopping criteria employed was max number of epochs (training epochs = 70k)
 
 ```{r}
 # combine results files
@@ -204,15 +179,15 @@ final_alphas <- t(sapply(res_comp,
        ))
 ```
 
+# Mainline results: 70k training epochs
 
-## Power
+## Using naive threshold of 0.05
 
+Criteria for model inclusion: is the "dropout rate parameter" $\alpha$ lower than our T1 error threshold.  This interprets $\alpha$ as a probability, which is not great ($\alpha$ is commonly > 1 for the nuisance variables)
 
-### naive threshold of 0.05
+### Type II errors:
 
-Naive threshold: essentially, is the "dropout rate parameter" $\alpha$ lower than our T1 error threshold.  This interprets $\alpha$ as a probability, which is not great (esp. since $\alpha$ is commonly > 1 for the nuisance variables)
-
-Type II errors:
+Total count of Type II errors over 100 simulated datasets:
 
 ```{r}
 sum(final_alphas[, 1:4] > 0.05)
@@ -224,38 +199,37 @@ mean(final_alphas[, 1:4] > 0.05)
 ```
 
 
-All errors are from the first covariate ($\beta = 0.5$).  
+All errors are from the first covariate ($\beta = 0.5$).  Table below shows $\alpha$ for first 4 covariates for all 100 simulated datasets.
 
-```{r T2_err}
+```{r T2_err, echo = FALSE}
 dt <- DT::datatable(data.frame(round(final_alphas[, 1:4], 3)))
 dt %>% formatStyle(1:4, color = styleInterval(0.05, c("black","red")))
 ```
 
 
 
-## Spurious Covariates / T1 error
+### T1 error
 
-### naive 0.05 threshold
-
-No spurious covariates chosen setting alpha threshold at 0.05.
+No spurious variables chosen when setting alpha threshold at 0.05.
 
 ```{r T1_err}
+# count alphas < 0.05 among nuisance variables
 sum(final_alphas[, 5:104] < 0.05)
 ```
 
 
 
-## threshold based on posterior-based Wald
+## Interpreting $\alpha$ as posterior-based Wald statistic
 
 A more principled approach might be to compare the dropout parameter $\alpha$ against the inverse of a $\chi^2$ distribution with 1 degree of freedom and applying Bonferroni.  This is based on the idea that
 
-1. (to justify using $\chi^2 (1)$ distribution) the $\alpha$ parameter looks like the inverse of a posterior-based Wald statistic [http://www.mysmu.edu/faculty/yujun/Research/ABT33.pdf](reference - Liu, Li, Yu 2020);  
+1. **(to justify using $\chi^2 (1)$ distribution)** the $\alpha$ parameter is the inverse of the posterior-based Wald statistic discussed in [Liu, Li, Yu 2020](http://www.mysmu.edu/faculty/yujun/Research/ABT33.pdf) (referred to as LLY 2020);  
 
 
-1. (to justify Bonferroni) the mean-field assumption used in variational inference assumes independence between these parameters.
+1. **(to justify Bonferroni)** the mean-field assumption used in variational inference assumes independence between the individual $\alpha$ parameters ($\alpha_i = \dfrac{Var(\tilde{z_i})}{ \left[ E(\tilde{z_i}) \right] ^2}$.
 
 
-### posterior Wald:
+### LLY 2020
 
 LLY 2020 propose the posterior-based Wald statistic
 
@@ -277,9 +251,9 @@ $$W = (\bar\theta - \theta_0)'[V_{\theta \theta} (\bar\nu)]^{-1} (\bar\theta - \
 - $V_{\theta \theta} (\bar\nu)$ the portion of the posterior covariance matrix relevant to $\theta$ ($\nu$ refers to all estimated parameters),
 
 
-### results for posterior-based Wald interpretation of $\alpha$
+### Results for posterior-based Wald interpretation of $\alpha$
 
-#### T2 error
+#### Type II error
 
 ```{r}
 wald_thresh <- 1 / qchisq(1 - (0.05 / 104), df = 1)
@@ -292,7 +266,7 @@ Results: `r t2_sum` errors total out of a possible 400 (4 true covariates, 100 s
 I.e. T2 error rate of `r mean(final_alphas[, 1:4] > wald_thresh)`.
 
 
-#### T1 error
+#### Type I error
 
 T1 errors (out of 100 nuisance variables * 100 simulations):
 
@@ -310,7 +284,7 @@ so a T1 error rate of `r mean(final_alphas[, 5:104] < wald_thresh)`
 
 
 
-#### one problem with posterior Wald interpretation:
+### Problem with posterior Wald interpretation?
 
 Below is a histogram of the $\alpha$ parameters, _for the 100 nuisance parameters_,  appearing in the last training epoch of the 100 simulations, followed by a histogram of 1000 draws from a $\chi^2(1)$.
 
@@ -334,17 +308,55 @@ Last, we are just looking at the final training epochs.  These simulations simpl
 
 
 
-#### notes / thoughts:
+## notes / thoughts:
 
 - any way to get ELBOs for competing models to approximate bayes factors?  Is this even useful / desirable?  Avoiding this kind of computation is kind of the reason we're using NN's in the first place....
 
 
 
-## Questions: 
+# Questions from 70k max epochs simulations: 
 
-- Distribution of alpha?
+1. Have we trained long enough?
 
-- Do all the alphas seem to still be decreasing?
+1. Signs of convergence?
+
+
+
+
+# Granular sim
+
+Ran 5 simulations collecting info at every epoch for 250k epochs (usually only collect every 1000 epochs).
+
+```{r LOAD_GRANULAR}
+load(here::here("sims", "results", "hshoe_linreg_maxepochs_granular.RData")) # 410 MB
+
+loss_arr <- sapply(
+  contents$res, 
+  function(X) X$loss_mat, 
+  simplify = "array"
+)  # returns array with dims: 1: epoch;   2: kl, mse_train, mse_test;   3: sim number
+
+alph_arr <- sapply(
+  contents$res,
+  function(X) X$alpha_mat,
+  simplify = "array"
+)
+dim(alph_arr)
+  
+```
+
+
+
+
+
+
+# Rerun simulations: 250K max epochs
+
+
+
+
+
+
 
 
 
