@@ -158,9 +158,9 @@ Data generation:
 
 - true coefficients: -0.5, 1, -2, 4, 0, 0, 0, 0, 0 .... (4 non-zero coefficients, 100 0 coefficients)
 
-- only stopping criteria employed was max number of epochs (training epochs = 70k)
+- only stopping criteria employed was max number of epochs (training epochs = 100k)
 
-```{r}
+```{r LOAD_COMBINE_100k_SIMS}
 # combine results files
 fname_stem <- here::here("sims", "results", "hshoe_linreg_maxepochs")
 sim_seeds <- c()
@@ -179,7 +179,7 @@ final_alphas <- t(sapply(res_comp,
        ))
 ```
 
-# Mainline results: 70k training epochs
+# Mainline results: 100k training epochs
 
 ## Using naive threshold of 0.05
 
@@ -288,7 +288,7 @@ so a T1 error rate of `r mean(final_alphas[, 5:104] < wald_thresh)`
 
 Below is a histogram of the $\alpha$ parameters, _for the 100 nuisance parameters_,  appearing in the last training epoch of the 100 simulations, followed by a histogram of 1000 draws from a $\chi^2(1)$.
 
-```{r, out.height="60%", out.width="60%"}
+```{r ALPHA_HISTOGRAMS, out.height="60%", out.width="60%"}
 hist(1/final_alphas[, 5:104], xlim = c(0, 5), breaks = 250)
 hist(rchisq(1000, df=1), xlim = c(0, 5), breaks = 250)
 ```
@@ -302,7 +302,7 @@ The two do not match well.  However, there are a few possible explanations:
 $$W = Wald + o_p(1) \overset{d}{\rightarrow} \chi^2(q_\theta)$$
 
 
-Last, we are just looking at the final training epochs.  These simulations simply set a maximum number of 70k training epochs, so it's possible that the network should have trained for a longer period of time.
+Last, we are just looking at the final training epochs.  These simulations simply set a maximum number of 100k training epochs, so it's possible that the network should have trained for a longer period of time.
 
 
 
@@ -318,7 +318,9 @@ Last, we are just looking at the final training epochs.  These simulations simpl
 
 Looking at different stopping criteria for training the network:
 
-1. "convergence"  
+1. "convergence" 
+
+  - **in NEXT analysis** (the results so far save results every 1000 epochs, not every epoch)
 
   - of test MSE  
   
@@ -326,48 +328,465 @@ Looking at different stopping criteria for training the network:
   
   - of alphas  
 
-1. rolling mean **test or train** MSE increasing
-
-1. rolling mean **difference** between test and train MSE increasing
+1. **test, train, test - train** MSE increasing
 
   - particularly with test MSE > train MSE
 
+1. rolling mean of the above,
 
 
 
+## test, train, test-train MSE increasing
 
+```{r}
+# did simulation have false positive / false negative?
+FP_mat <- final_alphas[, 5:104] < wald_thresh
+FN_mat <- final_alphas[, 1:4] > wald_thresh
+err_df <- data.frame(
+  "FP" = apply(FP_mat, 1, any),
+  "FN" = apply(FN_mat, 1, any),
+  "sim" = paste0("sim_", 1:nrow(FP_mat))
+)
 
-# Questions from 70k max epochs simulations: 
+err_df$err_type <- ifelse(err_df$FN, "t2" , NA)
+err_df$err_type <- ifelse(err_df$FP, "t1" , err_df$err_type)
+err_df$err_type <- ifelse(err_df$FP + err_df$FN == 0, "none" , err_df$err_type)
 
-1. Have we trained long enough?
-
-1. Signs of convergence?
-
-
-
-
-# Granular sim
-
-Ran 5 simulations collecting info at every epoch for 250k epochs (usually only collect every 1000 epochs).
-
-```{r LOAD_GRANULAR}
-load(here::here("sims", "results", "hshoe_linreg_maxepochs_granular.RData")) # 410 MB
-
-loss_arr <- sapply(
-  contents$res, 
-  function(X) X$loss_mat, 
+# compile loss_mats from all simulations
+res_arr <- sapply(
+  res_comp,
+  function(X) cbind(X$alpha_mat, X$loss_mat),
   simplify = "array"
-)  # returns array with dims: 1: epoch;   2: kl, mse_train, mse_test;   3: sim number
+)
 
+# loss_arr dims:   1: epoch;   2: kl, mse_train, mse_test;   3: sim_#
+loss_arr <- sapply(
+  res_comp,
+  function(X) X$loss_mat,
+  simplify = "array"
+)
+# alph_arr dims:   1: epoch;   2: coefs   3: sim_#
 alph_arr <- sapply(
-  contents$res,
+  res_comp,
   function(X) X$alpha_mat,
   simplify = "array"
 )
-dim(alph_arr)
-  
+
+if (length(unique(sapply(res_arr, nrow))) > 1) {
+  res_arr <- res_arr[11:100]
+  res_arr <- simplify2array(res_arr)
+  loss_arr <- loss_arr[11:100]
+  loss_arr <- simplify2array(loss_arr)
+  alph_arr <- alph_arr[11:100]
+  alph_arr <- simplify2array(alph_arr)
+  err_df <- err_df[11:100, ]
+}
+
+dimnames(res_arr)[[2]] <- c(
+  paste0("alpha0", 1:9),
+  paste0("alpha", 10:104),
+  "kl", "mse_train", "mse_test" 
+)
+
+# colnames(res_arr[, , 1])[105:107]
+kl_mat <- res_arr[, 105, ]
+train_mat <- res_arr[, 106, ]
+test_mat <- res_arr[, 107, ]
+tetr_mat <- test_mat - train_mat
 ```
 
+
+### train MSE plot
+
+```{r TRAIN_MSE_CONVERGENCE}
+ma_k <- 5
+
+train_MA_df <- data.frame(
+  apply(
+    loss_arr[, 2, ], 
+    2, 
+    function(X) zoo::rollmean(X, k = ma_k)
+  )
+)
+
+train_df <- data.frame(train_mat)
+train_df$epoch <- as.numeric(rownames(train_mat))
+train_MA_df$epoch <- train_df$epoch[ma_k : length(train_df$epoch)]
+
+train_df_long <- train_df %>%
+  pivot_longer(
+    cols = !epoch,
+    names_to = "sim",
+    values_to = "mse_train")
+train_MA_df_long <- train_MA_df %>%
+  pivot_longer(
+    cols = !epoch,
+    names_to = "sim",
+    values_to = "MA_mse_train")
+
+train_df_long <- inner_join(train_df_long, err_df, by = "sim")
+train_MA_df_long <- inner_join(train_MA_df_long, err_df, by = "sim")
+
+train_df_long %>%
+  # filter(err_type != "none") %>% 
+  filter(epoch > 70000) %>% 
+  ggplot(
+    aes(
+      y = mse_train, 
+      x = epoch, 
+      group = sim,
+      color = sim)
+  ) + 
+  geom_line(alpha = 0.5) + 
+  facet_wrap(~err_type, nrow = 3) + 
+  theme(legend.position = "none") + 
+  labs(
+    title = "train_MSE by error type (70-100k epochs)"
+  )
+  
+
+
+train_MA_df_long %>%
+  # filter(err_type != "none") %>% 
+  filter(epoch > 70000) %>% 
+  ggplot(
+    aes(
+      y = MA_mse_train, 
+      x = epoch, 
+      group = sim,
+      color = sim)
+  ) + 
+  geom_line(alpha = 0.5) + 
+  facet_wrap(~err_type, nrow = 3) + 
+  theme(legend.position = "none") + 
+  labs(
+    title = paste0(
+      "moving average (",
+      ma_k,
+      ") train_MSE by error type (70-100k epochs)"
+    )
+  )
+
+```
+
+
+### test MSE
+
+```{r}
+
+test_MA_df <- data.frame(
+  apply(
+    loss_arr[, 3, ], 
+    2, 
+    function(X) zoo::rollmean(X, k = ma_k)
+  )
+)
+
+test_df <- data.frame(test_mat)
+test_df$epoch <- as.numeric(rownames(test_mat))
+test_MA_df$epoch <- test_df$epoch[ma_k : length(test_df$epoch)]
+
+test_df_long <- test_df %>%
+  pivot_longer(
+    cols = !epoch,
+    names_to = "sim",
+    values_to = "mse_test")
+test_MA_df_long <- test_MA_df %>%
+  pivot_longer(
+    cols = !epoch,
+    names_to = "sim",
+    values_to = "MA_mse_test")
+
+test_df_long <- inner_join(test_df_long, err_df, by = "sim")
+test_MA_df_long <- inner_join(test_MA_df_long, err_df, by = "sim")
+
+test_df_long %>%
+  # filter(err_type != "none") %>% 
+  filter(epoch > 70000) %>% 
+  ggplot(
+    aes(
+      y = mse_test, 
+      x = epoch, 
+      group = sim,
+      color = sim)
+  ) + 
+  geom_line(alpha = 0.5) + 
+  facet_wrap(~err_type, nrow = 3) + 
+  theme(legend.position = "none") + 
+  labs(
+    title = "test_MSE by error type (70-100k epochs)"
+  )
+  
+
+
+test_MA_df_long %>%
+  # filter(err_type != "none") %>% 
+  filter(epoch > 70000) %>% 
+  ggplot(
+    aes(
+      y = MA_mse_test, 
+      x = epoch, 
+      group = sim,
+      color = sim)
+  ) + 
+  geom_line(alpha = 0.5) + 
+  facet_wrap(~err_type, nrow = 3) + 
+  theme(legend.position = "none") + 
+  labs(
+    title = paste0(
+      "moving average (",
+      ma_k,
+      ") test_MSE by error type (70-100k epochs)"
+    )
+  )
+```
+
+
+
+### test - train
+
+```{r}
+
+tetr_MA_df <- data.frame(
+  apply(
+    loss_arr[, 3, ] - loss_arr[, 2, ], 
+    2, 
+    function(X) zoo::rollmean(X, k = ma_k)
+  )
+)
+
+tetr_df <- data.frame(tetr_mat)
+tetr_df$epoch <- as.numeric(rownames(tetr_mat))
+tetr_MA_df$epoch <- tetr_df$epoch[ma_k : length(tetr_df$epoch)]
+
+tetr_df_long <- tetr_df %>%
+  pivot_longer(
+    cols = !epoch,
+    names_to = "sim",
+    values_to = "mse_tetr")
+tetr_MA_df_long <- tetr_MA_df %>%
+  pivot_longer(
+    cols = !epoch,
+    names_to = "sim",
+    values_to = "MA_mse_tetr")
+
+tetr_df_long <- inner_join(tetr_df_long, err_df, by = "sim")
+tetr_MA_df_long <- inner_join(tetr_MA_df_long, err_df, by = "sim")
+
+tetr_df_long %>%
+  # filter(err_type != "none") %>% 
+  filter(epoch > 70000) %>% 
+  ggplot(
+    aes(
+      y = mse_tetr, 
+      x = epoch, 
+      group = sim,
+      color = sim)
+  ) + 
+  geom_line(alpha = 0.5) + 
+  facet_wrap(~err_type, nrow = 3) + 
+  theme(legend.position = "none") + 
+  labs(
+    title = "tetr_MSE by error type (70-100k epochs)"
+  )
+  
+
+
+tetr_MA_df_long %>%
+  # filter(err_type != "none") %>% 
+  filter(epoch > 70000) %>% 
+  ggplot(
+    aes(
+      y = MA_mse_tetr, 
+      x = epoch, 
+      group = sim,
+      color = sim)
+  ) + 
+  geom_line(alpha = 0.5) + 
+  facet_wrap(~err_type, nrow = 3) + 
+  theme(legend.position = "none") + 
+  labs(
+    title = paste0(
+      "moving average (",
+      ma_k,
+      ") tetr_MSE by error type (70-100k epochs)"
+    )
+  )
+```
+
+
+
+
+### KL
+
+```{r}
+kl_MA_df <- data.frame(
+  apply(
+    loss_arr[, 1, ], 
+    2, 
+    function(X) zoo::rollmean(X, k = ma_k)
+  )
+)
+
+kl_df <- data.frame(kl_mat)
+kl_df$epoch <- as.numeric(rownames(kl_mat))
+kl_MA_df$epoch <- kl_df$epoch[ma_k : length(kl_df$epoch)]
+
+kl_df_long <- kl_df %>%
+  pivot_longer(
+    cols = !epoch,
+    names_to = "sim",
+    values_to = "mse_kl")
+kl_MA_df_long <- kl_MA_df %>%
+  pivot_longer(
+    cols = !epoch,
+    names_to = "sim",
+    values_to = "MA_mse_kl")
+
+kl_df_long <- inner_join(kl_df_long, err_df, by = "sim")
+kl_MA_df_long <- inner_join(kl_MA_df_long, err_df, by = "sim")
+
+kl_df_long %>%
+  # filter(err_type != "none") %>% 
+  filter(epoch > 70000) %>% 
+  ggplot(
+    aes(
+      y = mse_kl, 
+      x = epoch, 
+      group = sim,
+      color = sim)
+  ) + 
+  geom_line(alpha = 0.5) + 
+  facet_wrap(~err_type, nrow = 3) + 
+  theme(legend.position = "none") + 
+  labs(
+    title = "kl_MSE by error type (70-100k epochs)"
+  )
+  
+
+
+kl_MA_df_long %>%
+  # filter(err_type != "none") %>% 
+  filter(epoch > 70000) %>% 
+  ggplot(
+    aes(
+      y = MA_mse_kl, 
+      x = epoch, 
+      group = sim,
+      color = sim)
+  ) + 
+  geom_line(alpha = 0.5) + 
+  facet_wrap(~err_type, nrow = 3) + 
+  theme(legend.position = "none") + 
+  labs(
+    title = paste0(
+      "moving average (",
+      ma_k,
+      ") kl_MSE by error type (70-100k epochs)"
+    )
+  )
+
+```
+
+
+
+### conclusions from 100k training epoch sims
+
+KL, train MSE, test MSE not really offering good clues as to T1 / T2 errors, at least looking at results from every 1k epochs for 100k training epochs
+
+
+
+
+
+## reverse examination
+
+- look at point when alphas reach threshold and stop changing decisions
+
+```{r}
+
+above_w <- apply(alph_arr, c(2, 3), function(X) X>wald_thresh)
+dim(above_w)
+change_w <- apply(above_w, c(2, 3), function(X) abs(diff(X)))
+change_count_by_epoch <- apply(change_w, c(1, 3), function(X) sum(X)
+  )
+
+rowSums(change_count_by_epoch)
+
+
+```
+
+
+
+
+
+<!-- # Granular sim -->
+
+<!-- Ran 5 simulations collecting info **every epoch for 250k epochs** (previous sims only collected every 1000 epochs). -->
+
+<!-- ```{r LOAD_GRANULAR} -->
+<!-- load(here::here("sims", "results", "hshoe_linreg_maxepochs_granular.RData")) # 410 MB -->
+
+<!-- loss_arr <- sapply( -->
+<!--   contents$res,  -->
+<!--   function(X) X$loss_mat,  -->
+<!--   simplify = "array" -->
+<!-- )  # returns array with dims: 1: epoch;   2: kl, mse_train, mse_test;   3: sim number -->
+
+<!-- alph_arr <- sapply( -->
+<!--   contents$res, -->
+<!--   function(X) X$alpha_mat, -->
+<!--   simplify = "array" -->
+<!-- ) -->
+
+<!-- loss_arr <- sapply( -->
+<!--   contents$res, -->
+<!--   function(X) X$loss_mat, -->
+<!--   simplify = "array" -->
+<!-- ) -->
+
+<!-- final_alphas <- t(alph_arr[25E4, , ]) -->
+
+<!-- FN <- apply(final_alphas[, 1:4], 1, function(X) any(X > wald_thresh)) -->
+<!-- FP <- apply(final_alphas[, 5:104], 1, function(X) any(X < wald_thresh)) -->
+<!-- ``` -->
+
+<!-- based on final training epoch alphas for 5 simulations, no false positives, only 1 false negative -->
+
+
+<!-- ## plots -->
+
+<!-- ```{r} -->
+
+<!-- kl_mat <- loss_arr[, 1, ] -->
+<!-- mse_train <- loss_arr[, 2, ] -->
+<!-- mse_test <- loss_arr[, 3, ] -->
+<!-- mse_diff <- mse_test - mse_train -->
+<!-- st <- 125000 -->
+<!-- en <- 250000 -->
+<!-- matplot(y = kl_mat[st:en, ], x = st:en, type = "l") -->
+<!-- matplot(y = mse_train[st:en, ], x = st:en, type = "l") -->
+<!-- matplot(y = mse_test[st:en, ], x = st:en, type = "l") -->
+<!-- matplot(y = mse_diff[st:en, ], x = st:en, type = "l") -->
+
+
+
+<!-- tp <- apply( -->
+<!--   alph_arr[, 1:4, ],  -->
+<!--   3, -->
+<!--   function(X) X < wald_thresh -->
+<!-- ) -->
+
+<!-- dim(tp) -->
+
+
+<!-- ``` -->
+
+
+
+
+```{r}
+
+```
 
 
 
@@ -378,6 +797,8 @@ dim(alph_arr)
 
 
 
+- check when KL gets noisy
+- check if (unscaled) test / train KL same
 
 
 
