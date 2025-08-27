@@ -22,7 +22,7 @@ sim_params <- list(
   "d_in" = 104,
   "n_obs" = 125,
   "true_coefs" = c(-0.5, 1, -2, 4, rep(0, times = 100)),
-  "seed" = 4,
+  "seed" = 1,
   "err_sig" = 1,
   "burn_in" = 1,
   "convergence_crit" = 1e-7,
@@ -93,7 +93,7 @@ contents <- list(
   "res" = res, 
   "sim_params" = sim_params
 )
-save(contents, file = here::here("sims", "results", "hshoe_linreg_maxepochs4.RData"))
+save(contents, file = here::here("sims", "results", "hshoe_linreg_maxepochs1.RData"))
 
 
 
