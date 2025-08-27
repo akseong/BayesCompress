@@ -144,6 +144,9 @@ mykable <- function(tab, cap,
   - look at implementation
 
 
+## 2020 Liu. Li, Yu, Zeng - Posterior-Based Wald-Type Statistics for Hypothesis Testing
+
+
 ## 2021 DNN with controlled VarSel
 
   - uses knockoffs in input layer
