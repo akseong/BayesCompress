@@ -308,9 +308,32 @@ Last, we are just looking at the final training epochs.  These simulations simpl
 
 
 
-## notes / thoughts:
+### notes / thoughts:
 
 - any way to get ELBOs for competing models to approximate bayes factors?  Is this even useful / desirable?  Avoiding this kind of computation is kind of the reason we're using NN's in the first place....
+
+
+
+## Training & Stopping Criteria exploration
+
+Looking at different stopping criteria for training the network:
+
+1. "convergence"  
+
+  - of test MSE  
+  
+  - of train MSE  
+  
+  - of alphas  
+
+1. rolling mean **test or train** MSE increasing
+
+1. rolling mean **difference** between test and train MSE increasing
+
+  - particularly with test MSE > train MSE
+
+
+
 
 
 
