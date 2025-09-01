@@ -17,7 +17,7 @@ output:
       collapsed: false
       smooth_scroll: true
     number_sections: true
-    # code_fold: show
+    code_fold: hide
 urlcolor: blue
 params:
   retrain: FALSE
@@ -314,7 +314,7 @@ Last, we are just looking at the final training epochs.  These simulations simpl
 
 
 
-## Training & Stopping Criteria exploration
+# Examination for reducing FP / FN?
 
 Looking at different stopping criteria for training the network:
 
@@ -336,7 +336,7 @@ Looking at different stopping criteria for training the network:
 
 
 
-## test, train, test-train MSE increasing
+## test, train, test-train MSE increasing {.tabset .tabset-pills}
 
 ```{r}
 # did simulation have false positive / false negative?
@@ -427,8 +427,13 @@ train_MA_df_long <- train_MA_df %>%
 train_df_long <- inner_join(train_df_long, err_df, by = "sim")
 train_MA_df_long <- inner_join(train_MA_df_long, err_df, by = "sim")
 
+# sample sims to be able to see
+display_sims <- paste0("sim_", sample(1:100, 25))
+
+
 train_df_long %>%
   # filter(err_type != "none") %>% 
+  filter(sim %in% display_sims) %>% 
   filter(epoch > 70000) %>% 
   ggplot(
     aes(
@@ -448,6 +453,7 @@ train_df_long %>%
 
 train_MA_df_long %>%
   # filter(err_type != "none") %>% 
+  filter(sim %in% display_sims) %>% 
   filter(epoch > 70000) %>% 
   ggplot(
     aes(
@@ -636,12 +642,12 @@ kl_df_long <- kl_df %>%
   pivot_longer(
     cols = !epoch,
     names_to = "sim",
-    values_to = "mse_kl")
+    values_to = "kl")
 kl_MA_df_long <- kl_MA_df %>%
   pivot_longer(
     cols = !epoch,
     names_to = "sim",
-    values_to = "MA_mse_kl")
+    values_to = "MA_kl")
 
 kl_df_long <- inner_join(kl_df_long, err_df, by = "sim")
 kl_MA_df_long <- inner_join(kl_MA_df_long, err_df, by = "sim")
@@ -651,7 +657,7 @@ kl_df_long %>%
   filter(epoch > 70000) %>% 
   ggplot(
     aes(
-      y = mse_kl, 
+      y = kl, 
       x = epoch, 
       group = sim,
       color = sim)
@@ -660,7 +666,7 @@ kl_df_long %>%
   facet_wrap(~err_type, nrow = 3) + 
   theme(legend.position = "none") + 
   labs(
-    title = "kl_MSE by error type (70-100k epochs)"
+    title = "kl by error type (70-100k epochs)"
   )
   
 
@@ -670,7 +676,7 @@ kl_MA_df_long %>%
   filter(epoch > 70000) %>% 
   ggplot(
     aes(
-      y = MA_mse_kl, 
+      y = MA_kl, 
       x = epoch, 
       group = sim,
       color = sim)
@@ -682,7 +688,7 @@ kl_MA_df_long %>%
     title = paste0(
       "moving average (",
       ma_k,
-      ") kl_MSE by error type (70-100k epochs)"
+      ") kl by error type (70-100k epochs)"
     )
   )
 
@@ -706,14 +712,262 @@ KL, train MSE, test MSE not really offering good clues as to T1 / T2 errors, at 
 
 above_w <- apply(alph_arr, c(2, 3), function(X) X>wald_thresh)
 dim(above_w)
-change_w <- apply(above_w, c(2, 3), function(X) abs(diff(X)))
-change_count_by_epoch <- apply(change_w, c(1, 3), function(X) sum(X)
-  )
+change_w <- apply(above_w, c(2, 3), function(X) diff(X))
+change_count_by_epoch <- apply(change_w, c(1, 3), function(X) sum(abs(X)))
 
 rowSums(change_count_by_epoch)
+sum(change_count_by_epoch[17:61, ])
+sum(change_count_by_epoch)
+```
 
+
+Most crosses of the wald-stat threshold occur between epochs 18k - 61k (421 crossings out of a total of 460 crossings).
+
+- What is the behavior after 61k epochs?
+
+```{r post_61k_epochs}
+# count changes from False Neg to True Post (good)
+sum(change_w[61:99, 1:4,] == -1)
+
+# count changes from True Pos to False Neg (bad)
+sum(change_w[61:99, 1:4,] == 1)
+
+# how many of these changes are the same variable flipping?
+varflips <- apply(
+  change_w[61:99, 1:4, ], 
+  3, 
+  function(X) colSums(abs(X))
+)
+flips <- apply(varflips, 1, function(X) which(X != 0))
+flips
+```
+
+So these flips are all occurring in variable 1 (behavior to be expected).  Simulations 12, 23, 26, 54, 70, 72, 100
+
+
+### comparison of flips vs noflips {.tabset .tabset-pills}
+
+#### train_mse 
+
+```{r}
+flip_sims <- paste0("sim_", flips[[1]])
+display_sims_noflips <- paste0("sim_", sample(setdiff(1:100, flips[[1]]), 20))
+
+lo_epoch <- 30000
+hi_epoch <- 100000
+epoch_label <- paste0(lo_epoch/1000, "k-", hi_epoch/1000, "k epochs")
+
+train_df_long %>%
+  # filter(err_type != "none") %>% 
+  filter(sim %in% flip_sims) %>% 
+  filter(epoch > lo_epoch & epoch < hi_epoch) %>% 
+  ggplot(
+    aes(
+      y = mse_train, 
+      x = epoch, 
+      group = sim,
+      color = sim)
+  ) + 
+  geom_line(alpha = 0.25) + 
+  geom_line(stat = "smooth", alpha = 0.5) + 
+  facet_wrap(~err_type, nrow = 3) + 
+  theme(legend.position = "none") + 
+  labs(
+    title = paste0("flipsims: train_MSE by error type; ", epoch_label)
+  ) 
+
+
+train_df_long %>%
+  # filter(err_type != "none") %>% 
+  filter(sim %in% display_sims_noflips) %>% 
+  filter(epoch > lo_epoch & epoch < hi_epoch) %>% 
+  ggplot(
+    aes(
+      y = mse_train, 
+      x = epoch, 
+      group = sim,
+      color = sim)
+  ) + 
+  geom_line(alpha = 0.25) + 
+  geom_line(stat = "smooth", alpha = 0.5) + 
+  facet_wrap(~err_type, nrow = 3) + 
+  theme(legend.position = "none") + 
+  labs(
+    title = paste0("noflips: train_MSE by error type; ", epoch_label)
+  ) 
+```
+
+
+#### test_mse
+
+```{r}
+
+test_df_long %>%
+  # filter(err_type != "none") %>% 
+  filter(sim %in% flip_sims) %>% 
+  filter(epoch > lo_epoch & epoch < hi_epoch) %>% 
+  ggplot(
+    aes(
+      y = mse_test, 
+      x = epoch, 
+      group = sim,
+      color = sim)
+  ) + 
+  geom_line(alpha = 0.25) + 
+  geom_line(stat = "smooth", alpha = 0.5) + 
+  facet_wrap(~err_type, nrow = 3) + 
+  theme(legend.position = "none") + 
+  labs(
+    title = paste0("flipsims: test_MSE by error type; ", epoch_label)
+  ) 
+
+test_df_long %>%
+  # filter(err_type != "none") %>% 
+  filter(sim %in% display_sims_noflips) %>% 
+  filter(epoch > lo_epoch & epoch < hi_epoch) %>% 
+  ggplot(
+    aes(
+      y = mse_test, 
+      x = epoch, 
+      group = sim,
+      color = sim)
+  ) + 
+  geom_line(alpha = 0.25) + 
+  geom_line(stat = "smooth", alpha = 0.5) + 
+  facet_wrap(~err_type, nrow = 3) + 
+  theme(legend.position = "none") + 
+  labs(
+    title = paste0("noflips: test_MSE by error type; ", epoch_label)
+  )
+```
+
+
+
+
+
+
+
+#### kl
+
+```{r}
+kl_df_long %>%
+  # filter(err_type != "none") %>% 
+  filter(sim %in% flip_sims) %>% 
+  filter(epoch > lo_epoch & epoch < hi_epoch) %>% 
+  ggplot(
+    aes(
+      y = kl, 
+      x = epoch, 
+      group = sim,
+      color = sim)
+  ) + 
+  geom_line(alpha = 0.25) + 
+  facet_wrap(~err_type, nrow = 3) + 
+  theme(legend.position = "none") + 
+  labs(
+    title = paste0("flipsims: kl by error type; ", epoch_label)
+  ) 
+
+kl_df_long %>%
+  # filter(err_type != "none") %>% 
+  filter(sim %in% display_sims_noflips) %>% 
+  filter(epoch > lo_epoch & epoch < hi_epoch) %>% 
+  ggplot(
+    aes(
+      y = kl, 
+      x = epoch, 
+      group = sim,
+      color = sim)
+  ) + 
+  geom_line(alpha = 0.25) + 
+  facet_wrap(~err_type, nrow = 3) + 
+  theme(legend.position = "none") + 
+  labs(
+    title = paste0("noflips: kl by error type; ", epoch_label)
+  )
+```
+
+
+#### test - train
+
+```{r}
+tetr_df_long %>%
+  # filter(err_type != "none") %>% 
+  filter(sim %in% flip_sims) %>% 
+  filter(epoch > lo_epoch & epoch < hi_epoch) %>% 
+  ggplot(
+    aes(
+      y = mse_tetr, 
+      x = epoch, 
+      group = sim,
+      color = sim)
+  ) + 
+  geom_line(alpha = 0.25) + 
+  geom_line(stat = "smooth", alpha = 0.5) + 
+  facet_wrap(~err_type, nrow = 3) + 
+  theme(legend.position = "none") + 
+  labs(
+    title = paste0("flipsims: test-train MSE by error type; ", epoch_label)
+  )
+
+tetr_df_long %>%
+  # filter(err_type != "none") %>% 
+  filter(sim %in% display_sims_noflips) %>% 
+  filter(epoch > lo_epoch & epoch < hi_epoch) %>% 
+  ggplot(
+    aes(
+      y = mse_tetr, 
+      x = epoch, 
+      group = sim,
+      color = sim)
+  ) + 
+  geom_line(alpha = 0.25) + 
+  geom_line(stat = "smooth", alpha = 0.5) + 
+  facet_wrap(~err_type, nrow = 3) + 
+  theme(legend.position = "none") + 
+  labs(
+    title = paste0("noflips: test-train MSE by error type; ", epoch_label)
+  )
+```
+
+
+## Conclusions
+
+- train / test mse seems a bit too noisy to give us clues here.  Perhaps there might be patterns if we look at every iteration instead of every 1000 iterations?
+  - or look at the first-order differences directly?
+
+
+
+
+
+# Exploration for figuring out convergence
+
+
+
+
+
+
+
+### MAs
+
+
+
+
+```{r}
+# FPs
+sum(final_alphas[, 5:104] < wald_thresh)
+# TPs
+sum(final_alphas[, 1:4] < wald_thresh)
+```
+
+Since we have 374 positives (FP + TP), we have a large number of repeat crossings.  When do these repeat crossings occur?
+
+```{r}
 
 ```
+
+
+
 
 
 
