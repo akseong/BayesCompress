@@ -1,5 +1,5 @@
 ---
-title: "hshoe stopping criteria investigation"
+title: "hshoe stopping criteria investigation - 250k training epochs"
 author: "Arnie Seong"
 date: "`r format(Sys.time(), '%d %B %Y')`"
 header-includes:
@@ -145,7 +145,7 @@ source(here("Rcode", "sim_functions.R"))
 
 
 
-# Purpose
+# Purpose - redo of 100k epochs analysis
 trying to figure out stopping criteria to use.  Based on 10 simulations of basic linear regression horseshoe architecture (i.e. only 1 neuron).
 
 Data generation:  
@@ -158,15 +158,15 @@ Data generation:
 
 - true coefficients: -0.5, 1, -2, 4, 0, 0, 0, 0, 0 .... (4 non-zero coefficients, 100 0 coefficients)
 
-- only stopping criteria employed was max number of epochs (training epochs = 100k)
+- only stopping criteria employed was max number of epochs (training epochs = __250k__)
 
-```{r LOAD_COMBINE_100k_SIMS}
+```{r LOAD_COMBINE_250k_SIMS}
 # combine results files
-fname_stem <- here::here("sims", "results", "hshoe_linreg_maxepochs")
+fname_stem <- here::here("sims", "results", "hshoe_linreg_maxepochs_250k")
 sim_seeds <- c()
 res_comp <- list()
 
-for (i in 1:10){
+for (i in 1:8){
   fname <- paste0(fname_stem, i, ".Rdata")
   load(fname)
   sim_seeds <- c(sim_seeds, contents$sim_params$sim_seeds)
@@ -179,7 +179,7 @@ final_alphas <- t(sapply(res_comp,
        ))
 ```
 
-# Mainline results: 100k training epochs
+# Mainline results: 250k training epochs
 
 ## Using naive threshold of 0.05
 
@@ -187,19 +187,17 @@ Criteria for model inclusion: is the "dropout rate parameter" $\alpha$ lower tha
 
 ### Type II errors:
 
-Total count of Type II errors over 100 simulated datasets:
+Total count of Type II errors and T2 error rate over __200__ simulated datasets:
 
 ```{r}
+# count
 sum(final_alphas[, 1:4] > 0.05)
-```
-
-Type II error rate:
-```{r}
+# Type II error rate:
 mean(final_alphas[, 1:4] > 0.05)
 ```
 
 
-All errors are from the first covariate ($\beta = 0.5$).  Table below shows $\alpha$ for first 4 covariates for all 100 simulated datasets.
+All errors are from the first covariate ($\beta = 0.5$).  Table below shows $\alpha$ for first 4 covariates for all 200 simulated datasets.
 
 ```{r T2_err, echo = FALSE}
 dt <- DT::datatable(data.frame(round(final_alphas[, 1:4], 3)))
@@ -255,23 +253,26 @@ $$W = (\bar\theta - \theta_0)'[V_{\theta \theta} (\bar\nu)]^{-1} (\bar\theta - \
 
 #### Type II error
 
+Type II error count & rate:
 ```{r}
 wald_thresh <- 1 / qchisq(1 - (0.05 / 104), df = 1)
 t2_sum <- sum(final_alphas[, 1:4] > wald_thresh)
-t2_sum # T2 errors
+t2_sum # count T2 errors
+mean(final_alphas[, 1:4] > wald_thresh) # rate
 ```
 
-Results: `r t2_sum` errors total out of a possible 400 (4 true covariates, 100 simulations)
+Results: `r t2_sum` errors total out of a possible 800 (4 true covariates, 200 simulations)
 
 I.e. T2 error rate of `r mean(final_alphas[, 1:4] > wald_thresh)`.
 
 
 #### Type I error
 
-T1 errors (out of 100 nuisance variables * 100 simulations):
+T1 error count & rate (out of 100 nuisance variables * 200 simulations):
 
 ```{r}
 sum(final_alphas[, 5:104] < wald_thresh)
+mean(final_alphas[, 5:104] < wald_thresh)
 ```
 
 so a T1 error rate of `r mean(final_alphas[, 5:104] < wald_thresh)`
@@ -446,7 +447,7 @@ train_df_long %>%
   facet_wrap(~err_type, nrow = 3) + 
   theme(legend.position = "none") + 
   labs(
-    title = "train_MSE by error type (70-100k epochs)"
+    title = "train_MSE by error type (70-250k epochs)"
   )
   
 
@@ -469,7 +470,7 @@ train_MA_df_long %>%
     title = paste0(
       "moving average (",
       ma_k,
-      ") train_MSE by error type (70-100k epochs)"
+      ") train_MSE by error type (70-250k epochs)"
     )
   )
 
@@ -520,7 +521,7 @@ test_df_long %>%
   facet_wrap(~err_type, nrow = 3) + 
   theme(legend.position = "none") + 
   labs(
-    title = "test_MSE by error type (70-100k epochs)"
+    title = "test_MSE by error type (70-250k epochs)"
   )
   
 
@@ -542,7 +543,7 @@ test_MA_df_long %>%
     title = paste0(
       "moving average (",
       ma_k,
-      ") test_MSE by error type (70-100k epochs)"
+      ") test_MSE by error type (70-250k epochs)"
     )
   )
 ```
@@ -593,7 +594,7 @@ tetr_df_long %>%
   facet_wrap(~err_type, nrow = 3) + 
   theme(legend.position = "none") + 
   labs(
-    title = "tetr_MSE by error type (70-100k epochs)"
+    title = "tetr_MSE by error type (70-250k epochs)"
   )
   
 
@@ -615,7 +616,7 @@ tetr_MA_df_long %>%
     title = paste0(
       "moving average (",
       ma_k,
-      ") tetr_MSE by error type (70-100k epochs)"
+      ") tetr_MSE by error type (70-250k epochs)"
     )
   )
 ```
@@ -666,7 +667,7 @@ kl_df_long %>%
   facet_wrap(~err_type, nrow = 3) + 
   theme(legend.position = "none") + 
   labs(
-    title = "kl by error type (70-100k epochs)"
+    title = "kl by error type (70-250k epochs)"
   )
   
 
@@ -688,7 +689,7 @@ kl_MA_df_long %>%
     title = paste0(
       "moving average (",
       ma_k,
-      ") kl by error type (70-100k epochs)"
+      ") kl by error type (70-250k epochs)"
     )
   )
 
@@ -716,12 +717,12 @@ change_w <- apply(above_w, c(2, 3), function(X) diff(X))
 change_count_by_epoch <- apply(change_w, c(1, 3), function(X) sum(abs(X)))
 
 rowSums(change_count_by_epoch)
-sum(change_count_by_epoch[17:61, ])
+sum(change_count_by_epoch[17:81, ])
 sum(change_count_by_epoch)
 ```
 
 
-Most crosses of the wald-stat threshold occur between epochs 18k - 61k (421 crossings out of a total of 460 crossings).
+Most crosses of the wald-stat threshold occur between epochs 18k - __81k__ (`r sum(change_count_by_epoch[17:81, ])` crossings out of a total of `r sum(change_count_by_epoch)` crossings).
 
 - What is the behavior after 61k epochs?
 
@@ -742,7 +743,7 @@ flips <- apply(varflips, 1, function(X) which(X != 0))
 flips
 ```
 
-So these flips are all occurring in variable 1 (behavior to be expected).  Simulations 12, 23, 26, 54, 70, 72, 100
+So these flips are all occurring in variable 1 (behavior to be expected).  Simulations `r flips[[1]]`
 
 
 ### comparison of flips vs noflips {.tabset .tabset-pills}
@@ -754,7 +755,7 @@ flip_sims <- paste0("sim_", flips[[1]])
 display_sims_noflips <- paste0("sim_", sample(setdiff(1:100, flips[[1]]), 20))
 
 lo_epoch <- 30000
-hi_epoch <- 100000
+hi_epoch <- 250000
 epoch_label <- paste0(lo_epoch/1000, "k-", hi_epoch/1000, "k epochs")
 
 train_df_long %>%
@@ -796,6 +797,8 @@ train_df_long %>%
     title = paste0("noflips: train_MSE by error type; ", epoch_label)
   ) 
 ```
+
+- __interestingly, all of the Type 1 errors (4) are in the simulations which flip__.  However, not all of the flipping simulations contained T1 errors at 250k epochs.
 
 
 #### test_mse
@@ -843,7 +846,7 @@ test_df_long %>%
 
 
 
-
+__Note:__ test mse appears to level off around 100k epochs.
 
 
 
@@ -956,8 +959,8 @@ get_alphas_by_row <- function(row_num){
 }
 
 alphas_60k <- get_alphas_by_row(60)
-sum(alphas_60k[, 5:104] < wald_thresh)  # FP
-sum(alphas_60k[, 1:4] > wald_thresh)    # FN
+sum(alphas_60k[, 5:104] < wald_thresh)  # T1
+sum(alphas_60k[, 1:4] > wald_thresh)    # T2
 ```
 
 
@@ -965,10 +968,11 @@ sum(alphas_60k[, 1:4] > wald_thresh)    # FN
 ### over epochs
 
 ```{r}
-errs_by_epoch <- matrix(NA, nrow = 100, ncol = 3)
+rowdim <- nrow(res_comp[[1]]$loss_mat)
+errs_by_epoch <- matrix(NA, nrow = rowdim, ncol = 3)
 colnames(errs_by_epoch) <- c("epoch", "T1", "T2")
 
-for (epoch_row in 1:100){
+for (epoch_row in 1:rowdim){
   alphs <- get_alphas_by_row(epoch_row)
   errs_by_epoch[epoch_row, 1] <- epoch_row * 1000
   errs_by_epoch[epoch_row, 2] <- sum(alphs[, 5:104] < wald_thresh)  # FP
@@ -976,16 +980,44 @@ for (epoch_row in 1:100){
 }
 
 err_rates_by_epoch <- errs_by_epoch
-err_rates_by_epoch[, 2] <- errs_by_epoch[, 2] / (100 * 100)
-err_rates_by_epoch[, 3] <- errs_by_epoch[, 3] / (4 * 100)
+err_rates_by_epoch[, 2] <- errs_by_epoch[, 2] / (100 * 200)
+err_rates_by_epoch[, 3] <- errs_by_epoch[, 3] / (4 * 200)
 
-mykable(err_rates_by_epoch[1:10 * 10, ], cap = "error rates by epoch")
+mykable(err_rates_by_epoch[1:(rowdim/10)* 10, ], cap = "err by epoch")
 ```
 
-Only marginal improvements when stopping after 50k epochs.
+Only marginal improvements when stopping after ~~50k epochs~~ 150k epochs.
 
 
 <!-- # Exploration for figuring out convergence -->
+
+```{r}
+
+mykable(err_rates_by_epoch, cap = "err by epoch")
+
+err_df <- as.data.frame(err_rates_by_epoch)
+err_df %>% 
+  filter(epoch > 5E4) %>% 
+  pivot_longer(
+    cols = -epoch,
+    names_to = "err_type",
+    values_to = "rate"
+  ) %>% 
+  ggplot(
+    aes(
+      y = rate,
+      x = epoch,
+      color = err_type
+    )
+  ) + 
+  geom_line() + 
+  labs(title = "error rate by epoch over 200 simulations")
+```
+
+
+__Note:__ appears to level off around 150k epochs.
+
+
 
 
 
