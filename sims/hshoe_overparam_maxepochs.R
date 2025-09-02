@@ -23,9 +23,9 @@ sim_params <- list(
   "d_hidden1" = 16,
   "d_hidden2" = 16,
   "d_out" = 1,
-  "n_obs" = 125,
+  "n_obs" = 1250,
   "true_coefs" = c(-0.5, 1, -2, 4, rep(0, times = 100)),
-  "seed" = 4,
+  "seed" = 5,
   "err_sig" = 1,
   "burn_in" = 1,
   "convergence_crit" = 1e-7,
@@ -112,7 +112,7 @@ res <- lapply(
     sim_params = sim_params,
     nn_model = MLHS,
     train_epochs = 250000,
-    verbose = TRUE,
+    verbose = FALSE,
     report_every = 1000,
     want_plots = FALSE,
     want_all_params = FALSE,
@@ -128,7 +128,7 @@ contents <- list(
   "res" = res, 
   "sim_params" = sim_params
 )
-save(contents, file = here::here("sims", "results", "hshoe_overparam100_maxepochs4.RData"))
+save(contents, file = here::here("sims", "results", "hshoe_overparam1000_maxepochs5.RData"))
 
 
 
