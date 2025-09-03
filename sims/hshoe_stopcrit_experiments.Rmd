@@ -183,6 +183,65 @@ load(here::here("sims", "results", "hshoe_linreg_maxepochs_granular.RData"))
 ```
 
 
+```{r QUICK_VIEW_FCNS}
+
+portion_vec <- function(
+    vec, 
+    portion_size = 1E3, 
+    anal_fcn = mean
+  ){
+  n_portions <- length(vec) %/% portion_size
+  rem <- length(vec) %% portion_size
+  if (rem) {cat_color(paste0(rem, " observations left over \n"))}
+  res <- rep(NA, length.out = n_portions)
+  for (i in 1:n_portions){
+    portion_vec <- vec[1:portion_size + portion_size * (i-1)]
+    res[i] <- anal_fcn(portion_vec)
+  }
+  return(res)
+}
+
+ggmatplot <- function(mat, start_row = 1, alpha = 0.75){
+  df <- data.frame(mat)
+  df$x <- 1:nrow(mat)
+  plt <- df %>% 
+    filter(x >= start_row) %>% 
+    pivot_longer(cols = -x, names_to = "group") %>% 
+    ggplot(aes(y = value, x = x, color = group)) +
+    geom_line(alpha = alpha)
+  return(plt)
+}
+
+mad <- function(x){mean(abs(diff(x)))}
+sdd <- function(x){sd(diff(x))}
+
+
+
+# checks if vector is monotonic (increasing) for inc_k elements ----
+monotonic_k <- function(vec, inc_k = 100, increasing = TRUE){
+  ind = 1
+  mono <- FALSE
+  
+  if (increasing){
+    while ((!mono) & (ind <= (length(vec)-inc_k - 1))){
+      mono <- !any(diff(test_mse[ind:(ind+inc_k)]) < 0)
+      ind <- ind + 1
+    } 
+  } else {
+    while ((!mono) & (ind <= (length(vec)-inc_k - 1))){
+      mono <- !any(diff(test_mse[ind:(ind+inc_k)]) > 0)
+      ind <- ind + 1
+    }
+  }
+  
+  res <- ifelse(mono, ind + k, FALSE)
+  return(res)
+}
+```
+
+
+
+
 # decision criteria based on posterior wald
 
 ## max epochs = 250k
@@ -249,27 +308,6 @@ streaming_min <- function(vec, burn_in = 0){
   vec
 }
 
-
-# checks if vector is monotonic (increasing) for inc_k elements ----
-monotonic_k <- function(vec, inc_k = 100, increasing = TRUE){
-  ind = 1
-  mono <- FALSE
-  
-  if (increasing){
-    while ((!mono) & (ind <= (length(vec)-inc_k - 1))){
-      mono <- !any(diff(test_mse[ind:(ind+inc_k)]) < 0)
-      ind <- ind + 1
-    } 
-  } else {
-    while ((!mono) & (ind <= (length(vec)-inc_k - 1))){
-      mono <- !any(diff(test_mse[ind:(ind+inc_k)]) > 0)
-      ind <- ind + 1
-    }
-  }
-  
-  res <- ifelse(mono, c(ind, ind + k), FALSE)
-  return(res)
-}
 
 
 
@@ -372,26 +410,6 @@ matplot(
 
 
 ```{r}
-
-portion_vec <- function(
-    vec, 
-    portion_size = 1E3, 
-    anal_fcn = mean
-  ){
-  n_portions <- length(vec) %/% portion_size
-  rem <- length(vec) %% portion_size
-  if (rem) {cat_color(paste0(rem, " observations left over \n"))}
-  res <- rep(NA, length.out = n_portions)
-  for (i in 1:n_portions){
-    portion_vec <- vec[1:portion_size + portion_size * (i-1)]
-    res[i] <- anal_fcn(portion_vec)
-  }
-  return(res)
-}
-
-mad <- function(x){mean(abs(diff(x)))}
-sdd <- function(x){sd(diff(x))}
-
 klmad <- sapply(
   contents$res, 
   function(X) portion_vec(
@@ -414,16 +432,6 @@ klsdd <- sapply(
   )
 )
 
-ggmatplot <- function(mat, start_row = 1, alpha = 0.75){
-  df <- data.frame(mat)
-  df$x <- 1:nrow(mat)
-  plt <- df %>% 
-    filter(x >= start_row) %>% 
-    pivot_longer(cols = -x, names_to = "group") %>% 
-    ggplot(aes(y = value, x = x, color = group)) +
-    geom_line(alpha = alpha)
-  return(plt)
-}
 
 
 ggmatplot(klsdd[1:nrow(klsdd),], .5) + 
