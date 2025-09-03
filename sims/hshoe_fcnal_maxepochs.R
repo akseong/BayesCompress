@@ -11,21 +11,45 @@ source(here("Rcode", "torch_horseshoe.R"))
 source(here("Rcode", "sim_functions.R"))
 
 
-#### regression model ----
+fcn1 <- function(x) exp(x/2)
+fcn2 <- function(x) cos(pi*x) + sin(pi/1.2*x)
+fcn3 <- function(x) abs(x)^(1.5)
+fcn4 <- function(x) - (abs(x))
+flist = list(fcn1, fcn2, fcn3, fcn4)
+# 
+# xshow <- seq(-3, 3, length.out = 100)
+# yshow <- sapply(flist, function(fcn) fcn(xshow))
+# df <- data.frame(
+#   "f1" = yshow[, 1],
+#   "f2" = yshow[, 2],
+#   "f3" = yshow[, 3],
+#   "f4" = yshow[, 4],
+#   "x"  = xshow
+# )
+# df %>% 
+#   pivot_longer(cols = -x, names_to = "fcn") %>% 
+#   ggplot(aes(y = value, x = x, color = fcn)) +
+#   geom_line() + 
+#   labs(title = "functions used to create data")
+
+
+
 
 ## sim_params
 #    check whenever changing setting (testing / single vs parallel, etc) ##
 #           n_sims, verbose, want_plots, train_epochs
 sim_params <- list(
-  "sim_name" = "horseshoe, linear regression setting, KL scaled by n",
-  "n_sims" = 10, 
+  "sim_name" = "horseshoe, fcnal data",
+  "n_sims" = 2, 
   "d_in" = 104,
   "d_hidden1" = 16,
-  "d_hidden2" = 16,
+  "d_hidden2" = 8,
   "d_out" = 1,
   "n_obs" = 1250,
   "true_coefs" = c(-0.5, 1, -2, 4, rep(0, times = 100)),
-  "seed" = 5,
+  "wald_thresh" = 1 / qchisq(1 - (0.05 / 104), df = 1),
+  "flist" = flist,
+  "seed" = 1,
   "err_sig" = 1,
   "burn_in" = 1,
   "convergence_crit" = 1e-7,
@@ -39,6 +63,14 @@ sim_params <- list(
     "ma_loss_increasing" # ma_tr_loss increasing for ...
   )
 )
+save_fname <- paste0(
+  "hshoe_fcnldata",
+  sim_params$n_obs,
+  "_maxepochs",
+  sim_params$seed,
+  ".RData"
+)
+
 set.seed(sim_params$seed)
 sim_params$sim_seeds <- floor(runif(n = sim_params$n_sims, 0, 1000000))
 
@@ -107,16 +139,16 @@ MLHS <- nn_module(
 # sim_fcn_hshoe_linreg() is in sim_functions.R
 res <- lapply(
   1:sim_params$n_sims, 
-  function(X) sim_fcn_hshoe_linreg(
+  function(X) sim_fcn_hshoe_fcnaldata(
     sim_ind = X, 
     sim_params = sim_params,
     nn_model = MLHS,
-    train_epochs = 250000,
-    verbose = FALSE,
-    report_every = 1000,
+    train_epochs = 500,
+    verbose = TRUE,
+    display_alpha_thresh = sim_params$wald_thresh,
+    report_every = 100,
     want_plots = FALSE,
-    want_all_params = FALSE,
-    want_data = FALSE
+    want_fcn_plots = TRUE
   )
 )
 
@@ -128,7 +160,8 @@ contents <- list(
   "res" = res, 
   "sim_params" = sim_params
 )
-save(contents, file = here::here("sims", "results", "hshoe_overparam1000_maxepochs5.RData"))
+
+save(contents, file = here::here("sims", "results", save_fname))
 
 
 
