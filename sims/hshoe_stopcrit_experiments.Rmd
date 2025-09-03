@@ -227,41 +227,91 @@ mykable(err_rates_by_epoch[1:(rowdim/10)* 10, ], cap = "err by epoch")
 ```
 
 
-# experiments: 
+# experiments: Test_mse
+
 ## Test_mse minimum
 
 Previous examination suggested that test MSE appears to stabilize and then simply jitter around the same time that T1/T2 rates do as well.  So perhaps tracking minimum test_mse makes sense, and if it does not rise for some number of epochs, we stop training.
 
+- difficulties with implementing this experiment --- 100k length vectors appear too hard for R to handle (at least on this machine).  Break into 10k length vectors to see.
+
+
 ```{r}
-streaming_min <- function(vec){
-  min_stream <- vec
-  for (i in 2:length(vec)){
-    min_stream[i] <- ifelse(
-      vec[i] < min_stream[i-1], 
+streaming_min <- function(vec, burn_in = 0){
+  for (i in 2:length(vec) + burn_in){
+    vec[i] <- ifelse(
+      vec[i] < vec[i-1], 
       vec[i], 
-      min_stream[i-1] 
+      vec[i-1] 
     )
   }
-  min_stream
+  vec
 }
 
-vec <- test_mse[1:1000]
 
+# checks if vector is monotonic increasing for inc_k elements
+# make this into "monotonic_k", i.e. able to check if increasing OR decreasing
+increasing_k <- function(vec, inc_k = 100){
+  ind = 1
+  mono_inc <- FALSE
+  while ((!mono_inc) & (ind <= (length(vec)-inc_k - 1))){
+    mono_inc <- !any(diff(test_mse[ind:(ind+inc_k)]) < 0)
+    ind <- ind + 1
+  }
+  
+  if (!mono_inc){
+    return(FALSE)
+  } else {
+    return(
+      c(ind, ind + k)
+    )
+  }
+}
+
+
+
+# # zoo::rollmax also times out badly around 10k length vector
+# rollmin <- -zoo::rollmax(-test_mse[1:10000], k = 100)
 
 # try it out
-lmat <- contents$res$sim_1$loss_mat
-kl <- lmat[, 1]
-train_mse <- lmat[, 2]
-test_mse <- lmat[, 3]
+# kl <- contents$res$sim_1$loss_mat[1:1E5, 1]
+# train_mse <- contents$res$sim_1$loss_mat[1:1E5, 2]
+
+
+piece_num <- 3:24
+for (i in piece_num){
+  test_mse <- contents$res$sim_1$loss_mat[1:1E4 + 1E4 * i, 3]
+  minvec <- streaming_min(test_mse, burn_in = 0)
+  print(table(minvec))
+}
 
 ```
 
-Stops way too early.
+- tracking min test mse doesn't work very well - would hit stop criteria too soon
 
+
+
+## test_mse MA increasing for k epochs
 
 ```{r}
-
+piece_num <- 3:24
+for (i in piece_num){
+  test_mse <- contents$res$sim_1$loss_mat[1:1E4 + 1E4 * i, 3]
+  ma50 <- zoo::rollmean(test_mse, k = 20)
+  ma50_increasing <- increasing_k(ma50, inc_k = 50)
+  print(ma50_increasing)
+}
 ```
+
+
+- probably too noisy for this (checking if MA is monotonic increasing) to work
+
+
+## does test_mse escape certain window?
+
+- window defined by sample standard deviation from last 100?
+
+
 
 
 <!-- ### MAs -->
