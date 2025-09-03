@@ -237,6 +237,7 @@ Previous examination suggested that test MSE appears to stabilize and then simpl
 
 
 ```{r}
+# converts vector into streaming minimum
 streaming_min <- function(vec, burn_in = 0){
   for (i in 2:length(vec) + burn_in){
     vec[i] <- ifelse(
@@ -249,23 +250,25 @@ streaming_min <- function(vec, burn_in = 0){
 }
 
 
-# checks if vector is monotonic increasing for inc_k elements
-# make this into "monotonic_k", i.e. able to check if increasing OR decreasing
-increasing_k <- function(vec, inc_k = 100){
+# checks if vector is monotonic (increasing) for inc_k elements ----
+monotonic_k <- function(vec, inc_k = 100, increasing = TRUE){
   ind = 1
-  mono_inc <- FALSE
-  while ((!mono_inc) & (ind <= (length(vec)-inc_k - 1))){
-    mono_inc <- !any(diff(test_mse[ind:(ind+inc_k)]) < 0)
-    ind <- ind + 1
+  mono <- FALSE
+  
+  if (increasing){
+    while ((!mono) & (ind <= (length(vec)-inc_k - 1))){
+      mono <- !any(diff(test_mse[ind:(ind+inc_k)]) < 0)
+      ind <- ind + 1
+    } 
+  } else {
+    while ((!mono) & (ind <= (length(vec)-inc_k - 1))){
+      mono <- !any(diff(test_mse[ind:(ind+inc_k)]) > 0)
+      ind <- ind + 1
+    }
   }
   
-  if (!mono_inc){
-    return(FALSE)
-  } else {
-    return(
-      c(ind, ind + k)
-    )
-  }
+  res <- ifelse(mono, c(ind, ind + k), FALSE)
+  return(res)
 }
 
 
@@ -287,7 +290,7 @@ for (i in piece_num){
 
 ```
 
-- tracking min test mse doesn't work very well - would hit stop criteria too soon
+- tracking min test mse and seeing if doesn't get any lower for $k$ epochs doesn't work very well - would hit stop criteria too soon
 
 
 
@@ -298,7 +301,7 @@ piece_num <- 3:24
 for (i in piece_num){
   test_mse <- contents$res$sim_1$loss_mat[1:1E4 + 1E4 * i, 3]
   ma50 <- zoo::rollmean(test_mse, k = 20)
-  ma50_increasing <- increasing_k(ma50, inc_k = 50)
+  ma50_increasing <- monotonic_k(ma50, inc_k = 50)
   print(ma50_increasing)
 }
 ```
@@ -310,6 +313,141 @@ for (i in piece_num){
 ## does test_mse escape certain window?
 
 - window defined by sample standard deviation from last 100?
+  - maybe check if stays within 1 std dev?
+
+```{r}
+
+ind <- 1
+sd_nobs <- 100
+sd_k <- 50
+
+sd(test_mse[ind:(ind + sd_nobs)]) < diff(test_mse[ind + sd_nobs + 1:2])
+
+
+
+
+
+
+
+```
+
+
+# experiments: KL
+
+## checking kl moving average
+
+```{r}
+
+portion_size <- 1E3
+n_portions <- nrow(contents$res$sim_1$loss_mat) %/% portion_size
+
+klmat <- matrix(NA, nrow = n_portions, ncol = length(contents$res))
+
+
+for (sim_ind in 1:length(contents$res)){
+  for (i in 1:n_portions){
+    kl <- contents$res[[sim_ind]]$loss_mat[1:portion_size + portion_size * (i-1), 1]
+    klmat[i, sim_ind] <- mean(abs(diff(kl)))
+  }
+}
+
+# mean difference for every 1000 obs
+matplot(
+  y = klmat, 
+  x = 1:n_portions, 
+  type = "l",
+  main = paste0("mean(abs(diff(KL))) per ", portion_size, " epochs")
+)
+
+matplot(
+  y = klmat[70: n_portions,], 
+  x = 70:n_portions, 
+  type = "l",
+  main = paste0("mean(abs(diff(KL))) per ", portion_size, " epochs")
+)
+
+```
+
+- certainly appears to stabilize and follow similar trajectory across obs
+
+
+```{r}
+
+portion_vec <- function(
+    vec, 
+    portion_size = 1E3, 
+    anal_fcn = mean
+  ){
+  n_portions <- length(vec) %/% portion_size
+  rem <- length(vec) %% portion_size
+  if (rem) {cat_color(paste0(rem, " observations left over \n"))}
+  res <- rep(NA, length.out = n_portions)
+  for (i in 1:n_portions){
+    portion_vec <- vec[1:portion_size + portion_size * (i-1)]
+    res[i] <- anal_fcn(portion_vec)
+  }
+  return(res)
+}
+
+mad <- function(x){mean(abs(diff(x)))}
+sdd <- function(x){sd(diff(x))}
+
+klmad <- sapply(
+  contents$res, 
+  function(X) portion_vec(
+    vec = X$loss_mat[, 1],
+    portion_size = 1E3,
+    anal_fcn = mad
+  )
+)
+# testing
+# all.equal(klmad[,1], klmat[,1])
+# all.equal(klmad[,5], klmat[,5])
+
+
+klsdd <- sapply(
+  contents$res, 
+  function(X) portion_vec(
+    vec = X$loss_mat[, 1],
+    portion_size = 1E3,
+    anal_fcn = sdd
+  )
+)
+
+ggmatplot <- function(mat, start_row = 1, alpha = 0.75){
+  df <- data.frame(mat)
+  df$x <- 1:nrow(mat)
+  plt <- df %>% 
+    filter(x >= start_row) %>% 
+    pivot_longer(cols = -x, names_to = "group") %>% 
+    ggplot(aes(y = value, x = x, color = group)) +
+    geom_line(alpha = alpha)
+  return(plt)
+}
+
+
+ggmatplot(klsdd[1:nrow(klsdd),], .5) + 
+  geom_line(stat = "smooth", se = FALSE) + 
+  labs(
+    title = "sd(diff(kl))"
+  )
+
+ggmatplot(klsdd, start_row = 50, .5) + 
+  geom_line(stat = "smooth", se = FALSE) + 
+  labs(
+    title = "sd(diff(kl)) after 50k epochs"
+  )
+
+ggmatplot(klsdd, start_row = 150, .5) + 
+  geom_line(stat = "smooth", se = FALSE) + 
+  labs(
+    title = "sd(diff(kl)) after 50k epochs"
+  )
+
+
+```
+
+- sd(diff(kl)) drops quickly, slope tapers off
 
 
 
