@@ -40,16 +40,18 @@ flist = list(fcn1, fcn2, fcn3, fcn4)
 #           n_sims, verbose, want_plots, train_epochs
 sim_params <- list(
   "sim_name" = "horseshoe, fcnal data",
+  "seed" = 2002,
   "n_sims" = 2, 
+  "train_epochs" = 75E4,
+  "report_every" = 1E3,
   "d_in" = 104,
   "d_hidden1" = 16,
   "d_hidden2" = 8,
   "d_out" = 1,
-  "n_obs" = 1250,
+  "n_obs" = 12500,
   "true_coefs" = c(-0.5, 1, -2, 4, rep(0, times = 100)),
   "wald_thresh" = 1 / qchisq(1 - (0.05 / 104), df = 1),
   "flist" = flist,
-  "seed" = 1,
   "err_sig" = 1,
   "burn_in" = 1,
   "convergence_crit" = 1e-7,
@@ -134,8 +136,6 @@ MLHS <- nn_module(
   }
 )
 
-
-
 # sim_fcn_hshoe_linreg() is in sim_functions.R
 res <- lapply(
   1:sim_params$n_sims, 
@@ -143,12 +143,13 @@ res <- lapply(
     sim_ind = X, 
     sim_params = sim_params,
     nn_model = MLHS,
-    train_epochs = 500,
+    train_epochs = sim_params$train_epochs,
     verbose = TRUE,
     display_alpha_thresh = sim_params$wald_thresh,
-    report_every = 100,
+    report_every = sim_params$report_every,
     want_plots = FALSE,
-    want_fcn_plots = TRUE
+    want_fcn_plots = TRUE,
+    save_mod = TRUE
   )
 )
 
