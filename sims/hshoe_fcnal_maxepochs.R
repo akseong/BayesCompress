@@ -40,7 +40,7 @@ flist = list(fcn1, fcn2, fcn3, fcn4)
 #           n_sims, verbose, want_plots, train_epochs
 sim_params <- list(
   "sim_name" = "horseshoe, fcnal data",
-  "seed" = 2002,
+  "seed" = 1002,
   "n_sims" = 2, 
   "train_epochs" = 75E4,
   "report_every" = 1E3,
