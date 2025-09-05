@@ -94,14 +94,18 @@ ascii_colorize <- function(txt, style = 1, color = 36){
     color, "m",
     txt,
     "\033[0m"
-  )
+  )  
 }
 
 cat_color <- function(txt, style = 1, color = 36, sep = " "){
-  cat(
-    ascii_colorize(text, style, color),
-    sep = sep
-  )  
+  if (is.null(getOption("knitr.in.progress"))){
+    cat(
+      ascii_colorize(txt, style, color),
+      sep = sep
+    )  
+  } else {
+    print(txt)
+  }
 }
 
 # kable NA handling
@@ -194,10 +198,10 @@ portion_vec <- function(
   n_portions <- length(vec) %/% portion_size
   rem <- length(vec) %% portion_size
   if (rem) {cat_color(paste0(rem, " observations left over \n"))}
-  res <- rep(NA, length.out = n_portions)
+  res <- c()
   for (i in 1:n_portions){
     portion_vec <- vec[1:portion_size + portion_size * (i-1)]
-    res[i] <- anal_fcn(portion_vec, ...)
+    res <- c(res, anal_fcn(portion_vec, ...))
   }
   return(res)
 }
@@ -320,13 +324,12 @@ piece_num <- 3:24
 for (i in piece_num){
   test_mse <- contents$res$sim_1$loss_mat[1:1E4 + 1E4 * i, 3]
   minvec <- streaming_min(test_mse, burn_in = 0)
-  print(table(minvec))
+  # print(table(minvec))
 }
 
 ```
 
-- tracking min test mse and seeing if doesn't get any lower for $k$ epochs doesn't work very well - would hit stop criteria too soon
-
+- tracking min test mse and seeing if doesn't get any lower for $k$ epochs doesn't work very well - would hit stop criteria too soon (commented out print command when knitting)
 
 
 ## test_mse MA increasing for k epochs
@@ -382,8 +385,8 @@ for (simnum in 1:5){
     stopcrit <- roll_fcn(smaller, k = sd_k, anal_fcn = all)
     stop_while <- i >= burn & any(stopcrit)
     if (stop_while){
-      cat_color(txt = paste0("\n piece number: ", i, " \n"))
-      print(which(stopcrit))
+      # cat_color(txt = paste0("\n piece number: ", i, " \n"))
+      # print(which(stopcrit))
       stop_epochs[simnum] <- i * 1e4 + min(which(stopcrit))
     }
     i = i+1
@@ -394,7 +397,7 @@ stop_epochs
 
 ```
 
-first time stop criteria reached after burn-in of ~ 50k
+above is the first time in each simulation that the stop criteria (below) was reached after burn-in of ~ 50k
 - sd window = 100, diff(test_mse) < sd(last 100) for 25 consecutive epochs
 
 
@@ -405,12 +408,11 @@ for (i in 1:5){
   k25_sd100_alphas[i, ] <- contents$res[[i]]$alpha_mat[stop_epochs[i], ]
 }
 
-
 t1_rate <- mean(k25_sd100_alphas[, 5:104] < wald_thresh)
 t2_rate <- mean(k25_sd100_alphas[, 1:4] > wald_thresh)
 
-t1_rate
-t2_rate
+print(paste0("T1 rate: ", t1_rate))
+print(paste0("T2 rate: ", t2_rate))
 ```
 
 OK.  this seems to work, at least in this setting.
@@ -422,8 +424,9 @@ wald_thresh <- 1 / qchisq(1 - (0.05 / 104), df = 1)
 wald_thresh_nobonf <- 1 / qchisq(.95, df = 1)
 t1_rate_no_bonf <- mean(k25_sd100_alphas[, 5:104] < wald_thresh_nobonf)
 t2_rate_no_bonf <- mean(k25_sd100_alphas[, 1:4] > wald_thresh_nobonf)
-t1_rate_no_bonf
-t2_rate_no_bonf
+print(paste0("T1 rate, no Bonferroni correction: ", t1_rate_no_bonf))
+print(paste0("T2 rate, no Bonferroni correction: ", t2_rate_no_bonf))
+
 ```
 
 
@@ -471,6 +474,18 @@ matplot(
 
 
 ```{r}
+klma1 <- sapply(
+  contents$res, 
+  function(X) portion_vec(
+    vec = X$loss_mat[, 1],
+    portion_size = 1E3,
+    anal_fcn = zoo::rollmean,
+    k = 50
+  )
+)
+
+
+
 klmad <- sapply(
   contents$res, 
   function(X) portion_vec(
