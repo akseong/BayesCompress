@@ -1080,7 +1080,7 @@ sim_fcn_hshoe_fcnaldata <- function(
         ) + 
         labs(
           title = "predicted (solid) and original (dotted) functions",
-          subtitle = "both scaled separately to fit on plot"
+          subtitle = paste0("epoch: ", epoch)
         )
       print(plt)
     } # end function update plots (want_fcn_plots = TRUE)
@@ -1094,6 +1094,7 @@ sim_fcn_hshoe_fcnaldata <- function(
   # compile results ----
   sim_res <- list(
     "sim_ind" = sim_ind,
+    "fcn_plt" = plt,
     "loss_mat" = loss_mat,
     "alpha_mat" = alpha_mat
   )
