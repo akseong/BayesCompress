@@ -776,7 +776,9 @@ sim_fcn_hshoe_fcnaldata <- function(
     report_every = 1000, # training epochs between display/store results
     want_plots = TRUE,   # provide graphical updates of KL, MSE
     want_fcn_plots = TRUE, # display predicted functions
-    want_all_params = FALSE
+    want_all_params = FALSE,
+    save_mod = TRUE,
+    save_mod_path = NULL
 ){
   # - fcn used with lapply for parallel processing
   # - basic linear regression setting
@@ -811,7 +813,7 @@ sim_fcn_hshoe_fcnaldata <- function(
   # >     want_data = FALSE
   # >   )
   # > )
-  
+
   ## generate data ----
   set.seed(sim_params$sim_seeds[sim_ind])
   torch_manual_seed(sim_params$sim_seeds[sim_ind])
@@ -1121,5 +1123,20 @@ sim_fcn_hshoe_fcnaldata <- function(
                           paste0(display_alphas, collapse = " "),
                           "\n ******************** \n ******************** \n \n")
   cat_color(txt = completed_msg)
+  
+  # save torch model
+  if (save_mod){
+    if(is.null(save_mod_path)){
+      save_mod_path <- here::here("sims", 
+                                  "results", 
+                                  paste0("fcnl_hshoe_mod_", 
+                                         sim_params$n_obs, "obs_", 
+                                         sim_params$sim_seeds[sim_ind],
+                                         ".pt"))
+    }
+    torch_save(model_fit, path = save_mod_path)
+    cat_color(txt = paste0("model saved: ", save_mod_path))
+    sim_res$mod_path = save_mod_path
+  }
   return(sim_res)
 }
