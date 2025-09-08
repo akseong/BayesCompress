@@ -436,55 +436,9 @@ not using Bonferroni leads to t1 err of 0.008, (i.e. 4 false positives out of 50
 
 # experiments: KL
 
-## checking kl moving average
+## visual summaries {.tabset .tabset-pills}
 
 ```{r}
-
-portion_size <- 1E3
-n_portions <- nrow(contents$res$sim_1$loss_mat) %/% portion_size
-
-klmat <- matrix(NA, nrow = n_portions, ncol = length(contents$res))
-
-
-for (sim_ind in 1:length(contents$res)){
-  for (i in 1:n_portions){
-    kl <- contents$res[[sim_ind]]$loss_mat[1:portion_size + portion_size * (i-1), 1]
-    klmat[i, sim_ind] <- mean(abs(diff(kl)))
-  }
-}
-
-# mean difference for every 1000 obs
-matplot(
-  y = klmat, 
-  x = 1:n_portions, 
-  type = "l",
-  main = paste0("mean(abs(diff(KL))) per ", portion_size, " epochs")
-)
-
-matplot(
-  y = klmat[70: n_portions,], 
-  x = 70:n_portions, 
-  type = "l",
-  main = paste0("mean(abs(diff(KL))) per ", portion_size, " epochs")
-)
-
-```
-
-- certainly appears to stabilize and follow similar trajectory across obs
-
-
-```{r}
-klma1 <- sapply(
-  contents$res, 
-  function(X) portion_vec(
-    vec = X$loss_mat[, 1],
-    portion_size = 1E3,
-    anal_fcn = zoo::rollmean,
-    k = 50
-  )
-)
-
-
 
 klmad <- sapply(
   contents$res, 
@@ -494,9 +448,6 @@ klmad <- sapply(
     anal_fcn = mad
   )
 )
-# testing
-# all.equal(klmad[,1], klmat[,1])
-# all.equal(klmad[,5], klmat[,5])
 
 
 klsdd <- sapply(
@@ -507,25 +458,74 @@ klsdd <- sapply(
     anal_fcn = sdd
   )
 )
+```
 
+### mean abs diff & sd of diffs 
 
+- in  1000 epoch chunks
 
-ggmatplot(klsdd[1:nrow(klsdd),], .5) + 
+```{r}
+
+klmad_plt <- ggmatplot(klmad, alpha = .5) + 
+  geom_line(stat = "smooth", se = FALSE) + 
+  labs(
+    title = "mean(abs(diff(kl)))"
+  )
+
+klsdd_plt <- ggmatplot(klsdd, alpha = .5) + 
   geom_line(stat = "smooth", se = FALSE) + 
   labs(
     title = "sd(diff(kl))"
   )
 
-ggmatplot(klsdd, start_row = 50, .5) + 
+grid.arrange(
+  klmad_plt + theme(legend.position = "none"), 
+  klsdd_plt + theme(legend.position = "none"),
+  ncol = 2
+)
+
+```
+
+
+```{r}
+
+
+ggmatplot(klmad,  start_row = 50, alpha = .5) + 
+  geom_line(stat = "smooth", se = FALSE) + 
+  labs(
+    title = "mean(abs(diff(kl))) after 50k epochs"
+  )
+
+
+ggmatplot(klmad, start_row = 150, alpha = .5) + 
+  geom_line(stat = "smooth", se = FALSE) + 
+  labs(
+    title = "mean(abs(diff(kl))) after 150k epochs"
+  )
+
+```
+
+
+- certainly appears to stabilize and follow similar trajectory across obs
+
+
+
+```{r}
+
+
+
+
+
+ggmatplot(klsdd, start_row = 50, alpha = .5) + 
   geom_line(stat = "smooth", se = FALSE) + 
   labs(
     title = "sd(diff(kl)) after 50k epochs"
   )
 
-ggmatplot(klsdd, start_row = 150, .5) + 
+ggmatplot(klsdd, start_row = 150, alpha = .5) + 
   geom_line(stat = "smooth", se = FALSE) + 
   labs(
-    title = "sd(diff(kl)) after 50k epochs"
+    title = "sd(diff(kl)) after 150k epochs"
   )
 
 
