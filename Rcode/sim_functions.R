@@ -151,6 +151,28 @@ vismat <- function(mat, cap = NULL, lims = NULL, leg = TRUE, na0 = TRUE, square)
   
   return(p)
 }
+
+
+## roll_vec(vec, new_vals) ---- 
+roll_vec <- function(vec, new_vals){
+  # use to store needed values across epochs.  
+  # moves window forward by however many values added
+  vec <- c(vec[(length(new_vals) + 1): length(vec)], new_vals)
+  return(vec)
+}
+# example code:
+# > test_mse_store <- rep(NA, 102)
+# > stopcrit <- FALSE
+# > i = 1
+# > while (i < 100000 & !stopcrit){
+# >   te_mse <- rnorm(1)
+# >   test_mse_store <- roll_vec(test_mse_store, new_vals = te_mse)
+# >   if (i > 102){
+# >     stopcrit <- abs(.001 * sd(test_mse_store[1:100])) > abs(diff(test_mse_store[101:102]))
+# >   }  
+# >   i = i+1
+# > }
+
 # DATA GENERATION ----
 ## sim_linear_data ----
 sim_linear_data <- function(
