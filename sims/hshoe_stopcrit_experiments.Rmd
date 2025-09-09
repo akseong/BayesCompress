@@ -789,9 +789,11 @@ We don't want to discourage network exploration.  In any case, let's see how it 
 
 # TO DO:
 
-- investigate using "hot starts," i.e. train a regular DNN with same architecture, then plug in weights.  Right now appear to be wasting slow starting epochs with gigantic MSE.
+- investigate using "hot starts," i.e. train a regular DNN with same architecture, then plug in weights.  Right now appear to be wasting time with slow starting epochs with gigantic MSE.
 
+- investigate using high performance clusters - just email IT?
 
+- implement test MSE-based stopping criteria.  Just keep track of when it would have stopped for now.
 
 
 <!-- ### MAs -->
