@@ -222,19 +222,19 @@ sdd <- function(x){sd(diff(x))}
 
 
 
-# checks if vector is monotonic (increasing) for inc_k elements ----
-monotonic_k <- function(vec, inc_k = 100, increasing = TRUE){
+# checks if vector is monotonic (increasing) for k elements ----
+monotonic_k <- function(vec, k = 100, increasing = TRUE){
   ind = 1
   mono <- FALSE
   
   if (increasing){
-    while ((!mono) & (ind <= (length(vec)-inc_k - 1))){
-      mono <- !any(diff(test_mse[ind:(ind+inc_k)]) < 0)
+    while ((!mono) & (ind <= (length(vec)-k - 1))){
+      mono <- !any(diff(test_mse[ind + 0:k]) < 0)
       ind <- ind + 1
     } 
   } else {
-    while ((!mono) & (ind <= (length(vec)-inc_k - 1))){
-      mono <- !any(diff(test_mse[ind:(ind+inc_k)]) > 0)
+    while ((!mono) & (ind <= (length(vec)-k - 1))){
+      mono <- !any(diff(test_mse[ind + 0:k]) > 0)
       ind <- ind + 1
     }
   }
@@ -339,7 +339,7 @@ piece_num <- 3:24
 for (i in piece_num){
   test_mse <- contents$res$sim_1$loss_mat[1:1E4 + 1E4 * i, 3]
   ma50 <- zoo::rollmean(test_mse, k = 20)
-  ma50_increasing <- monotonic_k(ma50, inc_k = 50)
+  ma50_increasing <- monotonic_k(ma50, k = 50)
   print(ma50_increasing)
 }
 ```
@@ -368,8 +368,8 @@ roll_fcn <- function(vec, k = 50, anal_fcn = mean){
 portion_size <- 1E4
 piece_num <- 25E4 / portion_size
 
-sd_nobs <- 100    # window used to calculate sd
-sd_k <- 25        # diff in test_mse must be < sd this many times in a row
+sd_k <- 100    # window used to calculate sd
+streak <- 25        # diff in test_mse must be < sd this many times in a row
 burn = 5          # times 10k epochs burn-in (e.g. burn = 5 --> 50k epochs)
 
 stop_epochs <- rep(NA, 5)
@@ -380,14 +380,14 @@ for (simnum in 1:5){
   i = burn
   while (i <= piece_num & !stop_while){
     test_mse <- contents$res[[simnum]]$loss_mat[1:portion_size + portion_size * (i-1), 3]
-    sd50 <- roll_fcn(test_mse, k = sd_nobs, anal_fcn = sd)
-    smaller <- abs(sd50) > abs(diff(test_mse[(sd_k):length(test_mse)]))
-    stopcrit <- roll_fcn(smaller, k = sd_k, anal_fcn = all)
+    sd50 <- roll_fcn(test_mse, k = sd_k, anal_fcn = sd)
+    smaller <- abs(sd50) > abs(diff(test_mse[(streak):length(test_mse)]))
+    stopcrit <- roll_fcn(smaller, k = streak, anal_fcn = all)
     stop_while <- i >= burn & any(stopcrit)
     if (stop_while){
       # cat_color(txt = paste0("\n piece number: ", i, " \n"))
       # print(which(stopcrit))
-      stop_epochs[simnum] <- i * 1e4 + min(which(stopcrit))
+      stop_epochs[simnum] <- (i-1) * 1e4 + sd_k + streak + min(which(stopcrit))
     }
     i = i+1
   }
@@ -415,7 +415,7 @@ print(paste0("T1 rate: ", t1_rate))
 print(paste0("T2 rate: ", t2_rate))
 ```
 
-OK.  this seems to work, at least in this setting.
+**OK.  this seems to work, at least in this setting.**
 
 - what if not using Bonferroni?
 
@@ -430,7 +430,7 @@ print(paste0("T2 rate, no Bonferroni correction: ", t2_rate_no_bonf))
 ```
 
 
-not using Bonferroni leads to t1 err of 0.008, (i.e. 4 false positives out of 500 possible)
+**Still good.** Not using Bonferroni leads to t1 err of 0.008, (i.e. 4 false positives out of 500 possible)
 
 
 
@@ -511,11 +511,6 @@ ggmatplot(klmad, start_row = 150, alpha = .5) +
 
 
 ```{r}
-
-
-
-
-
 ggmatplot(klsdd, start_row = 50, alpha = .5) + 
   geom_line(stat = "smooth", se = FALSE) + 
   labs(
@@ -532,6 +527,269 @@ ggmatplot(klsdd, start_row = 150, alpha = .5) +
 ```
 
 - sd(diff(kl)) drops quickly, slope tapers off
+
+
+## kl sd < diff
+
+- is sd over last 100 obs > diff(kl) for 25 in a row?
+
+```{r}
+portion_size <- 1E4
+piece_num <- 25E4 / portion_size
+
+sd_nobs <- 100    # window used to calculate sd
+sd_k <- 50        # diff in test_mse must be < sd this many times in a row
+burn = 1          # times 10k epochs burn-in (e.g. burn = 5 --> 50k epochs)
+
+kl_stop_epochs <- rep(NA, 5)
+
+for (simnum in 1:5){
+  cat_color(txt = paste0("\n \n sim ", simnum))
+  stop_while = FALSE
+  i = burn
+  while (i <= piece_num & !stop_while){
+    kl <- contents$res[[simnum]]$loss_mat[1:portion_size + portion_size * (i-1), 1]
+    sd50 <- roll_fcn(kl, k = sd_nobs, anal_fcn = sd)
+    smaller <- (.5) * abs(sd50) > abs(diff(kl[sd_nobs:length(kl)]))
+    stopcrit <- roll_fcn(smaller, k = sd_k, anal_fcn = all)
+    stop_while <- i >= burn & any(stopcrit)
+    if (stop_while){
+      # cat_color(txt = paste0("\n piece number: ", i, " \n"))
+      # print(which(stopcrit))
+      kl_stop_epochs[simnum] <- i * portion_size + sd_nobs + sd_k + min(which(stopcrit))
+    }
+    i = i+1
+  }
+}
+
+kl_stop_epochs
+
+kl_alphas <- matrix(NA, nrow = length(kl_stop_epochs), ncol = 104) 
+for (i in 1:5){
+  kl_alphas[i, ] <- contents$res[[i]]$alpha_mat[kl_stop_epochs[i], ]
+}
+
+t1_rate <- mean(kl_alphas[, 5:104] < wald_thresh)
+t2_rate <- mean(kl_alphas[, 1:4] > wald_thresh)
+
+print(paste0("T1 rate: ", t1_rate))
+print(paste0("T2 rate: ", t2_rate))
+
+```
+
+
+Occurs immediately; Type II error rate is v. high even when making criteria more difficult (hard to figure out principled version of how hard to make it).  Stop criteria based on diff(kl) < $c \times$ sd(kl) is in general too easy, probably because KL is consistently decreasing with just a bit of noise. 
+
+
+
+## kl diff < constant `tol` for `streak` epochs
+
+```{r}
+tol <- 1E-5
+portion_size <- 1E4
+piece_num <- 25E4 / portion_size
+
+streak <- 25        # diff in test_mse must be < sd this many times in a row
+burn = 1          # times 10k epochs burn-in (e.g. burn = 5 --> 50k epochs)
+
+kl_stop_epochs <- rep(NA, 5)
+
+for (simnum in 1:5){
+  cat_color(txt = paste0("\n \n sim ", simnum))
+  stop_while = FALSE
+  i = burn
+  while (i <= piece_num & !stop_while){
+    kl <- contents$res[[simnum]]$loss_mat[1:portion_size + portion_size * (i-1), 1]
+    smaller <- abs(diff(kl)) < tol
+    stopcrit <- roll_fcn(smaller, k = streak, anal_fcn = all)
+    stop_while <- i >= burn & any(stopcrit)
+    if (stop_while){
+      # cat_color(txt = paste0("\n piece number: ", i, " \n"))
+      # print(which(stopcrit))
+      kl_stop_epochs[simnum] <- (i-1) * portion_size + sd_nobs + sd_k + min(which(stopcrit))
+    }
+    i = i+1
+  }
+}
+
+kl_stop_epochs
+
+kl_alphas <- matrix(NA, nrow = length(kl_stop_epochs), ncol = 104) 
+for (i in 1:5){
+  kl_alphas[i, ] <- contents$res[[i]]$alpha_mat[kl_stop_epochs[i], ]
+}
+
+t1_rate <- mean(kl_alphas[, 5:104] < wald_thresh)
+t2_rate <- mean(kl_alphas[, 1:4] > wald_thresh)
+
+print(paste0("T1 rate: ", t1_rate))
+print(paste0("T2 rate: ", t2_rate))
+```
+
+
+- stop criteria: `diff(kl)` < `tol` for `streak` epochs.
+  - downsides ---- `tol` and `streak` need to be calibrated, but unclear how to calibrate.  Changing these a bit leads to wildly different stopping points.
+
+
+
+## kl increasing for `streak` epochs?
+
+```{r}
+streak <- 10        # diff in test_mse must be < sd this many times in a row
+burn = 1          # times 10k epochs burn-in (e.g. burn = 5 --> 50k epochs)
+
+kl_stop_epochs <- rep(NA, 5)
+
+for (simnum in 1:5){
+  cat_color(txt = paste0("\n \n sim ", simnum))
+  stop_while = FALSE
+  i = burn
+  while (i <= piece_num & !stop_while){
+    kl <- contents$res[[simnum]]$loss_mat[1:portion_size + portion_size * (i-1), 1]
+    
+    kl_inc <- monotonic_k(kl, k = streak)
+    
+    stop_while <- i >= burn & kl_inc != FALSE
+    if (stop_while){
+      # cat_color(txt = paste0("\n piece number: ", i, " \n"))
+      # print(which(stopcrit))
+      print(kl_inc)
+      kl_stop_epochs[simnum] <- (i-1) * portion_size + streak + kl_inc
+    }
+    i = i+1
+  }
+}
+
+kl_stop_epochs
+```
+
+
+- tried with `streak` = 50, 25, 10 --- none stopped.
+
+
+
+## kl MA(k) increasing for `streak` epochs?
+
+```{r}
+ma_k <- 50
+streak <- 10        # diff in test_mse must be < sd this many times in a row
+burn = 1          # times 10k epochs burn-in (e.g. burn = 5 --> 50k epochs)
+
+kl_stop_epochs <- rep(NA, 5)
+
+for (simnum in 1:5){
+  cat_color(txt = paste0("\n sim ", simnum, "\n"))
+  stop_while = FALSE
+  i = burn
+  while (i <= piece_num & !stop_while){
+    kl <- contents$res[[simnum]]$loss_mat[1:portion_size + portion_size * (i-1), 1]
+    
+    kl_ma <- zoo::rollmean(kl, k = ma_k)
+    kl_inc <- monotonic_k(kl_ma, k = streak)
+    
+    stop_while <- i >= burn & kl_inc != FALSE
+    if (stop_while){
+      # cat_color(txt = paste0("\n piece number: ", i, " \n"))
+      # print(which(stopcrit))
+      print(kl_inc)
+      kl_stop_epochs[simnum] <- (i-1) * portion_size + ma_k + streak + kl_inc
+    }
+    i = i+1
+  }
+}
+
+kl_stop_epochs
+```
+
+- stop criteria: MA(`ma_k`) of KL increasing for `streak` epochs in a row
+- hard to calibrate `ma_k` and `streak`.  Casual search doesn't really find values that work well.
+
+
+
+
+
+# refining what works
+
+Only thing that seemed to work as stop criteria was based on test MSE, specifically stopping when `abs(diff(test_mse)) < sd` for `streak` epochs in a row, where `sd` is calculated using the last `sd_k` epochs
+
+Basic idea: figure out when gradient steps have stopped making much difference to test_mse.  
+
+
+```{r}
+
+# try diff values of sd_k and streak
+
+explore_stopcrit <- function(sd_k, streak, burn = 5){
+  portion_size <- 1E4
+  piece_num <- 25E4 / portion_size
+  
+  stop_epochs <- rep(NA, 5)
+  
+  for (simnum in 1:5){
+    # cat_color(txt = paste0("\n \n sim ", simnum))
+    stop_while = FALSE
+    i = burn
+    while (i <= piece_num & !stop_while){
+      test_mse <- contents$res[[simnum]]$loss_mat[1:portion_size + portion_size * (i-1), 3]
+      sd50 <- roll_fcn(test_mse, k = sd_k, anal_fcn = sd)
+      mse_diff <- diff(test_mse[sd_k:length(test_mse)])
+      smaller <- abs(sd50) > abs(mse_diff)
+      stopcrit <- roll_fcn(smaller, k = streak, anal_fcn = all)
+      stop_while <- i >= burn & any(stopcrit)
+      if (stop_while){
+        # cat_color(txt = paste0("\n piece number: ", i, " \n"))
+        # print(which(stopcrit))
+        stop_epochs[simnum] <- (i-1) * 1e4 + sd_k + streak + min(which(stopcrit))
+      }
+      i = i+1
+    }
+  }
+  return(stop_epochs)
+}
+  
+retrieve_alphas <- function(stop_epochs, thresh){
+  alphs <- matrix(NA, nrow = length(stop_epochs), ncol = 104) 
+  for (i in 1:5){
+    alphs[i, ] <- contents$res[[i]]$alpha_mat[stop_epochs[i], ]
+  }
+  
+  # calc errs
+  t1_rate <- mean(alphs[, 5:104] < thresh)
+  t2_rate <- mean(alphs[, 1:4] > thresh)
+  
+  # results
+  return(c(t1_rate, t2_rate))
+}
+
+# 
+# sd_k_vec <- c(25, 50, 100, 150, 200)
+# streak_vec <- c(10, 25, 50, 100)
+# 
+# for (sdk in sd_k_vec){
+#   for (strk in streak_vec){
+#     print(paste0("sd_k = ", sdk, "; streak = ", strk))
+#     stop_epochs <- explore_stopcrit(sdk, streak = strk, burn = 5)
+#     print(stop_epochs)
+#     # errs <- retrieve_alphas(stop_epochs, thresh = wald_thresh)
+#     # print(errs)
+#   }
+# }
+
+
+```
+
+
+
+- possible problem: this criteria is most often triggered at the start of training (hence the burn-in period), because the large decreases in `test_mse` at that time lead the std dev calculated using the previous `sd_k` epochs to be large.  
+  - i.e. it is triggered right after making large improvements.
+  - correspondingly, it's likely that exploration of the parameter space will trigger this stop criteria, particularly in a much more complex network (this is based on the simplest possible NN).
+
+We don't want to discourage network exploration.  In any case, let's see how it works in simulation.  It's possible that it will still work fairly well.
+
+
+# TO DO:
+
+- investigate using "hot starts," i.e. train a regular DNN with same architecture, then plug in weights.  Right now appear to be wasting slow starting epochs with gigantic MSE.
 
 
 
