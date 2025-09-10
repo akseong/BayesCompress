@@ -136,6 +136,8 @@ MLHS <- nn_module(
   }
 )
 
+
+source(here("scratch_code.R"))
 test <- sim_fcn_hshoe_fcnaldata(
   sim_ind = 1, 
   sim_params = sim_params,
