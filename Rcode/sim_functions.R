@@ -244,8 +244,6 @@ sim_func_data <- function(
     y <- y + flist[[j]](x[,j])
   }
   y <- y$unsqueeze(2) + torch_normal(mean = 0, std = err_sigma, size = c(n_obs, 1))
-  scaling <- c("mean" = mean(as_array(y)), "sd" = sd(as_array(y)))
-  y <- (y - y$mean()) / y$std()
   
   return(
     list(
@@ -253,8 +251,7 @@ sim_func_data <- function(
       "x" = x,
       "n_obs" = n_obs,
       "d_in" = d_in,
-      "d_true" = length(flist),
-      "scaling" = scaling
+      "d_true" = length(flist)
     )
   )
 }
