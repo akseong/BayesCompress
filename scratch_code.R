@@ -205,7 +205,7 @@ sim_fcn_hshoe_fcnaldata <- function(
     # check test_mse stop criteria:
     # abs(diff(mse)) < sd(mse) for streak epochs in a row,
     # sd calculated using last stop_k epochs
-    if (epoch > burn & ttsplit_used){
+    if (epoch > burn_in & ttsplit_used){
       test_mse_sd <- sd(test_mse_store[1:stop_k])
       test_mse_absdiff <- abs(diff(test_mse_store[stop_k + 0:1]))
       test_mse_compare <- test_mse_absdiff < test_mse_sd

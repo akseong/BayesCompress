@@ -136,35 +136,54 @@ MLHS <- nn_module(
   }
 )
 
+test <- sim_fcn_hshoe_fcnaldata(
+  sim_ind = 1, 
+  sim_params = sim_params,
+  nn_model = MLHS,
+  train_epochs = 1E5, # sim_params$train_epochs,
+  verbose = TRUE,
+  display_alpha_thresh = sim_params$wald_thresh,
+  report_every = sim_params$report_every,
+  want_plots = FALSE,
+  want_fcn_plots = TRUE,
+  save_mod = TRUE,
+  stop_k = 100,
+  stop_streak = 25,
+  burn_in = 5000 #5E4
+)
+
+
+
+
 # sim_fcn_hshoe_linreg() is in sim_functions.R
-res <- lapply(
-  1:sim_params$n_sims, 
-  function(X) sim_fcn_hshoe_fcnaldata(
-    sim_ind = X, 
-    sim_params = sim_params,
-    nn_model = MLHS,
-    train_epochs = sim_params$train_epochs,
-    verbose = TRUE,
-    display_alpha_thresh = sim_params$wald_thresh,
-    report_every = sim_params$report_every,
-    want_plots = FALSE,
-    want_fcn_plots = TRUE,
-    save_mod = TRUE
-  )
-)
-
-# set each simulation result unique name
-res <- setNames(res, paste0("sim_", 1:length(res)))
-
-
-contents <- list(
-  "res" = res, 
-  "sim_params" = sim_params
-)
-
-save(contents, file = here::here("sims", "results", save_fname))
-
-
+# res <- lapply(
+#   1:sim_params$n_sims, 
+#   function(X) sim_fcn_hshoe_fcnaldata(
+#     sim_ind = X, 
+#     sim_params = sim_params,
+#     nn_model = MLHS,
+#     train_epochs = sim_params$train_epochs,
+#     verbose = TRUE,
+#     display_alpha_thresh = sim_params$wald_thresh,
+#     report_every = sim_params$report_every,
+#     want_plots = FALSE,
+#     want_fcn_plots = TRUE,
+#     save_mod = TRUE
+#   )
+# )
+# 
+# # set each simulation result unique name
+# res <- setNames(res, paste0("sim_", 1:length(res)))
+# 
+# 
+# contents <- list(
+#   "res" = res, 
+#   "sim_params" = sim_params
+# )
+# 
+# save(contents, file = here::here("sims", "results", save_fname))
+# 
+# 
 
 
 
