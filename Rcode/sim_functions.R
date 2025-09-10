@@ -216,7 +216,6 @@ sim_linear_data <- function(
 
 
 ## sim_func_data----
-  # returns NORMALIZED y, with scaling info
 
 # # sample functions to use
 # fcn1 <- function(x) exp(x/2)
@@ -255,33 +254,6 @@ sim_func_data <- function(
     )
   )
 }
-
-sim_func_data <- function(
-  n_obs = 1000,
-  d_in = 10,
-  flist = list(fcn1, fcn2, fcn3, fcn4),
-  err_sigma = 1
-){
-  # generate x, y
-  x <- torch_randn(n_obs, d_in)
-  y <- rep(0, n_obs)
-  for(j in 1:length(flist)){
-    y <- y + flist[[j]](x[,j])
-  }
-  y <- y$unsqueeze(2) + torch_normal(mean = 0, std = err_sigma, size = c(n_obs, 1))
-  
-  return(
-    list(
-      "y" = y,
-      "x" = x,
-      "n_obs" = n_obs,
-      "d_in" = d_in,
-      "d_true" = length(flist)
-    )
-  )
-}
-
-
 
 
 ## sim_func_data_unifx----
