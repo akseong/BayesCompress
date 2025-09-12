@@ -820,6 +820,10 @@ sim_fcn_hshoe_fcnaldata <- function(
     flist = sim_params$flist,
     err_sigma = sim_params$err_sig
   )
+  if (sim_params$use_cuda){
+    simdat$x <- simdat$x$to(device = "cuda")
+    simdat$y <- simdat$y$to(device = "cuda")
+  }
   
   
   ## initialize BNN & optimizer ----
