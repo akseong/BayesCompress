@@ -7,8 +7,18 @@ library(ggplot2)
 library(gridExtra)
 
 library(torch)
-source(here("Rcode", "torch_horseshoe.R"))
+source(here("Rcode", "torch_horseshoe_cuda.R"))
 source(here("Rcode", "sim_functions.R"))
+
+
+if (torch::cuda_is_available()){
+  use_cuda <- TRUE
+  message("Default tensor device set to GPU (CUDA).")
+} else {
+  use_cuda <- FALSE
+  message("Default tensor device remains CPU.")
+}
+
 
 
 fcn1 <- function(x) exp(x/2)
@@ -44,6 +54,7 @@ sim_params <- list(
   "n_sims" = 2, 
   "train_epochs" = 75E4,
   "report_every" = 1E3,
+  "use_cuda" = use_cuda,
   "d_in" = 104,
   "d_hidden1" = 16,
   "d_hidden2" = 8,
@@ -84,7 +95,7 @@ MLHS <- nn_module(
     self$fc1 = torch_hs(    
       in_features = sim_params$d_in, 
       out_features = sim_params$d_hidden1,
-      use_cuda = FALSE,
+      use_cuda = sim_params$use_cuda,
       tau = 1,
       init_weight = NULL,
       init_bias = NULL,
@@ -95,7 +106,7 @@ MLHS <- nn_module(
     self$fc2 = torch_hs(
       in_features = sim_params$d_hidden1,
       out_features = sim_params$d_hidden2,
-      use_cuda = FALSE,
+      use_cuda = sim_params$use_cuda,
       tau = 1,
       init_weight = NULL,
       init_bias = NULL,
@@ -106,7 +117,7 @@ MLHS <- nn_module(
     self$fc3 = torch_hs(
       in_features = sim_params$d_hidden2,
       out_features = sim_params$d_out,
-      use_cuda = FALSE,
+      use_cuda = sim_params$use_cuda,
       tau = 1,
       init_weight = NULL,
       init_bias = NULL,
@@ -139,19 +150,19 @@ MLHS <- nn_module(
 
 source(here("scratch_code.R"))
 test <- sim_fcn_hshoe_fcnaldata(
-  sim_ind = 1, 
+  sim_ind = 1,
   sim_params = sim_params,
   nn_model = MLHS,
   train_epochs = 1E5, # sim_params$train_epochs,
   verbose = TRUE,
   display_alpha_thresh = sim_params$wald_thresh,
-  report_every = sim_params$report_every,
+  report_every = 1E3, # sim_params$report_every,
   want_plots = FALSE,
   want_fcn_plots = TRUE,
   save_mod = TRUE,
   stop_k = 100,
   stop_streak = 25,
-  burn_in = 5000 #5E4
+  burn_in = 5E4
 )
 
 

@@ -493,7 +493,10 @@ sim_fcn_hshoe_fcnaldata <- function(
     flist = sim_params$flist,
     err_sigma = sim_params$err_sig
   )
-  
+  if (sim_params$use_cuda){
+    simdat$x <- simdat$x$to(device = "cuda")
+    simdat$y <- simdat$y$to(device = "cuda")
+  }
   
   ## initialize BNN & optimizer ----
   model_fit <- nn_model()
@@ -518,7 +521,7 @@ sim_fcn_hshoe_fcnaldata <- function(
     curvmat[1:length(xshow) + (i-1) * length(xshow), i] <- xshow
   }
   mat0 <- matrix(0, nrow = nrow(curvmat), ncol = sim_params$d_in - length(sim_params$flist))
-  x_plot <- torch_tensor(cbind(curvmat, mat0))
+  x_plot <- torch_tensor(cbind(curvmat, mat0), device = ifelse(sim_params$use_cuda, "cuda", "cpu"))
   y_plot <- model_fit(x_plot)  # need to add deterministic argument
   plotmat <- cbind(scale(as_array(y_plot)), curvmat)
   colnames(plotmat) <- c("y", paste0("f", 1:length(sim_params$flist)))
@@ -600,7 +603,7 @@ sim_fcn_hshoe_fcnaldata <- function(
   
   ## stop criteria
   stop_criteria_met <- FALSE
-  stop_epochs <- NA
+  stop_epochs <- c()
   ## test_mse_storage 
   test_mse_store <- rep(0, times = stop_k + 1)
   test_mse_streak <- rep(FALSE, times = stop_streak)
@@ -648,13 +651,6 @@ sim_fcn_hshoe_fcnaldata <- function(
       
       if (test_mse_stopcrit){
         stop_epochs <- c(stop_epochs, epoch)
-        stop_msg <- paste0(
-          "\n \n \n ********************************************* \n",
-          "test_mse STOP CONDITION reached at epochs: ", 
-          paste0(epoch, collapse = ", "),
-          "\n ********************************************* \n \n \n"
-        )
-        cat_color(stop_msg)
       }
     }
 
@@ -709,6 +705,14 @@ sim_fcn_hshoe_fcnaldata <- function(
       cat("alphas below ", round(display_alpha_thresh, 4), ": ")
       cat_color(display_alphas, sep = " ")
       cat(" \n \n")
+      
+      stop_msg <- paste0(
+        "\n \n \n ********************************************* \n",
+        "test_mse STOP CONDITION reached ", 
+        length(stop_epochs), " times",
+        "\n ********************************************* \n \n \n"
+      )
+      cat_color(stop_msg)
       
       
       # graphical training updates
