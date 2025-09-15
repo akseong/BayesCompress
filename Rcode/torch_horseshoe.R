@@ -295,7 +295,7 @@ torch_hs <- nn_module(
       return(
         nnf_linear(
           input = x, 
-          weight = self$post_weight_mu, 
+          weight = self$weight_mu, 
           bias = self$bias_mu
         )
       )
