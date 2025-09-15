@@ -7,7 +7,7 @@ library(ggplot2)
 library(gridExtra)
 
 library(torch)
-source(here("Rcode", "torch_horseshoe_cuda.R"))
+source(here("Rcode", "torch_horseshoe.R"))
 source(here("Rcode", "sim_functions.R"))
 
 
