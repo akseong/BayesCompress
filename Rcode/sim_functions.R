@@ -173,6 +173,16 @@ roll_vec <- function(vec, new_vals){
 # >   i = i+1
 # > }
 
+# CUDA ----
+
+dev_select <- function(use_cuda){
+  ifelse(use_cuda, "cuda", "cpu")
+}
+
+dev_auto <- function(){
+  ifelse(torch::cuda_is_available(), "cuda", "cpu")
+}
+
 # DATA GENERATION ----
 ## sim_linear_data ----
 sim_linear_data <- function(
@@ -234,7 +244,8 @@ sim_func_data <- function(
   n_obs = 1000,
   d_in = 10,
   flist = list(fcn1, fcn2, fcn3, fcn4),
-  err_sigma = 1
+  err_sigma = 1,
+  use_cuda = FALSE
 ){
   # generate x, y
   x <- torch_randn(n_obs, d_in)
@@ -243,6 +254,11 @@ sim_func_data <- function(
     y <- y + flist[[j]](x[,j])
   }
   y <- y$unsqueeze(2) + torch_normal(mean = 0, std = err_sigma, size = c(n_obs, 1))
+  
+  if (use_cuda){
+    x <- x$to(device = "cuda")
+    y <- y$to(device = "cuda")
+  }
   
   return(
     list(
