@@ -153,7 +153,7 @@ test <- sim_fcn_hshoe_fcnaldata(
   sim_ind = 1,
   sim_params = sim_params,
   nn_model = MLHS,
-  train_epochs = 1E5, # sim_params$train_epochs,
+  train_epochs = 1E6, # sim_params$train_epochs,
   verbose = TRUE,
   display_alpha_thresh = sim_params$wald_thresh,
   report_every = 1E3, # sim_params$report_every,
