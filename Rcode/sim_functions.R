@@ -762,6 +762,8 @@ sim_fcn_hshoe_linreg <- function(
 # fcn4 <- function(x) - (abs(x))
 # flist = list(fcn1, fcn2, fcn3, fcn4)
 
+
+## sim_fcn_hshoe_fcnaldata----
 sim_fcn_hshoe_fcnaldata <- function(
     sim_ind,    # to ease parallelization
     sim_params,     # same as before, but need to include flist
@@ -774,7 +776,10 @@ sim_fcn_hshoe_fcnaldata <- function(
     want_fcn_plots = TRUE, # display predicted functions
     want_all_params = FALSE,
     save_mod = TRUE,
-    save_mod_path = NULL
+    save_mod_path = NULL,
+    stop_k = 100,
+    stop_streak = 25,
+    burn_in = 5E5
 ){
   # - fcn used with lapply for parallel processing
   # - basic linear regression setting
@@ -809,7 +814,7 @@ sim_fcn_hshoe_fcnaldata <- function(
   # >     want_data = FALSE
   # >   )
   # > )
-
+  
   ## generate data ----
   set.seed(sim_params$sim_seeds[sim_ind])
   torch_manual_seed(sim_params$sim_seeds[sim_ind])
@@ -824,7 +829,6 @@ sim_fcn_hshoe_fcnaldata <- function(
     simdat$x <- simdat$x$to(device = "cuda")
     simdat$y <- simdat$y$to(device = "cuda")
   }
-  
   
   ## initialize BNN & optimizer ----
   model_fit <- nn_model()
@@ -849,7 +853,7 @@ sim_fcn_hshoe_fcnaldata <- function(
     curvmat[1:length(xshow) + (i-1) * length(xshow), i] <- xshow
   }
   mat0 <- matrix(0, nrow = nrow(curvmat), ncol = sim_params$d_in - length(sim_params$flist))
-  x_plot <- torch_tensor(cbind(curvmat, mat0))
+  x_plot <- torch_tensor(cbind(curvmat, mat0), device = ifelse(sim_params$use_cuda, "cuda", "cpu"))
   y_plot <- model_fit(x_plot)  # need to add deterministic argument
   plotmat <- cbind(scale(as_array(y_plot)), curvmat)
   colnames(plotmat) <- c("y", paste0("f", 1:length(sim_params$flist)))
@@ -928,7 +932,14 @@ sim_fcn_hshoe_fcnaldata <- function(
   loss_diff <- 1
   loss <- torch_zeros(1)
   epoch <- 1
+  
+  ## stop criteria
   stop_criteria_met <- FALSE
+  stop_epochs <- c()
+  ## test_mse_storage 
+  test_mse_store <- rep(0, times = stop_k + 1)
+  test_mse_streak <- rep(FALSE, times = stop_streak)
+  
   
   while (!stop_criteria_met){
     prev_loss <- loss
@@ -956,6 +967,25 @@ sim_fcn_hshoe_fcnaldata <- function(
       yhat_test <- model_fit(x_test) 
       # **WOULD LIKE THIS TO BE DETERMINISTIC, i.e. based on post pred means** ----
       mse_test <- nnf_mse_loss(yhat_test, y_test)
+      if (epoch > (burn_in - 2 * (stop_k + stop_streak))) {
+        test_mse_store <- roll_vec(test_mse_store, as_array(mse_test))
+      }
+    }
+    
+    
+    # check test_mse stop criteria:
+    # abs(diff(mse)) < sd(mse) for streak epochs in a row,
+    # sd calculated using last stop_k epochs
+    if (epoch > burn_in & ttsplit_used){
+      test_mse_sd <- sd(test_mse_store[1:stop_k])
+      test_mse_absdiff <- abs(diff(test_mse_store[stop_k + 0:1]))
+      test_mse_compare <- test_mse_absdiff < test_mse_sd
+      test_mse_streak <- roll_vec(test_mse_streak, test_mse_compare)
+      test_mse_stopcrit <- all(test_mse_streak)
+      
+      if (test_mse_stopcrit){
+        stop_epochs <- c(stop_epochs, epoch)
+      }
     }
     
     
@@ -1009,6 +1039,17 @@ sim_fcn_hshoe_fcnaldata <- function(
       cat("alphas below ", round(display_alpha_thresh, 4), ": ")
       cat_color(display_alphas, sep = " ")
       cat(" \n \n")
+      
+      if (length(stop_epochs > 0)){
+        stop_msg <- paste0(
+          "\n ********************************************* \n",
+          "test_mse STOP CONDITION reached ", 
+          length(stop_epochs), " times; ", 
+          "min / max: ", min(stop_epochs), " / ", max(stop_epochs),
+          "\n ********************************************* \n"
+        )
+      }
+      cat_color(stop_msg)
       
       
       # graphical training updates
@@ -1094,6 +1135,7 @@ sim_fcn_hshoe_fcnaldata <- function(
   # compile results ----
   sim_res <- list(
     "sim_ind" = sim_ind,
+    "stop_epochs" = stop_epochs,
     "fcn_plt" = plt,
     "loss_mat" = loss_mat,
     "alpha_mat" = alpha_mat
@@ -1116,13 +1158,15 @@ sim_fcn_hshoe_fcnaldata <- function(
     sim_res$tau_vec <- tau_vec
   } 
   
-  completed_msg <- paste0("\n \n ******************** \n ******************** \n",
-                          "sim #", 
-                          sim_ind, 
-                          " completed \n ",
-                          "final alphas below threshold: ",
-                          paste0(display_alphas, collapse = " "),
-                          "\n ******************** \n ******************** \n \n")
+  completed_msg <- paste0(
+    "\n \n ******************** \n ******************** \n",
+    "sim #", 
+    sim_ind, 
+    " completed \n ",
+    "final alphas below threshold: ",
+    paste0(display_alphas, collapse = " "),
+    "\n ******************** \n ******************** \n \n"
+  )
   cat_color(txt = completed_msg)
   
   # save torch model
