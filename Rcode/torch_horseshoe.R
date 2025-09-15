@@ -13,8 +13,8 @@ reparameterize <- function(mu, logvar, use_cuda = FALSE, sampling = TRUE) {
   # Last modified 2024/07/16
   if (sampling) {
     std <- logvar$mul(0.5)$exp_()
-  if (use_cuda) {
-      eps <- torch_randn(std$size(), device = "gpu", requires_grad = TRUE)
+    if (use_cuda) {
+      eps <- torch_randn(std$size(), device = "cuda", requires_grad = TRUE)
     } else {
       eps <- torch_randn(std$size(), device = "cpu", requires_grad = TRUE)
     }
@@ -115,6 +115,16 @@ log_dropout <- function(hs_layer, type = "local"){
   return(log_dropout)
 }
 
+# library(torch)
+# self <- list()
+# in_features <- 5
+# out_features <- 5
+# use_cuda <- TRUE
+# tau = 1
+# clip_var <- NULL
+# deterministic = FALSE
+# init_weight <- NULL
+# init_bias <- NULL
 
 
 torch_hs <- nn_module(
@@ -141,25 +151,25 @@ torch_hs <- nn_module(
     #### trainable parameters
     # s = global scal param
     # s^2 = sa*sb
-    self$sa_mu <- nn_parameter(torch_randn(1))
-    self$sa_logvar <- nn_parameter(torch_randn(1))
-    self$sb_mu <- nn_parameter(torch_randn(1))
-    self$sb_logvar <- nn_parameter(torch_randn(1))
-    self$tau <- nn_parameter(torch_tensor(tau))
+    self$sa_mu <- nn_parameter(torch_randn(1, device = ifelse(self$use_cuda, "cuda", "cpu")))
+    self$sa_logvar <- nn_parameter(torch_randn(1, device = ifelse(self$use_cuda, "cuda", "cpu")))
+    self$sb_mu <- nn_parameter(torch_randn(1, device = ifelse(self$use_cuda, "cuda", "cpu")))
+    self$sb_logvar <- nn_parameter(torch_randn(1, device = ifelse(self$use_cuda, "cuda", "cpu")))
+    self$tau <- nn_parameter(torch_tensor(tau, device = ifelse(self$use_cuda, "cuda", "cpu")))
     # z_i_tilde = local scale param
     # z_i_tilde^2 = alpha_tilde * beta_tilde
-    self$atilde_mu <- nn_parameter(torch_randn(in_features))
-    self$atilde_logvar <- nn_parameter(torch_randn(in_features))
-    self$btilde_mu <- nn_parameter(torch_randn(in_features))
-    self$btilde_logvar <- nn_parameter(torch_randn(in_features))
+    self$atilde_mu <- nn_parameter(torch_randn(in_features, device = ifelse(self$use_cuda, "cuda", "cpu")))
+    self$atilde_logvar <- nn_parameter(torch_randn(in_features, device = ifelse(self$use_cuda, "cuda", "cpu")))
+    self$btilde_mu <- nn_parameter(torch_randn(in_features, device = ifelse(self$use_cuda, "cuda", "cpu")))
+    self$btilde_logvar <- nn_parameter(torch_randn(in_features, device = ifelse(self$use_cuda, "cuda", "cpu")))
     
     # weight dist'n params
-    self$weight_mu <- nn_parameter(torch_randn(out_features, in_features))
-    self$weight_logvar <- nn_parameter(torch_randn(out_features, in_features))
-    self$bias_mu <- nn_parameter(torch_randn(out_features))
-    self$bias_logvar <- nn_parameter(torch_randn(out_features))
+    self$weight_mu <- nn_parameter(torch_randn(out_features, in_features, device = ifelse(self$use_cuda, "cuda", "cpu")))
+    self$weight_logvar <- nn_parameter(torch_randn(out_features, in_features, device = ifelse(self$use_cuda, "cuda", "cpu")))
+    self$bias_mu <- nn_parameter(torch_randn(out_features, device = ifelse(self$use_cuda, "cuda", "cpu")))
+    self$bias_logvar <- nn_parameter(torch_randn(out_features, device = ifelse(self$use_cuda, "cuda", "cpu")))
     
-  
+    
     # composite vars
     # z = \sqrt{  s_a s_b \tilde{\alpha} \tilde{\beta}}
     # s = \sqrt{  s_a s_b  }
@@ -168,7 +178,7 @@ torch_hs <- nn_module(
     self$reset_parameters(init_weight, init_bias, init_alpha)
     
     # numerical stability param
-    self$epsilon <- 1e-8
+    self$epsilon <- torch_tensor(1e-8, device = ifelse(self$use_cuda, "cuda", "cpu"))
   },
   
   
@@ -180,23 +190,23 @@ torch_hs <- nn_module(
     
     # initialize means
     stdv <- 1 / sqrt(self$weight_mu$size(1)) # self$weight_mu$size(1) = out_features
-    self$sa_mu <- nn_parameter(torch_normal(1, 1e-2, size = 1))
-    self$sb_mu <- nn_parameter(torch_normal(1, 1e-2, size = 1))
-    self$atilde_mu <- nn_parameter(torch_normal(1, 1e-2, size = self$atilde_mu$size()))
-    self$btilde_mu <- nn_parameter(torch_normal(1, 1e-2, size = self$atilde_mu$size()))
+    self$sa_mu <- nn_parameter(torch_normal(1, 1e-2, size = 1, device = ifelse(self$use_cuda, "cuda", "cpu")))
+    self$sb_mu <- nn_parameter(torch_normal(1, 1e-2, size = 1, device = ifelse(self$use_cuda, "cuda", "cpu")))
+    self$atilde_mu <- nn_parameter(torch_normal(1, 1e-2, size = self$atilde_mu$size(), device = ifelse(self$use_cuda, "cuda", "cpu")))
+    self$btilde_mu <- nn_parameter(torch_normal(1, 1e-2, size = self$atilde_mu$size(), device = ifelse(self$use_cuda, "cuda", "cpu")))
     
     
     # self$z_mu <- nn_parameter(torch_normal(1, 1e-2, size = self$z_mu$size()))      # potential issue (if not considered leaf node anymore?)  wrap in nn_parameter()?
     if (!is.null(init_weight)) {
-      self$weight_mu <- nn_parameter(torch_tensor(init_weight))
+      self$weight_mu <- nn_parameter(torch_tensor(init_weight, device = ifelse(self$use_cuda, "cuda", "cpu")))
     } else {
-      self$weight_mu <- nn_parameter(torch_normal(0, stdv, size = self$weight_mu$size()))
+      self$weight_mu <- nn_parameter(torch_normal(0, stdv, size = self$weight_mu$size(), device = ifelse(self$use_cuda, "cuda", "cpu")))
     }
     
     if (!is.null(init_bias)) {
-      self$bias_mu <- nn_parameter(torch_tensor(init_bias))
+      self$bias_mu <- nn_parameter(torch_tensor(init_bias, device = ifelse(self$use_cuda, "cuda", "cpu")))
     } else {
-      self$bias_mu <- nn_parameter(torch_zeros(self$out_features))
+      self$bias_mu <- nn_parameter(torch_zeros(self$out_features, device = ifelse(self$use_cuda, "cuda", "cpu")))
     }
     
     # initialize log variances
@@ -208,13 +218,13 @@ torch_hs <- nn_module(
     } else {
       logvar_abtilde_mu <- log(2*log(1.5))
     }
-    self$sa_logvar <- nn_parameter(torch_normal(mean = log(.5), 1e-2, size = 1))
-    self$sb_logvar <- nn_parameter(torch_normal(mean = log(.5), 1e-2, size = 1))
-    self$atilde_logvar <- nn_parameter(torch_normal(mean = logvar_abtilde_mu, 1e-2, size = self$in_features))
-    self$btilde_logvar <- nn_parameter(torch_normal(mean = logvar_abtilde_mu, 1e-2, size = self$in_features))
+    self$sa_logvar <- nn_parameter(torch_normal(mean = log(.5), 1e-2, size = 1, device = ifelse(self$use_cuda, "cuda", "cpu")))
+    self$sb_logvar <- nn_parameter(torch_normal(mean = log(.5), 1e-2, size = 1, device = ifelse(self$use_cuda, "cuda", "cpu")))
+    self$atilde_logvar <- nn_parameter(torch_normal(mean = logvar_abtilde_mu, 1e-2, size = self$in_features, device = ifelse(self$use_cuda, "cuda", "cpu")))
+    self$btilde_logvar <- nn_parameter(torch_normal(mean = logvar_abtilde_mu, 1e-2, size = self$in_features, device = ifelse(self$use_cuda, "cuda", "cpu")))
     
-    self$weight_logvar <- nn_parameter(torch_normal(-9, 1e-2, size = c(self$out_features, self$in_features)))
-    self$bias_logvar <- nn_parameter(torch_normal(-9, 1e-2, size = self$out_features))
+    self$weight_logvar <- nn_parameter(torch_normal(-9, 1e-2, size = c(self$out_features, self$in_features), device = ifelse(self$use_cuda, "cuda", "cpu")))
+    self$bias_logvar <- nn_parameter(torch_normal(-9, 1e-2, size = self$out_features, device = ifelse(self$use_cuda, "cuda", "cpu")))
   },
   
   
@@ -261,22 +271,22 @@ torch_hs <- nn_module(
   },
   
   get_dropout_rates = function(type = "local"){
-  # calculates dropout rates based on :
-  # type == "local":    ztilde = sqrt(atilde btilde)
-  # type == "global":    s = sqrt(sa sb)
-  # type == "marginal":    z = ztilde * s
-  
-  if (type == "local"){
-    var_sum <- self$atilde_logvar$exp() + self$btilde_logvar$exp()
-  } else if (type == "global"){
-    var_sum <- self$sa_logvar$exp() + self$sb_logvar$exp()
-  } else if (type == "marginal"){
-    var_sum <- self$atilde_logvar$exp() + self$btilde_logvar$exp() + self$sa_logvar$exp() + self$sb_logvar$exp()
-  }
-  
-  type_var <- var_sum / 4
-  alpha = type_var$exp() - 1
-  return(alpha)
+    # calculates dropout rates based on :
+    # type == "local":    ztilde = sqrt(atilde btilde)
+    # type == "global":    s = sqrt(sa sb)
+    # type == "marginal":    z = ztilde * s
+    
+    if (type == "local"){
+      var_sum <- self$atilde_logvar$exp() + self$btilde_logvar$exp()
+    } else if (type == "global"){
+      var_sum <- self$sa_logvar$exp() + self$sb_logvar$exp()
+    } else if (type == "marginal"){
+      var_sum <- self$atilde_logvar$exp() + self$btilde_logvar$exp() + self$sa_logvar$exp() + self$sb_logvar$exp()
+    }
+    
+    type_var <- var_sum / 4
+    alpha = type_var$exp() - 1
+    return(alpha)
   },
   
   forward = function(x){
@@ -294,10 +304,10 @@ torch_hs <- nn_module(
     # batch_size <- x$size(1)
     
     # generate layer activations from Variational specification
-    log_atilde <- reparameterize(mu = self$atilde_mu, logvar = self$atilde_logvar)
-    log_btilde <- reparameterize(mu = self$btilde_mu, logvar = self$btilde_logvar)
-    log_sa <- reparameterize(mu = self$sa_mu, logvar = self$sa_logvar)
-    log_sb <- reparameterize(mu = self$sb_mu, logvar = self$sb_logvar)
+    log_atilde <- reparameterize(mu = self$atilde_mu, logvar = self$atilde_logvar, use_cuda = self$use_cuda)
+    log_btilde <- reparameterize(mu = self$btilde_mu, logvar = self$btilde_logvar, use_cuda = self$use_cuda)
+    log_sa <- reparameterize(mu = self$sa_mu, logvar = self$sa_logvar, use_cuda = self$use_cuda)
+    log_sb <- reparameterize(mu = self$sb_mu, logvar = self$sb_logvar, use_cuda = self$use_cuda)
     log_s <- 1/2 * (log_sa + log_sb)
     log_ztilde <- 1/2 * (log_atilde + log_btilde)
     z <- (log_s + log_ztilde)$exp()
@@ -326,7 +336,7 @@ torch_hs <- nn_module(
   
   
   get_kl = function() {
-
+    
     # KL(q(s_a) || p(s_a));   logNormal || Gamma
     kl_sa <- -negKL_lognorm_gamma(mu = self$sa_mu, logvar = self$sa_logvar, a = 1/2, b = self$tau)
     
