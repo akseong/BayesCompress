@@ -11,6 +11,15 @@ source(here("Rcode", "torch_horseshoe.R"))
 source(here("Rcode", "sim_functions.R"))
 
 
+if (torch::cuda_is_available()){
+  use_cuda <- TRUE
+  message("Default tensor device set to GPU (CUDA).")
+} else {
+  use_cuda <- FALSE
+  message("Default tensor device remains CPU.")
+}
+
+
 fcn1 <- function(x) exp(x/2)
 fcn2 <- function(x) cos(pi*x) + sin(pi/1.2*x)
 fcn3 <- function(x) abs(x)^(1.5)
@@ -39,11 +48,12 @@ flist = list(fcn1, fcn2, fcn3, fcn4)
 #    check whenever changing setting (testing / single vs parallel, etc) ##
 #           n_sims, verbose, want_plots, train_epochs
 sim_params <- list(
-  "sim_name" = "horseshoe, fcnal data",
+  "sim_name" = "hot start, horseshoe, fcnal data",
   "seed" = 1002,
   "n_sims" = 2, 
   "train_epochs" = 75E4,
   "report_every" = 1E3,
+  "use_cuda" = use_cuda,
   "d_in" = 104,
   "d_hidden1" = 16,
   "d_hidden2" = 8,
@@ -65,61 +75,98 @@ sim_params <- list(
     "ma_loss_increasing" # ma_tr_loss increasing for ...
   )
 )
+
+sim_params$hot_start_epochs <- 5E5
+
 save_fname <- paste0(
-  "hshoe_fcnldata",
+  "hshoe_fcnl_hotstart",
   sim_params$n_obs,
   "_maxepochs",
   sim_params$seed,
+  "_TESTING",
   ".RData"
 )
 
 set.seed(sim_params$seed)
 sim_params$sim_seeds <- floor(runif(n = sim_params$n_sims, 0, 1000000))
 
-
 # simulate data with set.seed and torch set seed ----
-sim_ind <- 1
+sim_ind <- 1   # comment out when not testing
 set.seed(sim_params$sim_seeds[sim_ind])
 torch_manual_seed(sim_params$sim_seeds[sim_ind])
 
-simdat <- sim_func_data(
+
+hot_start_DNN <- function(
+    sim_ind,
+    sim_params,
+    save_mod = FALSE,
+    save_path = NULL
+){
+  # train regular DNN for preliminary weights to save training time
+  # returns trained DNN; can also save trained DNN
+  if (save_mod & is.null(save_path)){
+    fname <- paste0("dnn_seed", sim_params$sim_seeds[sim_ind], ".pt")
+    save_path <- here::here(fname)
+  }
+  
+  # simulate same dataset via seed----
+  set.seed(sim_params$sim_seeds[sim_ind])
+  torch_manual_seed(sim_params$sim_seeds[sim_ind])
+  
+  simdat <- sim_func_data(
     n_obs = sim_params$n_obs,
     d_in = sim_params$d_in,
     flist = sim_params$flist,
-    err_sigma = sim_params$err_sig
-)
-
-ttsplit_ind <- floor(sim_params$n_obs * sim_params$ttsplit)
-dnn_x <- simdat$x[1:ttsplit_ind, ] 
-dnn_y <- simdat$y[1:ttsplit_ind]
-
-
-
-# regular DNN to get starting weights ----
-DNN <- nn_sequential(
-  nn_linear(sim_params$d_in, sim_params$d_hidden1),
-  nn_relu(),
-  nn_linear(sim_params$d_hidden1, sim_params$d_hidden2),
-  nn_relu(),
-  nn_linear(sim_params$d_hidden2, 1)
-)
-
-learning_rate <- 0.08
-optimizer <- optim_adam(DNN$parameters, lr = learning_rate)
-
-for (t in 1:20000) {
-  y_pred <- DNN(dnn_x)
-  loss <- nnf_mse_loss(y_pred, dnn_y, reduction = "sum")
-  if (t %% 1E3 == 0) {cat("Epoch: ", t, "   Loss: ", loss$item(), "\n")}
+    err_sigma = sim_params$err_sig,
+    use_cuda = sim_params$use_cuda
+  )
   
-  optimizer$zero_grad()
-  loss$backward()
-  optimizer$step()
+  ttsplit_ind <- floor(sim_params$n_obs * sim_params$ttsplit)
+  dnn_x <- simdat$x[1:ttsplit_ind, ] 
+  dnn_y <- simdat$y[1:ttsplit_ind]
+  
+  # regular DNN to get starting weights ----
+  DNN <- nn_sequential(
+    nn_linear(sim_params$d_in, sim_params$d_hidden1),
+    nn_relu(),
+    nn_linear(sim_params$d_hidden1, sim_params$d_hidden2),
+    nn_relu(),
+    nn_linear(sim_params$d_hidden2, sim_params$d_out)
+  )
+  if (sim_params$use_cuda) {DNN$to(device = "cuda")}
+  
+  learning_rate <- 0.08
+  optimizer <- optim_adam(DNN$parameters, lr = learning_rate)
+  
+  for (t in 1:sim_params$hot_start_epochs) {
+    y_pred <- DNN(dnn_x)
+    loss <- nnf_mse_loss(y_pred, dnn_y)
+    if (t %% sim_params$report_every == 0) {
+      cat("Epoch: ", t, "   Loss: ", loss$item(), "\n")
+    }
+    optimizer$zero_grad()
+    loss$backward()
+    optimizer$step()
+  } # END TRAINING LOOP
+  
+  message("DNN finished training")
+  
+  if (save_mod){
+    torch_save(model_fit, path = save_path)
+    message(paste0("hot start model saved: ", save_path))
+  }
+  
+  return(DNN)
 }
 
 
 
-
+DNN <- hot_start_DNN(
+    sim_ind = 1,
+    sim_params,
+    save_mod = FALSE,
+    save_path = NULL
+)
 
 
 ## define model
@@ -183,32 +230,24 @@ MLHS <- nn_module(
 
 
 
-
-
-
-
-source(here("scratch_code.R"))
-test <- hot_start_hshoe(
-  sim_ind = 1, 
+res <- sim_fcn_hshoe_fcnaldata(
+  sim_ind = 1,
   sim_params = sim_params,
-  simdat = simdat, 
   nn_model = MLHS,
-  train_epochs = 1E5, # sim_params$train_epochs,
+  train_epochs = 1E6, # sim_params$train_epochs,
   verbose = TRUE,
   display_alpha_thresh = sim_params$wald_thresh,
-  report_every = sim_params$report_every,
+  report_every = 1E3, # sim_params$report_every,
   want_plots = FALSE,
   want_fcn_plots = TRUE,
   save_mod = TRUE,
   stop_k = 100,
   stop_streak = 25,
-  burn_in = 5000 #5E4
+  burn_in = 5E5
 )
 
 
 
-
-# sim_fcn_hshoe_linreg() is in sim_functions.R
 # res <- lapply(
 #   1:sim_params$n_sims, 
 #   function(X) sim_fcn_hshoe_fcnaldata(
