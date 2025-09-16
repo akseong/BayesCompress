@@ -95,72 +95,6 @@ sim_ind <- 1   # comment out when not testing
 set.seed(sim_params$sim_seeds[sim_ind])
 torch_manual_seed(sim_params$sim_seeds[sim_ind])
 
-
-hot_start_DNN <- function(
-    sim_ind,
-    sim_params,
-    save_mod = FALSE,
-    save_path = NULL
-){
-  # train regular DNN for preliminary weights to save training time
-  # returns trained DNN; can also save trained DNN
-  if (save_mod & is.null(save_path)){
-    fname <- paste0("dnn_seed", sim_params$sim_seeds[sim_ind], ".pt")
-    save_path <- here::here(fname)
-  }
-  
-  # simulate same dataset via seed----
-  set.seed(sim_params$sim_seeds[sim_ind])
-  torch_manual_seed(sim_params$sim_seeds[sim_ind])
-  
-  simdat <- sim_func_data(
-    n_obs = sim_params$n_obs,
-    d_in = sim_params$d_in,
-    flist = sim_params$flist,
-    err_sigma = sim_params$err_sig,
-    use_cuda = sim_params$use_cuda
-  )
-  
-  ttsplit_ind <- floor(sim_params$n_obs * sim_params$ttsplit)
-  dnn_x <- simdat$x[1:ttsplit_ind, ] 
-  dnn_y <- simdat$y[1:ttsplit_ind]
-  
-  # regular DNN to get starting weights ----
-  DNN <- nn_sequential(
-    nn_linear(sim_params$d_in, sim_params$d_hidden1),
-    nn_relu(),
-    nn_linear(sim_params$d_hidden1, sim_params$d_hidden2),
-    nn_relu(),
-    nn_linear(sim_params$d_hidden2, sim_params$d_out)
-  )
-  if (sim_params$use_cuda) {DNN$to(device = "cuda")}
-  
-  learning_rate <- 0.08
-  optimizer <- optim_adam(DNN$parameters, lr = learning_rate)
-  
-  for (t in 1:sim_params$hot_start_epochs) {
-    y_pred <- DNN(dnn_x)
-    loss <- nnf_mse_loss(y_pred, dnn_y)
-    if (t %% sim_params$report_every == 0) {
-      cat("Epoch: ", t, "   Loss: ", loss$item(), "\n")
-    }
-    optimizer$zero_grad()
-    loss$backward()
-    optimizer$step()
-  } # END TRAINING LOOP
-  
-  message("DNN finished training")
-  
-  if (save_mod){
-    torch_save(model_fit, path = save_path)
-    message(paste0("hot start model saved: ", save_path))
-  }
-  
-  return(DNN)
-}
-
-
-
 DNN <- hot_start_DNN(
     sim_ind = 1,
     sim_params,
@@ -169,82 +103,82 @@ DNN <- hot_start_DNN(
 )
 
 
-## define model
-MLHS <- nn_module(
-  "MLHS",
-  initialize = function() {
-    self$fc1 = torch_hs(    
-      in_features = sim_params$d_in, 
-      out_features = sim_params$d_hidden1,
-      use_cuda = FALSE,
-      tau = 1,
-      init_weight = DNN$parameters$`0.weight`,
-      init_bias = DNN$parameters$`0.bias`,
-      init_alpha = 0.9,
-      clip_var = TRUE
-    )
-    
-    self$fc2 = torch_hs(
-      in_features = sim_params$d_hidden1,
-      out_features = sim_params$d_hidden2,
-      use_cuda = FALSE,
-      tau = 1,
-      init_weight = DNN$parameters$`2.weight`,
-      init_bias = DNN$parameters$`2.bias`,
-      init_alpha = 0.9,
-      clip_var = TRUE
-    )
-    
-    self$fc3 = torch_hs(
-      in_features = sim_params$d_hidden2,
-      out_features = sim_params$d_out,
-      use_cuda = FALSE,
-      tau = 1,
-      init_weight = DNN$parameters$`4.weight`,
-      init_bias = DNN$parameters$`4.bias`,
-      init_alpha = 0.9,
-      clip_var = TRUE
-    )
-    
-  },
-  
-  forward = function(x) {
-    x %>%
-      self$fc1() %>%
-      nnf_relu() %>%
-      self$fc2() %>%
-      nnf_relu() %>%
-      self$fc3()
-  },
-  
-  
-  
-  get_model_kld = function(){
-    kl1 = self$fc1$get_kl()
-    kl2 = self$fc2$get_kl()
-    kl3 = self$fc3$get_kl()
-    kld = kl1 + kl2 + kl3
-    return(kld)
-  }
-)
-
-
-
-res <- sim_fcn_hshoe_fcnaldata(
-  sim_ind = 1,
-  sim_params = sim_params,
-  nn_model = MLHS,
-  train_epochs = 1E6, # sim_params$train_epochs,
-  verbose = TRUE,
-  display_alpha_thresh = sim_params$wald_thresh,
-  report_every = 1E3, # sim_params$report_every,
-  want_plots = FALSE,
-  want_fcn_plots = TRUE,
-  save_mod = TRUE,
-  stop_k = 100,
-  stop_streak = 25,
-  burn_in = 5E5
-)
+# ## define model
+# MLHS <- nn_module(
+#   "MLHS",
+#   initialize = function() {
+#     self$fc1 = torch_hs(    
+#       in_features = sim_params$d_in, 
+#       out_features = sim_params$d_hidden1,
+#       use_cuda = FALSE,
+#       tau = 1,
+#       init_weight = DNN$parameters$`0.weight`,
+#       init_bias = DNN$parameters$`0.bias`,
+#       init_alpha = 0.9,
+#       clip_var = TRUE
+#     )
+#     
+#     self$fc2 = torch_hs(
+#       in_features = sim_params$d_hidden1,
+#       out_features = sim_params$d_hidden2,
+#       use_cuda = FALSE,
+#       tau = 1,
+#       init_weight = DNN$parameters$`2.weight`,
+#       init_bias = DNN$parameters$`2.bias`,
+#       init_alpha = 0.9,
+#       clip_var = TRUE
+#     )
+#     
+#     self$fc3 = torch_hs(
+#       in_features = sim_params$d_hidden2,
+#       out_features = sim_params$d_out,
+#       use_cuda = FALSE,
+#       tau = 1,
+#       init_weight = DNN$parameters$`4.weight`,
+#       init_bias = DNN$parameters$`4.bias`,
+#       init_alpha = 0.9,
+#       clip_var = TRUE
+#     )
+#     
+#   },
+#   
+#   forward = function(x) {
+#     x %>%
+#       self$fc1() %>%
+#       nnf_relu() %>%
+#       self$fc2() %>%
+#       nnf_relu() %>%
+#       self$fc3()
+#   },
+#   
+#   
+#   
+#   get_model_kld = function(){
+#     kl1 = self$fc1$get_kl()
+#     kl2 = self$fc2$get_kl()
+#     kl3 = self$fc3$get_kl()
+#     kld = kl1 + kl2 + kl3
+#     return(kld)
+#   }
+# )
+# 
+# 
+# 
+# res <- sim_fcn_hshoe_fcnaldata(
+#   sim_ind = 1,
+#   sim_params = sim_params,
+#   nn_model = MLHS,
+#   train_epochs = 1E6, # sim_params$train_epochs,
+#   verbose = TRUE,
+#   display_alpha_thresh = sim_params$wald_thresh,
+#   report_every = 1E3, # sim_params$report_every,
+#   want_plots = FALSE,
+#   want_fcn_plots = TRUE,
+#   save_mod = TRUE,
+#   stop_k = 100,
+#   stop_streak = 25,
+#   burn_in = 5E5
+# )
 
 
 
