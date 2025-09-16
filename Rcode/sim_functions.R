@@ -423,7 +423,7 @@ plot_fcn_preds <- function(torchmod, pred_mats, want_df = FALSE, want_plot = TRU
 
 
 # FOR LM() ----
-##calc_lm_stats----
+## calc_lm_stats----
 calc_lm_stats <- function(lm_fit, true_coefs, alpha = 0.05){
   beta_hat <- summary(lm_fit)$coef[-1, 1]
   binary_err <- binary_err_rate(
@@ -475,6 +475,92 @@ get_lm_stats <- function(simdat, alpha = 0.05){
 
 
 # SIMULATION FCNS ----
+## hot_start_DNN ----
+hot_start_DNN <- function(
+    sim_ind,
+    sim_params,
+    verbose = TRUE,
+    want_fcn_plts = TRUE,
+    save_mod = TRUE,
+    save_path = here::here("sims", "results", "hotstart500k")
+){
+  # train regular DNN for preliminary weights to save training time
+  # returns trained DNN; can also save trained DNN
+  if (save_mod & is.null(save_path)){
+    fname <- paste0("dnn_seed", sim_params$sim_seeds[sim_ind], ".pt")
+    save_path <- here::here(fname)
+  }
+  
+  # simulate same dataset via seed----
+  set.seed(sim_params$sim_seeds[sim_ind])
+  torch_manual_seed(sim_params$sim_seeds[sim_ind])
+  
+  simdat <- sim_func_data(
+    n_obs = sim_params$n_obs,
+    d_in = sim_params$d_in,
+    flist = sim_params$flist,
+    err_sigma = sim_params$err_sig,
+    use_cuda = sim_params$use_cuda
+  )
+  
+  ttsplit_ind <- floor(sim_params$n_obs * sim_params$ttsplit)
+  dnn_x <- simdat$x[1:ttsplit_ind, ] 
+  dnn_y <- simdat$y[1:ttsplit_ind]
+  
+  # regular DNN to get starting weights ----
+  DNN <- nn_sequential(
+    nn_linear(sim_params$d_in, sim_params$d_hidden1),
+    nn_relu(),
+    nn_linear(sim_params$d_hidden1, sim_params$d_hidden2),
+    nn_relu(),
+    nn_linear(sim_params$d_hidden2, sim_params$d_out)
+  )
+  if (sim_params$use_cuda) {DNN$to(device = "cuda")}
+  
+  if (want_fcn_plts){
+    pred_mats <- make_pred_mats(
+      flist = sim_params$flist,
+      xgrid = seq(-3, 3, length.out = 100),
+      d_in = simdat$d_in
+    )
+  }
+  
+  learning_rate <- 0.08
+  optimizer <- optim_adam(DNN$parameters, lr = learning_rate)
+  
+  for (t in 1:sim_params$hot_start_epochs) {
+    y_pred <- DNN(dnn_x)
+    loss <- nnf_mse_loss(y_pred, dnn_y)
+    
+    if (verbose & (t %% sim_params$report_every == 0)) {
+      cat("Epoch: ", t, "   Loss: ", loss$item(), "\n")
+      
+      # plot true and pred functions
+      if (want_fcn_plts){
+        plt <- plot_fcn_preds(
+          torchmod = DNN,
+          pred_mats = pred_mats
+        )
+        print(plt)
+      }
+    } # END UPDATE LOOP
+    
+    # gradient step
+    optimizer$zero_grad()
+    loss$backward()
+    optimizer$step()
+  } # END TRAINING LOOP
+  
+  message("DNN finished training")
+  
+  if (save_mod){
+    torch_save(model_fit, path = save_path)
+    message(paste0("hot start model saved: ", save_path))
+  }
+  
+  return(DNN)
+}
+
 ## horseshoe, basic linear regression setting ----
 sim_fcn_hshoe_linreg <- function(
     sim_ind,    # to ease parallelization
