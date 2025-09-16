@@ -184,6 +184,25 @@ dev_auto <- function(){
 }
 
 # DATA GENERATION ----
+## plot_datagen_fcns(flist) ----
+plot_datagen_fcns <- function(
+    flist, 
+    min_x = -3, 
+    max_x = 3, 
+    x_length = 100
+  ){
+  xshow <- seq(min_x, max_x, length.out = x_length)
+  yshow <- sapply(flist, function(fcn) fcn(xshow))
+  colnames(yshow) <- paste0("f", 1:length(flist))
+  df <- data.frame(cbind(yshow, "x" = xshow))
+  plt <- df %>% 
+    pivot_longer(cols = -x, names_to = "fcn") %>%
+    ggplot(aes(y = value, x = x, color = fcn)) +
+    geom_line() +
+    labs(title = "functions used to create data")
+
+  return(plt)
+}
 ## sim_linear_data ----
 sim_linear_data <- function(
   n_obs = 100,
@@ -848,7 +867,7 @@ sim_fcn_hshoe_fcnaldata <- function(
   
   ## initialize BNN & optimizer ----
   model_fit <- nn_model()
-  optim_slhs <- optim_adam(model_fit$parameters)
+  optim_model <- optim_adam(model_fit$parameters)
   
   
   ## set up plotting while training: ----
@@ -863,7 +882,7 @@ sim_fcn_hshoe_fcnaldata <- function(
   ) %>% 
     pivot_longer(cols = -x, names_to = "fcn")
   
-  # to feed into BNN model
+  # to feed into BNN model during training loop updates
   curvmat <- matrix(0, ncol = length(sim_params$flist), nrow = length(sim_params$flist) * 100)
   for (i in 1:length(flist)){
     curvmat[1:length(xshow) + (i-1) * length(xshow), i] <- xshow
@@ -919,40 +938,28 @@ sim_fcn_hshoe_fcnaldata <- function(
   }
   
   
-  ## SETUP STOP CRITERIA ----
-  #### 
-  ####  NOT FULLY IMPLEMENTED IN THIS FILE.  ONLY FOR STORAGE / VIEWING. 
-  ####  ONLY STOPPING CRITERIA HERE IS MAX_EPOCHS.
-  ####
-  ## test-train split
-  
-  ttsplit_used <- "test_train" %in% sim_params$stop_criteria || "test_convergence" %in% sim_params$stop_criteria
-  ttsplit_ind <- ifelse(
-    ttsplit_used,
-    floor(sim_params$n_obs * sim_params$ttsplit),
-    sim_params$n_obs
-  )
-  
+  ## SETUP test-train split ----
+  ttsplit_ind <- floor(sim_params$n_obs * sim_params$ttsplit)
+  ttsplit_used <- sim_params$ttsplit != 1
+  x_train <- simdat$x[1:ttsplit_ind, ]
+  y_train <- simdat$y[1:ttsplit_ind, ]
   if (ttsplit_used){
     x_test <- simdat$x[(ttsplit_ind+1):sim_params$n_obs, ] 
     y_test <- simdat$y[(ttsplit_ind+1):sim_params$n_obs, ]
-    loss_test <- torch_zeros(1)  # set initial value
-    loss_diff_test <- 1          # set initial value    
   }
   
-  x_train <- simdat$x[1:ttsplit_ind, ]
-  y_train <- simdat$y[1:ttsplit_ind, ]
   
   ## TRAINING LOOP ----
   ## initialize training params
-  loss_diff <- 1
-  loss <- torch_zeros(1)
   epoch <- 1
+  loss <- torch_tensor(1, device = dev_select(sim_params$use_cuda))
   
   ## stop criteria
   stop_criteria_met <- FALSE
   stop_epochs <- c()
-  ## test_mse_storage 
+  ## test_mse_storage
+  mse_test <- torch_tensor(0, device = dev_select(sim_params$use_cuda))
+  loss_test <- torch_tensor(1, device = dev_select(sim_params$use_cuda)) 
   test_mse_store <- rep(0, times = stop_k + 1)
   test_mse_streak <- rep(FALSE, times = stop_streak)
   
@@ -965,23 +972,21 @@ sim_fcn_hshoe_fcnaldata <- function(
     mse <- nnf_mse_loss(yhat_train, y_train)
     kl <- model_fit$get_model_kld() / ttsplit_ind
     loss <- mse + kl
-    # loss_diff <- loss - prev_loss
     
     
     # gradient step 
     # zero out previous gradients
-    optim_slhs$zero_grad()
+    optim_model_fit$zero_grad()
     # backprop
     loss$backward()
     # update weights
-    optim_slhs$step()
+    optim_model_fit$step()
     
     
     # compute test loss 
     if (ttsplit_used) {
       prev_loss_test <- loss_test
-      yhat_test <- model_fit(x_test) 
-      # **WOULD LIKE THIS TO BE DETERMINISTIC, i.e. based on post pred means** ----
+      yhat_test <- model_fit(x_test)
       mse_test <- nnf_mse_loss(yhat_test, y_test)
       if (epoch > (burn_in - 2 * (stop_k + stop_streak))) {
         test_mse_store <- roll_vec(test_mse_store, as_array(mse_test))
@@ -1054,7 +1059,6 @@ sim_fcn_hshoe_fcnaldata <- function(
       )
       cat("alphas below ", round(display_alpha_thresh, 4), ": ")
       cat_color(display_alphas, sep = " ")
-      cat(" \n \n")
       
       if (length(stop_epochs > 0)){
         stop_msg <- paste0(
@@ -1064,8 +1068,9 @@ sim_fcn_hshoe_fcnaldata <- function(
           "min / max: ", min(stop_epochs), " / ", max(stop_epochs),
           "\n ********************************************* \n"
         )
+        cat_color(stop_msg)
       }
-      cat_color(stop_msg)
+      cat(" \n \n")
       
       
       # graphical training updates
@@ -1077,6 +1082,8 @@ sim_fcn_hshoe_fcnaldata <- function(
           start_plot_row_ind <- row_ind - 10
         } else if (row_ind >= 60){
           start_plot_row_ind <- row_ind - 30
+        } else if (row_ind >= 100){
+          start_plot_row_ind <- row_ind - 50
         }
         # set up plotting df
         temp_lmat <- cbind(
@@ -1174,6 +1181,7 @@ sim_fcn_hshoe_fcnaldata <- function(
     sim_res$tau_vec <- tau_vec
   } 
   
+  # notify completed training ----
   completed_msg <- paste0(
     "\n \n ******************** \n ******************** \n",
     "sim #", 
@@ -1185,7 +1193,7 @@ sim_fcn_hshoe_fcnaldata <- function(
   )
   cat_color(txt = completed_msg)
   
-  # save torch model
+  # save torch model ----
   if (save_mod){
     if(is.null(save_mod_path)){
       save_mod_path <- here::here("sims", 
