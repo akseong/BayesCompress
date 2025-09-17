@@ -50,10 +50,10 @@ flist = list(fcn1, fcn2, fcn3, fcn4)
 #           n_sims, verbose, want_plots, train_epochs
 sim_params <- list(
   "sim_name" = "horseshoe, fcnal data",
-  "seed" = 1002,
+  "seed" = 1351,
   "n_sims" = 2, 
-  "train_epochs" = 75E4,
-  "report_every" = 1E3,
+  "train_epochs" = 15E5,
+  "report_every" = 1E4,
   "use_cuda" = use_cuda,
   "d_in" = 104,
   "d_hidden1" = 16,
@@ -64,23 +64,24 @@ sim_params <- list(
   "wald_thresh" = 1 / qchisq(1 - (0.05 / 104), df = 1),
   "flist" = flist,
   "err_sig" = 1,
-  "burn_in" = 1,
+  "burn_in" = 5E5,
   "convergence_crit" = 1e-7,
   "ttsplit" = 4/5,
-  "stop_criteria_interval" = 50,
-  "moving_avg_interval" = 17,
-  "stop_criteria" = c(
-    "test_train",        # [te_loss - tr_loss] positive & increasing for [stop_criteria_interval] epochs
-    "train_convergence", # tr_loss_diff < [convergence_crit] for [stop_cruit_interval] epochs
-    "test_convergence",  # te_loss_diff < [convergence_crit] for ...
-    "ma_loss_increasing" # ma_tr_loss increasing for ...
-  )
+  "stop_k" = 100,
+  "stop_streak" = 25
+  # "stop_criteria" = c(
+  #   "test_train",        # [te_loss - tr_loss] positive & increasing for [stop_criteria_interval] epochs
+  #   "train_convergence", # tr_loss_diff < [convergence_crit] for [stop_cruit_interval] epochs
+  #   "test_convergence",  # te_loss_diff < [convergence_crit] for ...
+  #   "ma_loss_increasing" # ma_tr_loss increasing for ...
+  # )
 )
 save_fname <- paste0(
   "hshoe_fcnldata",
   sim_params$n_obs,
   "_maxepochs",
   sim_params$seed,
+  "TESTING",
   ".RData"
 )
 
@@ -148,54 +149,60 @@ MLHS <- nn_module(
 )
 
 
-res <- sim_fcn_hshoe_fcnaldata(
-  sim_ind = 1,
-  sim_params = sim_params,
-  nn_model = MLHS,
-  train_epochs = 1E6, # sim_params$train_epochs,
-  verbose = TRUE,
-  display_alpha_thresh = sim_params$wald_thresh,
-  report_every = 1E3, # sim_params$report_every,
-  want_plots = FALSE,
-  want_fcn_plots = TRUE,
-  save_mod = TRUE,
-  stop_k = 100,
-  stop_streak = 25,
-  burn_in = 5E4
-)
+# ## testing code
+# res <- sim_fcn_hshoe_fcnaldata(
+#   sim_ind = 1,
+#   sim_params = sim_params,
+#   nn_model = MLHS,
+#   train_epochs = 1E6, # sim_params$train_epochs,
+#   verbose = TRUE,
+#   display_alpha_thresh = sim_params$wald_thresh,
+#   report_every = 1E3, # sim_params$report_every,
+#   want_plots = FALSE,
+#   want_fcn_plots = TRUE,
+#   save_mod = TRUE,
+#   stop_k = 100,
+#   stop_streak = 25,
+#   burn_in = 5E4
+# )
 
 
 
 
 # sim_fcn_hshoe_linreg() is in sim_functions.R
-# res <- lapply(
-#   1:sim_params$n_sims, 
-#   function(X) sim_fcn_hshoe_fcnaldata(
-#     sim_ind = X, 
-#     sim_params = sim_params,
-#     nn_model = MLHS,
-#     train_epochs = sim_params$train_epochs,
-#     verbose = TRUE,
-#     display_alpha_thresh = sim_params$wald_thresh,
-#     report_every = sim_params$report_every,
-#     want_plots = FALSE,
-#     want_fcn_plots = TRUE,
-#     save_mod = TRUE
-#   )
-# )
-# 
-# # set each simulation result unique name
-# res <- setNames(res, paste0("sim_", 1:length(res)))
-# 
-# 
-# contents <- list(
-#   "res" = res, 
-#   "sim_params" = sim_params
-# )
-# 
-# save(contents, file = here::here("sims", "results", save_fname))
-# 
-# 
+res <- lapply(
+  1:sim_params$n_sims,
+  function(X) sim_fcn_hshoe_fcnaldata(
+    sim_ind = X,
+    sim_params,     # same as before, but need to include flist
+    nn_model = MLHS,   # torch nn_module,
+    train_epochs = sim_params$train_epochs,
+    verbose = TRUE,      # provide updates in console
+    display_alpha_thresh = sim_params$wald_thresh,    # display alphas below this number
+    report_every = sim_params$report_every, # training epochs between display/store results
+    want_plots = FALSE,   # provide graphical updates of KL, MSE
+    want_fcn_plots = TRUE, # display predicted functions
+    save_fcn_plots = TRUE,
+    want_all_params = FALSE,
+    save_mod = TRUE,
+    save_mod_path_stem = NULL,
+    stop_k = sim_params$stop_k,
+    stop_streak = sim_params$stop_streak,
+    burn_in = sim_params$burn_in
+  )
+)
+# set each simulation result unique name
+res <- setNames(res, paste0("sim_", 1:length(res)))
+
+
+contents <- list(
+  "res" = res,
+  "sim_params" = sim_params
+)
+
+save(contents, file = here::here("sims", "results", save_fname))
+
+
 
 
 

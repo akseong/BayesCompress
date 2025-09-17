@@ -480,15 +480,21 @@ hot_start_DNN <- function(
     sim_ind,
     sim_params,
     verbose = TRUE,
-    want_fcn_plts = TRUE,
+    want_fcn_plots = TRUE,
+    save_fcn_plots = FALSE,
     save_mod = TRUE,
-    save_path = here::here("sims", "results", "hotstart500k")
+    save_path_stem = NULL
 ){
   # train regular DNN for preliminary weights to save training time
   # returns trained DNN; can also save trained DNN
-  if (save_mod & is.null(save_path)){
-    fname <- paste0("dnn_seed", sim_params$sim_seeds[sim_ind], ".pt")
-    save_path <- here::here(fname)
+  if (save_mod) {
+    if (is.null(save_path_stem)){
+      save_path_stem <- paste0(
+        "dnn_n", sim_params$n_obs, "_seed", 
+        sim_params$sim_seeds[sim_ind]
+      )
+    }
+    mod_save_path <- paste0(save_path_stem, ".pt")
   }
   
   # simulate same dataset via seed----
@@ -517,7 +523,7 @@ hot_start_DNN <- function(
   )
   if (sim_params$use_cuda) {DNN$to(device = "cuda")}
   
-  if (want_fcn_plts){
+  if (want_fcn_plots){
     pred_mats <- make_pred_mats(
       flist = sim_params$flist,
       xgrid = seq(-3, 3, length.out = 100),
@@ -536,12 +542,23 @@ hot_start_DNN <- function(
       cat("Epoch: ", t, "   Loss: ", loss$item(), "\n")
       
       # plot true and pred functions
-      if (want_fcn_plts){
+      if (want_fcn_plots){
         plt <- plot_fcn_preds(
           torchmod = DNN,
           pred_mats = pred_mats
-        )
-        print(plt)
+        ) + 
+          labs(
+            title = "predicted (solid) and original (dotted) functions",
+            subtitle = paste0("epoch: ", t)
+          )
+        
+        if (save_fcn_plots){
+          plt_save_path <- paste0(save_path_stem, "_e", t, ".png")
+          ggsave(filename = plt_save_path, plot = plt)
+        } else {
+          print(plt)
+        }
+        
       }
     } # END UPDATE LOOP
     
@@ -895,9 +912,10 @@ sim_fcn_hshoe_fcnaldata <- function(
     report_every = 1000, # training epochs between display/store results
     want_plots = TRUE,   # provide graphical updates of KL, MSE
     want_fcn_plots = TRUE, # display predicted functions
+    save_fcn_plots = FALSE,
     want_all_params = FALSE,
     save_mod = TRUE,
-    save_mod_path = NULL,
+    save_mod_path_stem = NULL,
     stop_k = 100,
     stop_streak = 25,
     burn_in = 5E5
@@ -953,7 +971,20 @@ sim_fcn_hshoe_fcnaldata <- function(
   
   ## initialize BNN & optimizer ----
   model_fit <- nn_model()
-  optim_model <- optim_adam(model_fit$parameters)
+  optim_model_fit <- optim_adam(model_fit$parameters)
+  
+  if (save_mod){
+    if(is.null(save_mod_path_stem)){
+      save_mod_path_stem <- here::here("sims", 
+                                  "results", 
+                                  paste0("fcnl_hshoe_mod_", 
+                                         sim_params$n_obs, "obs_", 
+                                         sim_params$sim_seeds[sim_ind]
+                                         ))
+    }
+    save_mod_path <- paste0(save_mod_path_stem, ".pt")
+  }
+  
   
   
   ## set up plotting while training: ----
@@ -1144,7 +1175,7 @@ sim_fcn_hshoe_fcnaldata <- function(
         "."
       )
       cat("alphas below ", round(display_alpha_thresh, 4), ": ")
-      cat_color(display_alphas, sep = " ")
+      cat(display_alphas, sep = " ")
       
       if (length(stop_epochs > 0)){
         stop_msg <- paste0(
@@ -1232,7 +1263,13 @@ sim_fcn_hshoe_fcnaldata <- function(
           title = "predicted (solid) and original (dotted) functions",
           subtitle = paste0("epoch: ", epoch)
         )
-      print(plt)
+      
+      if (save_fcn_plots){
+        save_plt_path <- paste0(save_mod_path_stem, "_e", epoch, ".png")
+        ggsave(filename = save_plt_path, plot = plt, height = 4, width = 6)
+      } else {
+        print(plt)
+      }
     } # end function update plots (want_fcn_plots = TRUE)
     
     
@@ -1281,14 +1318,6 @@ sim_fcn_hshoe_fcnaldata <- function(
   
   # save torch model ----
   if (save_mod){
-    if(is.null(save_mod_path)){
-      save_mod_path <- here::here("sims", 
-                                  "results", 
-                                  paste0("fcnl_hshoe_mod_", 
-                                         sim_params$n_obs, "obs_", 
-                                         sim_params$sim_seeds[sim_ind],
-                                         ".pt"))
-    }
     torch_save(model_fit, path = save_mod_path)
     cat_color(txt = paste0("model saved: ", save_mod_path))
     sim_res$mod_path = save_mod_path
