@@ -681,7 +681,7 @@ MLHS <- nn_module(
 
 ## train
 
-```{r TRAIN_MULTILAYER_HS, eval = params$retrain}
+```{r TRAIN_MULTILAYER_HS}
 
 fcn_model <- MLHS()
 x <- fdat$x
@@ -703,68 +703,68 @@ y_plot <- fcn_model(x_plot)  # need to add deterministic argument
 plotmat <- cbind(as_array(y_plot), curvmat)
 colnames(plotmat) <- c("y", "x1", "x2", "x3", "x4")
 plotdf <- as.data.frame(plotmat)
-
-
-
-
-
-# training params / results
-optim <- optim_adam(fcn_model$parameters)
-
-train_epochs <- 500000
-loss_mat <- array(data = NA, dim = c(train_epochs/100, 4))
-colnames(loss_mat) <- c("epoch", "mse", "kl", "loss")
-
-for (epoch in 1:train_epochs){
-
-  y_pred <- fcn_model(x)
-  mse <- nnf_mse_loss(y_pred, y)
-  kl <- fcn_model$get_model_kld() / fdat$n
-  loss <- mse + kl
-
-  if(epoch %% 10000 == 0){
-    cat(
-      "Epoch: ", epoch,
-      "MSE + KL/n = ", mse$item(), " + ", kl$item(),
-      " = ", loss$item(),
-      "\n"
-    )
-    dropout_alphas <- fcn_model$fc1$get_dropout_rates()
-    cat(round(as_array(dropout_alphas), 4), "\n")
-    loss_mat[epoch/100, ] = c(epoch, mse$item(), kl$item(), loss$item())
-    plotdf$y <- as_array(fcn_model(x_plot))
-    plt <- plotdf %>%
-      gather(key = "fcn", value = "x", -y) %>%
-      ggplot(aes(y = y, x = x, color = fcn)) +
-      geom_line()
-    print(plt)
-  }
-
-  # zero out previous gradients
-  optim$zero_grad()
-  # backprop
-  loss$backward()
-  # update weights
-  optim$step()
-}
-
-contents <- list(
-  "n_obs" = n_obs,
-  "seed" = params$seed,
-  "err_sig" = err_sig,
-  "d_in" = d_in,
-  "d_hidden1" = d_hidden1,
-  "d_hidden2" = d_hidden2,
-  "d_out" = d_out,
-  "df" = df,
-  "flist" = flist,
-  "plotdf" = plotdf,
-  "x_plot" = x_plot,
-  "loss_mat" = loss_mat
-)
-
-save(contents, file = here::here("Rcode", "results", "hshoe_funcdata_n10k.Rdata"))
-torch_save(fcn_model, path = here::here("Rcode", "results", "hshoe_funcdata_n10k.pt"))
+# 
+# 
+# 
+# 
+# 
+# # training params / results
+# optim <- optim_adam(fcn_model$parameters)
+# 
+# train_epochs <- 500000
+# loss_mat <- array(data = NA, dim = c(train_epochs/100, 4))
+# colnames(loss_mat) <- c("epoch", "mse", "kl", "loss")
+# 
+# for (epoch in 1:train_epochs){
+# 
+#   y_pred <- fcn_model(x)
+#   mse <- nnf_mse_loss(y_pred, y)
+#   kl <- fcn_model$get_model_kld() / fdat$n
+#   loss <- mse + kl
+# 
+#   if(epoch %% 10000 == 0){
+#     cat(
+#       "Epoch: ", epoch,
+#       "MSE + KL/n = ", mse$item(), " + ", kl$item(),
+#       " = ", loss$item(),
+#       "\n"
+#     )
+#     dropout_alphas <- fcn_model$fc1$get_dropout_rates()
+#     cat(round(as_array(dropout_alphas), 4), "\n")
+#     loss_mat[epoch/100, ] = c(epoch, mse$item(), kl$item(), loss$item())
+#     plotdf$y <- as_array(fcn_model(x_plot))
+#     plt <- plotdf %>%
+#       gather(key = "fcn", value = "x", -y) %>%
+#       ggplot(aes(y = y, x = x, color = fcn)) +
+#       geom_line()
+#     print(plt)
+#   }
+# 
+#   # zero out previous gradients
+#   optim$zero_grad()
+#   # backprop
+#   loss$backward()
+#   # update weights
+#   optim$step()
+# }
+# 
+# contents <- list(
+#   "n_obs" = n_obs,
+#   "seed" = params$seed,
+#   "err_sig" = err_sig,
+#   "d_in" = d_in,
+#   "d_hidden1" = d_hidden1,
+#   "d_hidden2" = d_hidden2,
+#   "d_out" = d_out,
+#   "df" = df,
+#   "flist" = flist,
+#   "plotdf" = plotdf,
+#   "x_plot" = x_plot,
+#   "loss_mat" = loss_mat
+# )
+# 
+# save(contents, file = here::here("Rcode", "results", "hshoe_funcdata_n10k.Rdata"))
+# torch_save(fcn_model, path = here::here("Rcode", "results", "hshoe_funcdata_n10k.pt"))
 
 load(here::here("Rcode", "results", "hshoe_funcdata_n10k.Rdata"))
 fcn_model <- torch_load(here::here("Rcode", "results", "hshoe_funcdata_n10k.pt"))
@@ -783,21 +783,10 @@ df %>%
   geom_line() + 
   labs(title = "functions used to create data")
 
-
-
-
-# investigating --- alphas not moving, all staying ~ 0.05
-as_array(fcn_model$fc1$get_dropout_rates())
-as_array(fcn_model$fc2$get_dropout_rates())
-as_array(fcn_model$fc3$get_dropout_rates())
-
-fcn_model$fc1$compute_posterior_param()
-
-
-
-
-
-
+# investigating
+# as_array(fcn_model$fc1$get_dropout_rates())
+# fcn_model$fc1$compute_posterior_param()
+# fcn_model$fc1$weight_mu
 
 fcn_model_keeps <- fcn_model$fc1$get_dropout_rates() < 0.05
 true_gam <- c(
@@ -810,9 +799,9 @@ cat("binary error: \n")
 fcn_model_bin_err
 
 
-post_w1 <- fcn_model$fc1$compute_posterior_param()
+# post_w1 <- fcn_model$fc1$compute_posterior_param()
 
-post_w1$post_weight_mu
+# post_w1$post_weight_mu
 
 
 
