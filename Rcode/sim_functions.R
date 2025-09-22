@@ -399,7 +399,6 @@ plot_fcn_preds <- function(torchmod, pred_mats, want_df = FALSE, want_plot = TRU
         x = x,
         color = name
       ),
-      linewidth = 1,
       alpha = 0.15
     ) + 
     labs(
