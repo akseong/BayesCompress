@@ -55,17 +55,16 @@ plot_datagen_fcns(flist)
 #           n_sims, verbose, want_plots, train_epochs
 
 sim_params <- list(
-  "sim_name" = "hshoe, 4 hidden, nobatching, fcnal data",
-  "seed" = 412500,
+  "sim_name" = "hshoe, tau fixed, 2 layers 16 8 (worked before) nobatching, fcnal data.  ",
+  "seed" = 2168,
   "n_sims" = 1, 
   "train_epochs" = 1e6, # 15E5,
   "report_every" = 1e4, # 1E4,
   "use_cuda" = use_cuda,
   "d_in" = 104,
   "d_hidden1" = 16,
-  "d_hidden2" = 32,
-  "d_hidden3" = 16,
-  "d_hidden4" = 8,
+  "d_hidden2" = 8,
+  # "d_hidden3" = 8,
   "d_out" = 1,
   "n_obs" = 12500,
   "true_coefs" = c(-0.5, 1, -2, 4, rep(0, times = 100)),
@@ -111,28 +110,28 @@ MLHS <- nn_module(
     
     self$fc3 = torch_hs(
       in_features = sim_params$d_hidden2,
-      out_features = sim_params$d_hidden3,
-      use_cuda = sim_params$use_cuda,
-      tau = 1,
-      init_weight = NULL,
-      init_bias = NULL,
-      init_alpha = 0.9,
-      clip_var = TRUE
-    )
-    
-    self$fc4 = torch_hs(
-      in_features = sim_params$d_hidden3,
-      out_features = sim_params$d_hidden4,
-      use_cuda = sim_params$use_cuda,
-      tau = 1,
-      init_weight = NULL,
-      init_bias = NULL,
-      init_alpha = 0.9,
-      clip_var = TRUE
-    )
-    
-    self$fc5 = torch_hs(
-      in_features = sim_params$d_hidden4,
+    #   out_features = sim_params$d_hidden3,
+    #   use_cuda = sim_params$use_cuda,
+    #   tau = 1,
+    #   init_weight = NULL,
+    #   init_bias = NULL,
+    #   init_alpha = 0.9,
+    #   clip_var = TRUE
+    # )
+    # 
+    # self$fc4 = torch_hs(
+    #   in_features = sim_params$d_hidden3,
+    #   out_features = sim_params$d_hidden4,
+    #   use_cuda = sim_params$use_cuda,
+    #   tau = 1,
+    #   init_weight = NULL,
+    #   init_bias = NULL,
+    #   init_alpha = 0.9,
+    #   clip_var = TRUE
+    # )
+    # 
+    # self$fc5 = torch_hs(
+    #   in_features = sim_params$d_hidden4,
       out_features = sim_params$d_out,
       use_cuda = sim_params$use_cuda,
       tau = 1,
@@ -150,11 +149,11 @@ MLHS <- nn_module(
       nnf_relu() %>%
       self$fc2() %>%
       nnf_relu() %>%
-      self$fc3() %>%
-      nnf_relu() %>%
-      self$fc4() %>% 
-      nnf_relu() %>%
-      self$fc5()
+      self$fc3() # %>%
+      # nnf_relu() %>%
+      # self$fc4() %>% 
+      # nnf_relu() %>%
+      # self$fc5()
   },
   
   
@@ -163,13 +162,14 @@ MLHS <- nn_module(
     kl1 = self$fc1$get_kl()
     kl2 = self$fc2$get_kl()
     kl3 = self$fc3$get_kl()
-    kl4 = self$fc3$get_kl()
-    kl5 = self$fc3$get_kl()
-    kld = kl1 + kl2 + kl3 + kl4 + kl5
+    # kl4 = self$fc3$get_kl()
+    # kl5 = self$fc3$get_kl()
+    kld = kl1 + kl2 + kl3 #+ kl4 + kl5
     return(kld)
   }
 )
 
+sim_params$model <- MLHS
 # verbose = TRUE
 # want_plots = TRUE
 # want_fcn_plots = TRUE
@@ -200,6 +200,6 @@ res <- lapply(
 # 20k  11:31, 10 min; train mse: 1362.434 ; test_mse: 1182.7 
 # 30k
 
-
+# no batching, on CPU, d1 = 16, d2 = 8, tau no longer learnable
 
 
