@@ -143,6 +143,7 @@ torch_hs <- nn_module(
   ){
     
     self$use_cuda <- use_cuda
+    self$tau <- tau
     self$in_features <- in_features
     self$out_features <- out_features
     self$clip_var <- clip_var
@@ -155,7 +156,6 @@ torch_hs <- nn_module(
     self$sa_logvar <- nn_parameter(torch_randn(1, device = ifelse(self$use_cuda, "cuda", "cpu")))
     self$sb_mu <- nn_parameter(torch_randn(1, device = ifelse(self$use_cuda, "cuda", "cpu")))
     self$sb_logvar <- nn_parameter(torch_randn(1, device = ifelse(self$use_cuda, "cuda", "cpu")))
-    self$tau <- nn_parameter(torch_tensor(tau, device = ifelse(self$use_cuda, "cuda", "cpu")))
     # z_i_tilde = local scale param
     # z_i_tilde^2 = alpha_tilde * beta_tilde
     self$atilde_mu <- nn_parameter(torch_randn(in_features, device = ifelse(self$use_cuda, "cuda", "cpu")))
