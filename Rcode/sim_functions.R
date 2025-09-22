@@ -174,11 +174,12 @@ roll_vec <- function(vec, new_vals){
 # > }
 
 # CUDA ----
-
+## dev_select ----
 dev_select <- function(use_cuda){
   ifelse(use_cuda, "cuda", "cpu")
 }
 
+## dev_auto ----
 dev_auto <- function(){
   ifelse(torch::cuda_is_available(), "cuda", "cpu")
 }
