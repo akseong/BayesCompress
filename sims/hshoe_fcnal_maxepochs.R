@@ -26,6 +26,7 @@ fcn2 <- function(x) cos(pi*x) + sin(pi/1.2*x)
 fcn3 <- function(x) abs(x)^(1.5)
 fcn4 <- function(x) - (abs(x))
 flist = list(fcn1, fcn2, fcn3, fcn4)
+# plot_datagen_fcns(flist)
 # 
 # xshow <- seq(-3, 3, length.out = 100)
 # yshow <- sapply(flist, function(fcn) fcn(xshow))
@@ -52,7 +53,7 @@ sim_params <- list(
   "sim_name" = "horseshoe, fcnal data",
   "seed" = 12501,
   "n_sims" = 2, 
-  "train_epochs" = 15E5,
+  "train_epochs" = 1E6,
   "report_every" = 1E4,
   "use_cuda" = use_cuda,
   "d_in" = 104,

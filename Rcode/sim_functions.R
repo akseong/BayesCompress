@@ -1332,54 +1332,14 @@ sim_hshoe <- function(
     sim_ind,    # to ease parallelization
     sim_params,     # same as before, but need to include flist
     nn_model,   # torch nn_module,
-    train_epochs = 10000,
-    verbose = TRUE,      # provide updates in console
-    display_alpha_thresh = 0.1,    # display alphas below this number
-    report_every = 1000, # training epochs between display/store results
+    verbose = TRUE,   # provide updates in console
     want_plots = TRUE,   # provide graphical updates of KL, MSE
-    want_fcn_plots = TRUE, # display predicted functions
+    want_fcn_plots = TRUE,   # display predicted functions
     save_fcn_plots = FALSE,
     want_all_params = FALSE,
     save_mod = TRUE,
-    save_mod_path_stem = NULL,
-    stop_k = 100,
-    stop_streak = 25,
-    burn_in = 5E5
+    save_mod_path_stem = NULL
 ){
-  # - fcn used with lapply for parallel processing
-  # - basic linear regression setting
-  # - only stop criteria used is max epochs
-  # - if want_all_params = FALSE, only returns
-  #     loss_mat (KL, mse vs epoch) and
-  #     alpha_mat (local dropout rates vs epoch)
-  # USAGE EXAMPLE:
-  # > sim_params <- list(
-  # >   "sim_name" = "horseshoe, linear regression setting, KL scaled by n",
-  # >   "n_sims" = 100,
-  # >   "d_in" = 104,
-  # >   "n_obs" = 125,
-  # >   "true_coefs" = c(-0.5, 1, -2, 4, rep(0, times = 100)),
-  # >   "seed" = 314,
-  # >   "err_sig" = 1,
-  # >   "ttsplit" = 4/5,
-  # >   "stop_criteria" = c("test_train","ma_loss_increasing")
-  # > )
-  # >
-  # > res <- lapply(
-  # >   1:sim_params$n_sims, 
-  # >   function(X) sim_fcn_hshoe_linreg(
-  # >     sim_ind = X, 
-  # >     sim_params = sim_params,
-  # >     nn_model = SLHS,  #### this needs to be pre-defined via torch::nn_module()
-  # >     train_epochs = 1000,
-  # >     verbose = TRUE,
-  # >     report_every = 100,
-  # >     want_plots = TRUE,
-  # >     want_all_params = FALSE,
-  # >     want_data = FALSE
-  # >   )
-  # > )
-  
   ## generate data ----
   set.seed(sim_params$sim_seeds[sim_ind])
   torch_manual_seed(sim_params$sim_seeds[sim_ind])
@@ -1440,9 +1400,9 @@ sim_hshoe <- function(
   
   # store: # train, test mse and kl ----
   report_epochs <- seq(
-    report_every, 
-    train_epochs, 
-    by = report_every
+    sim_params$report_every, 
+    sim_params$train_epochs, 
+    by = sim_params$report_every
   )
   
   loss_mat <- matrix(
@@ -1481,14 +1441,19 @@ sim_hshoe <- function(
   }
   
   
-  ## SETUP test-train split ----
+  ## SETUP test-train split and minibatching----
   ttsplit_ind <- floor(sim_params$n_obs * sim_params$ttsplit)
-  ttsplit_used <- sim_params$ttsplit != 1
-  x_train <- simdat$x[1:ttsplit_ind, ]
+  x_train <- simdat$x[1:ttsplit_ind, ] 
   y_train <- simdat$y[1:ttsplit_ind, ]
-  if (ttsplit_used){
-    x_test <- simdat$x[(ttsplit_ind+1):sim_params$n_obs, ] 
-    y_test <- simdat$y[(ttsplit_ind+1):sim_params$n_obs, ]
+  x_test <- simdat$x[(ttsplit_ind+1):sim_params$n_obs, ] 
+  y_test <- simdat$y[(ttsplit_ind+1):sim_params$n_obs, ]
+  
+  if (!is.null(sim_params$batch_size)){
+    num_batches <- ttsplit_ind %/% sim_params$batch_size
+    batch_inds_vec <- 1:ttsplit_ind
+    batch_size <- sim_params$batch_size
+  } else {
+    batch_size <- ttsplit_ind
   }
   
   
@@ -1503,17 +1468,29 @@ sim_hshoe <- function(
   ## test_mse_storage
   mse_test <- torch_tensor(0, device = dev_select(sim_params$use_cuda))
   loss_test <- torch_tensor(1, device = dev_select(sim_params$use_cuda)) 
-  test_mse_store <- rep(0, times = stop_k + 1)
-  test_mse_streak <- rep(FALSE, times = stop_streak)
+  test_mse_store <- rep(0, times = sim_params$stop_k + 1)
+  test_mse_streak <- rep(FALSE, times = sim_params$stop_streak)
   
   
   while (!stop_criteria_met){
-    prev_loss <- loss
+    
+    # fit model with / without batching
+    if (is.null(sim_params$batch_size)){
+      yhat_train <- model_fit(x_train)
+      mse <- nnf_mse_loss(yhat_train, y_train)
+    } else {
+      batch_num <- epoch %% num_batches
+      # reshuffle batches if batch_num == 0
+      if (batch_num == 0) {batch_inds_vec <- sample(1:ttsplit_ind)}
+      batch_inds <- batch_inds_vec[1:sim_params$batch_size + (batch_num)*sim_params$batch_size]
+      
+      yhat_train <- model_fit(x_train[batch_inds, ])
+      mse <- nnf_mse_loss(yhat_train, y_train[batch_inds])
+    }
+
     
     # fit & metrics
-    yhat_train <- model_fit(x_train)
-    mse <- nnf_mse_loss(yhat_train, y_train)
-    kl <- model_fit$get_model_kld() / ttsplit_ind
+    kl <- model_fit$get_model_kld() / batch_size
     loss <- mse + kl
     
     
@@ -1526,37 +1503,34 @@ sim_hshoe <- function(
     optim_model_fit$step()
     
     
-    # compute test loss 
-    if (ttsplit_used) {
-      prev_loss_test <- loss_test
-      yhat_test <- model_fit(x_test)
-      mse_test <- nnf_mse_loss(yhat_test, y_test)
-      if (epoch > (burn_in - 2 * (stop_k + stop_streak))) {
-        test_mse_store <- roll_vec(test_mse_store, as_array(mse_test))
-      }
-    }
-    
-    
-    # check test_mse stop criteria:
-    # abs(diff(mse)) < sd(mse) for streak epochs in a row,
-    # sd calculated using last stop_k epochs
-    if (epoch > burn_in & ttsplit_used){
-      test_mse_sd <- sd(test_mse_store[1:stop_k])
-      test_mse_absdiff <- abs(diff(test_mse_store[stop_k + 0:1]))
-      test_mse_compare <- test_mse_absdiff < test_mse_sd
-      test_mse_streak <- roll_vec(test_mse_streak, test_mse_compare)
-      test_mse_stopcrit <- all(test_mse_streak)
-      
-      if (test_mse_stopcrit){
-        stop_epochs <- c(stop_epochs, epoch)
-      }
-    }
-    
+    # if (epoch > (sim_params$burn_in - 2 * (sim_params$stop_k + sim_params$stop_streak))) {
+    #   test_mse_store <- roll_vec(test_mse_store, as_array(mse_test))
+    # }
+    # 
+    #     # check test_mse stop criteria:
+    #     # abs(diff(mse)) < sd(mse) for streak epochs in a row,
+    #     # sd calculated using last stop_k epochs
+    #     if (epoch > sim_params$burn_in){
+    #       test_mse_sd <- sd(test_mse_store[1:sim_params$stop_k])
+    #       test_mse_absdiff <- abs(diff(test_mse_store[sim_params$stop_k + 0:1]))
+    #       test_mse_compare <- test_mse_absdiff < test_mse_sd
+    #       test_mse_streak <- roll_vec(test_mse_streak, test_mse_compare)
+    #       test_mse_stopcrit <- all(test_mse_streak)
+    #       
+    #       if (test_mse_stopcrit){
+    #         stop_epochs <- c(stop_epochs, epoch)
+    #       }
+    #     }
     
     # store results (every `report_every` epochs) ----
-    time_to_report <- epoch!=0 & (epoch %% report_every == 0)
+    time_to_report <- epoch!=0 & (epoch %% sim_params$report_every == 0)
+    if (!time_to_report & verbose & (epoch %% 100 == 0)){cat("#")}
     if (time_to_report){
-      row_ind <- epoch %/% report_every
+      row_ind <- epoch %/% sim_params$report_every
+      
+      # compute test loss 
+      yhat_test <- model_fit(x_test)
+      mse_test <- nnf_mse_loss(yhat_test, y_test)
       
       loss_mat[row_ind, ] <- c(kl$item(), mse$item(), mse_test$item())
       dropout_alphas <- model_fit$fc1$get_dropout_rates()
@@ -1596,23 +1570,23 @@ sim_hshoe <- function(
       )
       cat("alphas: ", round(as_array(dropout_alphas), 2), "\n")
       display_alphas <- ifelse(
-        as_array(dropout_alphas) <= display_alpha_thresh,
+        as_array(dropout_alphas) <= sim_params$alpha_thresh,
         round(as_array(dropout_alphas), 3),
         "."
       )
-      cat("alphas below ", round(display_alpha_thresh, 4), ": ")
+      cat("alphas below ", round(sim_params$alpha_thresh, 4), ": ")
       cat(display_alphas, sep = " ")
       
-      if (length(stop_epochs > 0)){
-        stop_msg <- paste0(
-          "\n ********************************************* \n",
-          "test_mse STOP CONDITION reached ", 
-          length(stop_epochs), " times; ", 
-          "min / max: ", min(stop_epochs), " / ", max(stop_epochs),
-          "\n ********************************************* \n"
-        )
-        cat_color(stop_msg)
-      }
+      # if (length(stop_epochs > 0)){
+      #   stop_msg <- paste0(
+      #     "\n ********************************************* \n",
+      #     "test_mse STOP CONDITION reached ", 
+      #     length(stop_epochs), " times; ", 
+      #     "min / max: ", min(stop_epochs), " / ", max(stop_epochs),
+      #     "\n ********************************************* \n"
+      #   )
+      #   cat_color(stop_msg)
+      # }
       cat(" \n \n")
       
       
@@ -1701,13 +1675,13 @@ sim_hshoe <- function(
     
     # increment epoch counter
     epoch <- epoch + 1
-    stop_criteria_met <- epoch > train_epochs
+    stop_criteria_met <- epoch > sim_params$train_epochs
   } # end training WHILE loop
   
   # compile results ----
   sim_res <- list(
     "sim_ind" = sim_ind,
-    "stop_epochs" = stop_epochs,
+    # "stop_epochs" = stop_epochs,
     "fcn_plt" = plt,
     "loss_mat" = loss_mat,
     "alpha_mat" = alpha_mat
