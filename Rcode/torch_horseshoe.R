@@ -115,6 +115,7 @@ log_dropout <- function(hs_layer, type = "local"){
   return(log_dropout)
 }
 
+# # fcn testing code
 # library(torch)
 # self <- list()
 # in_features <- 5
@@ -148,37 +149,39 @@ torch_hs <- nn_module(
     self$out_features <- out_features
     self$clip_var <- clip_var
     self$deterministic <- deterministic
+    self$devtype <- ifelse(use_cuda, "cuda", "cpu")
     
     #### trainable parameters
     # s = global scal param
     # s^2 = sa*sb
-    self$sa_mu <- nn_parameter(torch_randn(1, device = ifelse(self$use_cuda, "cuda", "cpu")))
-    self$sa_logvar <- nn_parameter(torch_randn(1, device = ifelse(self$use_cuda, "cuda", "cpu")))
-    self$sb_mu <- nn_parameter(torch_randn(1, device = ifelse(self$use_cuda, "cuda", "cpu")))
-    self$sb_logvar <- nn_parameter(torch_randn(1, device = ifelse(self$use_cuda, "cuda", "cpu")))
+    self$sa_mu <- nn_parameter(torch_randn(1, device = self$devtype))
+    self$sa_logvar <- nn_parameter(torch_randn(1, device = self$devtype))
+    self$sb_mu <- nn_parameter(torch_randn(1, device = self$devtype))
+    self$sb_logvar <- nn_parameter(torch_randn(1, device = self$devtype))
     # z_i_tilde = local scale param
     # z_i_tilde^2 = alpha_tilde * beta_tilde
-    self$atilde_mu <- nn_parameter(torch_randn(in_features, device = ifelse(self$use_cuda, "cuda", "cpu")))
-    self$atilde_logvar <- nn_parameter(torch_randn(in_features, device = ifelse(self$use_cuda, "cuda", "cpu")))
-    self$btilde_mu <- nn_parameter(torch_randn(in_features, device = ifelse(self$use_cuda, "cuda", "cpu")))
-    self$btilde_logvar <- nn_parameter(torch_randn(in_features, device = ifelse(self$use_cuda, "cuda", "cpu")))
+    self$atilde_mu <- nn_parameter(torch_randn(in_features, device = self$devtype))
+    self$atilde_logvar <- nn_parameter(torch_randn(in_features, device = self$devtype))
+    self$btilde_mu <- nn_parameter(torch_randn(in_features, device = self$devtype))
+    self$btilde_logvar <- nn_parameter(torch_randn(in_features, device = self$devtype))
     
     # weight dist'n params
-    self$weight_mu <- nn_parameter(torch_randn(out_features, in_features, device = ifelse(self$use_cuda, "cuda", "cpu")))
-    self$weight_logvar <- nn_parameter(torch_randn(out_features, in_features, device = ifelse(self$use_cuda, "cuda", "cpu")))
-    self$bias_mu <- nn_parameter(torch_randn(out_features, device = ifelse(self$use_cuda, "cuda", "cpu")))
-    self$bias_logvar <- nn_parameter(torch_randn(out_features, device = ifelse(self$use_cuda, "cuda", "cpu")))
+    self$weight_mu <- nn_parameter(torch_randn(out_features, in_features, device = self$devtype))
+    self$weight_logvar <- nn_parameter(torch_randn(out_features, in_features, device = self$devtype))
+    self$bias_mu <- nn_parameter(torch_randn(out_features, device = self$devtype))
+    self$bias_logvar <- nn_parameter(torch_randn(out_features, device = self$devtype))
     
     
     # composite vars
     # z = \sqrt{  s_a s_b \tilde{\alpha} \tilde{\beta}}
     # s = \sqrt{  s_a s_b  }
     # \tilde{z} = \sqrt{  \tilde{\alpha} \tilde{\beta}  }
+    
     # initialize parameters randomly or with pretrained net
     self$reset_parameters(init_weight, init_bias, init_alpha)
     
     # numerical stability param
-    self$epsilon <- torch_tensor(1e-8, device = ifelse(self$use_cuda, "cuda", "cpu"))
+    self$epsilon <- torch_tensor(1e-8, device = self$devtype)
   },
   
   
@@ -190,23 +193,23 @@ torch_hs <- nn_module(
     
     # initialize means
     stdv <- 1 / sqrt(self$weight_mu$size(1)) # self$weight_mu$size(1) = out_features
-    self$sa_mu <- nn_parameter(torch_normal(1, 1e-2, size = 1, device = ifelse(self$use_cuda, "cuda", "cpu")))
-    self$sb_mu <- nn_parameter(torch_normal(1, 1e-2, size = 1, device = ifelse(self$use_cuda, "cuda", "cpu")))
-    self$atilde_mu <- nn_parameter(torch_normal(1, 1e-2, size = self$atilde_mu$size(), device = ifelse(self$use_cuda, "cuda", "cpu")))
-    self$btilde_mu <- nn_parameter(torch_normal(1, 1e-2, size = self$atilde_mu$size(), device = ifelse(self$use_cuda, "cuda", "cpu")))
+    self$sa_mu <- nn_parameter(torch_normal(1, 1e-2, size = 1, device = self$devtype))
+    self$sb_mu <- nn_parameter(torch_normal(1, 1e-2, size = 1, device = self$devtype))
+    self$atilde_mu <- nn_parameter(torch_normal(1, 1e-2, size = self$atilde_mu$size(), device = self$devtype))
+    self$btilde_mu <- nn_parameter(torch_normal(1, 1e-2, size = self$atilde_mu$size(), device = self$devtype))
     
     
     # self$z_mu <- nn_parameter(torch_normal(1, 1e-2, size = self$z_mu$size()))      # potential issue (if not considered leaf node anymore?)  wrap in nn_parameter()?
     if (!is.null(init_weight)) {
-      self$weight_mu <- nn_parameter(torch_tensor(init_weight, device = ifelse(self$use_cuda, "cuda", "cpu")))
+      self$weight_mu <- nn_parameter(torch_tensor(init_weight, device = self$devtype))
     } else {
-      self$weight_mu <- nn_parameter(torch_normal(0, stdv, size = self$weight_mu$size(), device = ifelse(self$use_cuda, "cuda", "cpu")))
+      self$weight_mu <- nn_parameter(torch_normal(0, stdv, size = self$weight_mu$size(), device = self$devtype))
     }
     
     if (!is.null(init_bias)) {
-      self$bias_mu <- nn_parameter(torch_tensor(init_bias, device = ifelse(self$use_cuda, "cuda", "cpu")))
+      self$bias_mu <- nn_parameter(torch_tensor(init_bias, device = self$devtype))
     } else {
-      self$bias_mu <- nn_parameter(torch_zeros(self$out_features, device = ifelse(self$use_cuda, "cuda", "cpu")))
+      self$bias_mu <- nn_parameter(torch_zeros(self$out_features, device = self$devtype))
     }
     
     # initialize log variances
@@ -218,13 +221,13 @@ torch_hs <- nn_module(
     } else {
       logvar_abtilde_mu <- log(2*log(1.5))
     }
-    self$sa_logvar <- nn_parameter(torch_normal(mean = log(.5), 1e-2, size = 1, device = ifelse(self$use_cuda, "cuda", "cpu")))
-    self$sb_logvar <- nn_parameter(torch_normal(mean = log(.5), 1e-2, size = 1, device = ifelse(self$use_cuda, "cuda", "cpu")))
-    self$atilde_logvar <- nn_parameter(torch_normal(mean = logvar_abtilde_mu, 1e-2, size = self$in_features, device = ifelse(self$use_cuda, "cuda", "cpu")))
-    self$btilde_logvar <- nn_parameter(torch_normal(mean = logvar_abtilde_mu, 1e-2, size = self$in_features, device = ifelse(self$use_cuda, "cuda", "cpu")))
+    self$sa_logvar <- nn_parameter(torch_normal(mean = log(.5), 1e-2, size = 1, device = self$devtype))
+    self$sb_logvar <- nn_parameter(torch_normal(mean = log(.5), 1e-2, size = 1, device = self$devtype))
+    self$atilde_logvar <- nn_parameter(torch_normal(mean = logvar_abtilde_mu, 1e-2, size = self$in_features, device = self$devtype))
+    self$btilde_logvar <- nn_parameter(torch_normal(mean = logvar_abtilde_mu, 1e-2, size = self$in_features, device = self$devtype))
     
-    self$weight_logvar <- nn_parameter(torch_normal(-9, 1e-2, size = c(self$out_features, self$in_features), device = ifelse(self$use_cuda, "cuda", "cpu")))
-    self$bias_logvar <- nn_parameter(torch_normal(-9, 1e-2, size = self$out_features, device = ifelse(self$use_cuda, "cuda", "cpu")))
+    self$weight_logvar <- nn_parameter(torch_normal(-9, 1e-2, size = c(self$out_features, self$in_features), device = self$devtype))
+    self$bias_logvar <- nn_parameter(torch_normal(-9, 1e-2, size = self$out_features, device = self$devtype))
   },
   
   
