@@ -669,7 +669,7 @@ sim_fcn_hshoe_linreg <- function(
       btilde_logvar_mat <- alpha_mat
     
     global_dropout_vec <-   
-      tau_vec <- 
+      # tau_vec <- 
       sa_mu_vec <-
       sb_mu_vec <- 
       sa_logvar_vec <- 
@@ -754,7 +754,7 @@ sim_fcn_hshoe_linreg <- function(
       if (want_all_params){
         global_dropout_vec[row_ind] <- as_array(model_fit$fc1$get_dropout_rates(type = "global"))
         marginal_dropout_mat[row_ind, ] <- as_array(model_fit$fc1$get_dropout_rates(type = "marginal"))
-        tau_vec[row_ind] <- as_array(model_fit$fc1$tau)
+        # tau_vec[row_ind] <- as_array(model_fit$fc1$tau)
         w_mu_mat[row_ind, ] <- as_array(model_fit$fc1$compute_posterior_param()$post_weight_mu)
         w_var_mat[row_ind, ] <- as_array(model_fit$fc1$compute_posterior_param()$post_weight_var)
         
@@ -873,7 +873,7 @@ sim_fcn_hshoe_linreg <- function(
     sim_res$sb_mu_vec <- sb_mu_vec
     sim_res$sa_logvar_vec <- sa_logvar_vec
     sim_res$sb_logvar_vec <- sb_logvar_vec
-    sim_res$tau_vec <- tau_vec
+    # sim_res$tau_vec <- tau_vec
   } 
   
   if (want_data){
@@ -1047,7 +1047,7 @@ sim_fcn_hshoe_fcnaldata <- function(
       btilde_logvar_mat <- alpha_mat
     
     global_dropout_vec <-   
-      tau_vec <- 
+      # tau_vec <- 
       sa_mu_vec <-
       sb_mu_vec <- 
       sa_logvar_vec <- 
@@ -1140,7 +1140,7 @@ sim_fcn_hshoe_fcnaldata <- function(
       if (want_all_params){
         global_dropout_vec[row_ind] <- as_array(model_fit$fc1$get_dropout_rates(type = "global"))
         marginal_dropout_mat[row_ind, ] <- as_array(model_fit$fc1$get_dropout_rates(type = "marginal"))
-        tau_vec[row_ind] <- as_array(model_fit$fc1$tau)
+        # tau_vec[row_ind] <- as_array(model_fit$fc1$tau)
         w_mu_mat[row_ind, ] <- as_array(model_fit$fc1$compute_posterior_param()$post_weight_mu)
         w_var_mat[row_ind, ] <- as_array(model_fit$fc1$compute_posterior_param()$post_weight_var)
         
@@ -1301,7 +1301,7 @@ sim_fcn_hshoe_fcnaldata <- function(
     sim_res$sb_mu_vec <- sb_mu_vec
     sim_res$sa_logvar_vec <- sa_logvar_vec
     sim_res$sb_logvar_vec <- sb_logvar_vec
-    sim_res$tau_vec <- tau_vec
+    # sim_res$tau_vec <- tau_vec
   } 
   
   # notify completed training ----
@@ -1433,7 +1433,7 @@ sim_hshoe <- function(
       btilde_logvar_mat <- alpha_mat
     
     global_dropout_vec <-   
-      tau_vec <- 
+      # tau_vec <- 
       sa_mu_vec <-
       sb_mu_vec <- 
       sa_logvar_vec <- 
@@ -1522,9 +1522,8 @@ sim_hshoe <- function(
     #       }
     #     }
     
-    # store results (every `report_every` epochs) ----
+    # store results (every `report_every` epochs)
     time_to_report <- epoch!=0 & (epoch %% sim_params$report_every == 0)
-    if (!time_to_report & verbose & (epoch %% 100 == 0)){cat("#")}
     if (time_to_report){
       row_ind <- epoch %/% sim_params$report_every
       
@@ -1540,7 +1539,7 @@ sim_hshoe <- function(
       if (want_all_params){
         global_dropout_vec[row_ind] <- as_array(model_fit$fc1$get_dropout_rates(type = "global"))
         marginal_dropout_mat[row_ind, ] <- as_array(model_fit$fc1$get_dropout_rates(type = "marginal"))
-        tau_vec[row_ind] <- as_array(model_fit$fc1$tau)
+        # tau_vec[row_ind] <- as_array(model_fit$fc1$tau)
         w_mu_mat[row_ind, ] <- as_array(model_fit$fc1$compute_posterior_param()$post_weight_mu)
         w_var_mat[row_ind, ] <- as_array(model_fit$fc1$compute_posterior_param()$post_weight_var)
         
@@ -1557,6 +1556,8 @@ sim_hshoe <- function(
     
     
     # in-console and graphical training updates ----
+    if (!time_to_report & verbose & (epoch %% sim_params$report_every == 1)){cat("Training:")}
+    if (!time_to_report & verbose & (epoch %% 100 == 0)){cat("#")}
     if (time_to_report & verbose){
       cat(
         "Epoch:", epoch,
@@ -1701,7 +1702,7 @@ sim_hshoe <- function(
     sim_res$sb_mu_vec <- sb_mu_vec
     sim_res$sa_logvar_vec <- sa_logvar_vec
     sim_res$sb_logvar_vec <- sb_logvar_vec
-    sim_res$tau_vec <- tau_vec
+    # sim_res$tau_vec <- tau_vec
   } 
   
   # notify completed training ----
