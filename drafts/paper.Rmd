@@ -1,0 +1,50 @@
+---
+title: Deep Bayesian Variable Selection
+date: "`r format(Sys.time(), '%B, %Y')`"
+blinded: 0 # to produce blinded version set to 1
+authors: 
+  - name: Arnold Seong
+    department: Department of Statistics
+    affiliation: University of California, Irvine
+  - name: Michele Guindani
+    department: Department of Statistics
+    affiliation: University of California, Irvine
+keywords:
+  - Bayesian variable Selection
+  - Horseshoe prior
+  - Bayesian Neural Networks
+  - Variational Inference
+  - functional data analysis
+  - varying-coefficient model
+  - model selection
+abstract: We introduce a novel Bayesian framework for variable selection in deep neural networks by imposing a group Horseshoe prior on the weight matrices of fully connected layers. Our approach targets structured sparsity at the level of input covariates by pruning entire rows of weights, rather than individual neurons or connections. This row-wise pruning induces an interpretable selection mechanism directly aligned with the relevance of input variables, enabling scalable non-linear modeling while maintaining statistical parsimony. By leveraging the global-local shrinkage behavior of the group Horseshoe prior, our method adaptively distinguishes relevant signals from noise without requiring manual regularization tuning. We develop an efficient variational inference algorithm tailored to the hierarchical structure of the prior and establish theoretical support for variable selection consistency under mild conditions. Empirical results across simulated and real-world datasets demonstrate that our method achieves competitive predictive performance while recovering sparse, interpretable models that accurately identify influential covariates. This work bridges modern deep learning with Bayesian variable selection, offering a principled and computationally tractable solution for high-dimensional nonlinear inference.
+bibliography: refs.bib
+output:
+  bookdown::pdf_book:
+    base_format: rticles::arxiv_article  # need bookdown to make eqn refs
+  # rticles::arxiv_article
+  # html_document:
+  #   df_print: paged
+  #   theme: cerulean
+  #   highlight: tango
+  #   toc: yes
+  #   toc_depth: 3
+  #   toc_float:
+  #     collapsed: false
+  #   smooth_scroll: true
+  #   code_fold: hide
+header-includes:
+  - \usepackage{bm}
+  - \usepackage{xcolor}
+  - \usepackage{amssymb}
+  - \usepackage{amsmath}
+nocite: |  # add items to bib without citing in paper
+---
+
+
+
+
+
+
+
+

@@ -1,0 +1,93 @@
+
+
+
+
+sim_ind = 1
+nn_model <- MLHS
+train_epochs <- sim_params$train_epochs
+verbose = TRUE
+display_alpha_thresh <- sim_params$wald_thresh
+report_every = 1000
+want_plots = TRUE
+want_fcn_plots = TRUE
+want_all_params = FALSE
+save_mod = TRUE
+save_mod_path = NULL
+stop_k = 100
+stop_streak = 25
+burn_in = 5E5
+
+
+Dynamic martial arts is 277.33 / month.  May's belt test brings total for May to 638.33.
+277.33/2*7 + 638.33/2 = 1289.82
+
+Amount I owe you (from spreadsheet)
+2151.43 + 910.715 = 3062.145
+
+Difference:
+3062.145 - 1289.82 = 1772.325
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#################################################
+
+article abstract
+
+#################################################
+
+FROM CHATGPT:
+We introduce a novel Bayesian framework for variable selection in deep neural networks by imposing a group Horseshoe prior on the weight matrices of fully connected layers. Our approach targets structured sparsity at the level of input covariates by pruning entire rows of weights, rather than individual neurons or connections. This row-wise pruning induces an interpretable selection mechanism directly aligned with the relevance of input variables, enabling scalable non-linear modeling while maintaining statistical parsimony. By leveraging the global-local shrinkage behavior of the group Horseshoe prior, our method adaptively distinguishes relevant signals from noise without requiring manual regularization tuning. We develop an efficient variational inference algorithm tailored to the hierarchical structure of the prior and establish theoretical support for variable selection consistency under mild conditions. Empirical results across simulated and real-world datasets demonstrate that our method achieves competitive predictive performance while recovering sparse, interpretable models that accurately identify influential covariates. This work bridges modern deep learning with Bayesian variable selection, offering a principled and computationally tractable solution for high-dimensional nonlinear inference.
+
+
+
+My tries:
+We augment the Bayesian Compression algorithm of Louizos, Ullrich, & Welling 2017 with the posterior-based Wald statistics proposed in Liu, Li, Yu, & Zeng 2022 to obtain statistically principled, sparse variable selection within expressive models.
+
+goes beyond simple predictive accuracy to capture complex, non-linear relationships.
+
+
+statistically principled variable selection 
+
+
+
+introduce a novel Bayesian framework for variable selection in deep neural networks by augmenting the Bayesian Compression algorithm (Louizos, Ullrich, and Welling 2017) with a posterior-based Wald statistic
+
+
+a group Horseshoe prior on the weight matrices of fully connected layers. 
+
+
+
+
+We introduce a novel Bayesian framework for statistically principled variable selection in deep neural networks by combining a group Horseshoe prior on the weight matrices of fully connected layers (Louizos, Ullrich, Welling 2017) with posterior-based Wald Statistics (Liu, Li, Yu, Zeng 2022).  Rather than targeting neural network compression via pruning neurons, we induce sparsity in the input covariates by pruning rows of weights. This row-wise pruning induces an interpretable selection mechanism directly aligned with the relevance of input variables, enabling scalable non-linear modeling while maintaining statistical parsimony. By leveraging the global-local shrinkage behavior of the group Horseshoe prior, our method adaptively distinguishes relevant signals from noise without requiring manual regularization tuning. 
+
+We develop an efficient variational inference algorithm tailored to the hierarchical structure of the prior and establish theoretical support for variable selection consistency under mild conditions. [[Empirical results across simulated and real-world datasets demonstrate that our method achieves competitive predictive performance while recovering sparse, interpretable models that accurately identify influential covariates.]] This work bridges modern deep learning with Bayesian variable selection, offering a principled and computationally tractable solution for high-dimensional nonlinear inference.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
