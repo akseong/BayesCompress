@@ -1,7 +1,7 @@
 BayesCompress for Variable Selection (in progress)
 ================
 Arnie Seong
-01 January 2022
+24 September 2025
 
 
 
@@ -24,15 +24,15 @@ The Bayesian Compression method outlined by Louizos, Ullrich, and
 Welling places scale-mixture sparsity priors (e.g. spike-and-slab and
 horseshoe) on *entire rows* of neural network weight layers rather than
 on individual weights. In the typical matrix representation of weight
-layers, since row *i* of weight layer *j* is used to compute the inpute
-corresponding to column *i*’th in weight layer *j* + 1, if row *i* of
-layer *j* is omitted, then column *i* of layer *j* + 1 can also be
-omitted, resulting in large reductions in the dimensions of the weight
-layers. In addition, the posterior weights’ variances can be used to
-impute the optimal number of bits required to encode the weights,
+layers, since row $`i`$ of weight layer $`j`$ is used to compute the
+inputs corresponding to column $`i`$’th in weight layer $`j+1`$, if row
+$`i`$ of layer $`j`$ is omitted, then column $`i`$ of layer $`j+1`$ can
+also be omitted, resulting in large reductions in the dimensions of the
+weight layers. In addition, the posterior weights’ variances can be used
+to impute the optimal number of bits required to encode the weights,
 leading to further compressibility.
 
-<img src="walkthrough/mnist_saved/weight0_e.gif" title="layer sparsity over training epochs" alt="layer sparsity over training epochs" width="40%" height="100%" /><img src="walkthrough/mnist_saved/weight1_e.gif" title="layer sparsity over training epochs" alt="layer sparsity over training epochs" width="40%" height="100%" />
+<img src="walkthrough/mnist_saved/weight0_e.gif" alt="layer sparsity over training epochs" width="40%" height="100%" /><img src="walkthrough/mnist_saved/weight1_e.gif" alt="layer sparsity over training epochs" width="40%" height="100%" />
 
 ## Variable Selection
 
@@ -49,3 +49,6 @@ statistical point of view, from the Bayesian sparsity prior
 specification we obtain variable selection with known operating
 characteristics which, from the neural network architecture, should be
 robust to misspecification of functional forms and nonlinearities.
+
+- [proof of
+  concept](https://akseong.github.io/BayesCompress/VarSel/writeup.html)
