@@ -185,7 +185,13 @@ for (param in nn_model$parameters) {
 
 thresh_calc(df = n_obs - n_trainable)
 alphas_1 < thresh_calc(df = n_obs - n_trainable)
+w1 <- 1/alphas_1
 
+sum(alphas_1)
+rel_w <- w1 / mean(w1)
+round(rel_w, 3)
+
+w1 > 1 / thresh_calc(df = 1)
 
 
 ## effective degrees of freedom? ----
