@@ -154,8 +154,8 @@ chisq_pltdf %>%
 
 bonf <- 104
 df <- 1:1000
-thresh_calc <- function(t1rate = 0.05, bonf = 104, df = 1){
-    1 / qchisq(1 - (t1rate / bonf), df = df)
+thresh_calc <- function(t1_rate = 0.05, bonf = 104, df = 1){
+    1 / qchisq(1 - (t1_rate / bonf), df = df)
 }
 
 df_vec <- 1:1000
@@ -194,40 +194,190 @@ round(rel_w, 3)
 w1 > 1 / thresh_calc(df = 1)
 
 
-## effective degrees of freedom? ----
-# Gao, Jojic 2016: Degrees of freedom in deep neural networks
-# https://arxiv.org/abs/1603.09260
+## BFDR ----
+# BFDR chooses well when set very low (e.g. 0.001), poorly when set any higher than 0.003,
+# very poorly when = 0.05 (chooses 27 spurious)
+BFDR <- function(dropout_probs, eta, show_decisions = TRUE){
+  delta_vec <- 1 * (dropout_probs <= eta)
+  bfdr <- sum((dropout_probs) * delta_vec) / sum(delta_vec)
+  if(show_decisions) cat("delta vector: ", delta_vec, "\n ")
+  return(bfdr)
+}
+
+BFDR_eta_search <- function(dropout_probs, max_rate = 0.05){
+  a_sort <- sort(dropout_probs)
+  bfdrs <- sapply(a_sort, function(X) BFDR(dropout_probs, eta = X, show_decisions = FALSE))
+  eta = a_sort[max(which(bfdrs <= max_rate))]
+  eta
+}
+
+eta <- BFDR_eta_search(alphas_1, max_rate = 0.005)
+BFDR(alphas_1, eta)
+sum(alphas_1 <= eta)
+
+# but alphas are not dropout probs.  Instead, more like quantiles of Chi-sq(1) (posterior Wald)
+dropout_probs <- pchisq(alphas_1, df = 1)
+eta <- BFDR_eta_search(dropout_probs, max_rate = 0.01)
+BFDR(dropout_probs, eta)
+d_i <- dropout_probs <= eta
+sum(d_i)
+# nice!!!
+
+# oh damn.  actually, more like quantiles of INVERSE chi-sq(1)
+dropout_probs <- 1 - pchisq(1/alphas_1, df = 1)
+eta <- BFDR_eta_search(dropout_probs, max_rate = 0.01)
+BFDR(dropout_probs, eta)
+d_i <- dropout_probs <= eta
+sum(d_i)
+# booo.  47
+
+eta <- BFDR_eta_search(dropout_probs, max_rate = 0.00001)
+BFDR(dropout_probs, eta)
+d_i <- dropout_probs <= eta
+sum(d_i)
+# still no good, even with v. small bfdr rate
+
+
+#### using shrinkage factor Kappa ----
+at <- as_array(nn_model$fc1$atilde_mu)
+bt <- as_array(nn_model$fc1$btilde_mu)
+sa <- as_array(nn_model$fc1$sa_mu)
+sb <- as_array(nn_model$fc1$sb_mu)
+
+at_var <- exp(as_array(nn_model$fc1$atilde_logvar))
+bt_var <- exp(as_array(nn_model$fc1$btilde_logvar))
+sa_var <- exp(as_array(nn_model$fc1$sa_logvar))
+sb_var <- exp(as_array(nn_model$fc1$sb_logvar))
+
+ln_mode <- function(mu, var){
+  exp(mu-var)
+}
+
+ln_mean <- function(mu, var){
+  exp(mu + var/2)
+}
+
+
+m_at <- ln_mode(at, at_var)
+m_bt <- ln_mode(bt, bt_var)
+m_sa <- ln_mode(sa, sa_var)
+m_sb <- ln_mode(sb, sb_var)
+
+e_at <- ln_mean(at, at_var)
+e_bt <- ln_mean(bt, bt_var)
+e_sa <- ln_mean(sa, sa_var)
+e_sb <- ln_mean(sb, sb_var)
+
+zsq <- abs(at*bt*sa*sb)
+zsq_lower <- abs((abs(at)-2*at_var)*(abs(bt)-2*bt_var)*(abs(sa)-2*sa_var)*(abs(sb)-2*sb_var))
+zsq_mode <- m_at * m_bt * m_sa * m_sb
+zsq_mean <- e_at * e_bt * e_sa * e_sb
+round(zsq_mode, 3)
+round(zsq_mean, 3)
+
+kappa <- 1 / (1 + zsq_mean)
+
+eta <- BFDR_eta_search(kappa, max_rate = 0.01)
+BFDR(kappa, eta)
+sum(kappa <= eta)
+
+eta <- BFDR_eta_search(kappa, max_rate = 0.05)
+BFDR(kappa, eta)
+sum(kappa <= eta)
+
+eta <- BFDR_eta_search(kappa, max_rate = 0.1)
+BFDR(kappa, eta)
+sum(kappa <= eta)
+
+
+#### using shrinkage factor Kappa based only on local shrinkage (i.e. tau = 1) ----
+#### WORKS PRETTY DAMN WELL.  
+# ztil = (tilde{z})^2
+ztil_mode <- m_at * m_bt
+ztil_mean <- e_at * e_bt
+ztil_mode - ztil_mean
+#### works better with mode, which makes sense (VI is mode-seeking).
+
+
+kappa_til <- 1/(1 + ztil_mode)
+round(kappa_til, 3)
+round(kappa, 3)
+
+eta <- BFDR_eta_search(kappa_til, max_rate = 0.01)
+BFDR(kappa_til, eta)
+sum(kappa_til <= eta)
+
+eta <- BFDR_eta_search(kappa_til, max_rate = 0.05)
+BFDR(kappa_til, eta)
+sum(kappa_til <= eta)
+
+eta <- BFDR_eta_search(kappa_til, max_rate = 0.1)
+BFDR(kappa_til, eta)
+sum(kappa_til <= eta)
 
 
 
 
+## Decision Theory ----
+
+# Loss fcn experiments:
+dmat <- rbind(
+  "none" = 0,
+  "TPonly" = alphas < 0.001,
+  "FP1" = sum(alphas < 0.015),
+  "FP2" = alphas < 0.02,
+  "FP5" = alphas < 0.03,
+  "FP23" = alphas < 0.1,
+  "FP52" = alphas < 0.5,
+  "FPonly" = c(0,0,0,0, rep(1, 100))
+)
+none <- dmat[1, ]
+tp <- dmat[2, ]
+fp23 <- dmat[3, ]
+fp52 <- dmat[4, ]
+fp <- dmat[5,]
+
+# 1/alphas --- large for TPs
+x <- sort(alphas)
+y <- 1/(x)
+plot(y~x)
+
+# 1/(1 - alphas) --- large for FPs
+y <- 1/(1-x)
+plot(y~x)
+
+y <- -1/x + 1/(1-x)
+plot(y~x)
+
+y <- log(x)
+
+# positives: 1 - alpha
+# negatives: alpha
+# penalize number chosen
+lf <- function(a, d_i, c1=20, c2=100){
+  # uses 1/alpha (v. high TP, moderately high FPs) and 1/(1-alpha) (high FP)
+  # penalize # positives chosen
+  - sum(d_i * (1/a)) + c1*sum(!d_i*(1/(1-a))) + c2*sum(d_i)
+}
+
+lf2 <- function(a, d_i, c1=20, c2=100){
+  - sum(d_i * (1-a)) + c1*sum((1-d_i)*(a)) + c2*sum(d_i)
+}
 
 
+c1=1
+c2=100
+d_i <- alphas_1 < .03
+sort(alphas_1)
+lf(alphas_1, d_i, c1, c2)
+lf2(alphas_1, d_i, 1, 1)
+order(alphas_1)
+c2 / (1 + c1)
+apply(dmat, 1, function(X) lf(alphas_1, d_i = X, c1=1, c2=100))
+apply(dmat, 1, function(X) lf2(alphas_1, d_i = X, c1=5, c2=1))
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# posterior:
+# posterior: ----
 nsamps <- 10000
 x <- rlnorm(nsamps, 1, 1)
 plot(density(log(x)))
