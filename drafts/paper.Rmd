@@ -38,9 +38,8 @@ header-includes:
   - \usepackage{xcolor}
   - \usepackage{amssymb}
   - \usepackage{amsmath}
-nocite: |  # add items to bib without citing in paper
+nocite:   # add items to bib without citing in paper
 ---
-
 
 
 
