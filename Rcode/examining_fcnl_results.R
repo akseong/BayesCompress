@@ -80,7 +80,7 @@ sim_params <- list(
   "burn_in" = 25e4 # 5E5,
 )
 
-nn_model <- torch::torch_load(here::here("sims", "results", "fcnl_hshoe_mod_12500obs_398060.pt"))
+nn_model <- torch::torch_load(here::here("sims", "results", "fcnl_hshoe_mod_12500obs_398060_continue.pt"))
 
 round(exp(as_array(nn_model$fc1$weight_logvar)), 3)
 
@@ -215,26 +215,48 @@ eta <- BFDR_eta_search(alphas_1, max_rate = 0.005)
 BFDR(alphas_1, eta)
 sum(alphas_1 <= eta)
 
+eta <- BFDR_eta_search(alphas_1, max_rate = 0.05)
+BFDR(alphas_1, eta)
+sum(alphas_1 <= eta)
+
+
+#### using the SQUARE ROOT of the alphas works pretty well
+# (i.e. stdev of ztil / E[ztil])
+sq <- sqrt(alphas_1)
+eta <- BFDR_eta_search(sq, max_rate = 0.005)
+BFDR(sq, eta)
+sum(sq <= eta)
+
+eta <- BFDR_eta_search(sq, max_rate = 0.01)
+BFDR(sq, eta)
+sum(sq <= eta)
+
+eta <- BFDR_eta_search(sq, max_rate = 0.05)
+BFDR(sq, eta)
+sum(sq <= eta)
+
+eta <- BFDR_eta_search(sq, max_rate = 0.1)
+BFDR(sq, eta)
+sum(sq <= eta)
+
+
+
 # but alphas are not dropout probs.  Instead, more like quantiles of Chi-sq(1) (posterior Wald)
 dropout_probs <- pchisq(alphas_1, df = 1)
 eta <- BFDR_eta_search(dropout_probs, max_rate = 0.01)
 BFDR(dropout_probs, eta)
-d_i <- dropout_probs <= eta
-sum(d_i)
-# nice!!!
+sum(dropout_probs <= eta)
 
-# oh damn.  actually, more like quantiles of INVERSE chi-sq(1)
+# oh damn.  actually, more like inverse quantiles of chi-sq(1)
 dropout_probs <- 1 - pchisq(1/alphas_1, df = 1)
 eta <- BFDR_eta_search(dropout_probs, max_rate = 0.01)
 BFDR(dropout_probs, eta)
-d_i <- dropout_probs <= eta
-sum(d_i)
+sum(dropout_probs <= eta)
 # booo.  47
 
 eta <- BFDR_eta_search(dropout_probs, max_rate = 0.00001)
 BFDR(dropout_probs, eta)
-d_i <- dropout_probs <= eta
-sum(d_i)
+sum(dropout_probs <= eta)
 # still no good, even with v. small bfdr rate
 
 
@@ -248,6 +270,12 @@ at_var <- exp(as_array(nn_model$fc1$atilde_logvar))
 bt_var <- exp(as_array(nn_model$fc1$btilde_logvar))
 sa_var <- exp(as_array(nn_model$fc1$sa_logvar))
 sb_var <- exp(as_array(nn_model$fc1$sb_logvar))
+
+at_lvar <- as_array(nn_model$fc1$atilde_logvar)
+bt_lvar <- as_array(nn_model$fc1$btilde_logvar)
+sa_lvar <- as_array(nn_model$fc1$sa_logvar)
+sb_lvar <- as_array(nn_model$fc1$sb_logvar)
+
 
 ln_mode <- function(mu, var){
   exp(mu-var)
@@ -272,11 +300,15 @@ zsq <- abs(at*bt*sa*sb)
 zsq_lower <- abs((abs(at)-2*at_var)*(abs(bt)-2*bt_var)*(abs(sa)-2*sa_var)*(abs(sb)-2*sb_var))
 zsq_mode <- m_at * m_bt * m_sa * m_sb
 zsq_mean <- e_at * e_bt * e_sa * e_sb
+
 round(zsq_mode, 3)
 round(zsq_mean, 3)
 
-kappa <- 1 / (1 + zsq_mean)
+kappa <- 1 / (1 + zsq_mode)
+round(kappa, 3)
+kappa < 0.999
 
+# global kappa is in general far too small
 eta <- BFDR_eta_search(kappa, max_rate = 0.01)
 BFDR(kappa, eta)
 sum(kappa <= eta)
@@ -296,12 +328,17 @@ sum(kappa <= eta)
 ztil_mode <- m_at * m_bt
 ztil_mean <- e_at * e_bt
 ztil_mode - ztil_mean
-#### works better with mode, which makes sense (VI is mode-seeking).
+#### works better with mode, which makes sense (VI is mode-seeking) and goal is model selection
+#### (but it's not terrible with mean)
 
 
 kappa_til <- 1/(1 + ztil_mode)
 round(kappa_til, 3)
 round(kappa, 3)
+
+eta <- BFDR_eta_search(kappa_til, max_rate = 0.001)
+BFDR(kappa_til, eta)
+sum(kappa_til <= eta)
 
 eta <- BFDR_eta_search(kappa_til, max_rate = 0.01)
 BFDR(kappa_til, eta)
@@ -316,9 +353,22 @@ BFDR(kappa_til, eta)
 sum(kappa_til <= eta)
 
 
+# calculate Ez
+mu <- 1/2*(at + bt + sa + sb)
+lvar <- 1/4 * (at_lvar + bt_lvar + sa_lvar + sb_lvar)
+lEz <- mu + (exp(lvar)/2)
+Ez <- exp(lEz)
+round(Ez, 3)
+round(Ez^2, 3)
+k <- 1 / (1 + Ez^2)
+
+eta <- BFDR_eta_search(k, max_rate = 0.01)
+BFDR(k, eta)
+sum(k <= eta)
+## doesn't select enough
 
 
-## Decision Theory ----
+## Decision Thzsq## Decision Theory ----
 
 # Loss fcn experiments:
 dmat <- rbind(
@@ -375,6 +425,19 @@ order(alphas_1)
 c2 / (1 + c1)
 apply(dmat, 1, function(X) lf(alphas_1, d_i = X, c1=1, c2=100))
 apply(dmat, 1, function(X) lf2(alphas_1, d_i = X, c1=5, c2=1))
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 # posterior: ----
