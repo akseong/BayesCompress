@@ -4,6 +4,10 @@
 ## Author:    Arnie Seong
 ##################################################
 
+# description: trying out BFDR controls via shrinkage factor kappa (local and usual)
+# - apply to early simulations (linreg setting, overspecified linreg setting) as well as fcnl setting
+
+
 #### setup ----
 library(here)
 library(tidyr)
@@ -126,28 +130,53 @@ eta <- BFDR_eta_search(kappa_til, max_rate = 0.1)
 BFDR(kappa_til, eta)
 sum(kappa_til <= eta)
 
-tru <- c(
-  rep(1, 4),
-  rep(0, 100)
-)
 
 
-binary_err_rate(
-  est = BFDR(kappa_til, eta)$delta_i, 
-  tru)
+
+
 
 
 # comparison function ---- 
 compare_kappas <- function(
     nn_model, 
+    true_gam = c(rep(1, 4), rep(0, 100)),
     target_rates = c(0.1, 0.05, 0.01, 0.005, 0.001), 
     mode_or_mean = "mode"){
   
+  kappa <- extract_kappa(nn_model, local_only = FALSE, mode_or_mean)
+  kappa_til <- extract_kappa(nn_model, local_only = TRUE, mode_or_mean)
   
+  res_global <- matrix(NA, nrow = length(target_rates), ncol = 7)
+  colnames(res_global) <- c("nominal_rate", "calc_bfdr", "eta_thresh", "FP", "TP", "FN", "TN")
+  res_local <- res_global
   
+  # return for each nominal rate control: 
+  # calculated bfdr, decision threshold, FP/TP/FN/TN
+  # for both global and local kappa
+  for (ind in 1:length(target_rates)){
+    # global
+    eta <- BFDR_eta_search(kappa, max_rate = target_rates[ind])
+    bfdr <- BFDR(kappa, eta)$bfdr
+    delta_i <- BFDR(kappa, eta)$delta_i
+    err_rates <- binary_err_rate(est = delta_i, tru = true_gam)
+    res_global[ind,] <- c(target_rates[ind], bfdr, eta, err_rates)
+    
+    # local
+    eta <- BFDR_eta_search(kappa_til, max_rate = target_rates[ind])
+    bfdr <- BFDR(kappa_til, eta)$bfdr
+    delta_i <- BFDR(kappa_til, eta)$delta_i
+    err_rates <- binary_err_rate(est = delta_i, tru = true_gam)
+    res_local[ind,] <- c(target_rates[ind], bfdr, eta, err_rates)
+  }
   
-  # return for each nominal rate control: local / usual calc bfdr, FP/TP/FN/TN
-  # 
-  
+  return(
+    list(
+      "local" = res_local,
+      "global" = res_global
+    )
+  )
 }
 
+compare_kappas(nn_model)
+
+# also want to extract global shrinkage params by model architecture
