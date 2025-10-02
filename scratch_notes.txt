@@ -18,16 +18,6 @@ stop_streak = 25
 burn_in = 5E5
 
 
-Dynamic martial arts is 277.33 / month.  May's belt test brings total for May to 638.33.
-277.33/2*7 + 638.33/2 = 1289.82
-
-Amount I owe you (from spreadsheet)
-2151.43 + 910.715 = 3062.145
-
-Difference:
-3062.145 - 1289.82 = 1772.325
-
-
 
 
 
@@ -85,6 +75,65 @@ We develop an efficient variational inference algorithm tailored to the hierarch
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Grad Plan:
+
+
+Current project:
+Structured Bayesian variable selection in deep learning: by applying a structured group sparsity prior in neural networks, we obtain competitive predictive performance simultaneously with statistically principled variable selection on the input features.  While there is much other work on applying Bayesian sparsity priors in deep neural networks, most (if not all) of the literature is focused on network compression or predictive performance, with little to no examination of procedures, characteristics, or performance related to inference.
+
+We suggest a procedure for controlling the Bayesian False Discovery Rate and show in simulation that our method not only achieves network compression and competitive predictive performance, but also
+1) exhibits control over the Bayesian FDR nearly matching the nominal FDR,
+2) successfully recovers sparse models,
+3) and captures flexible, non-linear relationships between covariates, similarly to varying coefficient models.
+
+Progress:  
+- finished simulations: simulations for sparse linear regression settings with both single-perceptron and deep networks
+- Currently working on simulations for varying-coefficient-type data-generating mechanisms with sparse truth (e.g. 4 covariates truly related to outcome, 100 unrelated).
+- Next up: applying model to local null testing problems (that is, data similar to that motivating my previous project, where we want to detect group differences in brain activation data, and in particular, regions where there may not be any group differences).  Likely to use this data as the real-world application dataset.
+
+
+Plan:
+- October: work paper draft detailing completed work; continue working on varying coefficient simulations.  Work on problem discussed below.
+- November-January: apply to simulated data in local null testing problem, look for other options for real-world applications.  
+
+
+Existing / potential difficulties: (in the interest of transparency, as well as looking for guidance / suggestions)
+- BFDR control matching nominal rate in simulation is currently achieved using the variational approximations to the horseshoe's *local* shrinkage parameter $\lambda_i$ (via $\Kappa_i = (1 + \lambda_i^2)^{-1}$).  
+    - The typical formulation of $\Kappa_i = (1 + \lambda_i^2 \tau^2)^{-1}$ (i.e. including the *global* shrinkage parameter $\tau$ as well as the local $\lambda_i$) does not work nearly as well.  Most of the $\Kappa_i$'s using $\tau$ end up close to 1 because the variational posterior mean for $\tau$ ends up extremely small.  
+    - I have a few guesses as to why this happens: 
+        1. may be an issue fundamental to the variational inference procedure (mode-seeking behavior of reverse KL underestimates variances)
+        2. Overparametrization / overspecification of DNN inclines model towards overestimating how much global shrinkage is needed.  Need to investigate if this is still a problem with smaller / shallower networks.
+    - primary theoretical problem with not using the global shrinkage parameter $\tau$ in BFDR calculation: presence of global shrinkage is one of the theoretical justifications for control over multiplicity and interpretation of $\Kappa = (1 + \lambda_i^2 \tau^2)^{-1}$ as a pseudo-PIP.
+    - Alternatively, can I justify using only the local shrinkage parameters?  
+
+
+- half-Cauchy decomposition:
+Matthew P Wand, John T Ormerod, Simone A Padoan, Rudolf Fuhrwirth, et al. Mean field variational Bayes for elaborate distributions. Bayesian Analysis, 6(4), 2011.
 
 
 
