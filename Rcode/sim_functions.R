@@ -1425,15 +1425,15 @@ sim_hshoe <- function(
   
   # store: weight posterior params
   if (want_all_params){
-    w_mu_mat <-
-      w_var_mat <- 
-      marginal_dropout_mat <-
+    # w_mu_mat <-
+    #   w_var_mat <- 
+    #   marginal_dropout_mat <-
       atilde_mu_mat <- 
       btilde_mu_mat <-
       atilde_logvar_mat <-
       btilde_logvar_mat <- alpha_mat
     
-    global_dropout_vec <-   
+    # global_dropout_vec <-   
       # tau_vec <- 
       sa_mu_vec <-
       sb_mu_vec <- 
@@ -1538,11 +1538,11 @@ sim_hshoe <- function(
       
       # storing other optional parameters, mostly for diagnostics
       if (want_all_params){
-        global_dropout_vec[row_ind] <- as_array(model_fit$fc1$get_dropout_rates(type = "global"))
-        marginal_dropout_mat[row_ind, ] <- as_array(model_fit$fc1$get_dropout_rates(type = "marginal"))
-        # tau_vec[row_ind] <- as_array(model_fit$fc1$tau)
-        w_mu_mat[row_ind, ] <- as_array(model_fit$fc1$compute_posterior_param()$post_weight_mu)
-        w_var_mat[row_ind, ] <- as_array(model_fit$fc1$compute_posterior_param()$post_weight_var)
+        # global_dropout_vec[row_ind] <- as_array(model_fit$fc1$get_dropout_rates(type = "global"))
+        # marginal_dropout_mat[row_ind, ] <- as_array(model_fit$fc1$get_dropout_rates(type = "marginal"))
+        # # tau_vec[row_ind] <- as_array(model_fit$fc1$tau)
+        # w_mu_mat[row_ind, ] <- as_array(model_fit$fc1$compute_posterior_param()$post_weight_mu)
+        # w_var_mat[row_ind, ] <- as_array(model_fit$fc1$compute_posterior_param()$post_weight_var)
         
         atilde_mu_mat[row_ind, ] <- as_array(model_fit$fc1$atilde_mu)
         btilde_mu_mat[row_ind, ] <- as_array(model_fit$fc1$btilde_mu)
@@ -1691,10 +1691,10 @@ sim_hshoe <- function(
   
   if (want_all_params){
     # add optionally stored network params
-    sim_res$w_mu_mat <- w_mu_mat
-    sim_res$w_var_mat <- w_var_mat
-    sim_res$global_dropout_vec <- global_dropout_vec
-    sim_res$marginal_dropout_mat <- marginal_dropout_mat
+    # sim_res$w_mu_mat <- w_mu_mat
+    # sim_res$w_var_mat <- w_var_mat
+    # sim_res$global_dropout_vec <- global_dropout_vec
+    # sim_res$marginal_dropout_mat <- marginal_dropout_mat
     sim_res$atilde_mu_mat <- atilde_mu_mat
     sim_res$btilde_mu_mat <- btilde_mu_mat
     sim_res$atilde_logvar_mat <- atilde_logvar_mat

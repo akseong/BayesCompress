@@ -55,10 +55,10 @@ plot_datagen_fcns(flist)
 #           n_sims, verbose, want_plots, train_epochs
 
 sim_params <- list(
-  "sim_name" = "hshoe, tau fixed, 2 layers 16 8 (worked before) nobatching, fcnal data.  ",
-  "seed" = 2168,
-  "n_sims" = 1, 
-  "train_epochs" = 1e6, # 15E5,
+  "sim_name" = "hshoe, tau fixed, 2 layers 16 8, nobatching, fcnal data.  ",
+  "seed" = 21681,
+  "n_sims" = 5, 
+  "train_epochs" = 5e5, # 15E5,
   "report_every" = 1e4, # 1E4,
   "use_cuda" = use_cuda,
   "d_in" = 104,
@@ -189,11 +189,14 @@ res <- lapply(
     want_plots = FALSE,   # provide graphical updates of KL, MSE
     want_fcn_plots = TRUE, # display predicted functions
     save_fcn_plots = TRUE,
-    want_all_params = FALSE,
+    want_all_params = TRUE,
     save_mod = TRUE,
     save_mod_path_stem = NULL
   )
 )
+
+
+
 
 # run 1, on CPU: , batch size 2^5 (32)
 # 10k  11:21, ~ 14 min; train_mse: 194233.7 ; test_mse: 2783824 
