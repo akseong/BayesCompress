@@ -127,16 +127,32 @@ mykable <- function(tab, cap,
 
 
 
-## LUW 2017
+## Louizos, Ullrich, Welling 2017, "Bayesian Compression for Deep Learning"
+
+
 
 ## Hron 2018 - Variational Dropout: pitfalls and fixes
+  - failure of variational inference with Normal-Jeffreys prior
 
 
 
 ## 2017 Improved Bayesian Compression
 
 
+
 ## Shin 2017 Scalable BVS using non-local priors
+
+
+
+## 2018 Polson & Rockova - Posterior Conentration for Sparse Deep Learning.  Spike-slab on individual coefficients.  
+
+  - Applicable theory.  Worth a work through.
+
+
+## 2019 Song, Li - SurvNet 
+
+  - FDR control via augmenting with surrogate variables (seems similar to Candes' knockoffs.  Uses partial derivative of loss w.r.t. x_j as "importance measure".  Training involves backward elimination of variables.  Estimated FDR relies on an "upper bound" for the number of null variables in original data.
+
 
 ## Overweg 2019 Interpretable Outcome Prediction 
 
@@ -144,7 +160,21 @@ mykable <- function(tab, cap,
   - look at implementation
 
 
+## 2020 Ghosh, Doshi-Velez - Model Selection in BNN's via HShoe priors
+
+- hshoe prior on node preactivations, i.e. trimming nodes
+- regularized hshoe prior used
+
+
 ## 2020 Liu. Li, Yu, Zeng - Posterior-Based Wald-Type Statistics for Hypothesis Testing
+
+  - theory for Wald-type stat and asymptotic chi-sq distribution
+
+
+## 2021 Liu - Variable Selection with Rigorous Uncertainty Quantifcation using Deep Bayesian Neural Networks: Posterior Concentration and Bernstein-von Mises Phenomenon
+
+- https://proceedings.mlr.press/v130/liu21g/liu21g.pdf
+
 
 
 ## 2021 DNN with controlled VarSel
@@ -159,7 +189,46 @@ mykable <- function(tab, cap,
 ## 2022 BayesFormer
 
 
+## 2022 Huix, Majewski, DUrmus, Moulines, Korba - VI of overparameterized BNNs
+
+- indicate that KL needs to be re-scaled w.r.t. **the ratio between the number of obs and neurons**
+
+
+## 2023 Hubin, Storvik - VI for Bayesian NNs under Model and Parameter Uncertainty
+  - Spike-and-Slab on weights, Normal slab with IG prior on variance, Beta-binomial on inclusion probs
+  - VI formulation includes some structure via MVN prior on inclusion probs.  HOWEVER, MVN is over ALL inclusion probs in a layer.  Discusses case when low-rank parametrization of MVN covariance is diagonal (i.e. independence), but no discussion of other structuring.
+  - varsel on individual params (no structuring)
+
+
 ## 2023 BNN priors revisited
+
+
+
+## 2023 Skaaret-Lund - "sparsifying Bayesian NNs with latent binary variables and normalizing flows."  
+
+  - NFlow used to model mean response function, spike-and-slab on weights (individual weights independent).  
+
+  - **This is the only paper with similar types of methods that reports feature selection metrics (TPR / FPR), but NOT IN DNN case**: variable selection performed in SINGLE NEURON logistic regression setting, i.e. basic logistic regression problem (20 variables, some correlated).  Good TPR/FPR (0.972 / 0.074) in this case.  
+
+
+
+
+
+
+# Ideas
+
+- check if kappas are any better earlier in training
+
+- regularized hshoe
+
+- reparameterize shrinkage params from factored to dependent, i.e.
+
+  - current model: $z_i^2  =  \tilde{z}_i^2 s^2  =  \tilde{\alpha}_i \tilde{\beta}_i s_a s_b$
+
+
+
+
+
 
 
 

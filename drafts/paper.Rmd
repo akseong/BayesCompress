@@ -47,3 +47,23 @@ nocite:   # add items to bib without citing in paper
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+- my method exhibits ability to escape local minima in training (Survnet, for example, wouldn't be able to do this since it is backward elimination)
+
+
+- robust to "overtraining" network stabilizes; noisy weights 
+
+
+

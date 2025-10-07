@@ -26,6 +26,33 @@ burn_in = 5E5
 
 
 
+###################################################
+SIMULATION NOTES
+###################################################
+Sims started 10/1:
+ - fcnal data, 2-layer, 16-8
+ - CUDA on home computer
+ - first simulation needs more training (did not converge within max epochs)
+ - 2nd simulation seems good so far
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
