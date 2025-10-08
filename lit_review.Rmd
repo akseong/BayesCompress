@@ -151,7 +151,7 @@ mykable <- function(tab, cap,
 
 ## 2019 Song, Li - SurvNet 
 
-  - FDR control via augmenting with surrogate variables (seems similar to Candes' knockoffs.  Uses partial derivative of loss w.r.t. x_j as "importance measure".  Training involves backward elimination of variables.  Estimated FDR relies on an "upper bound" for the number of null variables in original data.
+  - FDR control via augmenting with surrogate variables (seems similar to Candes' knockoffs.  Uses partial derivative of loss w.r.t. x_j as "importance measure".  **Training involves backward elimination of variables**.  Estimated FDR relies on an "upper bound" for the number of null variables in original data.
 
 
 ## Overweg 2019 Interpretable Outcome Prediction 
@@ -223,8 +223,38 @@ mykable <- function(tab, cap,
 
 - reparameterize shrinkage params from factored to dependent, i.e.
 
-  - current model: $z_i^2  =  \tilde{z}_i^2 s^2  =  \tilde{\alpha}_i \tilde{\beta}_i s_a s_b$
+  - current model: 
+  
+$$\begin{aligned}
+  z_i & = \tilde{z}_i s
+    \\
+  \tilde{z_i} & \sim C^+(0, 1)
+    && \text{local scale parameter}
+    \\
+  s & \sim C^+(0, \tau_0)
+    && \text{global scale parameter}
+    \\
+  \text{reparameterization:} 
+    \\
+  \tilde{z}_i = \sqrt{\tilde{\alpha}_i \tilde{\beta}_i}
+  \\ 
+  s = \sqrt{s_a s_b}
+  \\
+    \tilde{\alpha}_i 
+    & \sim Gamma(1/2, 1)
+    \\
+  \tilde{\beta}_i
+    & \sim InverseGamma(1/2, 1)
+    \\
+  s_a & \sim Gamma(1/2, \tau_0^2)
+    \\
+  s_b & \sim InverseGamma(1/2, 1)
+    
+\end{aligned}$$
+    
+  - I'm actually having trouble finding justification for this particular parameterization of the half-Cauchy.  The closest I'm finding is from Makalic & Schmidt 2016, Gelman 2006:
 
+$$x \sim C^+(0, A) \iff x^2|a \sim IG(1/2, 1/a) \text{ and } a \sim IG(1/2, 1/A^2)$$
 
 
 
