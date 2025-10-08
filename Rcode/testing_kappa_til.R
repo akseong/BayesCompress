@@ -264,6 +264,7 @@ post_kappa <- function(
     n_obs = 1e5,
     mse = 1,
     mode_or_mean = "mode", 
+    use_weight_vars = FALSE,
     want_zsq = FALSE
   ){
     # modes or means from variational posterior
@@ -286,6 +287,11 @@ post_kappa <- function(
     sb_var <- exp(as_array(nn_model$fc1$sb_logvar))
     zsq <- ln_fcn(at + bt + sa + sb, at_var + bt_var + sa_var + sb_var)
     
+    if (use_weight_vars){
+      w_lvars <- as_array(nn_model$fc1$weight_logvar)
+      gm <- exp(colMeans(w_lvars))
+      zsq <- zsq * gm
+    }
     
     if (want_zsq){
       zsq
@@ -318,29 +324,61 @@ mod_fnames <- paste0(mod_stem, seeds, ".pt")
 
 max_rates <- c(0.001, 0.005, 0.01, 0.02, 0.05, 0.1)
 pkappas_res <- list()
+pkappas_gm_res <- list()
 kappa_gm_res <- list()
+alphas_res <- list()
+marg_alphas_res <- list()
+sqrt_alphas_res <- list()
+
 
 for (mod_ind in 1:length(mod_fnames)){
   nn_model <- torch_load(mod_fnames[mod_ind])
-  pkappas <- post_kappa(nn_model)
+  # posterior kappas
+  pkappas <- post_kappa(nn_model, mse = 1, use_weight_vars = FALSE)
+  pkappas_gm <- post_kappa(nn_model, mse = 1, use_weight_vars = TRUE)
+  # global kappas weighted by geom mean of  variances of weights incident on covariate
   kappa <- extract_kappa(nn_model, local_only = FALSE, "mode")
   w_lvars <- as_array(nn_model$fc1$weight_logvar)
   gm <- exp(colMeans(w_lvars))
   kappa_gm <- kappa * gm
+  # dropout factor alpha
+  local_alphas <- as_array(nn_model$fc1$get_dropout_rates(type = "local"))
+  marg_alphas <- as_array(nn_model$fc1$get_dropout_rates(type = "marginal"))
+  # sqrt alpha
+  sqrt_alphas <- sqrt(local_alphas)
+  
   
   pkap_err_mat <- t(sapply(max_rates, function(X) err_from_dropout(pkappas, max_bfdr = X)))
+  pkap_gm_err_mat <- t(sapply(max_rates, function(X) err_from_dropout(pkappas_gm, max_bfdr = X)))
   kap_gm_err_mat <- t(sapply(max_rates, function(X) err_from_dropout(kappa_gm, max_bfdr = X)))
-  rownames(pkap_err_mat) <- 
-    rownames(kap_gm_err_mat) <- paste0("nom_rate: ", max_rates)
-  pkappas_res[[mod_ind]] <- pkap_err_mat
-  kappa_gm_res[[mod_ind]] <- kap_gm_err_mat
+  alphas_err_mat <- t(sapply(max_rates, function(X) err_from_dropout(local_alphas, max_bfdr = X)))
+  marg_alphas_err_mat <- t(sapply(max_rates, function(X) err_from_dropout(marg_alphas, max_bfdr = X)))
+  sqrt_alphas_err_mat <- t(sapply(max_rates, function(X) err_from_dropout(sqrt_alphas, max_bfdr = X)))
   
+  rownames(pkap_err_mat) <- 
+    rownames(pkap_gm_err_mat) <-
+    rownames(kap_gm_err_mat) <- 
+    rownames(alphas_err_mat) <-
+    rownames(marg_alphas_err_mat) <-
+    rownames(sqrt_alphas_err_mat) <- paste0("nom_rate: ", max_rates)
+  pkappas_res[[mod_ind]] <- pkap_err_mat
+  pkappas_gm_res[[mod_ind]] <- pkap_gm_err_mat
+  kappa_gm_res[[mod_ind]] <- kap_gm_err_mat
+  alphas_res[[mod_ind]] <- alphas_err_mat
+  marg_alphas_res[[mod_ind]] <- marg_alphas_err_mat
+  sqrt_alphas_res[[mod_ind]] <- sqrt_alphas_err_mat
 }
 
 pkappas_res
+pkappas_gm_res
 kappa_gm_res
+alphas_res
+marg_alphas_res
+sqrt_alphas_res
 
-# similar results as using local kappa = 1 / (1 + lambda^2), i.e. local params only
+
+# posterior kappas (pkappas) gives similar results as using local kappa = 1 / (1 + lambda^2), i.e. local params only
+# multiplying kappa by gm works best.  WHY.
 
 
 
