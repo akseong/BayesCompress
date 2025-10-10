@@ -530,9 +530,106 @@ kz <- 1 / (1 + z^2)
 kztil <- 1 / (1 + ztil_sq)
 round(cbind(ks, kz, kztil), 3)
 err_from_dropout(kztil)
-# also want to extract global shrinkage params by model architecture
 
 
-get_s_sq(nn_model[[eval(l[1])]])
+
+
+
+
+
+# CHECK TRAINING HISTORY
+seeds <- c(191578, 272393, 377047, 398060)
+
+mod_stem <- here::here("sims", "results", "fcnl_hshoe_mod_12500obs_")
+rdata_fnames <- paste0(mod_stem, seeds, ".RData")
+
+
+load(rdata_fnames[3])
+
+sim_res$loss_mat
+
+s_sq_vec <- ln_mode(
+  sim_res$sa_mu_vec + sim_res$sb_mu_vec, 
+  sim_res$sa_logvar_vec + sim_res$sb_logvar_vec
+)
+
+ztil_sq_mat <- matrix(NA, nrow = nrow(sim_res$atilde_mu_mat), ncol = ncol(sim_res$atilde_mu_mat))
+z_sq_mat <- ztil_sq_mat
+
+for (i in 1:length(sim_res$sa_mu_vec)){
+  ztil_sq_mat[i, ] <- ln_mode(
+    sim_res$atilde_mu_mat[i, ] + sim_res$btilde_mu_mat[i, ], 
+    sim_res$atilde_logvar_mat[i, ] + sim_res$btilde_logvar_mat[i, ]
+  )
+  z_sq_mat[i, ] <- ztil_sq_mat[i, ] * s_sq_vec[i]
+}
+
+
+
+kappa_local_mat <- 1 / (1 + ztil_sq_mat)
+kappa_global_mat <- 1 / (1 + z_sq_mat)
+
+local_errs <- t(apply(
+  kappa_local_mat, 1, 
+  function(X) err_from_dropout(dropout_vec = X, max_bfdr = 0.001)))
+global_errs <- t(apply(
+  function(X) err_from_dropout(dropout_vec = X, max_bfdr = 0.001)))
+
+
+
+#### local alphas work well
+alpha_errs_001 <- t(apply(
+  sim_res$alpha_mat, 1,
+  function(X) err_from_dropout(dropout_vec = X, max_bfdr = 0.001)))
+alpha_errs_001
+round(sim_res$alpha_mat[, 1:4], 3)
+round(sim_res$alpha_mat[, 5:10], 3)
+
+alpha_errs_01 <- t(apply(
+  sim_res$alpha_mat, 1,
+  function(X) err_from_dropout(dropout_vec = X, max_bfdr = 0.01)))
+
+alpha_errs_05 <- t(apply(
+  sim_res$alpha_mat, 1,
+  function(X) err_from_dropout(dropout_vec = X, max_bfdr = 0.05)))
+
+alpha_errs_001
+alpha_errs_01
+alpha_errs_05
+
+
+
+#### marginal alphas
+ztil_vars <- exp(sim_res$atilde_logvar_mat) + exp(sim_res$btilde_logvar_mat)
+# sweep(matrix(0, nrow = 50, ncol = 104), 1,  + exp(sim_res$sa_logvar_vec))
+z_vars <- sweep(ztil_lvars, 1, + exp(sim_res$sa_logvar_vec) + exp(sim_res$sb_logvar_vec))
+glob_alphas <- exp(z_vars / 4) - 1
+
+glob_alpha_errs_001 <- t(apply(
+  glob_alphas, 1,
+  function(X) err_from_dropout(dropout_vec = X, max_bfdr = 0.001)))
+glob_alpha_errs_01 <- t(apply(
+  glob_alphas, 1,
+  function(X) err_from_dropout(dropout_vec = X, max_bfdr = 0.01)))
+glob_alpha_errs_05 <- t(apply(
+  glob_alphas, 1,
+  function(X) err_from_dropout(dropout_vec = X, max_bfdr = 0.05)))
+glob_alpha_errs_001
+glob_alpha_errs_01
+glob_alpha_errs_05
+
+1 / glob_alphas[45:50, 1:4]
+1 / sim_res$alpha_mat[45:50, 1:4]
+
+
+hist(1/(glob_alphas[50, 5:104]), breaks = 50)
+hist(1/(sim_res$alpha_mat[50, 5:104]), breaks = 50)
+ch <- rchisq(100000, df = 1)
+hist(ch, breaks = 50)
+
+
+chi_probs <- pchisq(1/glob_alphas[50, ], df = 16)
+err_from_dropout((1-chi_probs), max_bfdr = 0.001)
+
 
 
