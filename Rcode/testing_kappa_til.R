@@ -253,6 +253,76 @@ all.equal(kappa_gm, gm)
 
 
 
+get_s_params <- function(nn_model_layer){
+  sa <- as_array(nn_model_layer$sa_mu)
+  sb <- as_array(nn_model_layer$sb_mu)
+  sa_var <- exp(as_array(nn_model_layer$sa_logvar))
+  sb_var <- exp(as_array(nn_model_layer$sb_logvar))
+  return(
+    list(
+      "sa" = sa,
+      "sb" = sb,
+      "sa_var" = sa_var,
+      "sb_var" = sb_var
+      )
+    )
+}
+
+get_ztil_params <- function(nn_model_layer){
+  atil <- as_array(nn_model_layer$atilde_mu)
+  btil <- as_array(nn_model_layer$btilde_mu)
+  atil_var <- exp(as_array(nn_model_layer$atilde_logvar))
+  btil_var <- exp(as_array(nn_model_layer$btilde_logvar))
+  return(
+    list(
+      "at" = atil,
+      "bt" = btil,
+      "at_var" = atil_var,
+      "bt_var" = btil_var
+    )
+  )
+}
+
+get_s_sq <- function(nn_model_layer, ln_fcn = ln_mode){
+  s_params <- get_s(nn_model_layer)
+  s_sq <- ln_fcn(s_params$sa + s_params$sb, s_params$sa_var + s_params$sb_var)
+  return(s_sq)
+}
+
+get_ztil_sq <- function(nn_model_layer, ln_fcn = ln_mode){
+  ztil_params <- get_ztil(nn_model_layer)
+  ztil_sq <- ln_fcn(
+    ztil_params$at + ztil_params$bt, 
+    ztil_params$at_var + ztil_params$bt_var
+  )
+  return(ztil_sq)
+}
+
+get_s_sq(nn_model$fc3)
+get_ztil_sq(nn_model$fc3)
+
+get_kappas <- function(nn_model_layer, type = "global"){
+  s_sq <- get_s_sq(nn_model_layer)
+  ztil_sq <- get_ztil_sq(nn_model_layer)
+  
+  if (type == "global"){
+    kappas <- 1 / ( 1 + s_sq*ztil_sq)
+  } else if (type == "local"){
+    kappas <- 1 / ( 1 + ztil_sq)
+  } else {
+    warning("type must be global or local")
+  }
+  
+  return(kappas)
+}
+
+get_kappas(nn_model$fc2)
+
+length(nn_model$children)
+
+l <- paste0("fc", 1:(length(nn_model$children)))
+nn_model[[eval(l[1])]]
+nn_model$fc1$tau
 
 ### Piironen + Vehtari 2017 "On the Hyperprior Choice for the Global Shrinkage Parameter in the Horseshoe Prior":
 # posterior for kappa_k = 1 / (1 + n sigma^(-2) tau^2 lambda^2)
@@ -263,17 +333,10 @@ post_kappa <- function(
     nn_model, 
     n_obs = 1e5,
     mse = 1,
-    mode_or_mean = "mode", 
+    ln_fcn = ln_mode, 
     use_weight_vars = FALSE,
     want_zsq = FALSE
   ){
-    # modes or means from variational posterior
-    if (mode_or_mean == "mode"){
-      ln_fcn <- ln_mode
-    } else if (mode_or_mean == "mean"){
-      ln_fcn <- ln_mean
-    } else {stop("must choose variational posterior mode or mean")}
-    
     #local shrinkage params
     at <- as_array(nn_model$fc1$atilde_mu)
     bt <- as_array(nn_model$fc1$btilde_mu)
@@ -379,9 +442,50 @@ sqrt_alphas_res
 
 # posterior kappas (pkappas) gives similar results as using local kappa = 1 / (1 + lambda^2), i.e. local params only
 # multiplying kappa by gm works best.  WHY.
+round(gm, 3)
+round(kappa, 3)
+# global kappas are mostly very close to 1
+
+round(kappa_til, 2)
+# local kappas vary much more
 
 
+zsq <- extract_kappa(nn_model, local_only = FALSE, want_zsq = TRUE)
 
+kz <- 1 / (1 + z)
+round(kz, 3)
+
+err_from_dropout(kz)
+
+err_from_dropout(gm)
+
+w_mu <- as_array(nn_model$fc1$weight_mu)
+w_lvar <- as_array(nn_model$fc1$weight_logvar)
+pw_mu <- as_array(nn_model$fc1$compute_posterior_param()$post_weight_mu)
+pw_var <-as_array(nn_model$fc1$compute_posterior_param()$post_weight_var)
+round(w_mu, 3)
+round(exp(w_lvar), 3)
+round(pw_mu, 3)
+round(pw_var, 3) 
+
+sa_mu_1 <- as_array(nn_model$fc1$sa_mu)
+sb_mu_1 <- as_array(nn_model$fc1$sb_mu)
+sa_lv_1 <- as_array(nn_model$fc1$sa_logvar)
+sb_lv_1 <- as_array(nn_model$fc1$sb_logvar)
+
+sa_mu_2 <- as_array(nn_model$fc2$sa_mu)
+sb_mu_2 <- as_array(nn_model$fc2$sb_mu)
+sa_lv_2 <- as_array(nn_model$fc2$sa_logvar)
+sb_lv_2 <- as_array(nn_model$fc2$sb_logvar)
+
+sa_mu_3 <- as_array(nn_model$fc3$sa_mu)
+sb_mu_3 <- as_array(nn_model$fc3$sb_mu)
+sa_lv_3 <- as_array(nn_model$fc3$sa_logvar)
+sb_lv_3 <- as_array(nn_model$fc3$sb_logvar)
+
+
+# variance of the activations is actually computed: (x * z_i) * weight_var
+# z_i contributes the shrinkage.
 
 
 
@@ -394,14 +498,41 @@ pw_lvars <- as_array(nn_model$fc1$compute_posterior_param()$post_weight_var)
 pw_gmvar <- exp(colMeans(pw_lvars))
 
 
+gm
 
 
+w_mus <- as_array(nn_model$fc1$weight_mu)
+w_lvars <- as_array(nn_model$fc1$weight_logvar)
+gm1 <- exp(colMeans(w_lvars))
 
+w_lvars2 <- as_array(nn_model$fc2$weight_logvar)
+gm2 <- exp(colMeans(w_lvars2))
 
+w_lvars3 <- as_array(nn_model$fc3$weight_logvar)
+gm3 <- exp(colMeans(w_lvars3))
 
+round(gm1, 3)
+round(gm2, 3)
+round(gm3, 3)
+
+s_sq <- get_s_sq(nn_model$fc1)
+ztil_sq <- get_ztil_sq(nn_model$fc1)
+
+z <- sqrt(s_sq) * sqrt(ztil_sq)
+shrunk_mus <- t(apply(w_mus, 1, function(X) X*z))
+round(shrunk_mus, 3)[1:5, ]
+
+shrunk_vars <- t(apply(exp(w_lvars), 1, function(X) X*(z^2)))
+round(shrunk_vars, 3)
+vs <- apply(shrunk_vars, 2, max)
+ks <- 1 / (1 + vs)
+kz <- 1 / (1 + z^2)
+kztil <- 1 / (1 + ztil_sq)
+round(cbind(ks, kz, kztil), 3)
+err_from_dropout(kztil)
 # also want to extract global shrinkage params by model architecture
 
 
-
+get_s_sq(nn_model[[eval(l[1])]])
 
 
