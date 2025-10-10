@@ -187,6 +187,7 @@ res <- lapply(
     want_fcn_plots = TRUE, # display predicted functions
     save_fcn_plots = TRUE,
     want_all_params = TRUE,
+    local_only = TRUE,
     save_mod = TRUE,
     save_mod_path_stem = here::here("sims", 
                                     "results", 
