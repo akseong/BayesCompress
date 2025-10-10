@@ -261,5 +261,69 @@ $$x \sim C^+(0, A) \iff x^2|a \sim IG(1/2, 1/a) \text{ and } a \sim IG(1/2, 1/A^
 
 
 
+# ideas:
+
+## posterior kappas
+
+Posterior from Piironen & Vehtari 2017, eqn 18:
+$$\kappa_j = \dfrac{1}{1 + n \tilde{\sigma}^{-2} \tau^2 \lambda_j^2}$$
+
+- `n_obs = 1e5` in the training for the functional data balances out $\tau$ very well
+- plugging in test mse for $\tilde\sigma^2$ is pretty good
+
+
+
+## regular kappa scaled by geometric mean
+
+The the activations for each layer are computed (using VI parameters):
+
+```{r, eval = FALSE}
+xz <- x*z
+mu_activations <- nnf_linear(
+  input = xz, 
+  weight = self$weight_mu, 
+  bias = self$bias_mu
+)
+var_activations <- nnf_linear(
+  input = xz$pow(2), 
+  weight = self$weight_logvar$exp(), 
+  bias = self$bias_logvar$exp()
+)
+
+return(
+  reparameterize(
+    mu = mu_activations, 
+    logvar = var_activations$log(), 
+    use_cuda = self$use_cuda, 
+    sampling = !self$deterministic
+  )
+)
+```
+
+Let
+
+- $a_n$ be the length $j$ vector of pre-activations for observation $n$, 
+
+- $x_n$ the length $i$ vector of covariates, 
+
+- $z$ the vector of $z_i$'s, 
+
+- $\mu_{w_{ij}}$, $\sigma^2_{w_{ij}}$ the mean and variance of weight $w_{ij}$
+
+- $b_j$ the bias term for neuron $j$,
+
+- $n$ indexes the observations, $i$ indexes the covariates (dimension of the input), $j$ indexes the number of nodes in the layer (number of neurons / dimension of the layer),
+
+then the $j$'th neuron's output for $a_n$ is calculated as such:
+
+- $\mu_{a_n, j} = \sum_i x_{n,i} z_i \mu_{w_{i,j}} + b_j$
+
+- $\sigma^2_{a_n, j} = \sum_i x^2_{n,i} z^2_i \sigma^2_{w_{i,j}} + \sigma^2_{b_j}$
+
+- $a_{n, j} \sim N(\mu_{a_n, j}, \sigma^2_{a_n, j})$
+
+
+
+
 
 
