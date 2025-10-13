@@ -602,7 +602,7 @@ alpha_errs_05
 #### marginal alphas
 ztil_vars <- exp(sim_res$atilde_logvar_mat) + exp(sim_res$btilde_logvar_mat)
 # sweep(matrix(0, nrow = 50, ncol = 104), 1,  + exp(sim_res$sa_logvar_vec))
-z_vars <- sweep(ztil_lvars, 1, + exp(sim_res$sa_logvar_vec) + exp(sim_res$sb_logvar_vec))
+z_vars <- sweep(ztil_lvars, 1, FUN="+", STATS = exp(sim_res$sa_logvar_vec) + exp(sim_res$sb_logvar_vec))
 glob_alphas <- exp(z_vars / 4) - 1
 
 glob_alpha_errs_001 <- t(apply(
@@ -637,7 +637,7 @@ err_from_dropout((1-chi_probs), max_bfdr = 0.001)
 
 ##### use the LOG of the mode?
 # known good model
-nn_model <- torch::torch_load(paste0(mod_stem,"398060.pt"))
+nn_model <- torch::torch_load(paste0(mod_stem,"377047.pt"))
 s_params <- get_s_params(nn_model$fc1)
 ztil_params <- get_ztil_params(nn_model$fc1)
 
@@ -666,7 +666,76 @@ round(2*(pnorm(z_mode) - .5), 3)
 round(2*(pnorm(z_mode, sd = sqrt(1.3e-5)) - .5), 3)
 
 pips <- 2*(pnorm(z_mode, sd = sqrt(1e-5)) - .5)
+
+err_from_dropout(1-pips, max_bfdr = 0.001)
+err_from_dropout(1-pips, max_bfdr = 0.005)
+err_from_dropout(1-pips, max_bfdr = 0.01)
+err_from_dropout(1-pips, max_bfdr = 0.05)
+err_from_dropout(1-pips, max_bfdr = 0.1)
+err_from_dropout(1-pips, max_bfdr = 0.15)
+err_from_dropout(1-pips, max_bfdr = 0.2)
+err_from_dropout(1-pips, max_bfdr = 0.25)
+err_from_dropout(1-pips, max_bfdr = 0.3)
+err_from_dropout(1-pips, max_bfdr = 0.4)
+err_from_dropout(1-pips, max_bfdr = 0.5)
+err_from_dropout(1-pips, max_bfdr = 0.6)
+err_from_dropout(1-pips, max_bfdr = 0.7)
+err_from_dropout(1-pips, max_bfdr = 0.8)
 err_from_dropout(1-pips, max_bfdr = 0.9)
+#### WORKS WELL, BFDR MATCHES FDR well (for sparse model)
+
+
+#### works for known good model that has finished running.  want to see interim training results.
+ids <- c(966694, 191578, 272393, 718069, 377047)
+load(paste0(mod_stem, ids[5], ".RData"))
+test_mse_vec <- sim_res$loss_mat[, 3]
+test_mse_vec
+# sim 1 test mse: 3.21  XX
+# sim 2: 1.2
+# sim 3: 3.3    XX
+# sim 4: 1.05
+# sim 5: 1.07
+# should be close to 1
+
+sim_res$sim_params$sim_seeds
+s_mu_vec <- sim_res$sa_mu_vec + sim_res$sb_mu_vec
+s_var_vec <- exp(sim_res$sa_logvar_vec) + exp(sim_res$sb_logvar_vec)
+ztil_mu_mat <- sim_res$atilde_mu_mat + sim_res$btilde_mu_mat
+ztil_var_mat <- exp(sim_res$atilde_logvar_mat) + exp(sim_res$btilde_logvar_mat)
+z_var_mat <- sweep(ztil_var_mat, 1, FUN="+", STATS = s_var_vec)
+# test sweep:
+# test <- matrix(0, nrow = nrow(ztil_var_mat), ncol = nrow(ztil_var_mat))
+# sweep(test, 1, FUN="+", STATS = 1:nrow(ztil_var_mat))
+
+z_mu_mat <- sweep(ztil_mu_mat, 1, FUN="+", STATS = s_mu_vec)
+z_mode_mat <- ln_mode(z_mu_mat, z_var_mat)
+
+pips_mat <- matrix(NA, nrow = nrow(ztil_var_mat), ncol = ncol(ztil_var_mat))
+err_mat <- matrix(NA, nrow = nrow(ztil_var_mat), ncol = 6)
+colnames(err_mat) <- names(err_from_dropout(1-pips, max_bfdr = 0.9))
+
+
+for (i in 1:nrow(z_var_mat)){
+  pips_i <- 2*(pnorm(z_mode_mat[i, ], sd = sqrt(test_mse_vec[i]*1e-5)) - .5)
+  pips_mat[i, ] <- pips_i
+  err_mat[i, ] <- err_from_dropout(1-pips_i, max_bfdr = 0.01)
+}
+
+round(err_mat, 3)
+
+#### Pretty stable!
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
