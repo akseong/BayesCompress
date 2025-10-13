@@ -633,3 +633,40 @@ err_from_dropout((1-chi_probs), max_bfdr = 0.001)
 
 
 
+
+
+##### use the LOG of the mode?
+# known good model
+nn_model <- torch::torch_load(paste0(mod_stem,"398060.pt"))
+s_params <- get_s_params(nn_model$fc1)
+ztil_params <- get_ztil_params(nn_model$fc1)
+
+s_mu <- s_params$sa + s_params$sb
+ztil_mu <- ztil_params$at + ztil_params$bt
+z_mu <- s_mu + ztil_mu
+s_mu
+round(ztil_mu, 3)
+round(z_mu, 3)
+
+s_var <- s_params$sa_var + s_params$sb_var
+ztil_var <- ztil_params$at_var + ztil_params$bt_var
+z_var <- s_var + ztil_var
+s_var
+round(ztil_var, 3)
+round(z_var, 3)
+round(ln_mode(z_mu, z_var), 3)
+
+
+#LUW 2017 use negative log-mode var_zi - mu_zi to prune:
+z_mode <- ln_mode(z_mu, z_var)
+round(z_mode, 3)
+# put on standard normal scale?
+# Probability of a standard normal var being closer to 0 than the mode of z
+round(2*(pnorm(z_mode) - .5), 3)
+round(2*(pnorm(z_mode, sd = sqrt(1.3e-5)) - .5), 3)
+
+pips <- 2*(pnorm(z_mode, sd = sqrt(1e-5)) - .5)
+err_from_dropout(1-pips, max_bfdr = 0.9)
+
+
+
