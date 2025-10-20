@@ -101,7 +101,7 @@ sim_continue_training(
     sim_params = sim_params,     # same as before, but need to include flist
     nn_model = nn_model,
     verbose = TRUE,   # provide updates in console
-    want_plots = TRUE,   # provide graphical updates of KL, MSE
+    want_plots = FALSE,   # provide graphical updates of KL, MSE
     want_fcn_plots = TRUE,   # display predicted functions
     save_fcn_plots = TRUE,
     want_all_params = FALSE,
