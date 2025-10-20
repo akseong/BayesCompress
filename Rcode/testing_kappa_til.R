@@ -687,7 +687,7 @@ err_from_dropout(1-pips, max_bfdr = 0.9)
 
 #### works for known good model that has finished running.  want to see interim training results.
 ids <- c(966694, 191578, 272393, 718069, 377047)
-load(paste0(mod_stem, ids[5], ".RData"))
+load(paste0(mod_stem, ids[2], ".RData"))
 test_mse_vec <- sim_res$loss_mat[, 3]
 test_mse_vec
 # sim 1 test mse: 3.21  XX
@@ -706,36 +706,175 @@ z_var_mat <- sweep(ztil_var_mat, 1, FUN="+", STATS = s_var_vec)
 # test sweep:
 # test <- matrix(0, nrow = nrow(ztil_var_mat), ncol = nrow(ztil_var_mat))
 # sweep(test, 1, FUN="+", STATS = 1:nrow(ztil_var_mat))
-
 z_mu_mat <- sweep(ztil_mu_mat, 1, FUN="+", STATS = s_mu_vec)
-z_mode_mat <- ln_mode(z_mu_mat, z_var_mat)
+
+# z_mode_mat <- ln_mode(z_mu_mat/2, z_var_mat/4) # the mode of z
+z_mode_mat <- ln_mode(z_mu_mat, z_var_mat)  # this is actually the mode of z^2
 
 pips_mat <- matrix(NA, nrow = nrow(ztil_var_mat), ncol = ncol(ztil_var_mat))
 err_mat <- matrix(NA, nrow = nrow(ztil_var_mat), ncol = 6)
 colnames(err_mat) <- names(err_from_dropout(1-pips, max_bfdr = 0.9))
 
 
-for (i in 1:nrow(z_var_mat)){
-  pips_i <- 2*(pnorm(z_mode_mat[i, ], sd = sqrt(test_mse_vec[i]*1e-5)) - .5)
-  pips_mat[i, ] <- pips_i
-  err_mat[i, ] <- err_from_dropout(1-pips_i, max_bfdr = 0.01)
+bfdrs <- c(.001, .01, .05, .1, .15, .2, .25, .3, .35, .4, .45, .5)
+err_array <- array(NA, dim = c(50, 6, length(bfdrs)))
+
+
+for (j in 1:length(bfdrs)){
+  for (i in 1:nrow(z_var_mat)){
+    pips_i <- 2*(pnorm(z_mode_mat[i, ], sd = sqrt(test_mse_vec[i]*1e-5)) - .5)  # use with zsq
+    # pips_i <- 2*(pnorm(z_mode_mat[i, ], sd = sqrt(test_mse_vec[i])) - .5)       # use with z
+    # pips_i <- pchisq(z_mode_mat[i, ], df = 1)   # use with zsq; extremely conservative
+    pips_mat[i, ] <- pips_i
+    err_mat[i, ] <- err_from_dropout(1-pips_i, max_bfdr = bfdrs[j])
+  } 
+  err_array[, , j] <- err_mat
 }
 
-round(err_mat, 3)
+# across epochs, bfdr = .001
+err_array[, , 1]
+
+# across epochs, bfdr = .05
+err_array[, , 3]
+
+# across bfdrs
+bfdrs
+t(err_array[50, ,])
+
+
 
 #### Pretty stable!
 
 
 
+# check test_mses across runs:
+
+ids <- c(966694, 191578, 272393, 718069, 377047)
+test_mse_mat <- 
+  train_mse_mat <- 
+  kl_mat <- matrix(NA, ncol = length(ids), nrow = 50)
+
+
+for (i in 1:length(ids)){
+  load(paste0(mod_stem, ids[i], ".RData"))
+  kl_mat[, i] <- sim_res$loss_mat[, 1]
+  train_mse_mat[, i] <- sim_res$loss_mat[, 2]
+  test_mse_mat[, i] <- sim_res$loss_mat[, 3]
+}
+
+round(kl_mat, 3)
+round(train_mse_mat, 3)
+round(test_mse_mat, 3)
 
 
 
 
 
 
+########################## mode of z^2 the same as (mode z) ^2
+
+#### mode of z
+nn_model <- torch::torch_load(paste0(mod_stem,"377047.pt"))
+s_params <- get_s_params(nn_model$fc1)
+ztil_params <- get_ztil_params(nn_model$fc1)
+
+s_mu <- 1/2 * (s_params$sa + s_params$sb)
+ztil_mu <- 1/2 * (ztil_params$at + ztil_params$bt)
+z_mu <- s_mu + ztil_mu
+s_mu
+round(ztil_mu, 3)
+round(z_mu, 3)
+
+s_var <- 1/4 * (s_params$sa_var + s_params$sb_var)
+ztil_var <- 1/4 * (ztil_params$at_var + ztil_params$bt_var)
+z_var <- s_var + ztil_var
+s_var
+round(ztil_var, 3)
+round(z_var, 3)
+round(ln_mode(z_mu, z_var), 3)
+
+
+#LUW 2017 use negative log-mode var_zi - mu_zi to prune:
+z_mode <- ln_mode(z_mu, z_var)
 
 
 
 
+#### mode of z^2
+nn_model <- torch::torch_load(paste0(mod_stem,"377047.pt"))
+s_params <- get_s_params(nn_model$fc1)
+ztil_params <- get_ztil_params(nn_model$fc1)
 
+ssq_mu <- s_params$sa + s_params$sb
+ztilsq_mu <- ztil_params$at + ztil_params$bt
+zsq_mu <- ssq_mu + ztilsq_mu
+ssq_mu
+round(ztilsq_mu, 3)
+round(zsq_mu, 3)
+
+ssq_var <- s_params$sa_var + s_params$sb_var
+ztilsq_var <- ztil_params$at_var + ztil_params$bt_var
+zsq_var <- ssq_var + ztilsq_var
+ssq_var
+round(ztilsq_var, 3)
+round(zsq_var, 3)
+round(ln_mode(zsq_mu, zsq_var), 3)
+
+
+#LUW 2017 use negative log-mode var_zi - mu_zi to prune:
+zsq_mode <- ln_mode(zsq_mu, zsq_var)
+
+z_mode
+zsq_mode
+
+round(cbind(z_mode^2, zsq_mode), 3)
+
+pips_kappa <- 1 - 1 / (1 + z_mode^2)
+
+z_modesq <- z_mode^2
+
+
+## these are for w-TILDE, not w (w = wtil * z)
+wvars <- exp(as_array(nn_model$fc1$weight_logvar))
+gm_wvars <- exp(colMeans(as_array(nn_model$fc1$weight_logvar)))
+absmean_wmus <- colMeans(abs(as_array(nn_model$fc1$weight_mu)))
+
+ztil_sq_layer2 <- get_ztil_sq(nn_model$fc2)
+s_sq_layer2 <- get_s_sq(nn_model$fc2)
+zsq_2 <- ztil_sq_layer2 * s_sq_layer2
+kappas_layer2 <- 1 / (1 + round(zsq_2, 3))
+kappas_layer2
+
+round(wvars, 3)[1:5, ]
+round(z_modesq, 3)
+round(pips_kappa, 3)
+
+kappas_layer1 <- 1 / (1 + z_mode^2)
+kappas_layer1
+kappas_layer2
+
+
+# a sane variable inclusion measure would need to consider
+# the mean of the weights as well as the variance.
+# 
+round(cbind(absmean_wmus, gm_wvars, z_modesq), 3)
+round(cbind(absmean_wmus * z_mode, gm_wvars * z_modesq), 3)
+# does it make more sense to construct a test based on the WEIGHT mean and sd?
+
+W_mus <- absmean_wmus * z_mode
+W_vars <- gm_wvars * z_mode^2
+
+wald <- W_mus^2 / W_vars
+pips_w <- pchisq(wald, df = 1)
+err_from_dropout(1 - pips_w, max_bfdr = 0.01)
+err_from_dropout(1 - pips_w, max_bfdr = 0.05)
+err_from_dropout(1 - pips_w, max_bfdr = 0.1)
+err_from_dropout(1 - pips_w, max_bfdr = 0.15)
+err_from_dropout(1 - pips_w, max_bfdr = 0.2)
+err_from_dropout(1 - pips_w, max_bfdr = 0.25)
+err_from_dropout(1 - pips_w, max_bfdr = 0.3)
+
+##### NOT BAD, and at least it's defensible.
+### can it get better using only those neurons in the first layer that weren't eliminated in the 2nd layer?
+### (wouldn't affect the means as much?  but might enlarge nuisance var means?)
 
