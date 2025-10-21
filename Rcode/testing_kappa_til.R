@@ -96,9 +96,136 @@ extract_kappa <- function(
   }
 }
 
-# basic function testing ---- 
+err_from_dropout <- function(
+    dropout_vec, 
+    max_bfdr = 0.01, 
+    true_gam = c(rep(1, 4), rep(0, 100))
+){
+  eta <- BFDR_eta_search(dropout_vec, max_rate = max_bfdr)
+  bfdr <- BFDR(dropout_vec, eta)$bfdr
+  delta_i <- BFDR(dropout_vec, eta)$delta_i
+  bin_err <- binary_err_rate(est = delta_i, tru = true_gam)
+  fdr <- sum(delta_i - true_gam == 1) / sum(delta_i)
+  c("fdr" = fdr, "bfdr" = bfdr, bin_err)
+}
+
+get_s_params <- function(nn_model_layer){
+  sa <- as_array(nn_model_layer$sa_mu)
+  sb <- as_array(nn_model_layer$sb_mu)
+  sa_lvar <- as_array(nn_model_layer$sa_logvar)
+  sb_lvar <- as_array(nn_model_layer$sb_logvar)
+  return(
+    list(
+      "sa" = sa,
+      "sb" = sb,
+      "sa_lvar" = sa_lvar,
+      "sb_lvar" = sb_lvar
+    )
+  )
+}
+
+get_ztil_params <- function(nn_model_layer){
+  atil <- as_array(nn_model_layer$atilde_mu)
+  btil <- as_array(nn_model_layer$btilde_mu)
+  atil_lvar <- as_array(nn_model_layer$atilde_logvar)
+  btil_lvar <- as_array(nn_model_layer$btilde_logvar)
+  return(
+    list(
+      "at" = atil,
+      "bt" = btil,
+      "at_lvar" = atil_lvar,
+      "bt_lvar" = btil_lvar
+    )
+  )
+}
+
+get_s_sq <- function(nn_model_layer, ln_fcn = ln_mode){
+  s_params <- get_s_params(nn_model_layer)
+  s_sq <- ln_fcn(
+    s_params$sa + s_params$sb, 
+    exp(s_params$sa_lvar) + exp(s_params$sb_lvar)
+  )
+  return(s_sq)
+}
+
+get_ztil_sq <- function(nn_model_layer, ln_fcn = ln_mode){
+  ztil_params <- get_ztil_params(nn_model_layer)
+  ztil_sq <- ln_fcn(
+    ztil_params$at + ztil_params$bt, 
+    exp(ztil_params$at_lvar) + exp(ztil_params$bt_lvar)
+  )
+  return(ztil_sq)
+}
+
+get_kappas <- function(nn_model_layer, type = "global"){
+  s_sq <- get_s_sq(nn_model_layer)
+  ztil_sq <- get_ztil_sq(nn_model_layer)
+  
+  if (type == "global"){
+    kappas <- 1 / ( 1 + s_sq*ztil_sq)
+  } else if (type == "local"){
+    kappas <- 1 / ( 1 + ztil_sq)
+  } else {
+    warning("type must be global or local")
+  }
+  
+  return(kappas)
+}
+
+get_wtil_params <- function(nn_model_layer){
+  wtil_lvar <- as_array(nn_model_layer$weight_logvar)
+  wtil_mu <- as_array(nn_model_layer$weight_mu)
+  
+  return(
+    list(
+      "wtil_lvar" = wtil_lvar,
+      "wtil_mu" = wtil_mu
+    )
+  )
+}
+
+
+get_Wz_params <- function(nn_model_layer){
+  # these are the params for the CONDITIONAL W | z 
+  wtil_params <- get_wtil_params(nn_model_layer)
+  z_sq <- get_s_sq(nn_model_layer) * get_ztil_sq(nn_model_layer)
+  # # checking sweep function
+  # # want to multiply test_mat column j by element j in mult_vec
+  # test_mat <- cbind(
+  #   c(0,0,0,0,0),
+  #   c(1, 1, 1, 1, 1),
+  #   c(-1, -1, -1, -1, -1)
+  # )
+  # test_mat
+  # mult_vec <- 1:3
+  # sweep(test_mat, 2, STATS = mult_vec, FUN = "*")
+  Wz_mu <- sweep(
+    wtil_params$wtil_mu, 
+    MARGIN = 2, 
+    STATS = sqrt(z_sq), 
+    FUN = "*"
+  )
+  Wz_var <- sweep(
+    exp(wtil_params$wtil_lvar), 
+    MARGIN = 2, 
+    STATS = z_sq, 
+    FUN = "*"
+  )
+  
+  return(
+    list(
+      "Wz_mu" = Wz_mu,
+      "Wz_var" = Wz_var
+    )
+  )
+}
+
+
+
+# load known good model
 nn_model <- torch::torch_load(here::here("sims", "results", "fcnl_hshoe_mod_12500obs_398060.pt"))
 
+# doesn't work: kappa based on local AND global scale params ----
 kappa <- extract_kappa(nn_model, local_only = FALSE)
 
 eta <- BFDR_eta_search(kappa, max_rate = 0.01)
@@ -114,8 +241,8 @@ BFDR(kappa, eta)
 sum(kappa <= eta)
 
 
-#### using shrinkage factor Kappa based only on local shrinkage (i.e. tau = 1) ----
-#### WORKS PRETTY DAMN WELL.  
+#### WORKS - local kappa ----
+# using shrinkage factor Kappa based only on local shrinkage (i.e. tau = 1)
 kappa_til <- extract_kappa(nn_model, local_only = TRUE)
 
 eta <- BFDR_eta_search(kappa_til, max_rate = 0.01)
@@ -129,21 +256,6 @@ sum(kappa_til <= eta)
 eta <- BFDR_eta_search(kappa_til, max_rate = 0.1)
 BFDR(kappa_til, eta)
 sum(kappa_til <= eta)
-
-
-
-err_from_dropout <- function(
-    dropout_vec, 
-    max_bfdr = 0.01, 
-    true_gam = c(rep(1, 4), rep(0, 100))
-  ){
-  eta <- BFDR_eta_search(dropout_vec, max_rate = max_bfdr)
-  bfdr <- BFDR(dropout_vec, eta)$bfdr
-  delta_i <- BFDR(dropout_vec, eta)$delta_i
-  bin_err <- binary_err_rate(est = delta_i, tru = true_gam)
-  fdr <- sum(delta_i - true_gam == 1) / sum(delta_i)
-  c("fdr" = fdr, "bfdr" = bfdr, bin_err)
-}
 
 
 
@@ -198,23 +310,14 @@ compare_kappas <- function(
 }
 
 
-
-
-
-
-#### examine linreg fits ----
-
-
-
-
-
 #### examine fcnal fits ----
+# seeds <- c(445006, 79978, 2494, 398060)
+# not sure if all of these are models with fixed version of tau_0 (good) 
+# or with tau_0 as learnable param (tau_0 is hyperparam, shouldn't be learnable / trainable)
+# trained model known to be good: 398060
+# model with seed 2494 needs more training?
 
-# not sure if these are models with fixed tau (good) or with tau as learnable param
-# known to be good: 398060
-# looks like models with seed 2494 is OK-ish?  maybe needs more training?
-
-seeds <- c(445006, 79978, 2494, 398060)
+# retrained, known to be good (but may not have converged)
 seeds <- c(191578, 272393, 377047, 398060)
 
 mod_stem <- here::here("sims", "results", "fcnl_hshoe_mod_12500obs_")
@@ -222,8 +325,6 @@ mod_fnames <- paste0(mod_stem, seeds, ".pt")
 # checking known good mod
 # load(paste0(mod_stem, "398060_continue.RData"))
 # sim_res$alpha_mat[, 1:4]
-
-
 
 global_res <- list()
 local_res <- list()
@@ -233,13 +334,20 @@ for (mod_ind in 1:length(mod_fnames)){
   local_res[[mod_ind]] <- compare_kappas(nn_model)$local
 }
 
+global_res <- setNames(object = global_res, nm = seeds)
 global_res
 
+# model seed 272393 not good.  Did it converge?
+load(paste0(mod_stem, "272393.RData"))
+tail(sim_res$loss_mat)
+# test mse high.  prob need to do a "best of 5" restarts for actual simulations ----
 
 
+##### using geom_means of weight variances ----
+# make sure we're working with known good model:
+nn_model <- torch::torch_load(here::here("sims", "results", "fcnl_hshoe_mod_12500obs_398060.pt"))
 
-##### using geom_means of weight variances
-kappa <- extract_kappa(nn_model, local_only = FALSE)
+kappa <- get_kappas(nn_model$fc1, type = "global")
 w_lvars <- as_array(nn_model$fc1$weight_logvar)
 gm <- exp(colMeans(w_lvars))
 kappa_gm <- kappa * gm
@@ -249,74 +357,60 @@ round(kappa, 3)
 round(gm, 3)
 round(kappa_gm, 3)
 all.equal(kappa_gm, gm)
-# basically the same.  (global kappas are mostly ~ 1) for nuisance vars
+# basically the same.  
+# - global kappas are mostly ~ 1
+
+# what about layer 2?
+k2 <- get_kappas(nn_model$fc2)
+round(k2, 3)
+# this is interesting.  
+#  1) layer 2 global kappas look a LOT more like what we would expect.
+#     - perhaps layer 2 kappas look more like what we would expect b/c 
+#       layer 2's suggested trimming only depends on layer 3?
+#     - WHEREAS layer 1's suggested trimming would depend on layers 2 AND 3?
+#        - AT LEAST on layer 2 (suggesting 3/4 neurons in layer 1 pruned).
+#          Layer 2 kappas similarly may be too large b/c of extra global shrinkage
+#          indicated from layer 3.
+#          - SO maybe using higher threshold for layer 2 kappas to prune layer 1 neurons is better
+#            (since layer 2 kappas are likely similarly inflated).  
+#  2) indicates that more than 3/4 of the neurons in layer 1 should be trimmed
+#     (12 of 16 kappas are pretty high, > .79).
+#     - THIS PROBABLY AFFECTS THE GLOBAL SCALE FACTOR IN LAYER 1
+
+# let's look at layer 3
+k3 <- get_kappas(nn_model$fc3)
+round(k3, 3)  
+# layer 3 indicates that 5 neurons (out of 8 in layer 2) should have strong shrinkage
 
 
 
-get_s_params <- function(nn_model_layer){
-  sa <- as_array(nn_model_layer$sa_mu)
-  sb <- as_array(nn_model_layer$sb_mu)
-  sa_var <- exp(as_array(nn_model_layer$sa_logvar))
-  sb_var <- exp(as_array(nn_model_layer$sb_logvar))
-  return(
-    list(
-      "sa" = sa,
-      "sb" = sb,
-      "sa_var" = sa_var,
-      "sb_var" = sb_var
-      )
-    )
-}
 
-get_ztil_params <- function(nn_model_layer){
-  atil <- as_array(nn_model_layer$atilde_mu)
-  btil <- as_array(nn_model_layer$btilde_mu)
-  atil_var <- exp(as_array(nn_model_layer$atilde_logvar))
-  btil_var <- exp(as_array(nn_model_layer$btilde_logvar))
-  return(
-    list(
-      "at" = atil,
-      "bt" = btil,
-      "at_var" = atil_var,
-      "bt_var" = btil_var
-    )
-  )
-}
 
-get_s_sq <- function(nn_model_layer, ln_fcn = ln_mode){
-  s_params <- get_s(nn_model_layer)
-  s_sq <- ln_fcn(s_params$sa + s_params$sb, s_params$sa_var + s_params$sb_var)
-  return(s_sq)
-}
 
-get_ztil_sq <- function(nn_model_layer, ln_fcn = ln_mode){
-  ztil_params <- get_ztil(nn_model_layer)
-  ztil_sq <- ln_fcn(
-    ztil_params$at + ztil_params$bt, 
-    ztil_params$at_var + ztil_params$bt_var
-  )
-  return(ztil_sq)
-}
+# what happens if we filter layer 1 neurons based on layer 2?  
+# i.e. keep only neurons with k2 < 1/2, i.e. shrinkage factor < 1/2
+selected_nodes_l1 <- k2 < 0.5
+sum(selected_nodes_l1) # only keeps 4 (out of 16)
 
-get_s_sq(nn_model$fc3)
-get_ztil_sq(nn_model$fc3)
+# should probably not get rid of too many?  only keep if k2 < 0.9
+selected_nodes_l1 <- k2 < 0.9
+sum(selected_nodes_l1) # keeps 7 of 16
 
-get_kappas <- function(nn_model_layer, type = "global"){
-  s_sq <- get_s_sq(nn_model_layer)
-  ztil_sq <- get_ztil_sq(nn_model_layer)
-  
-  if (type == "global"){
-    kappas <- 1 / ( 1 + s_sq*ztil_sq)
-  } else if (type == "local"){
-    kappas <- 1 / ( 1 + ztil_sq)
-  } else {
-    warning("type must be global or local")
-  }
-  
-  return(kappas)
-}
+# should probably also filter from layer 3 also 
+selected_nodes_l2 <- k3 < 0.9
 
-get_kappas(nn_model$fc2)
+# this isn't going to do anything to the kappas unless we retrain the model, however.
+# potential problem ---- on retraining, what if using this criteria would shrink model further?
+# keep pruning based on secondary layers until doesn't prune anymore?
+# this kind of iterative process doesn't feel great.....
+# may just want to use median model for this pruning step??  
+#  - seems more defensible.  MAP model would be ideal, but don't have that (?)
+#    - .... do we have access to the MAP model???  No.  Don't have full posterior.
+#    - hrm.  by using kappas based on the mode, we are getting something like the median MAP??
+#  - i.e. keep only if dropout kappa is < 0.5
+# first let's see if it works.
+
+
 
 length(nn_model$children)
 
