@@ -158,10 +158,11 @@ get_ztil_sq <- function(nn_model_layer, ln_fcn = ln_mode){
 }
 
 get_kappas <- function(nn_model_layer, type = "global"){
-  s_sq <- get_s_sq(nn_model_layer)
+  
   ztil_sq <- get_ztil_sq(nn_model_layer)
   
   if (type == "global"){
+    s_sq <- get_s_sq(nn_model_layer)
     kappas <- 1 / ( 1 + s_sq*ztil_sq)
   } else if (type == "local"){
     kappas <- 1 / ( 1 + ztil_sq)
@@ -317,7 +318,7 @@ compare_kappas <- function(
 # trained model known to be good: 398060
 # model with seed 2494 needs more training?
 
-# retrained, known to be good (but may not have converged)
+# trained, known to be good (but may not have converged)
 seeds <- c(191578, 272393, 377047, 398060)
 
 mod_stem <- here::here("sims", "results", "fcnl_hshoe_mod_12500obs_")
@@ -360,6 +361,9 @@ all.equal(kappa_gm, gm)
 # basically the same.  
 # - global kappas are mostly ~ 1
 
+
+
+# Secondary layers ----
 # what about layer 2?
 k2 <- get_kappas(nn_model$fc2)
 round(k2, 3)
@@ -409,6 +413,25 @@ selected_nodes_l2 <- k3 < 0.9
 #    - hrm.  by using kappas based on the mode, we are getting something like the median MAP??
 #  - i.e. keep only if dropout kappa is < 0.5
 # first let's see if it works.
+
+
+
+
+# global scale params set to 1 ----
+#### low power
+noglobal_stem <- here::here("sims", "results", "fcnl_hshoe_noglobalscale_12500obs_966694")
+load(paste0(noglobal_stem, ".RData"))
+noglobal_mod <- torch::torch_load(paste0(noglobal_stem, ".pt"))
+
+noglobal_mod$fc1$atilde_mu
+ztil_params <- get_ztil_params(noglobal_mod$fc1)
+kappas_noglobal <- get_kappas(noglobal_mod$fc1, type = "local")
+err_from_dropout(kappas_noglobal, max_bfdr = 0.1)
+# low power, most kappas still v. close to 1.  
+# Kappa inflation still appears to be an issue
+sim_res$loss_mat
+# model seems to have converged
+
 
 
 
