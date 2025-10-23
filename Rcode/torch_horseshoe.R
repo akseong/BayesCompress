@@ -316,12 +316,13 @@ torch_hs <- nn_module(
     mu_activations <- nnf_linear(
       input = xz, 
       weight = self$weight_mu, 
-      bias = self$bias_mu
+      bias = self$bias_mu * z
     )
+    
     var_activations <- nnf_linear(
       input = xz$pow(2), 
       weight = self$weight_logvar$exp(), 
-      bias = self$bias_logvar$exp()
+      bias = self$bias_logvar$exp()* z$pow(2)
     )
     
     return(
