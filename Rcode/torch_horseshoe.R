@@ -304,19 +304,19 @@ torch_hs <- nn_module(
     }
     
     # generate layer activations from Variational specification
-    # log_atilde <- reparameterize(mu = self$atilde_mu, logvar = self$atilde_logvar, use_cuda = self$use_cuda)
-    # log_btilde <- reparameterize(mu = self$btilde_mu, logvar = self$btilde_logvar, use_cuda = self$use_cuda)
-    # log_sa <- reparameterize(mu = self$sa_mu, logvar = self$sa_logvar, use_cuda = self$use_cuda)
-    # log_sb <- reparameterize(mu = self$sb_mu, logvar = self$sb_logvar, use_cuda = self$use_cuda)
-    # log_s <- 1/2 * (log_sa + log_sb)
-    # log_ztilde <- 1/2 * (log_atilde + log_btilde)
-    # z <- (log_s + log_ztilde)$exp()
-    log_z <- reparameterize(
-      mu = 1/2 * (self$atilde_mu + self$btilde_mu + self$sa_mu + self$sb_mu),
-      logvar = (self$atilde_logvar$exp() + self$btilde_logvar$exp() + self$sa_logvar$exp() + self$sb_logvar$exp())$log() - log(4),
-      use_cuda = self$use_cuda
-    )
-    z <- log_z$exp()
+    log_atilde <- reparameterize(mu = self$atilde_mu, logvar = self$atilde_logvar, use_cuda = self$use_cuda)
+    log_btilde <- reparameterize(mu = self$btilde_mu, logvar = self$btilde_logvar, use_cuda = self$use_cuda)
+    log_sa <- reparameterize(mu = self$sa_mu, logvar = self$sa_logvar, use_cuda = self$use_cuda)
+    log_sb <- reparameterize(mu = self$sb_mu, logvar = self$sb_logvar, use_cuda = self$use_cuda)
+    log_s <- 1/2 * (log_sa + log_sb)
+    log_ztilde <- 1/2 * (log_atilde + log_btilde)
+    z <- (log_s + log_ztilde)$exp()
+    # log_z <- reparameterize(
+    #   mu = 1/2 * (self$atilde_mu + self$btilde_mu + self$sa_mu + self$sb_mu),
+    #   logvar = (self$atilde_logvar$exp() + self$btilde_logvar$exp() + self$sa_logvar$exp() + self$sb_logvar$exp())$log() - log(4),
+    #   use_cuda = self$use_cuda
+    # )
+    # z <- log_z$exp()
     
     xz <- x*z
     mu_activations <- nnf_linear(
