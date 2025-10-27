@@ -7,13 +7,17 @@
 
 library(torch)
 
-reparameterize <- function(mu, logvar, use_cuda = FALSE, sampling = TRUE) {
+reparameterize <- function(mu, logvar, sampling = TRUE, use_cuda) {
   # for X ~ N(mu, sigma^2), can rewrite as X = mu + sigma * Z
   # "reparam trick" often used to preserve gradient on mu and sigma
   # Last modified 2024/07/16
+  # modified 2025/10/27 --- made use_cuda argument extraneous 
+  #   - mucked up computation when moving model off cuda / to cuda 
+  #     because used stored info to decide whether was cuda or not.
+  #   - made extraneous for compatibility with already trained models
   if (sampling) {
     std <- logvar$mul(0.5)$exp_()
-    if (use_cuda) {
+    if (mu$is_cuda) {
       eps <- torch_randn(std$size(), device = "cuda", requires_grad = TRUE)
     } else {
       eps <- torch_randn(std$size(), device = "cpu", requires_grad = TRUE)
@@ -23,6 +27,8 @@ reparameterize <- function(mu, logvar, use_cuda = FALSE, sampling = TRUE) {
     return(mu)
   }
 }
+
+
 
 negKL_lognorm_gamma <- function(mu, logvar, a = 1/2, b = 1){
   # for s_a, alpha_i
