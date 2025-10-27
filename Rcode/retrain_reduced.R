@@ -12,7 +12,7 @@ library(ggplot2)
 library(gridExtra)
 
 library(torch)
-source(here("Rcode", "torch_horseshoe.R"))
+source(here("Rcode", "torch_horseshoe_cudafix.R"))
 source(here("Rcode", "sim_functions.R"))
 
 
@@ -31,6 +31,14 @@ BFDR <- function(dropout_probs, eta){
       "bfdr" = bfdr
     )
   )
+}
+
+FDR <- function(delta_vec, true_gam = c(rep(1, 4), rep(0, 100))){
+  if (sum(delta_i) == 0){
+    return(0)
+  } else {
+    return(sum((delta_i - true_gam) == 1) / sum(delta_i))
+  }
 }
 
 BFDR_eta_search <- function(dropout_probs, max_rate = 0.05){
@@ -62,7 +70,7 @@ err_from_dropout <- function(
   bfdr <- BFDR(dropout_vec, eta)$bfdr
   delta_i <- BFDR(dropout_vec, eta)$delta_i
   bin_err <- binary_err_rate(est = delta_i, tru = true_gam)
-  fdr <- sum(delta_i - true_gam == 1) / sum(delta_i)
+  fdr <- FDR(delta_vec = delta_i, true_gam = true_gam)
   c("fdr" = fdr, "bfdr" = bfdr, bin_err)
 }
 
@@ -263,13 +271,17 @@ load(res_fnames[5])
 sim_res$loss_mat
 
 set.seed(seeds[5])
+torch_manual_seed(seeds[5])
 simdat <- sim_func_data(
   n_obs = sim_res$sim_params$n_obs, 
   d_in = sim_res$sim_params$d_in, 
   flist = sim_res$sim_params$flist, 
   err_sigma = sim_res$sim_params$err_sig,
 )
-
+if (nn_model$fc1$atilde_logvar$is_cuda){
+  simdat$x <- simdat$x$to(device = "cuda")
+  simdat$y <- simdat$x$to(device = "cuda")
+}
 
 pred_mats <- make_pred_mats(
   flist = sim_res$sim_params$flist,
@@ -283,19 +295,100 @@ fcn_plt <- plot_datagen_fcns(
   x_length = 500
 )
 
-nn_model(simdat$x)
+plot_fcn_preds(torchmod = nn_model, pred_mats, want_df = FALSE, want_plot = TRUE)
 
 
+#### Why are estimates for functions 1-3 so much higher?----
+# add noise to nuisance vars since
+# original data has normal noise in covariates 5-104
+pred_mats_noisy <- pred_mats
+pred_mats_noisy$x_tensor[, 5:104] <- torch_normal(
+  mean = 0, std = 1, 
+  size = c(nrow(pred_mats$x_tensor), 100))
+plot_fcn_preds(torchmod = nn_model, pred_mats_noisy, want_df = FALSE, want_plot = TRUE)
+# bias issue persists
 
-tryCatch({
-  predictions <- nn_model(simdat$x)
-}, error = function(e) {
-  print(traceback())
-  print(e)
-})
+# 0 out entire x matrix
+pred_mats_0s <- pred_mats
+pred_mats_0s$x_tensor <- torch_zeros(size = c(nrow(pred_mats$x_tensor), ncol(pred_mats$x_tensor)))
+plot_fcn_preds(torchmod = nn_model, pred_mats_0s, want_df = FALSE, want_plot = TRUE)
+# there is a global bias upwards???? 
 
-nn_model$state_dict()
+# 0 x1-x4, noisy elsewhere
+pred_mats_0cov <- pred_mats
+pred_mats_0cov$x_tensor[, 5:104] <- torch_normal(
+  mean = 0, std = 1, 
+  size = c(nrow(pred_mats$x_tensor), 100))
 
+pred_mats_0cov$x_tensor[, 1:4] <- torch_zeros(size = c(nrow(pred_mats$x_tensor), 4))
+plot_fcn_preds(torchmod = nn_model, pred_mats_0cov, want_df = FALSE, want_plot = TRUE)
+
+# check 0ing out other covs from original data
+y <- simdat$y
+x1_ord <- as_array(simdat$x[, 1]$sort()[[2]])
+x2_ord <- as_array(simdat$x[, 2]$sort()[[2]])
+x3_ord <- as_array(simdat$x[, 3]$sort()[[2]])
+x4_ord <- as_array(simdat$x[, 4]$sort()[[2]])
+
+pred_x1 <- simdat$x[x1_ord, ]
+pred_x2 <- simdat$x[x2_ord, ]
+pred_x3 <- simdat$x[x3_ord, ]
+pred_x4 <- simdat$x[x4_ord, ]
+
+pred_x1[, 2:104] <- torch_zeros(size = c(nrow(pred_x1), 1))
+pred_x2[, 1] <- torch_zeros(size = c(nrow(pred_x1), 1))
+pred_x2[, 3:104] <- torch_zeros(size = c(nrow(pred_x1), 1))
+pred_x3[, 1:2] <- torch_zeros(size = c(nrow(pred_x1), 1))
+pred_x3[, 4:104] <- torch_zeros(size = c(nrow(pred_x1), 1))
+pred_x4[, 1:3] <- torch_zeros(size = c(nrow(pred_x1), 1))
+pred_x4[, 5:104] <- torch_zeros(size = c(nrow(pred_x1), 1))
+
+yhat1 <- as_array(nn_model(pred_x1))
+plot(yhat1 ~ as_array(pred_x1[, 1]))
+
+yhat2 <- as_array(nn_model(pred_x2))
+plot(yhat2 ~ as_array(pred_x2[, 2]))
+
+yhat3 <- as_array(nn_model(pred_x3))
+plot(yhat3 ~ as_array(pred_x3[, 3]))
+
+yhat4 <- as_array(nn_model(pred_x4))
+plot(yhat4 ~ as_array(pred_x4[, 4]))
+
+
+# try keeeping covariate 4 in for all of them
+
+
+pred_x1 <- simdat$x[x1_ord, ]
+pred_x2 <- simdat$x[x2_ord, ]
+pred_x3 <- simdat$x[x3_ord, ]
+pred_x4 <- simdat$x[x4_ord, ]
+
+pred_x1[, 2:3] <- torch_zeros(size = c(nrow(pred_x1), 1))
+pred_x1[, 5:104] <- torch_zeros(size = c(nrow(pred_x1), 1))
+pred_x2[, 1] <- torch_zeros(size = nrow(pred_x1))
+pred_x2[, 3] <- torch_zeros(size = nrow(pred_x1))
+pred_x2[, 5:104] <- torch_zeros(size = c(nrow(pred_x1), 1))
+pred_x3[, 1:2] <- torch_zeros(size = c(nrow(pred_x1), 1))
+pred_x3[, 5:104] <- torch_zeros(size = c(nrow(pred_x1), 1))
+
+yhat1 <- as_array(nn_model(pred_x1))
+plot(yhat1 ~ as_array(pred_x1[, 1]))
+
+yhat2 <- as_array(nn_model(pred_x2))
+plot(yhat2 ~ as_array(pred_x2[, 2]))
+
+yhat3 <- as_array(nn_model(pred_x3))
+plot(yhat3 ~ as_array(pred_x3[, 3]))
+
+yhat4 <- as_array(nn_model(pred_x4))
+plot(yhat4 ~ as_array(pred_x4[, 4]))
+
+plot_datagen_fcns(sim_res$sim_params$flist)
+
+# sharpness of function 4 is probably causing problems, especially
+# because x-values are centered around 0.  
+# Replace with long-period sine / cos wave?  Or polynomial function?
 
 
 
