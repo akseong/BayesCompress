@@ -15,6 +15,7 @@ reparameterize <- function(mu, logvar, sampling = TRUE, use_cuda) {
   #   - mucked up computation when moving model off cuda / to cuda 
   #     because used stored info to decide whether was cuda or not.
   #   - made extraneous for compatibility with already trained models
+
   if (sampling) {
     std <- logvar$mul(0.5)$exp_()
     if (mu$is_cuda) {
