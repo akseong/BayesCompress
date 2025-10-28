@@ -48,7 +48,7 @@ negKL_lognorm_IG <- function(mu, logvar, a = 1/2, b = 1){
   # for s_b, beta_i
   # i.e. (LogNormal q || Inverse-Gamma p)
   # log(b) - 1/b * exp(1/2 * sig^2 - mu) + 1/2 * (- mu + log(sig^2) + 1 + log(2))
-  negKL_lognorm_gamma(-mu, logvar, a, b=1)
+  negKL_lognorm_gamma(-mu, logvar, a, b)
 }
 
 
@@ -323,13 +323,13 @@ torch_hs <- nn_module(
     mu_activations <- nnf_linear(
       input = xz, 
       weight = self$weight_mu, 
-      bias = self$bias_mu * z
+      bias = self$bias_mu
     )
     
     var_activations <- nnf_linear(
       input = xz$pow(2), 
       weight = self$weight_logvar$exp(), 
-      bias = self$bias_logvar$exp()* z$pow(2)
+      bias = self$bias_logvar$exp()
     )
     
     return(
