@@ -7,10 +7,8 @@
 
 # MISC UTILITIES ----
 
-## %notin% ----
 `%notin%` <- Negate(`%in%`)
 
-## time_since ----
 time_since <- function(){
   # prints time since last called 
   # (use to print time a loop takes, for example).
@@ -26,7 +24,6 @@ time_since <- function(){
   }
 }
 
-## find_array_ind ----
 find_array_ind <- function(array, name, marg = 1){
   # marg = 1 --> rows;    marg = 2 --> cols
   # generalizes to higher-dim arrays
@@ -42,9 +39,6 @@ find_array_ind <- function(array, name, marg = 1){
   }
 }
 
-
-
-## update mat during training
 update_matrix_row <- function(mat, epoch, update_vec, reportevery = 100, verbose = FALSE){
   # USAGE EXAMPLE:  
   #    mat <- matrix(NA, nrow = 20, update_vec = rep(1, 5) ncol = 5)
@@ -67,11 +61,6 @@ update_matrix_row <- function(mat, epoch, update_vec, reportevery = 100, verbose
   return(mat)
 }
 
-
-
-
-
-## cat_color(txt, style = 1, color = 36) ---
 cat_color <- function(txt, sep_char = ", ", style = 1, color = 36){
   # prints txt with colored font/bkgrnd
   cat(
@@ -85,9 +74,6 @@ cat_color <- function(txt, sep_char = ", ", style = 1, color = 36){
     sep = sep_char
   )  
 }
-
-
-
 
 ## mathematical operations
 softplus <- function(x){
@@ -109,10 +95,14 @@ clamp <- function(v, lo = 0, hi = 1){
   return(v)
 }
 
+ln_mode <- function(mu, var){
+  exp(mu - var)
+}
 
+ln_mean <- function(mu, var){
+  exp(mu + var/2)
+}
 
-
-## vismat ----
 vismat <- function(mat, cap = NULL, lims = NULL, leg = TRUE, na0 = TRUE, square){
   # outputs visualization of matrix with few unique values
   # colnames should be strings, values represented as factors
@@ -152,8 +142,6 @@ vismat <- function(mat, cap = NULL, lims = NULL, leg = TRUE, na0 = TRUE, square)
   return(p)
 }
 
-
-## roll_vec(vec, new_vals) ---- 
 roll_vec <- function(vec, new_vals){
   # use to store needed values across epochs.  
   # moves window forward by however many values added
@@ -174,18 +162,17 @@ roll_vec <- function(vec, new_vals){
 # > }
 
 # CUDA ----
-## dev_select ----
+
 dev_select <- function(use_cuda){
   ifelse(use_cuda, "cuda", "cpu")
 }
 
-## dev_auto ----
 dev_auto <- function(){
   ifelse(torch::cuda_is_available(), "cuda", "cpu")
 }
 
+
 # DATA GENERATION ----
-## plot_datagen_fcns(flist) ----
 plot_datagen_fcns <- function(
     flist, 
     min_x = -3, 
@@ -204,7 +191,7 @@ plot_datagen_fcns <- function(
 
   return(plt)
 }
-## sim_linear_data ----
+
 sim_linear_data <- function(
   n_obs = 100,
   err_sigma = 1,
@@ -292,7 +279,6 @@ sim_func_data <- function(
 }
 
 
-## sim_func_data_unifx----
 sim_func_data_unifx <- function(
     n_obs = 1000,
     d_in = 10,
@@ -324,9 +310,6 @@ sim_func_data_unifx <- function(
 
 
 # ASSESSMENT FUNCS ----
-
-## binary error----
-### binary_err_mat ----
 binary_err_mat <- function(est, tru){
   # returns 4-row matrix of FP, TP, FN, TN
   FP <- est - tru == 1
@@ -336,13 +319,11 @@ binary_err_mat <- function(est, tru){
   return(rbind(FP, TP, FN, TN))
 }
 
-### binary_err----
 binary_err <- function(est, tru){
   # returns FP, TP, FN, TN as percentage of all decisions
   rowSums(binary_err_mat(est, tru)) / length(tru)  
 }
 
-### binary_err_rate----
 binary_err_rate <- function(est, tru){
   # returns FP, TP, FN, TN rates
   decision_counts <- rowSums(binary_err_mat(est, tru))
@@ -355,9 +336,163 @@ binary_err_rate <- function(est, tru){
   decision_counts / denom
 }
 
-## plotting predicted functions ----
+BFDR <- function(dropout_probs, eta){
+  delta_vec <- 1 * (dropout_probs <= eta)
+  if (sum(delta_vec) == 0){ 
+    warning("no included variables; returning BFDR = 0") 
+    bfdr <- 0
+  } else {
+    bfdr <- sum((dropout_probs) * delta_vec) / sum(delta_vec)
+  }
+  return(
+    list(
+      "delta_i" = delta_vec,
+      "bfdr" = bfdr
+    )
+  )
+}
 
-### make_pred_mats----
+FDR <- function(delta_vec, true_gam = c(rep(1, 4), rep(0, 100))){
+  if (sum(delta_i) == 0){
+    return(0)
+  } else {
+    return(sum((delta_i - true_gam) == 1) / sum(delta_i))
+  }
+}
+
+BFDR_eta_search <- function(dropout_probs, max_rate = 0.05){
+  a_sort <- sort(dropout_probs)
+  bfdrs <- sapply(a_sort, function(X) BFDR(dropout_probs, eta = X)$bfdr)
+  inds <- which(bfdrs <= max_rate)
+  if (length(inds)==0){
+    warning("no threshold found, returning eta = 0")
+    return(0)
+  } else {
+    a_sort[max(inds)]
+  }
+}
+
+err_from_dropout <- function(
+    dropout_vec, 
+    max_bfdr = 0.01, 
+    true_gam = c(rep(1, 4), rep(0, 100))
+){
+  eta <- BFDR_eta_search(dropout_vec, max_rate = max_bfdr)
+  bfdr <- BFDR(dropout_vec, eta)$bfdr
+  delta_i <- BFDR(dropout_vec, eta)$delta_i
+  bin_err <- binary_err_rate(est = delta_i, tru = true_gam)
+  fdr <- FDR(delta_vec = delta_i, true_gam = true_gam)
+  c("fdr" = fdr, "bfdr" = bfdr, bin_err)
+}
+
+get_s_params <- function(nn_model_layer){
+  sa <- as_array(nn_model_layer$sa_mu)
+  sb <- as_array(nn_model_layer$sb_mu)
+  sa_lvar <- as_array(nn_model_layer$sa_logvar)
+  sb_lvar <- as_array(nn_model_layer$sb_logvar)
+  return(
+    list(
+      "sa" = sa,
+      "sb" = sb,
+      "sa_lvar" = sa_lvar,
+      "sb_lvar" = sb_lvar
+    )
+  )
+}
+
+get_ztil_params <- function(nn_model_layer){
+  atil <- as_array(nn_model_layer$atilde_mu)
+  btil <- as_array(nn_model_layer$btilde_mu)
+  atil_lvar <- as_array(nn_model_layer$atilde_logvar)
+  btil_lvar <- as_array(nn_model_layer$btilde_logvar)
+  return(
+    list(
+      "at" = atil,
+      "bt" = btil,
+      "at_lvar" = atil_lvar,
+      "bt_lvar" = btil_lvar
+    )
+  )
+}
+
+get_s_sq <- function(nn_model_layer, ln_fcn = ln_mode){
+  s_params <- get_s_params(nn_model_layer)
+  s_sq <- ln_fcn(
+    s_params$sa + s_params$sb, 
+    exp(s_params$sa_lvar) + exp(s_params$sb_lvar)
+  )
+  return(s_sq)
+}
+
+get_ztil_sq <- function(nn_model_layer, ln_fcn = ln_mode){
+  ztil_params <- get_ztil_params(nn_model_layer)
+  ztil_sq <- ln_fcn(
+    ztil_params$at + ztil_params$bt, 
+    exp(ztil_params$at_lvar) + exp(ztil_params$bt_lvar)
+  )
+  return(ztil_sq)
+}
+
+get_kappas <- function(nn_model_layer, type = "global"){
+  ztil_sq <- get_ztil_sq(nn_model_layer)
+  if (type == "global"){
+    s_sq <- get_s_sq(nn_model_layer)
+    kappas <- 1 / ( 1 + s_sq*ztil_sq)
+  } else if (type == "local"){
+    kappas <- 1 / ( 1 + ztil_sq)
+  } else {
+    warning("type must be global or local")
+  }
+  return(kappas)
+}
+
+get_wtil_params <- function(nn_model_layer){
+  wtil_lvar <- as_array(nn_model_layer$weight_logvar)
+  wtil_mu <- as_array(nn_model_layer$weight_mu)
+  return(
+    list(
+      "wtil_lvar" = wtil_lvar,
+      "wtil_mu" = wtil_mu
+    )
+  )
+}
+
+
+get_Wz_params <- function(nn_model_layer){
+  # these are the params for the CONDITIONAL W | z 
+  wtil_params <- get_wtil_params(nn_model_layer)
+  z_sq <- get_s_sq(nn_model_layer) * get_ztil_sq(nn_model_layer)
+  # # checking sweep function
+  # # want to multiply test_mat column j by element j in mult_vec
+  # test_mat <- cbind(
+  #   c(0,0,0,0,0),
+  #   c(1, 1, 1, 1, 1),
+  #   c(-1, -1, -1, -1, -1)
+  # )
+  # test_mat
+  # mult_vec <- 1:3
+  # sweep(test_mat, 2, STATS = mult_vec, FUN = "*")
+  Wz_mu <- sweep(
+    wtil_params$wtil_mu, 
+    MARGIN = 2, 
+    STATS = sqrt(z_sq), 
+    FUN = "*"
+  )
+  Wz_var <- sweep(
+    exp(wtil_params$wtil_lvar), 
+    MARGIN = 2, 
+    STATS = z_sq, 
+    FUN = "*"
+  )
+  return(
+    list(
+      "Wz_mu" = Wz_mu,
+      "Wz_var" = Wz_var
+    )
+  )
+}
+
+## plotting predicted functions ----
 make_pred_mats <- function(flist, xgrid = seq(-4.9, 5, length.out = 100), d_in){
   require(torch)
   n_truevars <- length(flist)
@@ -385,7 +520,6 @@ make_pred_mats <- function(flist, xgrid = seq(-4.9, 5, length.out = 100), d_in){
   )
 }
 
-### plot_fcn_preds----
 plot_fcn_preds <- function(torchmod, pred_mats, want_df = FALSE, want_plot = TRUE){
   vis_df <- pred_mats$vis_df
   vis_df$y_pred <- as_array(torchmod(pred_mats$x_tensor))
@@ -423,7 +557,6 @@ plot_fcn_preds <- function(torchmod, pred_mats, want_df = FALSE, want_plot = TRU
 
 
 # FOR LM() ----
-## calc_lm_stats----
 calc_lm_stats <- function(lm_fit, true_coefs, alpha = 0.05){
   beta_hat <- summary(lm_fit)$coef[-1, 1]
   binary_err <- binary_err_rate(
@@ -438,7 +571,6 @@ calc_lm_stats <- function(lm_fit, true_coefs, alpha = 0.05){
   )
 }
 
-## get_lm_stats ----
 get_lm_stats <- function(simdat, alpha = 0.05){
   lm_df <- data.frame(
     "y" = as_array(simdat$y), 
@@ -473,9 +605,7 @@ get_lm_stats <- function(simdat, alpha = 0.05){
 # FOR LASSO ----
 
 
-
 # SIMULATION FCNS ----
-## hot_start_DNN ----
 hot_start_DNN <- function(
     sim_ind,
     sim_params,
@@ -578,7 +708,7 @@ hot_start_DNN <- function(
   return(DNN)
 }
 
-## horseshoe, basic linear regression setting ----
+
 sim_fcn_hshoe_linreg <- function(
     sim_ind,    # to ease parallelization
     sim_params,     # see example
@@ -736,12 +866,11 @@ sim_fcn_hshoe_linreg <- function(
     if (ttsplit_used) {
       prev_loss_test <- loss_test
       yhat_test <- model_fit(x_test) 
-      # **WOULD LIKE THIS TO BE DETERMINISTIC, i.e. based on post pred means** ----
       mse_test <- nnf_mse_loss(yhat_test, y_test)
     }
     
     
-    # store results (every `report_every` epochs) ----
+    ### store results (every `report_every` epochs) ----
     time_to_report <- epoch!=0 & (epoch %% report_every == 0)
     if (time_to_report){
       row_ind <- epoch %/% report_every
@@ -770,7 +899,7 @@ sim_fcn_hshoe_linreg <- function(
     } # end result storing and updating
     
     
-    # in-console and graphical training updates ----
+    ## in-console and graphical training updates ----
     if (time_to_report & verbose){
       cat(
         "Epoch:", epoch,
@@ -852,7 +981,7 @@ sim_fcn_hshoe_linreg <- function(
     stop_criteria_met <- epoch > train_epochs
   } # end training WHILE loop
   
-  # compile results ----
+  ## compile results ----
   sim_res <- list(
     "sim_ind" = sim_ind,
     "loss_mat" = loss_mat,
@@ -893,15 +1022,13 @@ sim_fcn_hshoe_linreg <- function(
   return(sim_res)
 }
 
-## horseshoe, functional data ----
+
 # fcn1 <- function(x) exp(x/2)
 # fcn2 <- function(x) cos(pi*x) + sin(pi/1.2*x)
 # fcn3 <- function(x) abs(x)^(1.5)
 # fcn4 <- function(x) - (abs(x))
 # flist = list(fcn1, fcn2, fcn3, fcn4)
 
-
-## sim_fcn_hshoe_fcnaldata----
 sim_fcn_hshoe_fcnaldata <- function(
     sim_ind,    # to ease parallelization
     sim_params,     # same as before, but need to include flist
@@ -1127,7 +1254,7 @@ sim_fcn_hshoe_fcnaldata <- function(
     }
     
     
-    # store results (every `report_every` epochs) ----
+    ### store results (every `report_every` epochs) ----
     time_to_report <- epoch!=0 & (epoch %% report_every == 0)
     if (time_to_report){
       row_ind <- epoch %/% report_every
@@ -1156,7 +1283,7 @@ sim_fcn_hshoe_fcnaldata <- function(
     } # end result storing and updating
     
     
-    # in-console and graphical training updates ----
+    ### in-console and graphical training updates ----
     if (time_to_report & verbose){
       cat(
         "Epoch:", epoch,
@@ -1278,7 +1405,7 @@ sim_fcn_hshoe_fcnaldata <- function(
     stop_criteria_met <- epoch > train_epochs
   } # end training WHILE loop
   
-  # compile results ----
+  ## compile results ----
   sim_res <- list(
     "sim_ind" = sim_ind,
     "stop_epochs" = stop_epochs,
@@ -1327,9 +1454,10 @@ sim_fcn_hshoe_fcnaldata <- function(
 
 
 
-## sim_hshoe----
+
 sim_hshoe <- function(
-    sim_ind,    # to ease parallelization
+    sim_ind = NULL,    # to ease parallelization
+    seed = NULL,
     sim_params,     # same as before, but need to include flist
     nn_model,   # torch nn_module,
     verbose = TRUE,   # provide updates in console
@@ -1343,8 +1471,12 @@ sim_hshoe <- function(
     save_mod_path_stem = NULL
 ){
   ## generate data ----
-  set.seed(sim_params$sim_seeds[sim_ind])
-  torch_manual_seed(sim_params$sim_seeds[sim_ind])
+  if (is.null(seed)){
+    seed <- sim_params$sim_seeds[sim_ind]
+  }
+  
+  set.seed(seed)
+  torch_manual_seed(seed)
   
   simdat <- sim_func_data(
     n_obs = sim_params$n_obs,
@@ -1367,7 +1499,7 @@ sim_hshoe <- function(
                                        "results", 
                                        paste0("fcnl_hshoe_mod_", 
                                               sim_params$n_obs, "obs_", 
-                                              sim_params$sim_seeds[sim_ind]
+                                              seed
                                        ))
     }
     save_mod_path <- paste0(save_mod_path_stem, ".pt")
@@ -1389,7 +1521,7 @@ sim_hshoe <- function(
   
   # to feed into BNN model during training loop updates
   curvmat <- matrix(0, ncol = length(sim_params$flist), nrow = length(sim_params$flist) * 100)
-  for (i in 1:length(flist)){
+  for (i in 1:length(sim_params$flist)){
     curvmat[1:length(xshow) + (i-1) * length(xshow), i] <- xshow
   }
   mat0 <- matrix(0, nrow = nrow(curvmat), ncol = sim_params$d_in - length(sim_params$flist))
@@ -1416,13 +1548,14 @@ sim_hshoe <- function(
   rownames(loss_mat) <- report_epochs
   
   
-  # store: alphas
+  # store: alphas, kappas
   alpha_mat <- matrix(
     NA, 
     nrow = length(report_epochs),
     ncol = sim_params$d_in
   )
   rownames(alpha_mat) <- report_epochs
+  kappa_mat <- alpha_mat
   
   # store: weight posterior params
   if (want_all_params){
@@ -1433,15 +1566,13 @@ sim_hshoe <- function(
       btilde_mu_mat <-
       atilde_logvar_mat <-
       btilde_logvar_mat <- alpha_mat
-    
-    # global_dropout_vec <-   
-      # tau_vec <- 
-      if (!local_only){
-        sa_mu_vec <-
-        sb_mu_vec <- 
-        sa_logvar_vec <- 
-        sb_logvar_vec <- rep(NA, length(report_epochs))
-      }
+
+    if (!local_only){
+      sa_mu_vec <-
+      sb_mu_vec <- 
+      sa_logvar_vec <- 
+      sb_logvar_vec <- rep(NA, length(report_epochs))
+    }
   }
   
   
@@ -1538,6 +1669,8 @@ sim_hshoe <- function(
       loss_mat[row_ind, ] <- c(kl$item(), mse$item(), mse_test$item())
       dropout_alphas <- model_fit$fc1$get_dropout_rates()
       alpha_mat[row_ind, ] <- as_array(dropout_alphas)
+      kappas <- get_kappas(model_fit$fc1)
+      kappa_mat[row_ind, ] <- kappas
       
       # storing other optional parameters, mostly for diagnostics
       if (want_all_params){
@@ -1561,7 +1694,7 @@ sim_hshoe <- function(
     } # end result storing and updating
     
     
-    # in-console and graphical training updates ----
+    ### in-console and graphical training updates ----
     if (!time_to_report & verbose & (epoch %% sim_params$report_every == 1)){cat("Training:")}
     if (!time_to_report & verbose & (epoch %% 100 == 0)){cat("#")}
     if (time_to_report & verbose){
@@ -1581,8 +1714,17 @@ sim_hshoe <- function(
         round(as_array(dropout_alphas), 3),
         "."
       )
-      cat("alphas below ", round(sim_params$alpha_thresh, 4), ": ")
-      cat(display_alphas, sep = " ")
+      
+      cat("kappas: ", round(kappas, 2), "\n")
+      display_kappas <- ifelse(
+        as_array(dropout_kappas) <= 0.9,
+        round(as_array(dropout_alphas), 3),
+        "."
+      )
+      cat("kappas below 0.9: ")
+      cat(display_kappas, sep = " ")
+      
+      
       
       # if (length(stop_epochs > 0)){
       #   stop_msg <- paste0(
@@ -1685,13 +1827,14 @@ sim_hshoe <- function(
     stop_criteria_met <- epoch > sim_params$train_epochs
   } # end training WHILE loop
   
-  # compile results ----
+  ### compile results ----
   sim_res <- list(
     "sim_ind" = sim_ind,
     # "stop_epochs" = stop_epochs,
     "fcn_plt" = plt,
     "loss_mat" = loss_mat,
-    "alpha_mat" = alpha_mat
+    "alpha_mat" = alpha_mat,
+    "kappa_mat" = kappa_mat
   )
   
   if (want_all_params){
@@ -1713,7 +1856,7 @@ sim_hshoe <- function(
     # sim_res$tau_vec <- tau_vec
   } 
   
-  # notify completed training ----
+  ### notify completed training ----
   completed_msg <- paste0(
     "\n \n ******************** \n ******************** \n",
     "sim #", 
@@ -1725,7 +1868,7 @@ sim_hshoe <- function(
   )
   cat_color(txt = completed_msg)
   
-  # save torch model & sim results ----
+  ### save torch model & sim results ----
   if (save_mod){
     torch_save(model_fit, path = save_mod_path)
     cat_color(txt = paste0("model saved: ", save_mod_path))
@@ -1744,27 +1887,6 @@ sim_hshoe <- function(
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-## sim_continue_training----
 sim_continue_training <- function(
     sim_seed,
     sim_params,     # same as before, but need to include flist
@@ -1994,7 +2116,7 @@ sim_continue_training <- function(
     } # end result storing and updating
     
     
-    # in-console and graphical training updates ----
+    ### in-console and graphical training updates ----
     if (!time_to_report & verbose & (epoch %% sim_params$report_every == 1)){cat("Training:")}
     if (!time_to_report & verbose & (epoch %% 100 == 0)){cat("#")}
     if (time_to_report & verbose){
@@ -2118,7 +2240,7 @@ sim_continue_training <- function(
     stop_criteria_met <- epoch > sim_params$train_epochs
   } # end training WHILE loop
   
-  # compile results ----
+  ## compile results ----
   sim_res <- list(
     "sim_seed" = sim_seed,
     # "stop_epochs" = stop_epochs,
@@ -2144,7 +2266,7 @@ sim_continue_training <- function(
     # sim_res$tau_vec <- tau_vec
   } 
   
-  # notify completed training ----
+  ## notify completed training ----
   completed_msg <- paste0(
     "\n \n ******************** \n ******************** \n",
     "sim seed", 
@@ -2156,7 +2278,7 @@ sim_continue_training <- function(
   )
   cat_color(txt = completed_msg)
   
-  # save torch model ----
+  ## save torch model ----
   if (save_mod){
     torch_save(model_fit, path = save_mod_path)
     cat_color(txt = paste0("model saved: ", save_mod_path))
