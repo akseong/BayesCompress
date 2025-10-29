@@ -2102,6 +2102,7 @@ sim_hshoe <- function(
     
     ### in-console and graphical training updates ----
     # visual updating on epochs
+    # cat("\r", "Progress:", i, "%")
     if (!time_to_report & verbose & (epoch %% sim_params$report_every == 1)){cat("Training till next report:")}
     if (!time_to_report & verbose & (epoch %% round(sim_params$report_every/100) == 1)){cat("#")}
     

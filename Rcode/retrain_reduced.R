@@ -13,6 +13,7 @@ library(gridExtra)
 
 library(torch)
 source(here("Rcode", "torch_horseshoe.R"))
+source(here("Rcode", "torch_horseshoe_initvals.R"))
 source(here("Rcode", "sim_functions.R"))
 
 
@@ -291,7 +292,17 @@ MLHS_red <- nn_module(
       use_cuda = sim_params$use_cuda,
       tau = 1,
       init_weight = nn_model$fc1$weight_mu[l1_selected_nodes, ],
-      init_bias = NULL,
+      init_bias = nn_model$fc1$bias_mu[l1_selected_nodes],
+      init_sa = nn_model$fc1$sa_mu, 
+      init_sb = nn_model$fc1$sb_mu, 
+      init_atilde = nn_model$fc1$atilde_mu, 
+      init_btilde = nn_model$fc1$btilde_mu, 
+      init_weight_logvar = nn_model$fc1$weight_logvar[l1_selected_nodes, ], 
+      init_bias_logvar = nn_model$fc1$bias_logvar[l1_selected_nodes], 
+      init_sa_logvar = nn_model$fc1$sa_logvar, 
+      init_sb_logvar = nn_model$fc1$sb_logvar, 
+      init_atilde_logvar = nn_model$fc1$atilde_logvar, 
+      init_btilde_logvar = nn_model$fc1$btilde_logvar, 
       init_alpha = 0.9,
       clip_var = TRUE
     )
@@ -302,7 +313,17 @@ MLHS_red <- nn_module(
       use_cuda = sim_params$use_cuda,
       tau = 1,
       init_weight = nn_model$fc2$weight_mu[l2_selected_nodes, l1_selected_nodes],
-      init_bias = NULL,
+      init_bias = nn_model$fc2$bias_mu[l2_selected_nodes],
+      init_sa = nn_model$fc2$sa_mu, 
+      init_sb = nn_model$fc2$sb_mu, 
+      init_atilde = nn_model$fc2$atilde_mu[l1_selected_nodes], 
+      init_btilde = nn_model$fc2$btilde_mu[l1_selected_nodes], 
+      init_weight_logvar = nn_model$fc2$weight_logvar[l2_selected_nodes, l1_selected_nodes], 
+      init_bias_logvar = nn_model$fc2$bias_logvar[l2_selected_nodes], 
+      init_sa_logvar = nn_model$fc2$sa_logvar, 
+      init_sb_logvar = nn_model$fc2$sb_logvar, 
+      init_atilde_logvar = nn_model$fc2$atilde_logvar[l1_selected_nodes], 
+      init_btilde_logvar = nn_model$fc2$btilde_logvar[l1_selected_nodes], 
       init_alpha = 0.9,
       clip_var = TRUE
     )
@@ -335,7 +356,17 @@ MLHS_red <- nn_module(
       use_cuda = sim_params$use_cuda,
       tau = 1,
       init_weight = nn_model$fc3$weight_mu[, l2_selected_nodes],
-      init_bias = NULL,
+      init_bias = nn_model$fc3$bias_mu,
+      init_sa = nn_model$fc3$sa_mu, 
+      init_sb = nn_model$fc3$sb_mu, 
+      init_atilde = nn_model$fc3$atilde_mu[l2_selected_nodes], 
+      init_btilde = nn_model$fc3$btilde_mu[l2_selected_nodes], 
+      init_weight_logvar = nn_model$fc3$weight_logvar[, l2_selected_nodes], 
+      init_bias_logvar = nn_model$fc3$bias_logvar, 
+      init_sa_logvar = nn_model$fc3$sa_logvar, 
+      init_sb_logvar = nn_model$fc3$sb_logvar, 
+      init_atilde_logvar = nn_model$fc3$atilde_logvar[l2_selected_nodes], 
+      init_btilde_logvar = nn_model$fc3$btilde_logvar[l2_selected_nodes], 
       init_alpha = 0.9,
       clip_var = TRUE
     )
@@ -380,14 +411,8 @@ save_mod_path_stem <- here::here("sims",
                                         "_RED"
                                  ))
 
-sim_params$train_epochs <- 2e5
-nn_red <- MLHS_red()
-
-
-nn_red$fc1
-nn_red$fc2
-nn_red$fc3
-
+sim_params$train_epochs <- 2e4
+sim_params$report_every <- 1000
 
 sim_res_red <- sim_hshoe(
   seed = seeds[seednum],
