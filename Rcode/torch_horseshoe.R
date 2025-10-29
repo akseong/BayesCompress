@@ -136,7 +136,7 @@ log_dropout <- function(hs_layer, type = "local"){
 
 
 torch_hs <- nn_module(
-  # last modified 10/10/2025
+  # last modified 10/29/2025 - can now specify initial values for all params
   classname = "horseshoe_layer",
   
   initialize = function(
