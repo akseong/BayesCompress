@@ -2126,8 +2126,8 @@ sim_hshoe <- function(
       
       cat("kappas: ", round(kappas, 2), "\n")
       display_kappas <- ifelse(
-        as_array(kappas) <= 0.9,
-        round(as_array(kappas), 3),
+        kappas <= 0.9,
+        round(kappas, 3),
         "."
       )
       cat("kappas below 0.9: ")
