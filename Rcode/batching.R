@@ -47,18 +47,22 @@ plot_datagen_fcns(flist)
 #   geom_line() + 
 #   labs(title = "functions used to create data")
 
-
-
-
 ## sim_params
 #    check whenever changing setting (testing / single vs parallel, etc) ##
 #           n_sims, verbose, want_plots, train_epochs
 
+
+save_mod_path_prestem <- here::here(
+  "sims", 
+  "results", 
+  "hshoe_reparamz_"
+)
+
 sim_params <- list(
-  "sim_name" = "hshoe, tau fixed, 2 layers 16 8, nobatching, fcnal data.  ",
-  "seed" = 21681,
-  "n_sims" = 5, 
-  "train_epochs" = 5e5, # 15E5,
+  "sim_name" = "hshoe, bias inclusion fixed?, 2 layers 16 8, nobatching, fcnal data.  ",
+  "seed" = 21682,
+  "n_sims" = 2, 
+  "train_epochs" = 4e5, # 15E5,
   "report_every" = 1e4, # 1E4,
   "use_cuda" = use_cuda,
   "d_in" = 104,
@@ -81,6 +85,10 @@ sim_params <- list(
 )
 set.seed(sim_params$seed)
 sim_params$sim_seeds <- floor(runif(n = sim_params$n_sims, 0, 1000000))
+
+
+
+
 
 ## define model
 MLHS <- nn_module(
@@ -181,18 +189,26 @@ sim_params$model <- MLHS
 
 res <- lapply(
   1:sim_params$n_sims,
-  function(X) sim_hshoe(
-    sim_ind = X,
-    sim_params = sim_params,     # same as before, but need to include flist
-    nn_model = MLHS,   # torch nn_module,
-    verbose = TRUE,      # provide updates in console
-    want_plots = FALSE,   # provide graphical updates of KL, MSE
-    want_fcn_plots = TRUE, # display predicted functions
-    save_fcn_plots = TRUE,
-    want_all_params = TRUE,
-    save_mod = TRUE,
-    save_mod_path_stem = NULL
-  )
+  function(X) {
+    save_mod_path_stem <- paste0(
+      save_mod_path_prestem,
+      sim_params$n_obs, "obs_", 
+      sim_params$sim_seeds[X]
+    )
+    
+    sim_hshoe(
+      sim_ind = X,
+      sim_params = sim_params,     # same as before, but need to include flist
+      nn_model = MLHS,   # torch nn_module,
+      verbose = TRUE,      # provide updates in console
+      want_plots = FALSE,   # provide graphical updates of KL, MSE
+      want_fcn_plots = TRUE, # display predicted functions
+      save_fcn_plots = TRUE,
+      want_all_params = TRUE,
+      save_mod = TRUE,
+      save_mod_path_stem = save_mod_path_stem
+    )
+  }
 )
 
 
