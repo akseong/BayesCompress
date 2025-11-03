@@ -2124,6 +2124,8 @@ sim_hshoe <- function(
         round(as_array(dropout_alphas), 3),
         "."
       )
+      cat("alphas below 0.82: ")
+      cat(display_alphas, sep = " ")
       
       cat("kappas: ", round(kappas, 2), "\n")
       display_kappas <- ifelse(
