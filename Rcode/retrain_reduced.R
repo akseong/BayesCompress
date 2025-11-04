@@ -29,7 +29,14 @@ load(res_fnames[seednum])
 # RETRAIN ----
 sim_res$loss_mat
 sim_params <- sim_res$sim_params
-sim_params$use_cuda <- nn_model$fc1$atilde_logvar$is_cuda
+if (torch::cuda_is_available()){
+  use_cuda <- TRUE
+  message("Default tensor device set to GPU (CUDA).")
+} else {
+  use_cuda <- FALSE
+  message("Default tensor device remains CPU.")
+}
+sim_params$use_cuda <- use_cuda
 
 set.seed(seeds[seednum])
 torch_manual_seed(seeds[seednum])
