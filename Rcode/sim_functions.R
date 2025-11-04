@@ -1963,7 +1963,7 @@ sim_hshoe <- function(
   rownames(alpha_mat) <- report_epochs
   kappa_mat <- alpha_mat
   
-  # store: weight posterior params
+  # store: weight params
   if (want_all_params){
     w_mu_arr <-
       w_lvar_arr <- array(NA, dim = c(sim_params$d_hidden1, sim_params$d_in, length(report_epochs)))

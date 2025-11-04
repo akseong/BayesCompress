@@ -206,7 +206,7 @@ save_mod_path_stem <- here::here("sims",
                                         "_REDL1only"
                                  ))
 
-sim_params$train_epochs <- 2e5
+sim_params$train_epochs <- 5e5
 sim_params$report_every <- 10000
 
 sim_res_red <- sim_hshoe(
@@ -216,7 +216,7 @@ sim_res_red <- sim_hshoe(
   nn_model = MLHS_red,   # torch nn_module,
   verbose = TRUE,   # provide updates in console
   want_plots = FALSE,   # provide graphical updates of KL, MSE
-  want_fcn_plots = FALSE,   # display predicted functions
+  want_fcn_plots = TRUE,   # display predicted functions
   save_fcn_plots = TRUE,
   want_all_params = TRUE,
   local_only = FALSE,
