@@ -202,7 +202,7 @@ MLHS_red <- nn_module(
 )
 
 sim_params$model_red <- MLHS_red
-sim_params$sim_name <- paste0("reduced layer 1 based on kappas from: ", sim_params$sim_name)
+sim_params$sim_name <- paste0("reduced layer 1 only based on kappas from: ", sim_params$sim_name)
 sim_params$d_hidden1 <- d1_red
 sim_params$d_hidden2 <- d2_red
 save_mod_path_stem <- here::here("sims", 
