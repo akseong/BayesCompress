@@ -13,7 +13,6 @@ library(gridExtra)
 
 library(torch)
 source(here("Rcode", "torch_horseshoe.R"))
-source(here("Rcode", "torch_horseshoe_initvals.R"))
 source(here("Rcode", "sim_functions.R"))
 
 
@@ -79,6 +78,9 @@ k1means <- rowMeans(k1_mat)
 k2means <- rowMeans(k2_mat)
 k3means <- rowMeans(k3_mat)
 
+
+
+round(k2_mat, 2)
 
 k1_sum <- k2_sum <- k3_sum <- rep(NA, 4)
 for (i in 1:4){
@@ -219,5 +221,140 @@ plot_datagen_fcns(sim_res$sim_params$flist)
 # sharpness of function 4 is probably causing problems, especially
 # because x-values are centered around 0 (sharp peak).  
 # Replace with long-period sine / cos wave?  Or polynomial function?
+
+
+
+
+
+
+# NON-REDUCED, known good model ----
+seeds
+seednum <- 2 # 191578 seems OK
+nn_model <- torch::torch_load(mod_fnames[seednum], device = "cpu")
+
+s_params <- get_s_params(nn_model$fc1)
+# p(s_a) = gamma, q(s_a) = LN
+# s_b: IG, LN
+# atilde: gamma, LN
+# btilde: IG, LN
+ln_mean(mu = s_params$sa, var = exp(s_params$sa_lvar))
+lsa_samp <- rnorm(1000, mean = s_params$sa, sd = exp(s_params$sa_lvar/2))
+hist(exp(lsa_samp))
+
+ln_mean(mu = s_params$sb, var = exp(s_params$sb_lvar))
+lsb_samp <- rnorm(1000, mean = s_params$sb, sd = exp(s_params$sb_lvar/2))
+hist(exp(lsb_samp))
+
+s_sq <- get_s_sq(nn_model$fc1)  
+ztilsq <- get_ztil_sq(nn_model$fc1)
+round(ztilsq, 3)
+k1 <- get_kappas(nn_model$fc1)
+
+
+k2 <- get_kappas(nn_model$fc2)
+s_sq2 <- get_s_sq(nn_model$fc2)
+ztil_sq2 <- get_ztil_sq(nn_model$fc2)
+zsq2 <- s_sq2 * ztil_sq2
+round(ztil_sq2, 3)
+round(zsq2, 3)
+gm_zsq2 <- exp(mean(log(zsq2)))
+
+
+get_zsq <- function(nn_model_layer, ln_fcn = ln_mode){
+  s_sq <- get_s_sq(nn_model_layer, ln_fcn)
+  ztil_sq <- get_ztil_sq(nn_model_layer, ln_fcn)
+  return(s_sq * ztil_sq)
+}
+
+geom_mean <- function(vec){
+  exp(mean(log(vec)))
+}
+s_sq3 <- get_s_sq(nn_model$fc3)
+zsq3 <- get_zsq(nn_model$fc3)
+gm_zsq3 <- geom_mean(zsq3)
+
+s_sq
+s_sq2
+s_sq3
+
+
+gm_zsq2
+
+# dividing by successive layers' s_sq params --- idea is that 
+# successive layers' global shrinkage parameters indicates weights that should have been
+# removed but weren't.  Since the previous layer has more neurons than it should, this 
+# makes the previous layer's global scale factor smaller than it should be.
+sq1_corrected <- s_sq / (s_sq2 * s_sq3)
+k1_corrected <- 1 / (1 + ztilsq*sq1_corrected)
+round(k1_corrected, 2)
+# ... Actually, this argument seems better applied when taking into account the 
+# local scale factors (since the local scale factors are what actually dictate whether
+# a neuron from the revious layer is removed).
+
+
+#### workable / justifiable? ---- 
+# Divide current layer's scale parameters by the geometric mean 
+# of successive layers' scale params --- idea is that 
+# successive layer's scale params indicates neurons that 
+# **should have been removed** from the previous layer
+# but weren't.  Since the previous layer has more neurons than it should, this 
+# makes the previous layer's global scale factor smaller than it should be.
+z_sq <- get_zsq(nn_model$fc1)
+zsq2 <- get_zsq(nn_model$fc2)
+gm_zsq2 <- geom_mean(zsq2)
+zsq3 <- get_zsq(nn_model$fc3)
+gm_zsq3 <- geom_mean(zsq3)
+
+
+mod_zsq1 <- z_sq / gm_zsq2
+mod_k1 <- 1 / (1 + mod_zsq1)
+round(mod_k1, 2)
+round(k1, 3)
+
+
+
+Wz_params <- get_Wz_params(nn_model$fc1)
+Wz_mu <- Wz_params$Wz_mu
+Wz_var <- Wz_params$Wz_var
+
+
+
+
+
+
+
+# counterargument: more layers 
+
+
+mod2_zsq1 <- z_sq / gm_zsq2
+round(mod2_zsq1, 2)
+mod2_k1 <- 1 / (1 + mod2_zsq1)
+round(mod2_k1, 2)
+round(k1, 3)
+
+
+
+
+
+
+
+
+# REDUCED model ----
+# reduced layers # neurons in both layers 1 and 2
+# this is not trained enough, most likely, and I didn't include all params by mistake
+fname_stem <- here::here(
+  "sims", "results", 
+  "fcnl_hshoe_mod_12500obs_191578_RED"
+)
+nn_model <- torch::torch_load(
+  paste0(fname_stem, ".pt"), 
+  device = "cpu")
+
+load(paste0(fname_stem, ".RData"))
+
+get_s_sq(nn_model$fc1)  #### ugh, this is even smaller than in the non-reduced model.
+ztilsq <- get_ztil_sq(nn_model$fc1)
+round(ztilsq, 3)
+round(1 / (1 + ztilsq), 3)
 
 
