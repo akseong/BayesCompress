@@ -17,14 +17,21 @@ source(here("Rcode", "sim_functions.R"))
 
 
 # load
-seeds <- c(966694, 191578, 272393, 718069, 377047)
-mod_stem <- here::here("sims", "results", "fcnl_hshoe_mod_12500obs_")
-mod_fnames <- paste0(mod_stem, seeds, ".pt")
-res_fnames <- paste0(mod_stem, seeds, ".RData")
-seednum <- 2
-nn_model <- torch::torch_load(mod_fnames[seednum], device = "cpu")
-load(res_fnames[seednum])
-
+# seeds <- c(966694, 191578, 272393, 718069, 377047)
+# mod_stem <- here::here("sims", "results", "fcnl_hshoe_mod_12500obs_")
+# mod_fnames <- paste0(mod_stem, seeds, ".pt")
+# res_fnames <- paste0(mod_stem, seeds, ".RData")
+# seednum <- 2
+# nn_model <- torch::torch_load(mod_fnames[seednum], device = "cpu")
+# load(res_fnames[seednum])
+seeds <- 191578
+seednum <- 1
+mod_stem <- here::here("sims", 
+                       "results", 
+                       "fcnl_hshoe_mod_12500obs_191578_REDL1only_1m"
+)
+nn_model <- torch::torch_load(paste0(mod_stem, ".pt"))
+load(paste0(mod_stem, ".RData"))
 
 # RETRAIN ----
 sim_res$loss_mat
@@ -72,7 +79,8 @@ round(k1, 3)
 
 k2 <- get_kappas(nn_model$fc2)
 round(k2, 3)
-l1_selected_nodes <- k2 < mean(k2)
+# l1_selected_nodes <- k2 < mean(k2)
+l1_selected_nodes <- k2 < 1
 d1_red <- sum(l1_selected_nodes)
 d1_red
 
@@ -202,7 +210,8 @@ MLHS_red <- nn_module(
 )
 
 sim_params$model_red <- MLHS_red
-sim_params$sim_name <- paste0("reduced layer 1 only based on kappas from: ", sim_params$sim_name)
+# sim_params$sim_name <- paste0("reduced layer 1 only based on kappas from: ", sim_params$sim_name)
+sim_params$sim_name <- paste0("continue training:", sim_params$sim_name)
 sim_params$d_hidden1 <- d1_red
 sim_params$d_hidden2 <- d2_red
 save_mod_path_stem <- here::here("sims", 
@@ -210,17 +219,18 @@ save_mod_path_stem <- here::here("sims",
                                  paste0("fcnl_hshoe_mod_", 
                                         sim_params$n_obs, "obs_",
                                         seeds[seednum],
-                                        "_REDL1only"
+                                        "_REDL1only_1m_continue"
                                  ))
 
-sim_params$train_epochs <- 5e5
-sim_params$report_every <- 10000
+sim_params$train_epochs <- 1e6
+sim_params$report_every <- 50000
 
 sim_res_red <- sim_hshoe(
   seed = seeds[seednum],
   sim_ind = NULL,
   sim_params,     # same as before, but need to include flist
   nn_model = MLHS_red,   # torch nn_module,
+  learning_rate = 0.01,
   verbose = TRUE,   # provide updates in console
   want_plots = FALSE,   # provide graphical updates of KL, MSE
   want_fcn_plots = TRUE,   # display predicted functions
