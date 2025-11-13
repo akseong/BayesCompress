@@ -1,3 +1,8 @@
+##################################################
+## Project:   scaling activation, smoother functions
+## Date:      Nov 12, 2025
+## Author:    Arnie Seong
+##################################################
 
 #### setup ----
 library(here)
@@ -121,28 +126,28 @@ MLHS <- nn_module(
     
     self$fc3 = torch_hs(
       in_features = sim_params$d_hidden2,
-    #   out_features = sim_params$d_hidden3,
-    #   use_cuda = sim_params$use_cuda,
-    #   tau = 1,
-    #   init_weight = NULL,
-    #   init_bias = NULL,
-    #   init_alpha = 0.9,
-    #   clip_var = TRUE
-    # )
-    # 
-    # self$fc4 = torch_hs(
-    #   in_features = sim_params$d_hidden3,
-    #   out_features = sim_params$d_hidden4,
-    #   use_cuda = sim_params$use_cuda,
-    #   tau = 1,
-    #   init_weight = NULL,
-    #   init_bias = NULL,
-    #   init_alpha = 0.9,
-    #   clip_var = TRUE
-    # )
-    # 
-    # self$fc5 = torch_hs(
-    #   in_features = sim_params$d_hidden4,
+      #   out_features = sim_params$d_hidden3,
+      #   use_cuda = sim_params$use_cuda,
+      #   tau = 1,
+      #   init_weight = NULL,
+      #   init_bias = NULL,
+      #   init_alpha = 0.9,
+      #   clip_var = TRUE
+      # )
+      # 
+      # self$fc4 = torch_hs(
+      #   in_features = sim_params$d_hidden3,
+      #   out_features = sim_params$d_hidden4,
+      #   use_cuda = sim_params$use_cuda,
+      #   tau = 1,
+      #   init_weight = NULL,
+      #   init_bias = NULL,
+      #   init_alpha = 0.9,
+      #   clip_var = TRUE
+      # )
+      # 
+      # self$fc5 = torch_hs(
+      #   in_features = sim_params$d_hidden4,
       out_features = sim_params$d_out,
       use_cuda = sim_params$use_cuda,
       tau = 1,
@@ -161,10 +166,10 @@ MLHS <- nn_module(
       self$fc2() %>%
       nnf_relu() %>%
       self$fc3() # %>%
-      # nnf_relu() %>%
-      # self$fc4() %>% 
-      # nnf_relu() %>%
-      # self$fc5()
+    # nnf_relu() %>%
+    # self$fc4() %>% 
+    # nnf_relu() %>%
+    # self$fc5()
   },
   
   
@@ -181,6 +186,10 @@ MLHS <- nn_module(
 )
 
 sim_params$model <- MLHS
+mod <- MLHS()
+mod$fc1$parameters
+
+
 # verbose = TRUE
 # want_plots = TRUE
 # want_fcn_plots = TRUE

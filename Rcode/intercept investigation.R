@@ -317,8 +317,32 @@ Wz_params <- get_Wz_params(nn_model$fc1)
 Wz_mu <- Wz_params$Wz_mu
 Wz_var <- Wz_params$Wz_var
 
+## look at results from all trained mods
+k_corr_mat <- matrix(NA, nrow = length(seeds), ncol = 104)
+err_mat <- matrix(NA, nrow = length(seeds), ncol = 6)
+for (i in 1:length(seeds)){
+  nn_mod <- torch_load(mod_fnames[i])
+  s_sq1 <- get_s_sq(nn_mod$fc1)
+  s_sq2 <- get_s_sq(nn_mod$fc2)
+  s_sq3 <- get_s_sq(nn_mod$fc3)
+  ztil_sq1 <- get_ztil_sq(nn_mod$fc1)
+  ztil_sq2 <- get_ztil_sq(nn_mod$fc2)
+  ztil_sq3 <- get_ztil_sq(nn_mod$fc3)
+  ztil_sq_gm2 <- geom_mean(ztil_sq2)
+  ztil_sq_gm3 <- geom_mean(ztil_sq3)
+  k_corr <- (1 + ztil_sq1 * s_sq1 / s_sq2)^-1
+  k_corr <- (1 + ztil_sq1 * s_sq1)^-1
+  err <- err_from_dropout(dropout_vec = k_corr, max_bfdr = 0.05)
+  err_mat[i, ] <- err
+  k_corr_mat[i, ] <- k_corr
+}
+colnames(err_mat) <- names(err)
+err_mat
+round(k_corr_mat[, 1:10], 2)
 
-
+round(apply(x, 2, var), 2)
+y <- as_array(simdat$y)
+var(y)
 
 
 
@@ -356,5 +380,143 @@ get_s_sq(nn_model$fc1)  #### ugh, this is even smaller than in the non-reduced m
 ztilsq <- get_ztil_sq(nn_model$fc1)
 round(ztilsq, 3)
 round(1 / (1 + ztilsq), 3)
+
+
+
+
+#### check lm ----
+
+lm_bin_err_mat <- matrix(NA, nrow = length(seeds), ncol = 4)
+lm_varsel <- matrix(NA, nrow = length(seeds), ncol = 104)
+for (i in 1:length(seeds)){
+  seed <- seeds[i]
+  set.seed(seed)
+  torch_manual_seed(seed)
+  
+  # load to get original simulation params sim_res$sim_params
+  load(res_fnames[i]) 
+  
+  # (re)generate data
+  simdat <- sim_func_data(
+    n_obs = 1250,
+    d_in = sim_res$sim_params$d_in,
+    flist = sim_res$sim_params$flist,
+    err_sigma = sim_res$sim_params$err_sig
+  )
+  # if (sim_params$use_cuda){
+  #   simdat$x <- simdat$x$to(device = "cuda")
+  #   simdat$y <- simdat$y$to(device = "cuda")
+  # }
+  
+  # convert torch tensors to R objects
+  x <- as_array(simdat$x)
+  y <- as_array(simdat$y)
+  
+  lm_fit <- lm(y ~ x)
+  pvals <- summary(lm_fit)$coef[-1, 4]
+  lm_delta_i <- p.adjust(pvals, method = "BH", n = length(pvals)) < 0.05
+  lm_varsel[i, ] <- lm_delta_i
+  lm_bin_err <- binary_err_rate(est = lm_delta_i, tru = c(rep(1, 4), rep(0, 100)))
+  lm_bin_err_mat[i, ] <- lm_bin_err
+}
+
+colnames(lm_bin_err_mat) <- names(lm_bin_err)
+lm_bin_err_mat
+lm_varsel
+
+plot_datagen_fcns(sim_res$sim_params$flist)
+# as we would expect, lm picks up on functions that have some overall slope
+
+
+
+# spike-slab ----
+library(BoomSpikeSlab)
+ss_bin_err_mat <- matrix(NA, nrow = length(seeds), ncol = 4)
+for (i in 1:length(seeds)){
+  seed <- seeds[i]
+  set.seed(seed)
+  torch_manual_seed(seed)
+  
+  # load to get original simulation params sim_res$sim_params
+  load(res_fnames[i]) 
+  
+  # (re)generate data
+  simdat <- sim_func_data(
+    n_obs = 1250,
+    d_in = sim_res$sim_params$d_in,
+    flist = sim_res$sim_params$flist,
+    err_sigma = sim_res$sim_params$err_sig
+  )
+  # if (sim_params$use_cuda){
+  #   simdat$x <- simdat$x$to(device = "cuda")
+  #   simdat$y <- simdat$y$to(device = "cuda")
+  # }
+  
+  # convert torch tensors to R objects
+  x <- as_array(simdat$x)
+  y <- as_array(simdat$y)
+  
+  
+  ## spike-slab ----
+  
+  # need to include intercept in covariate matrix given to IndependentSpikeSlabPrior()
+  modmat <- cbind(1, x)
+  prior = IndependentSpikeSlabPrior(modmat, y, 
+                                    expected.model.size = 20,
+                                    prior.beta.sd = rep(1, ncol(modmat))) 
+  
+  lm_ss = lm.spike(y ~ x, niter = 1000, prior = prior, ping = 0)
+  summary(lm_ss)$coef
+  
+  # reorder results to make vars appear in original order 
+  # rather than ordered by Marginal Posterior Inclusion Probability
+  ss_allcoefs_unordered <- summary(lm_ss)$coef
+  ss_intercept <- ss_allcoefs_unordered[rownames(ss_allcoefs_unordered)=="(Intercept)",]
+  ss_coefs_unordered <- ss_allcoefs_unordered[rownames(ss_allcoefs_unordered)!="(Intercept)",]
+  coef_order <- as.numeric(sapply(strsplit(rownames(ss_coefs_unordered), "x"), function(x) x[2]))
+  ss_allcoefs <- rbind(
+    "(Intercept)" = ss_intercept,
+    ss_coefs_unordered[order(coef_order),]
+  )
+  
+  ss_median_mod <- ss_allcoefs[, 5] > 0.5
+  
+  ss_bin_err <- binary_err_rate(est = ss_median_mod[-1], tru = c(rep(1, 4), rep(0, 100)))
+  ss_bin_err_mat[i, ] <- ss_bin_err
+}
+colnames(ss_bin_err_mat) <- names(ss_bin_err)
+ss_bin_err_mat
+
+
+
+
+
+
+
+# calibrate prior on tau: ----
+# Piironen & Vehtari 2017 "Sparsity Info & Regularization in the HShoe" (and others)
+
+calibrate_tau <- function(p_0, J, sig, nobs){
+  p_0 / (J - p_0) * sig / sqrt(nobs)
+}
+
+calibrate_tau(p_0 = 4, J = 104, sig = 1, nobs = 10000)
+
+# regularizes hshoe: ----
+lambda_reg <- function(lambda, tau, c){
+  (c^2 * lambda^2) / (c^2 + tau^2 * lambda^2)
+}
+
+s_sq1 <- get_s_sq(nn_mod$fc1)
+ztil_sq1 <- get_ztil_sq(nn_mod$fc1)
+
+ztil_sq1_reg <- lambda_reg(lambda = sqrt(ztil_sq1), tau = sqrt(s_sq1), c=2)
+round(cbind(ztil_sq1, ztil_sq1_reg), 3)[1:10, ]
+
+
+zsq <- s_sq1 * ztil_sq1
+
+k1 <- (1 + zsq)^-1
+m_eff <- 16 * sum(zsq / (1 + zsq))
 
 
