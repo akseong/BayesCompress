@@ -75,6 +75,13 @@ cat_color <- function(txt, sep_char = ", ", style = 1, color = 36){
   )  
 }
 
+append_txt_file <- function(file_path, msg){
+  # used to keep track of simulation progress on server
+  fileConn<-file(file_path, "a") # "a" specifies "append"
+  writeLines(msg, fileConn)
+  close(fileConn)
+}
+
 ## mathematical operations
 softplus <- function(x){
   log(1 + exp(x))
@@ -96,11 +103,18 @@ clamp <- function(v, lo = 0, hi = 1){
 }
 
 ln_mode <- function(mu, var){
+  # log-normal distribution mode
   exp(mu - var)
 }
 
 ln_mean <- function(mu, var){
+  # log-normal distribution expected value
   exp(mu + var/2)
+}
+
+geom_mean <- function(vec){
+  # geometric mean
+  exp(mean(log(vec)))
 }
 
 vismat <- function(mat, cap = NULL, lims = NULL, leg = TRUE, na0 = TRUE, square){
@@ -491,6 +505,7 @@ get_Wz_params <- function(nn_model_layer){
     )
   )
 }
+
 
 ## plotting predicted functions ----
 make_pred_mats <- function(flist, xgrid = seq(-4.9, 5, length.out = 100), d_in){
@@ -1864,6 +1879,7 @@ sim_continue_training <- function(
 sim_hshoe <- function(
     sim_ind = NULL,    # to ease parallelization
     seed = NULL,
+    learning_rate = 0.001, # default for torch::optim_adam.  LUW uses 0.08 for NJ model
     sim_params,     # same as before, but need to include flist
     nn_model,   # torch nn_module,
     verbose = TRUE,   # provide updates in console
@@ -1897,7 +1913,7 @@ sim_hshoe <- function(
   
   ## initialize BNN & optimizer ----
   model_fit <- nn_model()
-  optim_model_fit <- optim_adam(model_fit$parameters)
+  optim_model_fit <- optim_adam(model_fit$parameters, lr = learning_rate)
   
   if (save_mod){
     if(is.null(save_mod_path_stem)){
