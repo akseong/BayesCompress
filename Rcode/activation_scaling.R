@@ -4,6 +4,8 @@
 ## Author:    Arnie Seong
 ##################################################
 
+# Kaiming initialization used
+
 #### setup ----
 library(here)
 library(tidyr)
@@ -12,7 +14,7 @@ library(ggplot2)
 library(gridExtra)
 
 library(torch)
-source(here("Rcode", "torch_horseshoe.R"))
+source(here("Rcode", "torch_horseshoe_scaling.R"))
 source(here("Rcode", "sim_functions.R"))
 
 
@@ -64,11 +66,11 @@ plot_datagen_fcns(flist)
 save_mod_path_prestem <- here::here(
   "sims", 
   "results", 
-  "hshoe_smoothfcns_"
+  "hshoe_smoothfcns_scaledact_"
 )
 
 sim_params <- list(
-  "sim_name" = "hshoe, smoother functions, 2 layers 16 8, nobatching, fcnal data.  ",
+  "sim_name" = "scaled activations, tau_0 = .5, smoother functions, kaiming init, 2 layers 16 8, nobatching, fcnal data.  ",
   "seed" = 21683,
   "n_sims" = 1, 
   "train_epochs" = 4e5, # 15E5,
@@ -106,7 +108,7 @@ MLHS <- nn_module(
       in_features = sim_params$d_in, 
       out_features = sim_params$d_hidden1,
       use_cuda = sim_params$use_cuda,
-      tau = 1,
+      tau_0 = 1/2,
       init_weight = NULL,
       init_bias = NULL,
       init_alpha = 0.9,
@@ -117,7 +119,7 @@ MLHS <- nn_module(
       in_features = sim_params$d_hidden1,
       out_features = sim_params$d_hidden2,
       use_cuda = sim_params$use_cuda,
-      tau = 1,
+      tau_0 = 1,
       init_weight = NULL,
       init_bias = NULL,
       init_alpha = 0.9,
@@ -150,7 +152,7 @@ MLHS <- nn_module(
       #   in_features = sim_params$d_hidden4,
       out_features = sim_params$d_out,
       use_cuda = sim_params$use_cuda,
-      tau = 1,
+      tau_0 = 1,
       init_weight = NULL,
       init_bias = NULL,
       init_alpha = 0.9,
@@ -161,9 +163,9 @@ MLHS <- nn_module(
   
   forward = function(x) {
     x %>%
-      self$fc1() %>%
+      self$fc1()$mul(1/sim_params$d_hidden1) %>%
       nnf_relu() %>%
-      self$fc2() %>%
+      self$fc2()$mul(1/sim_params$d_hidden2) %>%
       nnf_relu() %>%
       self$fc3() # %>%
     # nnf_relu() %>%
@@ -188,7 +190,21 @@ MLHS <- nn_module(
 sim_params$model <- MLHS
 mod <- MLHS()
 mod$fc1$parameters
+ztil <- get_ztil_sq(mod$fc1)
+s <- get_s_sq(mod$fc1)
+Wz_params <- get_Wz_params(mod$fc1)
+Wz_mu <- Wz_params$Wz_mu
+W_mu <- as_array(mod$fc1$weight_mu)
+mean(diag(cov(W_mu)))
 
+
+nn_init_kaiming_normal_(mod$fc1$weight_mu)
+W_mu_k <- as_array(mod$fc1$weight_mu)
+sum(diag(cov(W_mu_k)))
+sum(diag(cov(W_mu)))
+mean(diag(cov(W_mu_k)))
+mean(W_mu_k)
+mean(W_mu)
 
 # verbose = TRUE
 # want_plots = TRUE
