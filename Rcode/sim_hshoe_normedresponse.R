@@ -289,14 +289,27 @@ sim_hshoe <- function(
     if (time_to_report & verbose){
       cat(
         "Epoch:", epoch,
-        "MSE + KL/n =", mse$item(), "+", kl$item(),
-        "=", loss$item(),
+        "MSE + KL/n =", round(mse$item(), 5), "+", round(kl$item(), 5),
+        "=", round(loss$item(), 4),
         "\n",
         "train mse:", round(mse$item(), 4), 
         "; test_mse:", round(mse_test$item(), 4),
         "\n", 
         sep = " "
       )
+      
+      # report global shrinkage params (s^2 or tau^2)
+      s_sq1 <- get_s_sq(model_fit$fc1)
+      s_sq2 <- get_s_sq(model_fit$fc2)
+      s_sq3 <- get_s_sq(model_fit$fc3)
+      
+      cat(
+        "s_sq1 = ", round(s_sq1, 5),
+        "s_sq2 = ", round(s_sq2, 5),
+        "s_sq3 = ", round(s_sq3, 5),
+        "\n", sep = " "
+      )
+  
       cat("alphas: ", round(as_array(dropout_alphas), 2), "\n")
       display_alphas <- ifelse(
         as_array(dropout_alphas) <= sim_params$alpha_thresh,

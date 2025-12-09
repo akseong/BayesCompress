@@ -34,7 +34,7 @@ reparameterize <- function(mu, logvar, sampling = TRUE, use_cuda) {
 
 
 
-negKL_lognorm_gamma <- function(mu, logvar, a = 1/2, b = 1){
+KL_lognorm_gamma <- function(mu, logvar, a = 1/2, b = 1){
   # mu and logvar must be torch_tensors
   # computes KL(logNormal(mu, sig^2)  ||  Gamma(a, b))
   # used for s_a, alpha_i
@@ -43,13 +43,13 @@ negKL_lognorm_gamma <- function(mu, logvar, a = 1/2, b = 1){
   #   + log(gamma(a)) + a*(log(b) - mu)
   #   + 1/b * exp(mu + sig^2 / 2)
   # want negative KL
-  expr1 <- (log(2) + log(pi) + logvar + 1) / 2
+  expr1 <- -0.5 * (log(2) + log(pi) + logvar + 1)
   expr2 <- lgamma(a) + (mu$add(-log(b)))$mul(a)
   expr3 <- mu$add(  (logvar$exp())$mul(1/2)  ) / b
-  return(expr1$add(-expr2)$add(-expr3))
+  return(expr1$add(expr2)$add(expr3))
 }
 
-negKL_lognorm_IG <- function(mu, logvar, a = 1/2, b = 1){
+KL_lognorm_IG <- function(mu, logvar, a = 1/2, b = 1){
   # for s_b, beta_i
   # i.e. KL(LogNormal q || Inverse-Gamma p)
   # corrected; full KL:
@@ -57,7 +57,7 @@ negKL_lognorm_IG <- function(mu, logvar, a = 1/2, b = 1){
   #   + log(gamma(a)) + a*(mu - log(b))
   #   + b * exp(-mu + sig^2 / 2)
   # same as KL(LogNormal q || Gamma p) if replace mu with -mu, b with 1/b
-  negKL_lognorm_gamma(-mu, logvar, a, 1/b)
+  KL_lognorm_gamma(-mu, logvar, a, 1/b)
 }
 
 # # r versions used for testing
@@ -470,16 +470,16 @@ torch_hs <- nn_module(
   get_kl = function() {
     
     # KL(q(s_a) || p(s_a));   logNormal || Gamma
-    kl_sa <- -negKL_lognorm_gamma(mu = self$sa_mu, logvar = self$sa_logvar, a = 1/2, b = self$tau_0)
+    kl_sa <- KL_lognorm_gamma(mu = self$sa_mu, logvar = self$sa_logvar, a = 1/2, b = self$tau_0)
     
     # KL(q(s_b) || p(s_b));   logNormal || invGamma
-    kl_sb <- -negKL_lognorm_IG(mu = self$sb_mu, logvar = self$sb_logvar, a = 1/2, b = 1)
+    kl_sb <- KL_lognorm_IG(mu = self$sb_mu, logvar = self$sb_logvar, a = 1/2, b = 1)
     
     # KL(q(atilde) || p(atilde));   logNormal || Gamma
-    kl_atilde <- -torch_sum(negKL_lognorm_gamma(mu = self$atilde_mu, logvar = self$atilde_logvar, a = 1/2, b = 1))
+    kl_atilde <- torch_sum(KL_lognorm_gamma(mu = self$atilde_mu, logvar = self$atilde_logvar, a = 1/2, b = 1))
     
     # KL(q(btilde) || p(btilde));   logNormal || invGamma
-    kl_btilde <- -torch_sum(negKL_lognorm_IG(mu = self$btilde_mu, logvar = self$btilde_logvar, a = 1/2, b = 1))
+    kl_btilde <- torch_sum(KL_lognorm_IG(mu = self$btilde_mu, logvar = self$btilde_logvar, a = 1/2, b = 1))
     
     # KL(q(w|z) || p(w|z))
     kl_w_z <- torch_sum(
