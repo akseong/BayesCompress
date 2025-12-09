@@ -44,8 +44,8 @@ KL_lognorm_gamma <- function(mu, logvar, a = 1/2, b = 1){
   #   + 1/b * exp(mu + sig^2 / 2)
   # want negative KL
   expr1 <- -0.5 * (log(2) + log(pi) + logvar + 1)
-  expr2 <- lgamma(a) + (mu$add(-log(b)))$mul(a)
-  expr3 <- mu$add(  (logvar$exp())$mul(1/2)  ) / b
+  expr2 <- lgamma(a) - (mu$add(-log(b)))$mul(a)
+  expr3 <- (mu$add(  (logvar$exp())$mul(1/2)  ))$exp() / b
   return(expr1$add(expr2)$add(expr3))
 }
 
