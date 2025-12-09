@@ -32,24 +32,69 @@ reparameterize <- function(mu, logvar, sampling = TRUE, use_cuda) {
 
 
 negKL_lognorm_gamma <- function(mu, logvar, a = 1/2, b = 1){
-  # for s_a, alpha_i
-  # (LogNormal q || Gamma p)
-  # log(b) - 1/b * (exp(1/2 * sig^2 + mu)) + 1/2 * (mu + log(sig^2) + 1 + log(2))
-  
-  # expr2 <- ((mu$add( logvar$exp()$mul(1/2) ))$exp())$mul(1/b)
-  # expr3 <- (mu$add(logvar)$add(1)$add(log(2)))$mul(1/2)
-  # return(log(b)$add(-expr2)$add(expr3))
-  inner1 <- mu + logvar$exp()$mul(1/2)
-  inner2 <- 1 + log(2) + mu + logvar
-  log(b) - inner1$exp() / b + inner2 / 2
+  # mu and logvar must be torch_tensors
+  # computes KL(logNormal(mu, sig^2)  ||  Gamma(a, b))
+  # used for s_a, alpha_i
+  # corrected; full KL:
+  #   - 1/2 * (log(2) + log(pi) + log(sig^2) + 1)
+  #   + log(gamma(a)) + a*(log(b) - mu)
+  #   + 1/b * exp(mu + sig^2 / 2)
+  # want negative KL
+  expr1 <- (log(2) + log(pi) + logvar + 1) / 2
+  expr2 <- lgamma(a) + (mu$add(-log(b)))$mul(a)
+  expr3 <- mu$add(  (logvar$exp())$mul(1/2)  ) / b
+  return(expr1$add(-expr2)$add(-expr3))
 }
 
 negKL_lognorm_IG <- function(mu, logvar, a = 1/2, b = 1){
   # for s_b, beta_i
-  # i.e. (LogNormal q || Inverse-Gamma p)
-  # log(b) - 1/b * exp(1/2 * sig^2 - mu) + 1/2 * (- mu + log(sig^2) + 1 + log(2))
-  negKL_lognorm_gamma(-mu, logvar, a, b)
+  # i.e. KL(LogNormal q || Inverse-Gamma p)
+  # corrected; full KL:
+  #   - 1/2 * (log(2) + log(pi) + log(sig^2) + 1)
+  #   + log(gamma(a)) + a*(mu - log(b))
+  #   + b * exp(-mu + sig^2 / 2)
+  # same as KL(LogNormal q || Gamma p) if replace mu with -mu, b with 1/b
+  negKL_lognorm_gamma(-mu, logvar, a, 1/b)
 }
+
+# # r versions used for testing
+# r_negKL_lognorm_gamma <- function(mu, logvar, a = 1/2, b = 1){
+#   # R version - does not work with torch tensors.  Used for testing.
+#   # corrected; full KL:
+#   #   - 1/2 * (log(2) + log(pi) + log(sig^2) + 1)
+#   #   + log(gamma(a)) + a*(log(b) - mu)
+#   #   + 1/b * exp(mu + sig^2 / 2)
+#   # want negative KL
+#   expr1 <- (log(2) + log(pi) + logvar + 1) / 2
+#   expr2 <- lgamma(a) + a*(mu - log(b))
+#   expr3 <- (mu + exp(logvar)/2) / b
+#   
+#   return(expr1 - expr2 - expr3)
+# }
+# r_negKL_lognorm_IG <- function(mu, logvar, a = 1/2, b = 1){
+#   # R version for testing
+#   r_negKL_lognorm_gamma(-mu, logvar, a, 1/b)
+# }
+# 
+# # test conversion to torch, gradients preserved
+# mu <- rnorm(5)
+# logvar <- rnorm(5)
+# a <- 2
+# b <- 2
+# 
+# r_negKL_lognorm_gamma(mu, logvar, a, b)
+# negKL_lognorm_gamma(
+#   mu = torch_tensor(mu, requires_grad = TRUE),
+#   logvar = torch_tensor(logvar, requires_grad = TRUE),
+#   a, b)
+# 
+# r_negKL_lognorm_IG(mu, logvar, a, b)
+# negKL_lognorm_IG(
+#   mu = torch_tensor(mu, requires_grad = TRUE),
+#   logvar = torch_tensor(logvar, requires_grad = TRUE),
+#   a, b)
+
+
 
 
 ## fcns to compute expectation and variance of lognormals & fcns of lognormals
