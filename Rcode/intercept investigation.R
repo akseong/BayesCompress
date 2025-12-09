@@ -520,3 +520,52 @@ k1 <- (1 + zsq)^-1
 m_eff <- 16 * sum(zsq / (1 + zsq))
 
 
+
+#### corrected estimates of kappa:
+
+fname_stem <- here::here(
+  "sims", "results", 
+  "fcnl_hshoe_mod_12500obs_191578"
+)
+mod <- torch::torch_load(
+  paste0(fname_stem, ".pt"), 
+  device = "cpu")
+
+load(paste0(fname_stem, ".RData"))
+tail(sim_res$loss_mat)
+
+
+# estimating actual shrinkage in layer 1 from all 3 layers:
+#   (1 - K1) * Frobenius norm of || (1-K2)(W2)(1-K3)(W3) ||
+f_norm <- function(M){
+  sqrt(sum(M*M))
+}
+v_norm <- function(V){
+  sqrt(sum(V*V))
+}
+
+k2 <- get_kappas(mod$fc2)
+k3 <- get_kappas(mod$fc3)
+W1 <- as_array(mod$fc1$weight_mu)
+W2 <- as_array(mod$fc2$weight_mu)
+W3 <- as_array(mod$fc3$weight_mu)
+
+K2 <- diag(1-k2)
+K3 <- diag(1-k3)
+
+
+
+correction <- v_norm(K2 %*% t(W2) %*% K3 %*% t(W3))
+correction2 <- 16 * correction
+
+correction3 <- v_norm(K2) * f_norm(W2) * v_norm(K3) * f_norm(W3)
+
+tau_sq <- get_s_sq(mod$fc1)
+ztil_sq <- get_ztil_sq(mod$fc1)
+k1 <- (1 + tau_sq*ztil_sq)^(-1)
+
+z_sq_corrected <- ztil_sq * tau_sq * 104
+corrected_k1 <- (1 + z_sq_corrected)^(-1)
+round(corrected_k1, 2)
+round(k1, 2)[1:10]
+
