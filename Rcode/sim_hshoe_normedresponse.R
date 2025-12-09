@@ -288,7 +288,7 @@ sim_hshoe <- function(
     # report
     if (time_to_report & verbose){
       cat(
-        "Epoch:", epoch,
+        "\n Epoch:", epoch,
         "MSE + KL/n =", round(mse$item(), 5), "+", round(kl$item(), 5),
         "=", round(loss$item(), 4),
         "\n",
@@ -304,10 +304,10 @@ sim_hshoe <- function(
       s_sq3 <- get_s_sq(model_fit$fc3)
       
       cat(
-        "s_sq1 = ", round(s_sq1, 5),
-        "s_sq2 = ", round(s_sq2, 5),
-        "s_sq3 = ", round(s_sq3, 5),
-        "\n", sep = " "
+        "\n s_sq1 = ", round(s_sq1, 5),
+        "; s_sq2 = ", round(s_sq2, 5),
+        "; s_sq3 = ", round(s_sq3, 5),
+        sep = ""
       )
   
       cat("alphas: ", round(as_array(dropout_alphas), 2), "\n")
