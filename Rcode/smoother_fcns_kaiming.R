@@ -98,8 +98,13 @@ sim_params <- list(
 set.seed(sim_params$seed)
 sim_params$sim_seeds <- floor(runif(n = sim_params$n_sims, 0, 1000000))
 
+# Piironen & Vehtari 2017 suggest tau_0 = p_0 / (d - p_0) * sig / sqrt(n)
+# where p_0 = prior estimate of number of nonzero betas, d = total number of covs
+tau0_PV <- function(p_0, d, sig = 1, n){
+  p_0 / (d - p_0) * sig / sqrt(n)
+}
 
-
+prior_tau <- tau0_PV(p_0 = 50, d = 100, sig = 1, n = 1e4)
 
 ## define model
 MLHS <- nn_module(
@@ -109,7 +114,7 @@ MLHS <- nn_module(
       in_features = sim_params$d_in, 
       out_features = sim_params$d_hidden1,
       use_cuda = sim_params$use_cuda,
-      tau_0 = 1/2,
+      tau_0 = 1,
       init_weight = NULL,
       init_bias = NULL,
       init_alpha = 0.9,
