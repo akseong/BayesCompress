@@ -17,7 +17,7 @@ library(gridExtra)
 library(torch)
 source(here("Rcode", "torch_horseshoe_klcorrected.R"))
 source(here("Rcode", "sim_functions.R"))
-source(here("Rcode", "sim_hshoe_normedresponse.R"))
+# source(here("Rcode", "sim_hshoe_normedresponse.R"))
 
 if (torch::cuda_is_available()){
   use_cuda <- TRUE
