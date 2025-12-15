@@ -5,6 +5,9 @@
 ##################################################
 
 # Kaiming initialization used
+# use PV2017 suggested tau_0
+# scale activations by number of inputs
+#  makes more sense with normed data....
 
 #### setup ----
 library(here)
@@ -14,9 +17,10 @@ library(ggplot2)
 library(gridExtra)
 
 library(torch)
-source(here("Rcode", "torch_horseshoe_scaling.R"))
+# modified forward portion of torch_horseshoe_klcorrected
+source(here("Rcode", "torch_horseshoe_scaledacts.R")) 
 source(here("Rcode", "sim_functions.R"))
-
+# source(here("Rcode", "sim_hshoe_normedresponse.R"))
 
 if (torch::cuda_is_available()){
   use_cuda <- TRUE
@@ -66,15 +70,15 @@ plot_datagen_fcns(flist)
 save_mod_path_prestem <- here::here(
   "sims", 
   "results", 
-  "hshoe_smoothfcns_scaledact_"
+  "hshoe_smooth_kaiming_pvtau_scaledacts"
 )
 
 sim_params <- list(
-  "sim_name" = "scaled activations, tau_0 = .5, smoother functions, kaiming init, 2 layers 16 8, nobatching, fcnal data.  ",
+  "sim_name" = "tau_0 based on PV2017, kaiming init, scale activations, 2 layers 16 8, nobatching, fcnal data.  ",
   "seed" = 21683,
   "n_sims" = 1, 
-  "train_epochs" = 4e5, # 15E5,
-  "report_every" = 1e4, # 1E4,
+  "train_epochs" = 2e4, # 15E5,
+  "report_every" = 1e3, #1E4,
   "use_cuda" = use_cuda,
   "d_in" = 104,
   "d_hidden1" = 16,
@@ -97,8 +101,15 @@ sim_params <- list(
 set.seed(sim_params$seed)
 sim_params$sim_seeds <- floor(runif(n = sim_params$n_sims, 0, 1000000))
 
+# Piironen & Vehtari 2017 suggest tau_0 = p_0 / (d - p_0) * sig / sqrt(n)
+# where p_0 = prior estimate of number of nonzero betas, d = total number of covs
+tau0_PV <- function(p_0, d, sig = 1, n){
+  p_0 / (d - p_0) * sig / sqrt(n)
+}
 
+prior_tau <- tau0_PV(p_0 = 1, d = 2, sig = 1, n = 1e4)
 
+sim_params$prior_tau <- prior_tau
 
 ## define model
 MLHS <- nn_module(
@@ -108,7 +119,7 @@ MLHS <- nn_module(
       in_features = sim_params$d_in, 
       out_features = sim_params$d_hidden1,
       use_cuda = sim_params$use_cuda,
-      tau_0 = 1/2,
+      tau_0 = prior_tau,
       init_weight = NULL,
       init_bias = NULL,
       init_alpha = 0.9,
@@ -163,9 +174,9 @@ MLHS <- nn_module(
   
   forward = function(x) {
     x %>%
-      self$fc1()$mul(1/sim_params$d_hidden1) %>%
+      self$fc1() %>%
       nnf_relu() %>%
-      self$fc2()$mul(1/sim_params$d_hidden2) %>%
+      self$fc2() %>%
       nnf_relu() %>%
       self$fc3() # %>%
     # nnf_relu() %>%
@@ -186,25 +197,25 @@ MLHS <- nn_module(
     return(kld)
   }
 )
-
-sim_params$model <- MLHS
-mod <- MLHS()
-mod$fc1$parameters
-ztil <- get_ztil_sq(mod$fc1)
-s <- get_s_sq(mod$fc1)
-Wz_params <- get_Wz_params(mod$fc1)
-Wz_mu <- Wz_params$Wz_mu
-W_mu <- as_array(mod$fc1$weight_mu)
-mean(diag(cov(W_mu)))
-
-
-nn_init_kaiming_normal_(mod$fc1$weight_mu)
-W_mu_k <- as_array(mod$fc1$weight_mu)
-sum(diag(cov(W_mu_k)))
-sum(diag(cov(W_mu)))
-mean(diag(cov(W_mu_k)))
-mean(W_mu_k)
-mean(W_mu)
+# 
+# sim_params$model <- MLHS
+# mod <- MLHS()
+# mod$fc1$parameters
+# ztil <- get_ztil_sq(mod$fc1)
+# s <- get_s_sq(mod$fc1)
+# Wz_params <- get_Wz_params(mod$fc1)
+# Wz_mu <- Wz_params$Wz_mu
+# W_mu <- as_array(mod$fc1$weight_mu)
+# mean(diag(cov(W_mu)))
+# 
+# 
+# nn_init_kaiming_normal_(mod$fc1$weight_mu)
+# W_mu_k <- as_array(mod$fc1$weight_mu)
+# sum(diag(cov(W_mu_k)))
+# sum(diag(cov(W_mu)))
+# mean(diag(cov(W_mu_k)))
+# mean(W_mu_k)
+# mean(W_mu)
 
 # verbose = TRUE
 # want_plots = TRUE
@@ -238,4 +249,3 @@ res <- lapply(
     )
   }
 )
-
