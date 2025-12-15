@@ -466,7 +466,7 @@ torch_hs <- nn_module(
         logvar = var_activations$log(), 
         use_cuda = self$use_cuda, 
         sampling = !self$deterministic
-      )$mul(self$out_features$exp(0.5))
+      )$mul(self$out_features^(-0.5))
     )
   },
   
