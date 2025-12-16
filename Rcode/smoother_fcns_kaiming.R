@@ -67,19 +67,19 @@ plot_datagen_fcns(flist)
 save_mod_path_prestem <- here::here(
   "sims", 
   "results", 
-  "hshoe_smooth_kaiming_"
+  "hshoe_smooth_kaiming3232_"
 )
 
 sim_params <- list(
   "sim_name" = "tau_0 = 1, kaiming init, 2 layers 16 8, nobatching, fcnal data.  ",
-  "seed" = 21683,
+  "seed" = 23232,
   "n_sims" = 1, 
   "train_epochs" = 15E5,
   "report_every" = 1E4,
   "use_cuda" = use_cuda,
   "d_in" = 104,
-  "d_hidden1" = 16,
-  "d_hidden2" = 8,
+  "d_hidden1" = 32,
+  "d_hidden2" = 32,
   # "d_hidden3" = 8,
   "d_out" = 1,
   "n_obs" = 12500,
