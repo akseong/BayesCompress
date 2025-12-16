@@ -1,5 +1,28 @@
 research log:
 
+
+
+12/16
+- ablation: try smoother_functions_kaiming with 
+  - larger BNN?  original set of functions?
+- test activation scaling - `torch_horseshoe_scaledacts.R`
+
+
+
+12/14
+- `smoother_functions_kaiming.R`: smoother functions, kaiming initialization
+  - tau_0 = 1
+  - RESULTS: not bad:
+    - fcn2 (high freq periodic function, asymmetric around origin) not captured
+    - other fcns OK, a bit noisy
+    - kappas look more reliable:
+      - nuisance variables rejected with high certainty
+      - true covs 0.26 0.97 0.49 0.78
+    - global shrinkage looks about right
+    
+
+
+
 11/12
 - smoother functions X
 - scale layer activations?

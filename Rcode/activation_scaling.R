@@ -70,7 +70,7 @@ plot_datagen_fcns(flist)
 save_mod_path_prestem <- here::here(
   "sims", 
   "results", 
-  "hshoe_smooth_kaiming_pvtau_scaledacts"
+  "hshoe_smooth_kaiming_pvtau_scaledacts_TEST"
 )
 
 sim_params <- list(
