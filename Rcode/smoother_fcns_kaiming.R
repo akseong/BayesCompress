@@ -71,7 +71,7 @@ save_mod_path_prestem <- here::here(
 )
 
 sim_params <- list(
-  "sim_name" = "tau_0 = 1, kaiming init, 2 layers 32 32, nobatching, fcnal data.  ",
+  "sim_name" = "tau_0 = 1, kaiming init, 2 layers 16 8, nobatching, fcnal data.  ",
   "seed" = 23232,
   "n_sims" = 1, 
   "train_epochs" = 15E5,
