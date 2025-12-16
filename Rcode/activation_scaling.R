@@ -82,14 +82,15 @@ sim_params <- list(
   "use_cuda" = use_cuda,
   "d_in" = 104,
   "d_hidden1" = 16,
-  "d_hidden2" = 8,
+  "d_hidden2" = 32,
+  "d_hidden3" = 16,
   # "d_hidden3" = 8,
   "d_out" = 1,
   "n_obs" = 12500,
   "true_coefs" = c(-0.5, 1, -2, 4, rep(0, times = 100)),
   "alpha_thresh" = 1 / qchisq(1 - (0.05 / 104), df = 1),
   "flist" = flist,
-  "lr" = 0.05,
+  "lr" = 0.08,
   "err_sig" = 1,
   "convergence_crit" = 1e-7,
   "ttsplit" = 4/5,
@@ -139,17 +140,17 @@ MLHS <- nn_module(
     
     self$fc3 = torch_hs(
       in_features = sim_params$d_hidden2,
-      #   out_features = sim_params$d_hidden3,
-      #   use_cuda = sim_params$use_cuda,
-      #   tau = 1,
-      #   init_weight = NULL,
-      #   init_bias = NULL,
-      #   init_alpha = 0.9,
-      #   clip_var = TRUE
-      # )
-      # 
-      # self$fc4 = torch_hs(
-      #   in_features = sim_params$d_hidden3,
+        out_features = sim_params$d_hidden3,
+        use_cuda = sim_params$use_cuda,
+        tau = 1,
+        init_weight = NULL,
+        init_bias = NULL,
+        init_alpha = 0.9,
+        clip_var = TRUE
+      )
+
+      self$fc4 = torch_hs(
+        in_features = sim_params$d_hidden3,
       #   out_features = sim_params$d_hidden4,
       #   use_cuda = sim_params$use_cuda,
       #   tau = 1,
@@ -178,9 +179,9 @@ MLHS <- nn_module(
       nnf_relu() %>%
       self$fc2() %>%
       nnf_relu() %>%
-      self$fc3() # %>%
-    # nnf_relu() %>%
-    # self$fc4() %>% 
+      self$fc3() %>%
+      nnf_relu() %>%
+      self$fc4() # %>% 
     # nnf_relu() %>%
     # self$fc5()
   },
@@ -191,9 +192,9 @@ MLHS <- nn_module(
     kl1 = self$fc1$get_kl()
     kl2 = self$fc2$get_kl()
     kl3 = self$fc3$get_kl()
-    # kl4 = self$fc3$get_kl()
+    kl4 = self$fc3$get_kl()
     # kl5 = self$fc3$get_kl()
-    kld = kl1 + kl2 + kl3 #+ kl4 + kl5
+    kld = kl1 + kl2 + kl3 + kl4 #+ kl5
     return(kld)
   }
 )
@@ -237,6 +238,7 @@ res <- lapply(
     
     sim_hshoe(
       sim_ind = X,
+      learning_rate = sim_params$lr,
       sim_params = sim_params,     # same as before, but need to include flist
       nn_model = MLHS,   # torch nn_module,
       verbose = TRUE,      # provide updates in console
