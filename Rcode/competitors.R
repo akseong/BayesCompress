@@ -123,14 +123,22 @@ ss_median_mod <- ss_summ_sorted[-1, 5] > 0.5
 ss_median_mod
 
 
-library(spikeslab)
-library(spikeslabGAM)
+
+
+
+
+# library(spikeslab)
+# library(spikeslabGAM)
 
 
 
 
 # BART ----
 
+library(bartMachine)
 
-
-
+# If you run out of memory, restart R, and use e.g.
+# 'options(java.parameters = "-Xmx5g")' for 5GB of RAM before you call
+# 'library(bartMachine)'.
+bart_fit <- bartMachine(X = simdat_df[, -1], y = simdat_df$y)
+bart_vs <- var_selection_by_permute(bart_fit)
