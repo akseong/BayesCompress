@@ -564,8 +564,11 @@ tau_sq <- get_s_sq(mod$fc1)
 ztil_sq <- get_ztil_sq(mod$fc1)
 k1 <- (1 + tau_sq*ztil_sq)^(-1)
 
-z_sq_corrected <- ztil_sq * tau_sq * 104
-corrected_k1 <- (1 + z_sq_corrected)^(-1)
-round(corrected_k1, 2)
+d0_z_sq_corrected <- ztil_sq * tau_sq * 104
+d0_corrected_k1 <- (1 + tau_sq*ztil_sq * 104)^(-1)
+d1_corrected_k1 <- (1 + tau_sq*ztil_sq * 16)^(-1)
+
+round(d0_corrected_k1, 2)
+round(d1_corrected_k1, 2)
 round(k1, 2)[1:10]
 
