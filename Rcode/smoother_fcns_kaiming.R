@@ -71,28 +71,28 @@ plot_datagen_fcns(flist)
 save_mod_path_prestem <- here::here(
   "sims", 
   "results", 
-  "hshoe_smoother_516_"
+  "hshoe_smoother_21632_"
 )
 
 sim_params <- list(
-  "sim_name" = "tau_0 = 1, lrelu, kaiming init, 2 layers 32 32, nobatching, fcnal data.  ",
-  "seed" = 516,
+  "sim_name" = "tau_0 = 1, lrelu, kaiming init, 2L 16 32, nobatching, fcnal data.  ",
+  "seed" = 21632,
   "n_sims" = 1, 
   "train_epochs" = 5E5,
   "report_every" = 1E4,
   "use_cuda" = use_cuda,
   "d_in" = 104,
   "d_hidden1" = 16,
-  "d_hidden2" = 16,
-  "d_hidden3" = 16,
-  "d_hidden4" = 16,
-  "d_hidden5" = 16,
+  "d_hidden2" = 32,
+  # "d_hidden3" = 16,
+  # "d_hidden4" = 16,
+  # "d_hidden5" = 16,
   "d_out" = 1,
   "n_obs" = 12500,
   "true_coefs" = c(-0.5, 1, -2, 4, rep(0, times = 100)),
   "alpha_thresh" = 1 / qchisq(1 - (0.05 / 104), df = 1),
   "flist" = flist,
-  "lr" = 0.08,
+  "lr" = 0.05,  # sim_hshoe learning rate arg.  If not specified, uses optim_adam default (0.001)
   "err_sig" = 1,
   "convergence_crit" = 1e-7,
   "ttsplit" = 4/5,
@@ -110,7 +110,10 @@ tau0_PV <- function(p_0, d, sig = 1, n){
   p_0 / (d - p_0) * sig / sqrt(n)
 }
 
-prior_tau <- tau0_PV(p_0 = 50, d = 100, sig = 1, n = 1e4)
+sim_params$prior_tau <- tau0_PV(
+  p_0 = 50, d = 100, sig = 1, 
+  n = round(sim_params$n_obs * sim_params$ttsplit)
+)
 
 ## define model
 MLHS <- nn_module(
@@ -120,7 +123,7 @@ MLHS <- nn_module(
       in_features = sim_params$d_in, 
       out_features = sim_params$d_hidden1,
       use_cuda = sim_params$use_cuda,
-      tau_0 = 1,
+      tau_0 = sim_params$prior_tau,
       init_weight = NULL,
       init_bias = NULL,
       init_alpha = 0.9,
@@ -140,28 +143,28 @@ MLHS <- nn_module(
     
     self$fc3 = torch_hs(
       in_features = sim_params$d_hidden2,
-        out_features = sim_params$d_hidden3,
-        use_cuda = sim_params$use_cuda,
-        tau = 1,
-        init_weight = NULL,
-        init_bias = NULL,
-        init_alpha = 0.9,
-        clip_var = TRUE
-      )
-
-      self$fc4 = torch_hs(
-        in_features = sim_params$d_hidden3,
-        out_features = sim_params$d_hidden4,
-        use_cuda = sim_params$use_cuda,
-        tau = 1,
-        init_weight = NULL,
-        init_bias = NULL,
-        init_alpha = 0.9,
-        clip_var = TRUE
-      )
-
-      self$fc5 = torch_hs(
-        in_features = sim_params$d_hidden4,
+      #   out_features = sim_params$d_hidden3,
+      #   use_cuda = sim_params$use_cuda,
+      #   tau = 1,
+      #   init_weight = NULL,
+      #   init_bias = NULL,
+      #   init_alpha = 0.9,
+      #   clip_var = TRUE
+      # )
+      # 
+      # self$fc4 = torch_hs(
+      #   in_features = sim_params$d_hidden3,
+      #   out_features = sim_params$d_hidden4,
+      #   use_cuda = sim_params$use_cuda,
+      #   tau = 1,
+      #   init_weight = NULL,
+      #   init_bias = NULL,
+      #   init_alpha = 0.9,
+      #   clip_var = TRUE
+      # )
+      # 
+      # self$fc5 = torch_hs(
+      #   in_features = sim_params$d_hidden4,
       out_features = sim_params$d_out,
       use_cuda = sim_params$use_cuda,
       tau_0 = 1,
@@ -179,11 +182,11 @@ MLHS <- nn_module(
       nnf_relu() %>%
       self$fc2() %>%
       nnf_relu() %>%
-      self$fc3()  %>%
-      nnf_leaky_relu() %>%
-      self$fc4() %>%
-      nnf_leaky_relu() %>%
-      self$fc5()
+      self$fc3() # %>%
+      # nnf_relu() %>%
+      # self$fc4() %>%
+      # nnf_relu() %>%
+      # self$fc5()
   },
   
   
@@ -192,9 +195,9 @@ MLHS <- nn_module(
     kl1 = self$fc1$get_kl()
     kl2 = self$fc2$get_kl()
     kl3 = self$fc3$get_kl()
-    kl4 = self$fc3$get_kl()
-    kl5 = self$fc3$get_kl()
-    kld = kl1 + kl2 + kl3 + kl4 + kl5
+    # kl4 = self$fc3$get_kl()
+    # kl5 = self$fc3$get_kl()
+    kld = kl1 + kl2 + kl3 #+ kl4 + kl5
     return(kld)
   }
 )
@@ -239,7 +242,7 @@ res <- lapply(
     sim_hshoe(
       sim_ind = X,
       sim_params = sim_params,     # same as before, but need to include flist
-      learning_rate = sim_params$lr,
+      # learning_rate = sim_params$lr,
       nn_model = MLHS,   # torch nn_module,
       verbose = TRUE,      # provide updates in console
       want_plots = FALSE,   # provide graphical updates of KL, MSE
