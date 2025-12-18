@@ -90,8 +90,8 @@ simdat_df <- data.frame(
 )
 
 true_inclusion <- c(
-  rep(TRUE, times = length(flist)),
-  rep(FALSE, times = sim_params$d_in - length(flist))
+  rep(TRUE, times = length(sim_params$flist)),
+  rep(FALSE, times = sim_params$d_in - length(sim_params$flist))
 )
 
 
@@ -153,9 +153,10 @@ burn=10000; nd=10000
 
 bf = wbart(
   x.train = simdat_df[, -1], 
-  y.train = simdat_df$y ,
-  nskip=burn,
-  ndpost=nd,
-  printevery=5000)
+  y.train = simdat_df$y,
+  ntree = 20L,
+  nskip = burn,
+  ndpost = nd,
+  printevery = 1000)
 
 
