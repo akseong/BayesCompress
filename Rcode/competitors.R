@@ -20,11 +20,14 @@ source(here("Rcode", "sim_functions.R"))
 # fcn3 <- function(x) abs(x)^(1.5)
 # fcn4 <- function(x) - (abs(x))
 # flist = list(fcn1, fcn2, fcn3, fcn4)
+
+# original function set
 # fcn1 <- function(x) exp(x/2)
 # fcn2 <- function(x) cos(pi*x) + sin(pi/1.2*x) - x
 # fcn3 <- function(x) abs(x)^(1.5)
-# fcn4 <- function(x) -x^2 / 2 -3
 # fcn4 <- function(x) - log(abs(x) + 1e-3)
+
+# "smoother" functions.  
 fcn1 <- function(x) -cos(pi/1.5*x)
 fcn2 <- function(x) cos(pi*x) + sin(pi/1.2*x)
 fcn3 <- function(x) abs(x)^(.75)
@@ -134,7 +137,7 @@ ss_bin_err
 
 
 
-# BART ----
+# bartMachine ----
 options(java.parameters = "-Xmx5g")  # enable bartMachine to use 5gb RAM
 library(bartMachine)
 
@@ -142,7 +145,17 @@ bart_fit <- bartMachine(X = simdat_df[, -1], y = simdat_df$y)
 bart_vs <- var_selection_by_permute(bart_fit)
 
 
+# BART ----
+library(BART)
 
+set.seed(314)
+burn=10000; nd=10000
 
+bf = wbart(
+  x.train = simdat_df[, -1], 
+  y.train = simdat_df$y ,
+  nskip=burn,
+  ndpost=nd,
+  printevery=5000)
 
 

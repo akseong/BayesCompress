@@ -7,7 +7,7 @@ library(ggplot2)
 library(gridExtra)
 
 library(torch)
-source(here("Rcode", "torch_horseshoe.R"))
+source(here("Rcode", "torch_horseshoe_klcorrected.R"))
 source(here("Rcode", "sim_functions.R"))
 
 
@@ -24,15 +24,15 @@ if (torch::cuda_is_available()){
 # fcn3 <- function(x) abs(x)^(1.5)
 # fcn4 <- function(x) - (abs(x))
 # flist = list(fcn1, fcn2, fcn3, fcn4)
-# fcn1 <- function(x) exp(x/2)
-# fcn2 <- function(x) cos(pi*x) + sin(pi/1.2*x) - x
-# fcn3 <- function(x) abs(x)^(1.5)
+fcn1 <- function(x) exp(x/2)
+fcn2 <- function(x) cos(pi*x) + sin(pi/1.2*x) - x
+fcn3 <- function(x) abs(x)^(1.5)
 # fcn4 <- function(x) -x^2 / 2 -3
-# fcn4 <- function(x) - log(abs(x) + 1e-3)
-fcn1 <- function(x) -cos(pi/1.5*x)
-fcn2 <- function(x) cos(pi*x) + sin(pi/1.2*x)
-fcn3 <- function(x) abs(x)^(.75)
-fcn4 <- function(x) -x^2 / 4
+fcn4 <- function(x) - log(abs(x) + 1e-3)
+# fcn1 <- function(x) -cos(pi/1.5*x)
+# fcn2 <- function(x) cos(pi*x) + sin(pi/1.2*x)
+# fcn3 <- function(x) abs(x)^(.75)
+# fcn4 <- function(x) -x^2 / 4
 flist = list(fcn1, fcn2, fcn3, fcn4)
 plot_datagen_fcns(flist)
 # 
@@ -59,14 +59,14 @@ plot_datagen_fcns(flist)
 save_mod_path_prestem <- here::here(
   "sims", 
   "results", 
-  "hshoe_smoothfcns_"
+  "hshoe_orig_klcorrected"
 )
 
 sim_params <- list(
-  "sim_name" = "hshoe, smoother functions, 2 layers 16 8, nobatching, fcnal data.  ",
+  "sim_name" = "hshoe, original functions, corrected KL, kaiming init, 2 layers 16 8, nobatching, fcnal data.  ",
   "seed" = 21683,
   "n_sims" = 1, 
-  "train_epochs" = 4e5, # 15E5,
+  "train_epochs" = 7e5, # 15E5,
   "report_every" = 1e4, # 1E4,
   "use_cuda" = use_cuda,
   "d_in" = 104,

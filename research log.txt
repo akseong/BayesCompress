@@ -2,6 +2,40 @@ research log:
 
 
 
+
+
+
+
+
+
+
+12/17:
+- activation scaling doesn't work!  just ends up not training anymore, exarcebated extremely small global scale params
+- smoother functions - 
+   - consistently higher MSE?  1.82 or so (whereas old functions had ~ 1.2)
+   - weirdly, "new" function 2 is not detected (function drawn is just noisy horizontal line)
+     - strange b/c old function 2 was the same with an added "-x" term.  Periodic function and downward slope were modeled fine before.
+   - seems to converge faster (stops improving around 300k iterations, actually)   
+
+- current simulations:
+  - does leaky relu work better?
+  - kappas seem better, now need to check if it's from correction to KL and initialization, or from using smoother functions
+
+- working on getting competitors (lm, spike-slab, BART) running
+- need to consider better simulation data?  
+   - data with interaction / effect modification?
+   - 
+
+Currently running:
+- started first: (using `batching.R`) --- original functions and model (2 layers, 16 8), with corrected KL and kaiming init.
+- started 2nd: smoother_fcns_kaiming --- smoother functions, 5 layers, leaky relu, 8 in all
+- started 3rd: smoother_fcns_kaiming --- smoother functions, 2 layers, leaky relu, 32 32
+
+
+
+
+
+
 12/16
 - ablation: try smoother_functions_kaiming with 
   - larger BNN?  original set of functions?
