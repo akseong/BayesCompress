@@ -32,17 +32,21 @@ if (torch::cuda_is_available()){
 # fcn3 <- function(x) abs(x)^(1.5)
 # fcn4 <- function(x) - (abs(x))
 # flist = list(fcn1, fcn2, fcn3, fcn4)
+
+# original function set
 # fcn1 <- function(x) exp(x/2)
 # fcn2 <- function(x) cos(pi*x) + sin(pi/1.2*x) - x
 # fcn3 <- function(x) abs(x)^(1.5)
-# fcn4 <- function(x) -x^2 / 2 -3
 # fcn4 <- function(x) - log(abs(x) + 1e-3)
+
+# "smoother" functions.  
 fcn1 <- function(x) -cos(pi/1.5*x)
 fcn2 <- function(x) cos(pi*x) + sin(pi/1.2*x)
 fcn3 <- function(x) abs(x)^(.75)
 fcn4 <- function(x) -x^2 / 4
 flist = list(fcn1, fcn2, fcn3, fcn4)
 plot_datagen_fcns(flist)
+
 # 
 # xshow <- seq(-3, 3, length.out = 100)
 # yshow <- sapply(flist, function(fcn) fcn(xshow))
@@ -67,14 +71,14 @@ plot_datagen_fcns(flist)
 save_mod_path_prestem <- here::here(
   "sims", 
   "results", 
-  "hshoe_smooth_kaiming3232_"
+  "hshoe_smoother_lrelu_kaiming3232_"
 )
 
 sim_params <- list(
-  "sim_name" = "tau_0 = 1, kaiming init, 2 layers 32 32, nobatching, fcnal data.  ",
+  "sim_name" = "tau_0 = 1, lrelu, kaiming init, 2 layers 16 8, nobatching, fcnal data.  ",
   "seed" = 23232,
   "n_sims" = 1, 
-  "train_epochs" = 15E5,
+  "train_epochs" = 5E5,
   "report_every" = 1E4,
   "use_cuda" = use_cuda,
   "d_in" = 104,
@@ -86,7 +90,7 @@ sim_params <- list(
   "true_coefs" = c(-0.5, 1, -2, 4, rep(0, times = 100)),
   "alpha_thresh" = 1 / qchisq(1 - (0.05 / 104), df = 1),
   "flist" = flist,
-  "lr" = 0.05,
+  "lr" = 0.08,
   "err_sig" = 1,
   "convergence_crit" = 1e-7,
   "ttsplit" = 4/5,
@@ -170,9 +174,9 @@ MLHS <- nn_module(
   forward = function(x) {
     x %>%
       self$fc1() %>%
-      nnf_relu() %>%
+      nnf_leaky_relu() %>%
       self$fc2() %>%
-      nnf_relu() %>%
+      nnf_leaky_relu() %>%
       self$fc3() # %>%
     # nnf_relu() %>%
     # self$fc4() %>% 
@@ -233,6 +237,7 @@ res <- lapply(
     sim_hshoe(
       sim_ind = X,
       sim_params = sim_params,     # same as before, but need to include flist
+      learning_rate = sim_params$lr,
       nn_model = MLHS,   # torch nn_module,
       verbose = TRUE,      # provide updates in console
       want_plots = FALSE,   # provide graphical updates of KL, MSE
