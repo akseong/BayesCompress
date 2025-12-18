@@ -10,7 +10,7 @@ library(gridExtra)
 
 library(torch)
 # modified forward portion of torch_horseshoe_klcorrected
-source(here("Rcode", "torch_horseshoe_scaledacts.R")) 
+source(here("Rcode", "torch_horseshoe_klcorrected.R")) 
 source(here("Rcode", "sim_functions.R"))
 # source(here("Rcode", "sim_hshoe_normedresponse.R"))
 
@@ -34,8 +34,8 @@ plot_datagen_fcns(flist)
 
 
 save_mod_path_prestem <- here::here(
-  "sims", 
-  "results", 
+  "sims",
+  "results",
   "hshoe_smooth_kaiming3232_"
 )
 
@@ -45,7 +45,7 @@ sim_params <- list(
   "n_sims" = 1, 
   "train_epochs" = 5E5,
   "report_every" = 1E4,
-  "use_cuda" = use_cuda,
+  "use_cuda" = FALSE,
   "d_in" = 104,
   "d_hidden1" = 32,
   "d_hidden2" = 32,
@@ -122,7 +122,8 @@ ss_summ_sorted <- ss_summ[ss_summ_order, ]
 ss_median_mod <- ss_summ_sorted[-1, 5] > 0.5 
 ss_median_mod
 
-
+ss_bin_err <- binary_err_rate(est = ss_median_mod, true_inclusion)
+ss_bin_err
 
 
 
@@ -134,11 +135,14 @@ ss_median_mod
 
 
 # BART ----
-
+options(java.parameters = "-Xmx5g")  # enable bartMachine to use 5gb RAM
 library(bartMachine)
 
-# If you run out of memory, restart R, and use e.g.
-# 'options(java.parameters = "-Xmx5g")' for 5GB of RAM before you call
-# 'library(bartMachine)'.
 bart_fit <- bartMachine(X = simdat_df[, -1], y = simdat_df$y)
 bart_vs <- var_selection_by_permute(bart_fit)
+
+
+
+
+
+
