@@ -1977,7 +1977,7 @@ sim_hshoe <- function(
     ncol = sim_params$d_in
   )
   rownames(alpha_mat) <- report_epochs
-  kappa_mat <- alpha_mat
+  kappa_local_mat <- kappa_mat <- alpha_mat
   
   # store: weight params
   if (want_all_params){
@@ -2094,6 +2094,9 @@ sim_hshoe <- function(
       kappas <- get_kappas(model_fit$fc1)
       kappa_mat[row_ind, ] <- kappas
       
+      kappas_local <- get_kappas(model_fit$fc1, type = "local")
+      kappa_local_mat[row_ind, ] <- kappas_local
+      
       # storing other optional parameters, mostly for diagnostics
       if (want_all_params){
         # global_dropout_vec[row_ind] <- as_array(model_fit$fc1$get_dropout_rates(type = "global"))
@@ -2154,15 +2157,16 @@ sim_hshoe <- function(
       cat("alphas below 0.82: ")
       cat(display_alphas, sep = " ")
       
-      cat("\n kappas: ", round(kappas, 2), "\n")
+      cat("\n global kappas: ", round(kappas, 2), "\n")
       display_kappas <- ifelse(
         kappas <= 0.9,
         round(kappas, 3),
         "."
       )
-      cat("kappas below 0.9: ")
+      cat("global kappas below 0.9: ")
       cat(display_kappas, sep = " ")
       
+      cat("\n local kappas: ", round(kappas_local, 2), "\n")
       
       
       # if (length(stop_epochs > 0)){
@@ -2273,7 +2277,8 @@ sim_hshoe <- function(
     "fcn_plt" = plt,
     "loss_mat" = loss_mat,
     "alpha_mat" = alpha_mat,
-    "kappa_mat" = kappa_mat
+    "kappa_mat" = kappa_mat,
+    "kappa_local_mat" = kappa_local_mat
   )
   
   if (want_all_params){
