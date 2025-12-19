@@ -2,10 +2,43 @@ research log:
 
 
 
+12/19
+- currently running: hshoe_smooth_pvtau_1721632
+  - 5 sims, 1M epochs
+  - 3 layers, 16, 32 hidden; smoother fcns
+  - first layer prior tau_0 set assuming 1/2 vars true / even odds
+- to do:
+  - make diagnostic functions so it's easier to check completed models
+    - # params
+    - function plots
+    - MSE / KL plots
+    - different decision rules:
+      - global/local kappas, BFDR
+      - how to use alphas with BFDR?
+      - decision rule based on Bayesian intervals
 
 
+- leaky relu does not work.
 
+- 5 layers, 8 units each; smoother fcns --- v. bad; MSE 2.8; just gives back noise
+  - can I figure out a guideline for what model size works?   Does this just have too many params?
+  - # params: 104*8 + 3*8*8 + 8 = 1032 weights.  x2 (mu and sig)  
+    - atil, btil: 2 * (104 + 4*8).  x2 (mu and var)
+    - sa, sb: 5 layers x 2. x2 (mu and var)
 
+- 3 layers, 16, 32 hidden; smoother fcns ---- mixed; MSE ~ 1, recovers functions well
+  - first layer prior tau_0 set assuming 1/2 vars true / even odds
+  - global kappas not great; 
+  - alphas very good (all 4 chosen; 1 FP); continuing training might move more in right direction
+  - need to look at local kappas
+  - # params: 104*16 + 16*32 + 32 = 2208 weights.  
+  - hshoe_smoother_21632_12500obs_215244
+
+# params: 
+sa, sb:  4 params per layer
+atil, btil: 4 params per input dimension
+weights: 2 params per weight: input x output dim
+biases: 2 params per output dimension
 
 
 
