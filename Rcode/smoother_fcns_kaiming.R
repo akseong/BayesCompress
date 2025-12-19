@@ -71,14 +71,14 @@ plot_datagen_fcns(flist)
 save_mod_path_prestem <- here::here(
   "sims", 
   "results", 
-  "hshoe_smoother_21632_"
+  "hshoe_smooth_pvtau_1721632_"
 )
 
 sim_params <- list(
-  "sim_name" = "tau_0 = 1, lrelu, kaiming init, 2L 16 32, nobatching, fcnal data.  ",
-  "seed" = 21632,
-  "n_sims" = 1, 
-  "train_epochs" = 5E5,
+  "sim_name" = "PV2017 tau_0 all layers, lr 0.001, smoother data, kaiming init, 2L 16 32, nobatching, fcnal data.  ",
+  "seed" = 1721632,
+  "n_sims" = 5, 
+  "train_epochs" = 1E6,
   "report_every" = 1E4,
   "use_cuda" = use_cuda,
   "d_in" = 104,
@@ -134,7 +134,7 @@ MLHS <- nn_module(
       in_features = sim_params$d_hidden1,
       out_features = sim_params$d_hidden2,
       use_cuda = sim_params$use_cuda,
-      tau_0 = 1,
+      tau_0 = sim_params$prior_tau,
       init_weight = NULL,
       init_bias = NULL,
       init_alpha = 0.9,
@@ -167,7 +167,7 @@ MLHS <- nn_module(
       #   in_features = sim_params$d_hidden4,
       out_features = sim_params$d_out,
       use_cuda = sim_params$use_cuda,
-      tau_0 = 1,
+      tau_0 = sim_params$prior_tau,
       init_weight = NULL,
       init_bias = NULL,
       init_alpha = 0.9,
