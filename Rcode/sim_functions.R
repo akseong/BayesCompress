@@ -367,10 +367,10 @@ BFDR <- function(dropout_probs, eta){
 }
 
 FDR <- function(delta_vec, true_gam = c(rep(1, 4), rep(0, 100))){
-  if (sum(delta_i) == 0){
+  if (sum(delta_vec) == 0){
     return(0)
   } else {
-    return(sum((delta_i - true_gam) == 1) / sum(delta_i))
+    return(sum((delta_vec - true_gam) == 1) / sum(delta_vec))
   }
 }
 
