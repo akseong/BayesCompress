@@ -55,3 +55,40 @@ sim_func_data2 <- function(
   )
 }
 
+
+
+
+
+
+
+# - to do:
+#   - make diagnostic functions so it's easier to check completed models
+#     - # params
+#     - function plots
+#     - MSE / KL plots
+#     - different decision rules:
+#       - global/local kappas, BFDR
+#       - how to use alphas with BFDR?
+#       - decision rule based on Bayesian intervals
+
+param_count <- function(nn_model){
+  
+}
+
+
+plot_preds <- function(nn_model, flist, flist_inputs){
+  
+}
+
+
+diagnostic_plots <- function(sim_res){
+  
+}
+
+
+
+
+
+
+
+
