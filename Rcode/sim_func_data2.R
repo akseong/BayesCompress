@@ -70,6 +70,7 @@ sim_func_data2 <- function(
 #       - global/local kappas, BFDR
 #       - how to use alphas with BFDR?
 #       - decision rule based on Bayesian intervals
+# analysis_fcns.R - contains plotting functions for var characteristics vs epoch
 
 param_count <- function(nn_model){
   
