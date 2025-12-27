@@ -1,0 +1,514 @@
+---
+title: "research log"
+author: "Arnie Seong"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+header-includes:
+  - \usepackage{bm}
+  - \usepackage{xcolor}
+  - \usepackage{amssymb}
+output: 
+  html_document:
+    df_print: paged
+    theme: cerulean
+    highlight: tango
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: true
+      smooth_scroll: true
+    code_fold: show
+urlcolor: blue
+params:
+  retrain: FALSE
+  seed: 314
+editor_options: 
+  chunk_output_type: console
+---
+
+
+```{r setup, include=FALSE, message=F, echo=F, warning=F}
+# LIBRARIES----
+
+#### plotting:
+library(ggplot2)
+library(gridExtra)
+
+# #### Misc:
+library(here)
+library(tidyr)
+library(knitr)
+library(kableExtra)
+library(dplyr)
+
+# model packages
+library(torch)
+
+# DOCUMENT SETUP ----
+# detect pdf/html output, set chunk options, sci.notation 
+latex_out <- knitr::is_latex_output()
+knitr::opts_chunk$set(
+  cache = FALSE, 
+  message = FALSE, 
+  echo = !knitr::is_latex_output(), 
+  warning = FALSE
+)
+
+
+if (knitr::is_latex_output()) {
+  knitr::opts_chunk$set(fig.height=4, 
+                        fig.width=6)
+} else {
+  knitr::opts_chunk$set(out.width = "100%")
+}
+
+options(scipen=10)
+
+
+# TEXT/TABLE FORMATTING----
+
+custom_purple <- ifelse(
+  knitr::is_latex_output(),
+  "purple",
+  "#b51ced"
+)
+
+custom_blue <- ifelse(
+  knitr::is_latex_output(),
+  "blue",
+  "#11579e"
+)
+
+colorize <- function(x, color=custom_purple) {
+  # text color conditional on latex/html output
+  # from rmarkdown cookbook
+  if (knitr::is_latex_output()) {
+    sprintf("\\textcolor{ %s}{ %s}", color, x)
+  } else if (knitr::is_html_output()) {
+    sprintf("<span style='color: %s;'>%s</span>", color, x)
+  } else x
+}
+
+cat_color <- function(txt, style = 1, color = 36){
+  cat(
+    paste0(
+      "\033[0;",
+      style, ";",
+      color, "m",
+      txt,
+      "\033[0m","\n"
+    )
+  )  
+}
+
+# kable NA handling
+options(knitr.kable.NA = '')
+
+# mykable function
+mykable <- function(tab, cap,
+                    latex_options=c("hold_position", "scale_down", "striped"), 
+                    bootstrap_options=c("striped", "hover", "condensed"), 
+                    full_width=F, position="center", ...){
+  # kable formatting conditional on latex or html output
+  if (is.null(getOption("knitr.in.progress"))){
+    print(tab)
+  } else if (knitr::is_latex_output()){
+    kable(x=tab, caption=cap, ...) %>%
+      kableExtra::kable_styling(latex_options = latex_options)
+  } else if (knitr::is_html_output()){
+    kable(x=tab, caption=cap, ...) %>%
+      kableExtra::kable_styling(bootstrap_options = bootstrap_options, full_width=full_width, position=position)
+  }
+}
+
+# notin
+`%notin%` <- Negate(`%in%`)
+
+source(here("Rcode", "torch_horseshoe_klcorrected.R"))
+source(here("Rcode", "sim_functions.R"))
+source(here("Rcode", "analysis_fcns.R"))
+```
+
+
+
+
+
+
+
+
+
+
+
+## 12/27:
+
+New models --- corrected KL, calibrating $\tau_0$ via Piironen Vehtari 2017 (PV2017) to assume half covars should be trimmed, Kaiming initialization ---, are doing well in terms of MSE and function fitting.  
+
+
+__However, same problem persists__: small global scale param $\tau$ is still pushing global $\kappa_j$'s too high, whereas local $\tilde\kappa_j$'s exhibit extreme separation.  
+
+  - is it extreme for the amount of observations (10k) that I'm training on?  
+  
+  - seems a little unintuitive that posterior $\tau$ should get smaller with more obs.  Why exactly is that?  Is it supposed to work this way at high $n$, where $\tau$ gets pushed towards 0 while $\lambda_j$'s go to extremes?  
+  
+__Wait.  Have I been looking at this the wrong way?  Maybe the $\lambda_j$'s need to be pushed further apart??__
+
+
+___
+
+Looking at effect of 2 possible corrections to global scale parameter / kappas:  
+
+1. __correcting global scale parameter $\tau$__:    
+
+  - Piironen Vehtari 2017: suggest setting $\tau_0 = \dfrac{p_0}{d - p_0} \dfrac{\sigma}{\sqrt{n}}$ because posterior expected number of effective parameters ($m_{eff}$) is given by $E(m_{eff} | \tau, \sigma) = D \dfrac{  \tau \sigma^{-1} \sqrt{n}  }{  1 + \tau \sigma^{-1} \sqrt{n}  }$, where $D$ is the dimension of $\beta$.    
+
+  - However, in our setting, we have additional dropout from the 2nd layer, which pushes some neurons' output to 0, i.e. the ratio $\dfrac{p_0}{d - p_0}$ is not the same for every neuron.  For neurons that should be pruned (as indicated by 2nd layer's shrinkage), this is simply going to be 0.    
+
+  - If we were to pretend that we simply had a $d_1 * p$ length covariate vector, instead of $p$ covariates fed into $d_1$ neurons, then what the BNN produces as the first-layer estimate $\hat\tau_1$ seems more like the following  
+  $$\hat\tau = \dfrac{  \hat{p} \hat{d_1}  }{  p d_1 - \hat{p} \hat{d_1}  } \dfrac{\sigma}{\sqrt{n}}$$,
+where $\hat{p}$ = the estimated number of nonzero coefs, $\hat{d_1}$ = the number of neurons that are _not_ dropped.    
+
+  - thus our first-layer estimate $\hat\tau_1$ will always be $\leq$ than the "true" $\tau_1 = \dfrac{ \hat{p} }{ p - \hat{p} } \dfrac{\sigma}{\sqrt{n}}$, because $\hat{d_1} \leq d_1$.    
+
+  - and to recover $\tau_1$ from $\hat{\tau_1}$, we have:
+  $$\tau_1 = \hat{\tau_1} \times \left(  1 + \dfrac{p (d_1 - \hat{d_1})}{\hat{d_1}(p - \hat{p})}  \right)$$
+  
+
+2. __consider actual shrinkage by end of next network layer:__  
+
+- in a 2-layer network, shrinkage of first layer weights $W_1$ ends up being:
+$$\underset{p \times d_1}{\bar{W_1}} =   \underset{p \times p}{(1 - \kappa_1)}   \underset{p \times d_1}{\hat{W_1}}    \underset{d_1 \times d_1}{(1 - \kappa_2)}$$,
+Where matrices $1 - \kappa_l$ are diagonal matrices with $1 - \kappa_j$ for the $l$'th layer on the diagonal.    
+
+- so the actual shrinkage experienced by the weight in the $j$th row and $k$th column ends up being 
+$$\bar{w}_{j,k} = \left(1 - \kappa_{1,j}\right)\left(1 - \kappa_{2,k}\right) \hat{w}_{j,k} = \left[1 - \left(\kappa_{1,j} + \kappa_{2,k} - \kappa_{1,j} \kappa_{2,k}\right) \right]\hat{w}_{j,k}$$
+
+
+### new perspective: work on $\lambda_j$'s
+
+- maybe I need to think about if the actual correction needs to be to the __local__ scale parameters to make up for the v. small global scale params?
+
+- The neurons that get 0'd out DON'T affect the $\lambda_j$'s when a coefficient should be 0.
+
+- BUT when a coefficient should NOT be 0, the neurons that get 0'd out make the $\lambda_j$ SMALLER than it should be.
+
+- SO WE SHOULD HAVE EVEN MORE SEPARATION in the local scale params.  This makes more sense to me.
+
+
+
+
+
+# unformatted notes
+
+- kept research notes as .txt file before this point.  
+- mostly unaltered apart from fixing into descending chronological order (most recent at top) and making each date a heading
+
+
+#### 12/19
+- currently running: hshoe_smooth_pvtau_1721632
+  - 5 sims, 1M epochs
+  - 3 layers, 16, 32 hidden; smoother fcns
+  - first layer prior tau_0 set assuming 1/2 vars true / even odds
+- to do:
+  - make diagnostic functions so it's easier to check completed models
+    - \# params
+    - function plots
+    - MSE / KL plots
+    - different decision rules:
+      - global/local kappas, BFDR
+      - how to use alphas with BFDR?
+      - decision rule based on Bayesian intervals
+
+
+- leaky relu does not work.
+
+- 5 layers, 8 units each; smoother fcns --- v. bad; MSE 2.8; just gives back noise
+  - can I figure out a guideline for what model size works?   Does this just have too many params?
+  - \# params: 104 * 8 + 3 * 8 * 8 + 8 = 1032 weights.  x2 (mu and sig)  
+    - atil, btil: 2 * (104 + 4 * 8).  x2 (mu and var)
+    - sa, sb: 5 layers x 2. x2 (mu and var)
+
+- 3 layers, 16, 32 hidden; smoother fcns ---- mixed; MSE ~ 1, recovers functions well
+  - first layer prior tau_0 set assuming 1/2 vars true / even odds
+  - global kappas not great; 
+  - alphas very good (all 4 chosen; 1 FP); continuing training might move more in right direction
+  - need to look at local kappas
+  - \# params: 104 * 16 + 16 * 32 + 32 = 2208 weights.  
+  - hshoe_smoother_21632_12500obs_215244
+
+
+params: 
+- sa, sb:  4 params per layer
+- atil, btil: 4 params per input dimension
+- weights: 2 params per weight: input x output dim
+- biases: 2 params per output dimension
+
+
+
+
+#### 12/17:
+- activation scaling doesn't work!  just ends up not training anymore, exarcebated extremely small global scale params
+- smoother functions - 
+   - consistently higher MSE?  1.82 or so (whereas old functions had ~ 1.2)
+   - weirdly, "new" function 2 is not detected (function drawn is just noisy horizontal line)
+     - strange b/c old function 2 was the same with an added "-x" term.  Periodic function and downward slope were modeled fine before.
+   - seems to converge faster (stops improving around 300k iterations, actually)   
+
+- current simulations:
+  - does leaky relu work better?
+  - kappas seem better, now need to check if it's from correction to KL and initialization, or from using smoother functions
+
+- working on getting competitors (lm, spike-slab, BART) running
+- need to consider better simulation data?  
+   - data with interaction / effect modification?
+
+
+Currently running:
+- started first: (using `batching.R`) --- original functions and model (2 layers, 16 8), with corrected KL and kaiming init.
+- started 2nd: smoother_fcns_kaiming --- smoother functions, 5 layers, leaky relu, 8 in all
+- started 3rd: smoother_fcns_kaiming --- smoother functions, 2 layers, leaky relu, 32 32
+
+
+
+
+
+
+#### 12/16
+- ablation: try smoother_functions_kaiming with 
+  - larger BNN?  original set of functions?
+- test activation scaling - `torch_horseshoe_scaledacts.R`
+
+
+
+#### 12/14
+- `smoother_functions_kaiming.R`: smoother functions, kaiming initialization
+  - tau_0 = 1
+  - RESULTS: not bad:
+    - fcn2 (high freq periodic function, asymmetric around origin) not captured
+    - other fcns OK, a bit noisy
+    - kappas look more reliable:
+      - nuisance variables rejected with high certainty
+      - true covs 0.26 0.97 0.49 0.78
+    - global shrinkage looks about right
+    
+
+
+
+
+#### 11/20
+
+testing over the last few weeks suggests that 
+1) when the network's parameters outnumber the observations we have to work with, the unmodified alpha parameter is best to work with, and we should stop training early (otherwise the network will overfit by fitting nuisance variables to noise / fill in gaps)
+
+2) when the number of observations is smaller than the number of parameters, training for a long time is helpful, but we should use the alphas after centering them at the geometric mean
+
+3) perhaps the first hidden layer should be smaller in dimension?
+
+16 -> 32 -> 64
+
+
+
+need to save FP TP FN TN alongside tt_mse
+
+
+
+
+
+
+11/12
+- smoother functions X
+- scale layer activations?
+- use He initialization?  supposed to be better than Xavier initialization for RELU
+  - each weight sampled from N(0, 2 / n_{l-1})
+- Hu 2020 - orthogonal initialization
+- maximal update parametrization
+
+nn_init_kaiming_normal_(mod$fc1$weight_mu)
+
+
+
+
+
+#### 11/10
+
+ideas to try:
+- scale outputs by layer dimension
+  - divide pre-activations by d --- mitigate tau getting too small?
+    - e.g. Y1 + Y1 + Y1 + Y1 vs Y1 + Y2 + Y3 + Y4
+
+
+- better prior for tau 
+  - based on Piironen & Vehtari 2017
+
+
+- different / smoother data-generating functions
+
+
+- justify multiplying / dividing scale param
+
+
+
+
+
+
+#### 11/8
+
+- need to monitor test-train split along with TP TN rate
+- run 10 times
+- keep track of test, train, FP, TP
+- sweet spot tends to be btwn 5-8k epochs
+- start storing at 3000 epochs
+- need to get a sense of how moving average changes?
+- is there a time when it gets all of them correct?
+- check for ranking
+- tt_mse
+- earliest best is at 3500 epochs
+- FP at 6000
+- diverging at 6500
+- just gets worse and worse
+
+
+- part of the problem might be that we have more parameters than data, so 
+- the network can memorize the data.  So CV will keep going in circles.
+- for the alphas, cap them at 1, then renormalize
+- what if drop nodes in the hidden layers, then retrain? using starting points for hidden layers?
+- some support for this as a VAE procedure
+
+
+
+- training regimes tested
+    - 5-fold CV, 1000 obs, hidden layers 50, 25 - same issues
+        - KL seems inappropriately scaled?  at 2500 epochs in, around 23
+    - no CV - bad
+    - 5-fold CV, 10k obs, hidden layers 25, 25
+        - seems more stable?  KL is better scaled 
+            - 500 epochs, MSE = 5, KL = 1.6
+            - 4000 epochs, MSE = 2.57, KL = 1.15
+            - 7000 epochs, MSE = 1.8, KL = 0.74
+    - tried with only 5 vars (so only 1 nuisance) to see how estimation goes. 
+    	- fcn estimation is actually fairly good BUT
+    	- the 1 nuisance variable's alpha appears to be going to 0 as training goes on
+    	- for some reason all the predicted curves appear to be shifted up
+    	- function estimation is really good around x = 0; because all the covs are generated as N(0,1), so there's the most data there.
+
+
+- monitoring predicted functions
+
+
+
+ideas:
+    - consider training 1x, eliminating nodes with high alpha in hidden layers, retraining
+    - what about eliminating nodes with alpha > 1 at some point
+    - function estimation seems a bit fucky, probably because keeping all these unused vars in?
+    - look at the clip variances thing in Ullrich's code
+
+
+
+
+
+
+
+#### March 18
+
+Job  
+by Joseph Millar  
+
+I’ve just come from walking to and fro  
+in the earth, Satan tells God  
+before they make the wager  
+standing for centuries  
+as metaphor of man’s existence—   
+trapped on the wheel like an insect  
+under a microscope:  
+his disastrous ecology,  
+his ravaged immune system,  
+even his broken-veined, wine-flushed face  
+looking back from the rearview  
+and parked alone by the river.  
+He should have been born  
+with fins, he thinks  
+as the swans arch and preen  
+and attack one another  
+though everyone says they mate for life  
+and the afternoon wind  
+raises welts of sunlight  
+over the torqued and rippling surface  
+and the beautiful ravenous fish.  
+
+
+
+
+
+#### 3/19 BVS for DNN lit review
+
+---- Variational Inf and dropout/compression
+
+- Gal & Ghahramani, 2015; Kingma et al 2015 
+
+- Kingma et al 2015, "Variational Dropout and the local reparameterization trick" --- show that dropout can be seen as a special case of Bayesian regularization
+
+- Molchanov, Ashukha, Vetrov 2017, "Variational Dropout Sparsifies Deep Neural Networks"
+  - each weight has its own, individual dropout rate
+  - __has a good lit review__
+  - in discussion, "Another possible direction for future research is to find a way to obtain __structured sparsity using our framework__"
+
+
+
+- Louizos, Ullrich, Welling 2017, Bayesian Compression for Deep Learning
+  - apply sparsity-inducing Gaussian mixture models to ROWS of a neural network weight matrix (not the nodes, but it also induces sparsity in nodes)
+  - network weights estimated via variational inference
+    - improper log-normal Jeffrey's prior --- later shown to be misspecified
+    - Horseshoe
+  - focus is on compression; dropout parameters treated as tuning parameters
+  - also compress via reducing bit precision
+
+
+
+- Ghosh, Yao, Doshi-Velez 2019, Model Selection in Bayesian Neural Networks via Horseshoe Priors
+  "Model selection" here is about choice of NN architecture, i.e. how many layers, how many nodes
+  - also show that too many nodes in a BNN --> large predictive uncertainty; "more expressive models require more data to concentrate the posterior"
+
+
+- Overweg et al, 2019, Interpretable Outcome Prediction with Sparse Bayesian Neural Networks in Intensive Care
+  - only apply HShoe to input layer
+  - no simulation results --- just applied to datasets in UCI ML repository, and report root mean-squared error and negative log-likelihood
+  - no investigation of variable selection performance, e.g. T1 error, FDR
+  - no decision rule / criteria
+  - little investigation of using larger NN's
+
+
+- Nguyen, et al, 2021, "Structured Dropout Variational Inference for Bayesian Neural Networks"
+  - uses Householder transformation to learn representation for multiplicative Gaussian noise in Varitaionl Dropout
+  - obtain Variational Dropout posterior with structured covariance
+  - hierarchical dropout procedure --- equivalent to inferring a joint posterior 
+
+
+
+
+---- Normalizing Flows
+
+- Huang, Krueger, Lacoste, Courville 2018, "Neural Autoregressive Flows"
+  - normalizing flows and autoregressive models
+  - "universal approximators for continuous probability distributions, and their greater expressivity allows them to better capture multimodal target distributions"
+
+
+
+- look into: 
+  - bits-back argument and bits-back coding, 
+  - Ghosh, Yao Doshi-Velez paper
+  - Nguyen paper
+  - Automatic Relevance Determination effect
+  - code for Molchanov, Ashukha, Vertrov 2017 ??
+
+
+
+#### Feb 11
+interesting talk at Qualcomm by Van Der Wilk:
+
+https://youtu.be/m1dSrXBEZIQ
+https://www.youtube.com/watch?v=m1dSrXBEZIQ
+ELBO good in deep Gaussian Processes (Damianou Lawrence 2)
+
+For linear models, when ensembling, if initialize weights from iid prior, then apply gradient descent w.r.t. squared loss (unregularized)
+ ---> then resulting weights distributed exactly as posterior, i.e. estimated ensemble weights exactly equal to posterior (Matthews et al 2017)
+
+ Also, can get lower bound by summing training losses over observations --- Lyle, Schut, Ru, Gal, van der Wilk
+

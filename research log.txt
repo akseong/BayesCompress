@@ -1,6 +1,15 @@
 research log:
 
 
+12/27:
+- looking at effect of 2 possible corrections:
+  1. correcting tau:
+    - PV2017: suggest setting $\tau_0 = \frac{p_0}{d - p_0} \frac{\sigma}{\sqrt{n}}$ because posterior expected number of effective parameters (m) is given by 
+      $E(m | \tau, \sigma) = D \frac{  \tau \sigma^{-1} \sqrt{n}  }{  1 + \tau \sigma^{-1} \sqrt{n}  }$
+      
+
+
+
 
 12/19
 - currently running: hshoe_smooth_pvtau_1721632
