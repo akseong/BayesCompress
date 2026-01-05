@@ -145,15 +145,21 @@ modfile_orig <- paste0(stem_orig, seed_orig, ".pt")
 
 
 
+
+```{r}
+load(resfile_orig[1])
+plot_datagen_fcns(sim_res$sim_params$flist)
+```
+
+
+
+
 ## 2 hidden layers, 16-8 {.tabset .tabset-pills}
 
 - uncorrected KL, without Kaiming initialization, $\tau_0 = 1$
 
-### sim 1
 
-```{r}
-load(resfile_orig[1])
-```
+### sim 1
 
 ```{r VIS_CHUNK}
 loss_pltfcn(sim_res, burn = 2e4)$mse_plt
@@ -186,8 +192,14 @@ varmat_pltfcn(
   burn = 0
 )$all_vars_plt
 
-# err_by_max_bfdr(kmat_local[nrow(kmat_local), ])
-# err_by_max_bfdr(kmat_global[nrow(kmat_global), ])
+err_by_max_bfdr(kmat_local[nrow(kmat_local), ]) + 
+  labs(
+    subtitle = "using local kappas as dropout probabilities"
+  )
+err_by_max_bfdr(kmat_global[nrow(kmat_global), ]) + 
+  labs(
+    subtitle = "using global kappas as dropout probabilities"
+  )
 
 ```
 
@@ -213,10 +225,19 @@ load(resfile_orig[4])
 <<VIS_CHUNK>>
 ```
 
-
 ### sim 5
 
 ```{r}
 load(resfile_orig[5])
 <<VIS_CHUNK>>
 ```
+
+
+
+
+# smoother function set
+
+```{r}
+
+```
+
