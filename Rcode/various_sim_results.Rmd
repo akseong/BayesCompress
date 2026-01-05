@@ -1,5 +1,5 @@
 ---
-title: "Simulation results, incremental mdoel changes"
+title: "Simulation results, incremental model changes"
 author: "Arnie Seong"
 date: "`r format(Sys.time(), '%d %B %Y')`"
 header-includes:
@@ -24,7 +24,15 @@ params:
 editor_options: 
   chunk_output_type: console
 ---
-
+<style>
+  .panel-tabs{
+    opacity: 1;
+    background-color: #2fa4e7;
+    color: #ffffff;
+    position: sticky;
+    top: 0
+  }
+</style>
 
 ```{r setup, include=FALSE, message=F, echo=F, warning=F}
 # LIBRARIES----
@@ -62,6 +70,11 @@ if (knitr::is_latex_output()) {
 }
 
 options(scipen=10)
+
+# PANELSET
+xaringanExtra::use_panelset()
+xaringanExtra::style_panelset_tabs(font_family = "inherit")
+
 
 
 # TEXT/TABLE FORMATTING----
@@ -135,8 +148,6 @@ source(here("Rcode", "analysis_fcns.R"))
 # original function set
 
 ```{r FNAMES_SETUP, echo = FALSE}
-img_suffixes <- c(paste0("_e", 1:9, "e_+05.png"), "_e1e_+06.png")
-
 stem_orig <- here::here("sims", "results", "fcnl_hshoe_mod_12500obs_")
 seed_orig <- c(966694, 191578, 272393, 718069, 377047)
 resfile_orig <- paste0(stem_orig, seed_orig, ".RData")
@@ -153,8 +164,7 @@ plot_datagen_fcns(sim_res$sim_params$flist)
 
 
 
-
-## 2 hidden layers, 16-8 {.tabset .tabset-pills}
+## 2 hidden layers, 16-8 {.panelset}
 
 - uncorrected KL, without Kaiming initialization, $\tau_0 = 1$
 
@@ -192,11 +202,11 @@ varmat_pltfcn(
   burn = 0
 )$all_vars_plt
 
-err_by_max_bfdr(kmat_local[nrow(kmat_local), ]) + 
+err_by_max_bfdr(kmat_local[nrow(kmat_local), ])$plt + 
   labs(
     subtitle = "using local kappas as dropout probabilities"
   )
-err_by_max_bfdr(kmat_global[nrow(kmat_global), ]) + 
+err_by_max_bfdr(kmat_global[nrow(kmat_global), ])$plt + 
   labs(
     subtitle = "using global kappas as dropout probabilities"
   )
@@ -237,7 +247,179 @@ load(resfile_orig[5])
 
 # smoother function set
 
-```{r}
+- other changes: corrected KL, Kaiming initialization, calibrated $\tau_0$ re: Piironen & Vehtari 2017 to assume 1/2 covaraiates are nuisance.
 
+
+```{r SMOOTHER_FNAMES}
+img_suffixes <- c(paste0("_e", 1:9, "e_+05.png"), "_e1e_+06.png")
+
+stem_pvtau1 <- here::here("sims", "results", "hshoe_smooth_pvtau_1721632_12500obs_")
+stem_pvtau2 <- here::here("sims", "results", "hshoe_smooth_pvtau_2721632_12500obs_")
+seed_pvtau2 <- c(19709, 809872, 264744, 498729, 336130, 263808, 877164, 218489, 234821, 616240)
+seed_pvtau1 <- c(561114, 453639, 663173, 108703, 165780)
+
+resfile_pvtau1 <- paste0(stem_pvtau1, seed_pvtau1, ".RData")
+modfile_pvtau1 <- paste0(stem_pvtau1, seed_pvtau1, ".pt")
+
+resfile_pvtau2 <- paste0(stem_pvtau2, seed_pvtau2, ".RData")
+modfile_pvtau2 <- paste0(stem_pvtau2, seed_pvtau2, ".pt")
 ```
+
+```{r}
+load(resfile_pvtau1[1])  
+plot_datagen_fcns(sim_res$sim_params$flist)
+```
+
+## 1M epochs {.panelset}
+
+```{r, echo = FALSE}
+sim_ind = 1
+```
+
+
+### sim `r sim_ind`
+
+```{r, echo = FALSE}
+load(resfile_pvtau1[sim_ind])
+<<VIS_CHUNK>>
+sim_ind = sim_ind + 1
+```
+
+
+### sim `r sim_ind`
+
+```{r, echo = FALSE}
+load(resfile_pvtau1[sim_ind])
+<<VIS_CHUNK>>
+sim_ind = sim_ind + 1
+```
+
+
+### sim `r sim_ind`
+
+```{r, echo = FALSE}
+load(resfile_pvtau1[sim_ind])
+<<VIS_CHUNK>>
+sim_ind = sim_ind + 1
+```
+
+
+### sim `r sim_ind`
+
+```{r, echo = FALSE}
+load(resfile_pvtau1[sim_ind])
+<<VIS_CHUNK>>
+sim_ind = sim_ind + 1
+```
+
+
+### sim `r sim_ind`
+
+```{r, echo = FALSE}
+load(resfile_pvtau1[sim_ind])
+<<VIS_CHUNK>>
+sim_ind = sim_ind + 1
+```
+
+
+## 500k epochs {.panelset}
+
+```{r, echo = FALSE}
+sim_ind = 1
+```
+
+
+### sim `r sim_ind`
+
+```{r, echo = FALSE}
+load(resfile_pvtau2[sim_ind])
+<<VIS_CHUNK>>
+sim_ind = sim_ind + 1
+```
+
+
+### sim `r sim_ind`
+
+```{r, echo = FALSE}
+load(resfile_pvtau2[sim_ind])
+<<VIS_CHUNK>>
+sim_ind = sim_ind + 1
+```
+
+
+### sim `r sim_ind`
+
+```{r, echo = FALSE}
+load(resfile_pvtau2[sim_ind])
+<<VIS_CHUNK>>
+sim_ind = sim_ind + 1
+```
+
+
+### sim `r sim_ind`
+
+```{r, echo = FALSE}
+load(resfile_pvtau2[sim_ind])
+<<VIS_CHUNK>>
+sim_ind = sim_ind + 1
+```
+
+
+### sim `r sim_ind`
+
+```{r, echo = FALSE}
+load(resfile_pvtau2[sim_ind])
+<<VIS_CHUNK>>
+sim_ind = sim_ind + 1
+```
+
+
+### sim `r sim_ind`
+
+```{r, echo = FALSE}
+load(resfile_pvtau2[sim_ind])
+<<VIS_CHUNK>>
+sim_ind = sim_ind + 1
+```
+
+
+### sim `r sim_ind`
+
+```{r, echo = FALSE}
+load(resfile_pvtau2[sim_ind])
+<<VIS_CHUNK>>
+sim_ind = sim_ind + 1
+```
+
+
+### sim `r sim_ind`
+
+```{r, echo = FALSE}
+load(resfile_pvtau2[sim_ind])
+<<VIS_CHUNK>>
+sim_ind = sim_ind + 1
+```
+
+
+### sim `r sim_ind`
+
+```{r, echo = FALSE}
+load(resfile_pvtau2[sim_ind])
+<<VIS_CHUNK>>
+sim_ind = sim_ind + 1
+```
+
+
+### sim `r sim_ind`
+
+```{r, echo = FALSE}
+load(resfile_pvtau2[sim_ind])
+<<VIS_CHUNK>>
+sim_ind = sim_ind + 1
+```
+
+
+
+# 
+
 
