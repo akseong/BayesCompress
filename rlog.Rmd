@@ -132,6 +132,114 @@ source(here("Rcode", "analysis_fcns.R"))
 
 
 
+## 1/6/26: effect of $z_j = \tilde{z}_j s$ over multiple layers
+
+Continuing thoughts on possible fix 3 below (correcting the layer 1 $z_j$'s to account for pruning from later layers):
+
+### 2 Layer Network:
+
+$$\begin{align}
+  \hat{y}_i 
+  & =
+    \sigma_1 \left\{  
+      \underset{1 \times p}    {X_i} 
+      \underset{p \times p}    {Z_1}
+      \underset{p \times d_1}  {W_1}
+      + \underset{1 \times d_1}{b_1}
+    \right\}
+    \underset{d_1 \times d_1}  {Z_2}
+    \underset{d_1 \times d_2}  {W_2}
+    + \underset{d_1 \times d_2}{b_2}
+  \\
+  & =
+    \sigma_1 \left\{  
+      \underset{1 \times p}    {X_i} 
+      \underset{p \times p}    {Z_1}
+      \underset{p \times d_1}  {W_1}
+      \underset{d_1 \times d_1}  {Z_2}
+      + \underset{1 \times d_1}{b_1}
+        \underset{d_1 \times d_1}  {Z_2}
+    \right\}
+    \underset{d_1 \times d_2}  {W_2}
+    + \underset{d_1 \times d_2}{b_2}
+  \\
+\end{align}$$
+
+
+- $\sigma_l$, the RELU activation function for layer $l$;
+
+- $Z_l$ = diagonal matrix for layer $l$ with (non-negative) diagonal entries $z_j = \tilde{z}_j s$ for $j \in \{1, 2, ..., d_{l-1} \}$;
+
+  - since $Z_l$ is diagonal and non-negative, we can move it inside the RELU activation $\sigma_{l-1}$:
+
+    - if $B$ is a diagonal matrix, right multiplying a matrix $A$ by $B$ scales the columns of $A$ by the diagonal entries: $$AB = \left[b_{11} \vec{a}_1  ~  b_{22} \vec{a}_2 ~ ... ~ b_{JJ} \vec a_J \right]$$ where $\vec{a}_j, j \in \{1, 2, ..., J\}$ are the column vectors composing $A$.
+
+  - $\tilde{z}_j$, the local scale parameter ($\lambda_j$ in usual horseshoe notation); scalar, non-negative;
+
+    - variational specification: $\tilde{z}_j = \sqrt{\tilde{\alpha} \tilde{\beta}} \sim LogNormal\left(  \dfrac{\mu_{\tilde\alpha} + \mu_{\tilde\beta}}{2} , \dfrac{\sigma_{\tilde\alpha}^2 + \sigma_{\tilde\beta}^2}{4}  \right)$;
+
+  - $s$, the global scale parameter ($\tau$ in usual horseshoe notation); scalar, non-negative;
+
+    - variational specification: $s = \sqrt{s_a s_b} \sim LogNormal\left(  \dfrac{\mu_{s_a} + \mu_{s_b}}{2} , \dfrac{\sigma_{s_a}^2 + \sigma_{s_b}}{4}  \right)$;
+
+- $W_l$, the $d_{l-1} \times d_l$ weight matrix in layer $l$;
+
+- $b_l$, the bias/intercept term in layer $l$;
+
+- $p$, the # of covariates;
+
+- $d_l$, the # of neurons in layer $l$;
+
+  - $d_2$ = dimension of response (in a 2-layer network).  Here, $d_2 = 1$
+
+
+Then the actual "coefficient" effect of the $j,k$^th^ entry in $W_1$ isn't just $z_{1_j} w_{1_{j,k}}$ for $j \in \{1, 2, ..., p\}, k \in \{1, 2, ..., d_1\}$.  Instead, letting $z_{1_j}$ refer to the $j$^th^ diagonal entry in $Z_1$ (and similarly for $z_{2_k}$) we have:
+
+$$j,k^{\text{th}} \text{ entry of } Z_1 W_1 Z_2 = \left\{  z_{1_j} w_{j,k} z_{2_k} \right\}$$
+___
+
+__Thus:__
+
+- one option might be to use some combination of $z_1$ and $z_2$ to determine shrinkage.
+
+- alternatively, to carry the calculation all_all_ the way through the network, correcting the $z_j$'s with some measure of $Z_2 W_2$, e.g. matrix determinant or matrix norm.
+
+
+
+### 3-layer ( and more) networks:
+
+$$\begin{align}
+  \hat{y}_i
+  & =
+    \sigma_2 \Big\{
+      \sigma_1 \big[
+        X_i Z_1 W_1 + b_1
+      \big]
+      Z_2 W_2 + b_2
+    \Big\}
+    Z_3 W_3 + b_3
+  \\
+  & =
+   \sigma_2 \Big\{
+      \sigma_1 \big[
+        X_i Z_1 W_1 Z_2 + b_1 Z_2
+      \big]
+      W_2 Z_3 + b_2 Z_3
+    \Big\}
+    W_3 + b_3
+\end{align}$$
+
+
+- becomes rather difficult to track the shrinkage from $Z_l$ across all 3 layers.  The only option that I can think of tha makes sense in this context is using the determinants or some kind of norm (Frobenius?) of $Z_2 W_2$ and $Z_3 W_3$.
+
+  - at least this becomes generalizable to deeper networks.
+
+
+___
+
+Ok, time to code some of this up.
+
+
 ## 1/5/26: Happy New Year
 
 Let's figure this out.
