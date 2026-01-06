@@ -132,11 +132,37 @@ source(here("Rcode", "analysis_fcns.R"))
 
 
 
+## 1/5/26: Happy New Year
+
+Let's figure this out.
+
+- Thoughts re: fixing the issue affecting the local shrinkage params $\tilde{z}_j$: 0'd out neurons affect the estimation of the local kappas $\tilde\kappa_j = (1 + \tilde{z}_j^2)^{-1}$ for true covariates, but not for the nuisance covs; essentially, I think the $\tilde{z}_j$'s for true covs are lower than they should be because some neurons should be 0'd out (i.e. the pressure towards 0 for some neurons lowers the shared $\tilde{z}_j$), but the $\tilde{z}_j$'s for nuisance covariates are unaffected because they should _all_ be 0:
+
+  - __possible fix 1__: re-training reduced model; tried already, did not work.
+
+    - did not try with corrected KL and Kaiming initialization, which does improve things
+  
+  - __possible fix 2__: decoupling the 1st layer's neurons so that not all of them share $\kappa_j$'s or $\tilde{z}_j$'s.  
+  
+    - Seems difficult?  Perhaps using some kind of Bernoulli to turn them on/off for individual neurons, or assigning each covariate 2 $\kappa_j$'s?
+  
+  - __possible fix 3__: correcting $\tilde{z}_j$:
+  
+    - multiply by $\dfrac{\text{total}}{\text{included}}$ 1st layer neurons.  But need to set decision criteria (based on 2nd layer's $\tilde{z}_j$'s) then for inclusion.
+    
+      - may need to keep in mind that the 2nd layer's $\tilde{z}_j$'s depend on the 3rd layer as well.  Which is a little crazy-making.
+      
+    - do some matrix algebra to figure out the effective weights, i.e. how the weights in the first layer get multiplied through the network, and use this as the correction.  (Similar to what I've done for the effective shrinkage calculation.)  This seems nice since it doesn't require any thresholding / decision-making as part of the correction.
+     
+  - __possible fix 4__: correcting $\tilde{\kappa}_j = (1 + \tilde{z}_j^2)^{-1}$:
+  
+  
+  - __possible fix 5__: correcting $\kappa_j = (1 + \tilde{z}_j^2 s^2)^{-1}$:
+  
+    - Since the effective weight (i.e. after applying shrinkage, moving through to the 2nd layer's preactivation) in the first layer is $\bar{w}_{j,k} = \left(1 - \kappa_{1,j}\right)\left(1 - \kappa_{2,k}\right) \hat{w}_{j,k} = \left[1 - \left(\kappa_{1,j} + \kappa_{2,k} - \kappa_{1,j} \kappa_{2,k}\right) \right]\hat{w}_{j,k}$, set $\gamma_{j,k} = \kappa_{1,j} + \kappa_{2,k} - \kappa_{1,j} \kappa_{2,k}$.  Then use the mean (simple?  geometric?) $\gamma_j = \bar{\gamma}_{j,k}$
 
 
-
-
-
+- Could work on these in conjunction with a correction to the global scale parameter ($\tau$ in usual horseshoe prior notation, $s$ in mine): $\tau_1 = \hat{\tau_1} \times \left(  1 + \dfrac{p (d_1 - \hat{d_1})}{\hat{d_1}(p - \hat{p})}  \right)$.  Since the fractional term will always be non-negative, $\tau_1 \geq \hat{\tau}_1$.  The issue here is 1) setting a threshold for inclusion of neurons (determining $\hat{d}_1$) and 2) determining $\hat{p}$
 
 ## 12/27:
 
@@ -186,12 +212,15 @@ $$\bar{w}_{j,k} = \left(1 - \kappa_{1,j}\right)\left(1 - \kappa_{2,k}\right) \ha
 
 - maybe I need to think about if the actual correction needs to be to the __local__ scale parameters to make up for the v. small global scale params?
 
-- The neurons that get 0'd out DON'T affect the $\lambda_j$'s when a coefficient should be 0.
+- each covariate's $\kappa_j$ is shared between $d_l$ neurons (in our case, 16).
 
-- BUT when a coefficient should NOT be 0, the neurons that get 0'd out make the $\lambda_j$ SMALLER than it should be.
+- the 2nd layer's $\kappa_j$'s will indicate that some of the 1st layer's neurons should be 0'd out.
 
-- SO WE SHOULD HAVE EVEN MORE SEPARATION in the local scale params.  This makes more sense to me.
+- The 1st layer neurons that get 0'd out DON'T affect the $\lambda_j$'s when a coefficient should be 0.
 
+- BUT when a coefficient should NOT be 0, the 1st layer neurons that get 0'd out (by the 2nd layer) make the $\lambda_j$ SMALLER than it should be.
+
+- SO WE SHOULD HAVE EVEN MORE SEPARATION in the local scale params than we are seeing.  This makes more sense to me.
 
 
 
