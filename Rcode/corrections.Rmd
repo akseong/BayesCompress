@@ -1,0 +1,274 @@
+---
+title: "examining possible scale parameter corrections"
+author: "Arnie Seong"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+header-includes:
+  - \usepackage{bm}
+  - \usepackage{xcolor}
+  - \usepackage{amssymb}
+output: 
+  html_document:
+    df_print: paged
+    theme: cerulean
+    highlight: tango
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
+    code_fold: show
+urlcolor: blue
+params:
+  retrain: FALSE
+  seed: 314
+editor_options: 
+  chunk_output_type: console
+---
+<style>
+  .panel-tabs{
+    opacity: 1;
+    background-color: #2fa4e7;
+    color: #ffffff;
+    position: sticky;
+    top: 0
+  }
+</style>
+
+```{r setup, include=FALSE, message=F, echo=F, warning=F}
+# LIBRARIES----
+
+#### plotting:
+library(ggplot2)
+library(gridExtra)
+
+# #### Misc:
+library(here)
+library(tidyr)
+library(knitr)
+library(kableExtra)
+library(dplyr)
+
+# model packages
+library(torch)
+
+# DOCUMENT SETUP ----
+# detect pdf/html output, set chunk options, sci.notation 
+latex_out <- knitr::is_latex_output()
+knitr::opts_chunk$set(
+  cache = FALSE, 
+  message = FALSE, 
+  echo = !knitr::is_latex_output(), 
+  warning = FALSE
+)
+
+
+if (knitr::is_latex_output()) {
+  knitr::opts_chunk$set(fig.height=4, 
+                        fig.width=6)
+} else {
+  knitr::opts_chunk$set(out.width = "100%")
+}
+
+options(scipen=10)
+
+# PANELSET
+xaringanExtra::use_panelset()
+xaringanExtra::style_panelset_tabs(font_family = "inherit")
+
+
+
+# TEXT/TABLE FORMATTING----
+
+custom_purple <- ifelse(
+  knitr::is_latex_output(),
+  "purple",
+  "#b51ced"
+)
+
+custom_blue <- ifelse(
+  knitr::is_latex_output(),
+  "blue",
+  "#11579e"
+)
+
+colorize <- function(x, color=custom_purple) {
+  # text color conditional on latex/html output
+  # from rmarkdown cookbook
+  if (knitr::is_latex_output()) {
+    sprintf("\\textcolor{ %s}{ %s}", color, x)
+  } else if (knitr::is_html_output()) {
+    sprintf("<span style='color: %s;'>%s</span>", color, x)
+  } else x
+}
+
+cat_color <- function(txt, style = 1, color = 36){
+  cat(
+    paste0(
+      "\033[0;",
+      style, ";",
+      color, "m",
+      txt,
+      "\033[0m","\n"
+    )
+  )  
+}
+
+# kable NA handling
+options(knitr.kable.NA = '')
+
+# mykable function
+mykable <- function(tab, cap,
+                    latex_options=c("hold_position", "scale_down", "striped"), 
+                    bootstrap_options=c("striped", "hover", "condensed"), 
+                    full_width=F, position="center", ...){
+  # kable formatting conditional on latex or html output
+  if (is.null(getOption("knitr.in.progress"))){
+    print(tab)
+  } else if (knitr::is_latex_output()){
+    kable(x=tab, caption=cap, ...) %>%
+      kableExtra::kable_styling(latex_options = latex_options)
+  } else if (knitr::is_html_output()){
+    kable(x=tab, caption=cap, ...) %>%
+      kableExtra::kable_styling(bootstrap_options = bootstrap_options, full_width=full_width, position=position)
+  }
+}
+
+# notin
+`%notin%` <- Negate(`%in%`)
+
+source(here("Rcode", "torch_horseshoe_klcorrected.R"))
+source(here("Rcode", "sim_functions.R"))
+source(here("Rcode", "analysis_fcns.R"))
+```
+
+
+
+
+
+## Results context
+
+- 4 true covs, 100 nuisance;
+
+- 10k obs
+
+- corrected KL, Kaiming initialization, calibrated $\tau_0$ re: Piironen & Vehtari 2017 to assume 1/2 covaraiates are nuisance.
+
+
+```{r SMOOTHER_FNAMES}
+img_suffixes <- c(paste0("_e", 1:9, "e_+05.png"), "_e1e_+06.png")
+
+stem_pvtau1 <- here::here("sims", "results", "hshoe_smooth_pvtau_1721632_12500obs_")
+stem_pvtau2 <- here::here("sims", "results", "hshoe_smooth_pvtau_2721632_12500obs_")
+seed_pvtau2 <- c(19709, 809872, 264744, 498729, 336130, 263808, 877164, 218489, 234821, 616240)
+seed_pvtau1 <- c(561114, 453639, 663173, 108703, 165780)
+
+resfile_pvtau1 <- paste0(stem_pvtau1, seed_pvtau1, ".RData")
+modfile_pvtau1 <- paste0(stem_pvtau1, seed_pvtau1, ".pt")
+
+resfile_pvtau2 <- paste0(stem_pvtau2, seed_pvtau2, ".RData")
+modfile_pvtau2 <- paste0(stem_pvtau2, seed_pvtau2, ".pt")
+```
+
+
+# Modifying $Z_1$:
+
+## - $Z_1 W_1 Z_2 = \left\{  z_{1_j} w_{j,k} z_{2_k} \right\}$
+
+- checking if using geometric or simple mean of $z^2_2$ (second layer shrinkage) would help:
+
+  - `ztilsq_2` = $\tilde{z}_2^2$; local shrinkage only
+  - `zsq_2` = $z_2^2 = \tilde{z}_2^2 s_2^2$; including global shrinkage parameter for layer 2, $s_2$
+
+```{r z_2_means}
+
+
+resfiles <- c(resfile_pvtau1, resfile_pvtau2)
+modfiles <- c(modfile_pvtau1, modfile_pvtau2)
+zsq_means <- matrix(NA, nrow = length(resfiles), ncol = 2)
+colnames(zsq_means) <- c("geom mean", "simple mean")
+ztilsq_means <- z_means <- ztil_means <- zsq_means
+
+for (sim_ind in 1:length(resfiles)){
+  load(resfiles[sim_ind])
+  nn_mod <- torch::torch_load(modfiles[sim_ind])
+  
+  ztilsq_2 <- get_ztil_sq(nn_mod$fc2)
+  ztil_2 <- sqrt(ztilsq_2)
+  ssq_2 <- get_s_sq(nn_mod$fc2)
+  zsq_2 <- ztilsq_2 * ssq_2
+  
+  zsq_means[sim_ind, ] <- c(geom_mean(zsq_2), mean(zsq_2))
+  ztilsq_means[sim_ind, ] <- c(geom_mean(ztilsq_2), mean(ztilsq_2))
+  z_means[sim_ind, ] <- c(geom_mean(sqrt(zsq_2)), mean(sqrt(zsq_2)))
+  ztil_means[sim_ind, ] <- c(geom_mean(sqrt(ztilsq_2)), mean(sqrt(ztilsq_2)))
+  
+}
+
+mykable(round(zsq_means, 4), cap = "$z_2^2$ means from 15 sims")
+mykable(round(ztilsq_means, 4), cap = "$\\tilde{z}_2^2$ means from 15 sims")
+mykable(round(z_means, 4), cap = "$z_2$ means from 15 sims")
+mykable(round(ztil_means, 4), cap = "$\\tilde{z}_2$ means from 15 sims")
+
+
+```
+
+
+- the only version that would help is multiplying by the simple mean of $\tilde{z}_2^2$, but I'd have a hard time justifying it (why only the local shrinkage parameter from the 2nd layer?).
+
+  - well, actually, maybe a justification would be as a correction to $s_1$, i.e. the 1st layer's global shrinkage.  But if anything, I would think dividing $s_1$ by the geometric mean of $\tilde{z}_2$ would make more sense ()
+
+    - $\tilde{z}_2$ are the local scale parameters in layer 2; the output of neurons in layer 1 get multiplied by these.  If $\tilde{z}_{2_j}$ is small, then the $j$^th^ neuron's output is shrunk.  An argument could be made that the mean or geometric mean of $\tilde{z}_2$ is a metric for how many 1st layer neurons retain relevance.  __1)__ If the mean of $\tilde{z}_2$ is $\geq 1$, the layer 1 global scale param $\tau_1$ is probably well-calibrated in relation to the number of neurons in layer 1 (proportion of included/total number of weights would be same).  __2)__ if the mean of $\tilde{z}_2$ is small (near 0), then $\tau_1$ is likely smaller than it "should" be.
+    
+    - i.e. could create a kappa-like metric for how "shrunk" tau is?  
+
+
+
+
+```{r}
+mean(ztil_2)
+geom_mean(ztil_2)
+make_k <- function(x){(1+x^2)^-1}
+1/geom_mean(make_k(ztil_2))
+
+1/make_k(geom_mean(ztil_2))
+1/make_k(mean(ztil_2))
+
+
+1/make_k(mean(ztil_2))
+
+1/make_k(geom_mean(ztil_2))
+
+
+
+
+ztilsq_1 <- get_ztil_sq(nn_mod$fc1)
+ssq_1 <- get_s_sq(nn_mod$fc1)
+
+
+ztil_params_2 <- get_ztil_params(nn_mod$fc2)
+ztil_mu <- (ztil_params_2$at + ztil_params_2$bt) / 2
+ztil_var <- (exp(ztil_params_2$at_lvar) + exp(ztil_params_2$bt_lvar)) / 4
+
+
+#7, 8, 12, 13, 16
+ztil_mu; ztil_var
+log(0.05)
+
+
+geom_mean(zsq_2)
+mean(zsq_2)
+
+ztilsq_1 * ssq_1 * mean(zsq_2)
+k_raw <- (1 + ssq_1 * ztilsq_1)^(-1)
+k1 <- (1 + ssq_1 * ztilsq_1 * nrow(nn_mod$fc1$weight_mu))^(-1)
+k2 <- (1 + ssq_1 * ztilsq_1 * (mean(ztil_2))^2)^(-1)
+
+
+err_by_max_bfdr(k1)$plt + labs(title = "k1")
+err_by_max_bfdr(k2)$plt + labs(title = "k2")
+err_by_max_bfdr(k_raw)$plt
+
+```
+
+
+
