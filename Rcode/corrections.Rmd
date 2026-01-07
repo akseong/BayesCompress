@@ -170,9 +170,9 @@ modfile_pvtau2 <- paste0(stem_pvtau2, seed_pvtau2, ".pt")
 ```
 
 
-# Modifying $Z_1$:
+# Modifying $Z_1$: 
 
-## - $Z_1 W_1 Z_2 = \left\{  z_{1_j} w_{j,k} z_{2_k} \right\}$
+$$Z_1 W_1 Z_2 = \left\{  z_{1_j} w_{j,k} z_{2_k} \right\}$$
 
 - checking if using geometric or simple mean of $z^2_2$ (second layer shrinkage) would help:
 
@@ -221,7 +221,7 @@ mykable(round(ztil_means, 4), cap = "$\\tilde{z}_2$ means from 15 sims")
     - $\tilde{z}_2$ are the local scale parameters in layer 2; the output of neurons in layer 1 get multiplied by these.  If $\tilde{z}_{2_j}$ is small, then the $j$^th^ neuron's output is shrunk.  An argument could be made that the mean or geometric mean of $\tilde{z}_2$ is a metric for how many 1st layer neurons retain relevance.  __1)__ If the mean of $\tilde{z}_2$ is $\geq 1$, the layer 1 global scale param $\tau_1$ is probably well-calibrated in relation to the number of neurons in layer 1 (proportion of included/total number of weights would be same).  __2)__ if the mean of $\tilde{z}_2$ is small (near 0), then $\tau_1$ is likely smaller than it "should" be.  Pursuing this in the next section:
 
 
-## Correction to $\tau_1$
+# Correcting $\tau_1$
 
 Can we create a kappa-based metric for how "shrunk" $\tau_1$ is? Dividing by mean $\kappa_j$ from the next layer?  
 
@@ -273,95 +273,95 @@ This actually looks amazingly good!  The BFDRs actually match the FDRs fairly we
 
 Let's see if this applies across the different simulations:
 
-### using $\tau^{corr}$ in other simulations {.panelset}
+## other simulations: $\tau_1^{corr}$ {.panelset}
 
-#### sim `r sim_ind + 1`
-
-```{r, echo = F}
-<<CORRECTING_TAU1>>
-```
-
-
-#### sim `r sim_ind + 1`
-
-```{r, echo = F}
-<<CORRECTING_TAU1>>
-```
-
-#### sim `r sim_ind + 1`
-
-```{r, echo = F}
-<<CORRECTING_TAU1>>
-```
-
-#### sim `r sim_ind + 1`
-
-```{r, echo = F}
-<<CORRECTING_TAU1>>
-```
-
-#### sim `r sim_ind + 1`
-
-```{r, echo = F}
-<<CORRECTING_TAU1>>
-```
-
-#### sim `r sim_ind + 1`
-
-```{r, echo = F}
-<<CORRECTING_TAU1>>
-```
-
-#### sim `r sim_ind + 1`
-
-```{r, echo = F}
-<<CORRECTING_TAU1>>
-```
-
-#### sim `r sim_ind + 1`
-
-```{r, echo = F}
-<<CORRECTING_TAU1>>
-```
-
-#### sim `r sim_ind + 1`
-
-```{r, echo = F}
-<<CORRECTING_TAU1>>
-```
-
-#### sim `r sim_ind + 1`
-
-```{r, echo = F}
-<<CORRECTING_TAU1>>
-```
-
-#### sim `r sim_ind + 1`
-
-```{r, echo = F}
-<<CORRECTING_TAU1>>
-```
-
-#### sim `r sim_ind + 1`
-
-```{r, echo = F}
-<<CORRECTING_TAU1>>
-```
-
-#### sim `r sim_ind + 1`
-
-```{r, echo = F}
-<<CORRECTING_TAU1>>
-```
-
-#### sim `r sim_ind + 1`
+### sim `r sim_ind + 1`
 
 ```{r, echo = F}
 <<CORRECTING_TAU1>>
 ```
 
 
-### comments
+### sim `r sim_ind + 1`
+
+```{r, echo = F}
+<<CORRECTING_TAU1>>
+```
+
+### sim `r sim_ind + 1`
+
+```{r, echo = F}
+<<CORRECTING_TAU1>>
+```
+
+### sim `r sim_ind + 1`
+
+```{r, echo = F}
+<<CORRECTING_TAU1>>
+```
+
+### sim `r sim_ind + 1`
+
+```{r, echo = F}
+<<CORRECTING_TAU1>>
+```
+
+### sim `r sim_ind + 1`
+
+```{r, echo = F}
+<<CORRECTING_TAU1>>
+```
+
+### sim `r sim_ind + 1`
+
+```{r, echo = F}
+<<CORRECTING_TAU1>>
+```
+
+### sim `r sim_ind + 1`
+
+```{r, echo = F}
+<<CORRECTING_TAU1>>
+```
+
+### sim `r sim_ind + 1`
+
+```{r, echo = F}
+<<CORRECTING_TAU1>>
+```
+
+### sim `r sim_ind + 1`
+
+```{r, echo = F}
+<<CORRECTING_TAU1>>
+```
+
+### sim `r sim_ind + 1`
+
+```{r, echo = F}
+<<CORRECTING_TAU1>>
+```
+
+### sim `r sim_ind + 1`
+
+```{r, echo = F}
+<<CORRECTING_TAU1>>
+```
+
+### sim `r sim_ind + 1`
+
+```{r, echo = F}
+<<CORRECTING_TAU1>>
+```
+
+### sim `r sim_ind + 1`
+
+```{r, echo = F}
+<<CORRECTING_TAU1>>
+```
+
+
+## comments
 
 My assessments of the plots:
 
@@ -373,17 +373,21 @@ My assessments of the plots:
 
 - bad: sim 7, 10, 15
 
+- also worth nothing that sims 1:5 were trained for 1M epochs, 6:15 for 500K epochs.  Most appeared to actually do well starting around 125k epochs.
+
 
 This seems like it is going to work.  I do suspect that there may have been training issues in some of these --- whether under/overtraining --- since I just trained all of these for a fixed number of epochs (admittedly v. large), used the final epoch's model/results, and only 1 model on each dataset.  A common practice appears to be training several models on each dataset and using the one with the lowest training error; Rockova & Polson do this, for example).
 
-- Also, it might make more sense to correct $\tau_1$ by the __square root__ of $\dfrac{d_1}{m_{eff}}$.
+### $\dfrac{d_1}{m_2^{eff}}$ or $\sqrt{\dfrac{d_1}{m_2^{eff}}}$?
+
+- Also, it might make more sense to correct $\tau_1$ by the __square root__ of $\dfrac{d_1}{m_{eff}}$, i.e.:
+
+$$\tau_1^{corr} = \hat{\tau}_1 \times \sqrt{  \dfrac{d_1}{m_2^{eff}}    }$$
 
 
 
-- sims 1:5 were trained for 1M epochs, 6:15 for 500K epochs.
 
-
-#### diagnostics
+### diagnostics
 
 
 ```{r}

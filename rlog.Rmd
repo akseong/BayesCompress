@@ -14,7 +14,7 @@ output:
     toc: yes
     toc_depth: 3
     toc_float:
-      collapsed: true
+      collapsed: false
       smooth_scroll: true
     code_fold: show
 urlcolor: blue
@@ -25,6 +25,50 @@ editor_options:
   chunk_output_type: console
 ---
 
+
+<style type="text/css">
+
+  #TOC>ul>li, h1, h2{
+    font-weight: bold;
+  }
+  
+  blockquote{
+    background-color: #d5f2f5;
+    font-size: small;
+  }
+  
+  b, strong {
+   color: #11579e;
+  }
+  
+  caption {
+    color: #11579e;
+    font-weight: bold;
+    font-size: 1.0em;
+  }
+  
+  h1 { font-size: 2em }
+  h2 { font-size: 1.6em  }
+  h3 { font-size: 1.25em }
+  h4 { font-size: 1.10em }
+  h5, h6 { font-size: 1em    }
+  
+  h1, h2, h3 {font-weight: bold;}
+  
+  a {font-weight: bold; text-decoration: underline}
+  
+  .nav-pills>li>a:hover, 
+  .nav-pills>li>a:focus, 
+  .nav-pills>li.active>a,     
+  .nav-pills>li.active>a:hover, 
+  .nav-pills>li.active>a:focus{
+     background-color: #11579e;
+  }
+  
+  .nav-pills{
+     background-color: #d5f2f5;
+  }
+</style>
 
 ```{r setup, include=FALSE, message=F, echo=F, warning=F}
 # LIBRARIES----
@@ -128,7 +172,7 @@ source(here("Rcode", "sim_functions.R"))
 source(here("Rcode", "analysis_fcns.R"))
 ```
 
-
+# formatted (most recent first)
 
 ## 1/7/26: correcting $\tau$
 
@@ -140,6 +184,50 @@ source(here("Rcode", "analysis_fcns.R"))
 $$\tau^{corr}_1 = \hat{\tau}_1 \times \dfrac{d_1}{m_2}$$
 
 Not sure if using $\dfrac{d_1}{m_2}$ or $\sqrt{\dfrac{d_1}{m_2}}$ makes more sense.  ($\sqrt{\dfrac{d_1}{m_2}}$ probably makes more sense since $\tau$ is a multiplicative scaling factor for the Normally-dist'd coefficients; it's also more conservative)
+
+
+### Correct $\kappa_j$ (don't think this will work):
+
+Applying similar matrix algebra as below to the total shrinkage (essentially, instead of using the diagonal matrices of $z_j$'s from layers 1 and 2 --- $Z_1$ and $Z_2$ --- we replace these with the shrinkage, $1 - \kappa_{l=1, j}$ and $1 - \kappa_{l=2, k}$).  Then we get an expression for the $j,k$^th^ weight of layer 1 as:
+
+$$\begin{aligned}
+  w_{j,k} 
+  &= 
+    (1 - \kappa_{1,j}) (1 - \kappa_{2, k})) \hat{w}_{j,k}
+  \\
+  & = 
+    \left( 
+      1 - (\kappa_{1,j} + \kappa_{2,k} - \kappa_{1,j}\kappa_{2,k})
+    \right)
+    \hat{w}_{j,k}
+\end{aligned}$$
+
+In other words, the shrinkage placed on $w_{j,k}$ is equal to $\left( 1 - (\kappa_{1,j} + \kappa_{2,k} - \kappa_{1,j}\kappa_{2,k}) \right)$, suggesting corrected layer 1 $\kappa_j$:
+  
+$$\kappa_{1,j}^{corr} = \kappa_{1,j} + \kappa_{2,k} - \kappa_{1,j}\kappa_{2,k}$$
+
+- for true covs, $\kappa_j$ is going to be smaller.  If $\kappa_{2,k}$ is larger, it will overpower it.  A similarly small $\kappa_{2,k}$ won't do a lot.
+
+- for nuisance covs, $\kappa_j$ should be close to 1.  so $\kappa_{2,k}$'s effect won't be large.
+
+- and actually, $\kappa_{1,j}^{corr} \geq \kappa_{1,j}$ since $\kappa \in (0,1)$
+
+- if anything this is going to __decrease__ separation.  Quick enough to look at though, I suppose.
+
+
+### Increase separation:
+
+__What I want: stop the neurons that are 0'd out from ASYMMETRICALLY affecting the layer 1 true covariates' $\kappa_j$'s.__
+
+- For true covariates, presence of 0'd out neurons pushes local scale parameter $\tilde{z}_j$ toward 0;
+
+- presence of 0'd out neurons doesn't affect $\tilde{z}_j$'s for nuisance covariates since should already be near 0.
+
+
+Seems like the only other things I can look at to mitigate this using the machinery I already have is to use the actual weights???  They already tend to be near 0 for the neurons corresponding to low $\tilde{z}_j$'s in layer 2?
+
+
+
 
 
 ## 1/6/26: effect of $z_j = \tilde{z}_j s$ over multiple layers
