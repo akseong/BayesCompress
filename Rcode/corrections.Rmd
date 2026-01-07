@@ -263,8 +263,22 @@ err_mat[, 1:5] %>%
   ggplot(aes(y = value, x = max_bfdr, color = name)) +
   geom_line() + 
   labs(
-    title = paste0("sim ", sim_ind, ": FP/TP vs max_BFDR")
+    title = paste0("tau_corr 1: sim ", sim_ind, ": FP/TP vs max_BFDR")
   )
+
+
+zsq_1_tc2 <- zsq_1 * (16 / m_eff(nn_mod$fc2))
+k_1_tc2 <- (1 + zsq_1_tc2)^(-1)
+err_mat2 <- err_by_max_bfdr(k_1_tc2)$err_mat
+err_mat2[, 1:5] %>% 
+  as_data_frame() %>% 
+  pivot_longer(cols = -max_bfdr) %>% 
+  ggplot(aes(y = value, x = max_bfdr, color = name)) +
+  geom_line() + 
+  labs(
+    title = paste0("tau_corr 2 (sqrt): sim ", sim_ind, ": FP/TP vs max_BFDR")
+  )
+
 
 # err_mat[1:20, 1:5]
 ```
@@ -383,7 +397,7 @@ This seems like it is going to work.  I do suspect that there may have been trai
 - Also, it might make more sense to correct $\tau_1$ by the __square root__ of $\dfrac{d_1}{m_{eff}}$, i.e.:
 
 $$\tau_1^{corr} = \hat{\tau}_1 \times \sqrt{  \dfrac{d_1}{m_2^{eff}}    }$$
-
+- __put into 2nd plots above.__
 
 
 
