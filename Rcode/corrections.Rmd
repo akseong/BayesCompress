@@ -374,7 +374,11 @@ My assessments of the plots:
 - bad: sim 7, 10, 15
 
 
-This seems like it is going to work.  I do suspect that there may have been training issues in some of these since I just trained all of these for a fixed number of epochs (admittedly v. large), and only 1 model on each dataset.  A common practice appears to be training several models on each dataset and using the one with the lowest training error; Rockova & Polson do this, for example).
+This seems like it is going to work.  I do suspect that there may have been training issues in some of these --- whether under/overtraining --- since I just trained all of these for a fixed number of epochs (admittedly v. large), used the final epoch's model/results, and only 1 model on each dataset.  A common practice appears to be training several models on each dataset and using the one with the lowest training error; Rockova & Polson do this, for example).
+
+- Also, it might make more sense to correct $\tau_1$ by the __square root__ of $\dfrac{d_1}{m_{eff}}$.
+
+
 
 - sims 1:5 were trained for 1M epochs, 6:15 for 500K epochs.
 

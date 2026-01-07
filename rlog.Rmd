@@ -130,6 +130,16 @@ source(here("Rcode", "analysis_fcns.R"))
 
 
 
+## 1/7/26: correcting $\tau$
+
+- `corrections.Rmd`
+
+- pursued correcting $\tau_1$ by the ratio of the number of neurons in layer 1 and the number of neurons selected by layer 2.  I had pushed this to the wayside because I thought that __1)__ determining which neurons layer 2 had selected could seem somewhat arbitrary and __2)__ it seemed like it would not be large enough to change things meaningfully (capped at $d_1$).
+
+  - Realized that I could use PV2017's "effective" number of coefficients idea instead, i.e. $m_{eff} = \sum_{j=1}^p (1 - \kappa_j)$.  So we take the $m_{eff}$ computed in the __second__ layer of the neural network, which indicates the shrinkage placed on the 1st layer outputs (i.e. the output of each neuron).  In other words, our corrected global shrinkage parameter is given by 
+$$\tau^{corr}_1 = \hat{\tau}_1 \times \dfrac{d_1}{m_2}$$
+
+Not sure if using $\dfrac{d_1}{m_2}$ or $\sqrt{\dfrac{d_1}{m_2}}$ makes more sense.  ($\sqrt{\dfrac{d_1}{m_2}}$ probably makes more sense since $\tau$ is a multiplicative scaling factor for the Normally-dist'd coefficients; it's also more conservative)
 
 
 ## 1/6/26: effect of $z_j = \tilde{z}_j s$ over multiple layers

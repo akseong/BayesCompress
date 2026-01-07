@@ -593,8 +593,9 @@ load(paste0(fname_stems[seed_ind], ".RData"))
 tail(sim_res$loss_mat)
 
 
-
-
+# look at kappas
+k1_global <- get_kappas(mod$fc1)
+k1_global
 
 
 
