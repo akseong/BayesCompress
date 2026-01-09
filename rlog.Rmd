@@ -14,7 +14,7 @@ output:
     toc: yes
     toc_depth: 3
     toc_float:
-      collapsed: false
+      collapsed: true
       smooth_scroll: true
     code_fold: show
 urlcolor: blue
@@ -175,6 +175,48 @@ source(here("Rcode", "analysis_fcns.R"))
 # formatted (most recent first)
 
 
+
+
+## 1/9/26
+
+writing up setting, model
+
+
+### Simulation setting ideas:
+
+- unmeasured relevant covariates;
+  
+  - possibly correlated with measured covariates?
+  
+- non-linear group interactions 
+
+
+### Discover interactions?
+
+- is there some way to model how effects pass through the network using trees?
+
+- [https://www.tandfonline.com/doi/full/10.1080/01621459.2017.1409122](Yiang, Li, Zhou 2018, Bayesian Neural Networks for Selection of Drug Sensitive Genes)
+
+  - discussion of Figures 3a and 4 showing weight layer connections
+
+
+### performance of BFDR & inference
+
+- need to my model test in a variety of settings --- i.e. non-sparse, diff $n$ --- to support validity of BFDR (since on somewhat shaky theoretical grounds with correction to global scale parameter)
+
+
+- __Identifiability__ issues?  
+
+  - [https://arxiv.org/abs/1803.09138](Polson, Rockova 2018, Posterior Concentration for Sparse Deep Learning)
+    
+    - do they write their actual models down anywhere?  Work through this with a fine toothed comb
+
+  - [https://arxiv.org/pdf/1911.00569](Yacoby, Pan, Doshi-Velez 2022, Mitigating the Effects of Non-Identifiability on Inference for Bayesian Neural Networks with Latent Variables)
+
+
+
+
+
 ## 1/7/26 Meeting with Michele
 
 - write down the full model, rationale for correction
@@ -212,7 +254,7 @@ $$\tau^{corr}_1 = \hat{\tau}_1 \times \dfrac{d_1}{m_2}$$
 Not sure if using $\dfrac{d_1}{m_2}$ or $\sqrt{\dfrac{d_1}{m_2}}$ makes more sense.  ($\sqrt{\dfrac{d_1}{m_2}}$ probably makes more sense since $\tau$ is a multiplicative scaling factor for the Normally-dist'd coefficients; it's also more conservative)
 
 
-### Correct $\kappa_j$ (don't think this will work):
+### Correct $\kappa_j$ (prob not):
 
 Applying similar matrix algebra as below to the total shrinkage (essentially, instead of using the diagonal matrices of $z_j$'s from layers 1 and 2 --- $Z_1$ and $Z_2$ --- we replace these with the shrinkage, $1 - \kappa_{l=1, j}$ and $1 - \kappa_{l=2, k}$).  Then we get an expression for the $j,k$^th^ weight of layer 1 as:
 
