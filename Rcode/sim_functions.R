@@ -266,10 +266,18 @@ sim_func_data <- function(
   d_in = 10,
   flist = list(fcn1, fcn2, fcn3, fcn4),
   err_sigma = 1,
-  use_cuda = FALSE
+  use_cuda = FALSE,
+  xdist = "unif"
 ){
   # generate x, y
-  x <- torch_randn(n_obs, d_in)
+  if (xdist == "unif"){
+    x <- torch_rand(n_obs, d_in)
+    x$add_(-0.5)
+    x$mul_(sqrt(12))
+  } else (xdist == "norm"){
+    x <- torch_randn(n_obs, d_in)
+  }
+  
   y <- rep(0, n_obs)
   for(j in 1:length(flist)){
     y <- y + flist[[j]](x[,j])
@@ -291,6 +299,8 @@ sim_func_data <- function(
     )
   )
 }
+
+
 
 
 sim_func_data_unifx <- function(
