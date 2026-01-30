@@ -274,7 +274,7 @@ sim_func_data <- function(
     x <- torch_rand(n_obs, d_in)
     x$add_(-0.5)
     x$mul_(sqrt(12))
-  } else (xdist == "norm"){
+  } else {
     x <- torch_randn(n_obs, d_in)
   }
   
