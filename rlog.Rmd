@@ -177,6 +177,13 @@ source(here("Rcode", "analysis_fcns.R"))
 
 
 
+
+## 1/30/26
+continued writing up setting, model
+
+__`sim_func_data` modified__ to simulate X from mean 0 var 1 uniform (Unif(-sqrt(12), sqrt(12)))
+
+
 ## 1/9/26
 
 writing up setting, model
@@ -195,7 +202,7 @@ writing up setting, model
 
 - is there some way to model how effects pass through the network using trees?
 
-- [https://www.tandfonline.com/doi/full/10.1080/01621459.2017.1409122](Yiang, Li, Zhou 2018, Bayesian Neural Networks for Selection of Drug Sensitive Genes)
+- [Yiang, Li, Zhou 2018, Bayesian Neural Networks for Selection of Drug Sensitive Genes](https://www.tandfonline.com/doi/full/10.1080/01621459.2017.1409122)
 
   - discussion of Figures 3a and 4 showing weight layer connections
 
@@ -204,14 +211,22 @@ writing up setting, model
 
 - need to my model test in a variety of settings --- i.e. non-sparse, diff $n$ --- to support validity of BFDR (since on somewhat shaky theoretical grounds with correction to global scale parameter)
 
+- Theory supporting inference / posterior concentration
 
-- __Identifiability__ issues?  
-
-  - [https://arxiv.org/abs/1803.09138](Polson, Rockova 2018, Posterior Concentration for Sparse Deep Learning)
+  - [Polson, Rockova 2018, Posterior Concentration for Sparse Deep Learning](https://arxiv.org/abs/1803.09138)
     
     - do they write their actual models down anywhere?  Work through this with a fine toothed comb
 
-  - [https://arxiv.org/pdf/1911.00569](Yacoby, Pan, Doshi-Velez 2022, Mitigating the Effects of Non-Identifiability on Inference for Bayesian Neural Networks with Latent Variables)
+  - building off Polson, Rockova 2018: 
+
+    - [Zhe Liu, Variable Selection with rigorous uncertainty quantification using Deep Bayesian Neural Nets: Posterior Concentration and Bernstein-von Mises Phenomenon](https://arxiv.org/abs/1912.01189)
+
+    - [Wang, Rockova 2020, Uncertainty Quantification for Sparse Deep Learning](http://arxiv.org/abs/2002.11815)
+
+
+- __Identifiability__ issues? 
+
+  - [Yacoby, Pan, Doshi-Velez 2022, Mitigating the Effects of Non-Identifiability on Inference for Bayesian Neural Networks with Latent Variables](https://arxiv.org/pdf/1911.00569)
 
 
 
@@ -223,7 +238,7 @@ writing up setting, model
 
 - credible interval method vs correcting $\tau$
 
-  - https://arxiv.org/abs/1607.01892
+  - [van der Pas, Szabó, Vaart, Uncertainty quantification for the horseshoe](https://arxiv.org/abs/1607.01892)
 
 - think about realistic data - ECOG/ERP data, salary data
   - student performance data (R included data)
