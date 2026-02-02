@@ -457,6 +457,14 @@ get_ztil_sq <- function(nn_model_layer, ln_fcn = ln_mode){
   return(ztil_sq)
 }
 
+get_zsq <- function(nn_model_layer, ln_fcn = ln_mode){
+  s_sq <- get_s_sq(nn_model_layer, ln_fcn)
+  ztil_sq <- get_ztil_sq(nn_model_layer, ln_fcn)
+  return(s_sq * ztil_sq)
+}
+
+
+
 get_kappas <- function(nn_model_layer, type = "global"){
   ztil_sq <- get_ztil_sq(nn_model_layer)
   if (type == "global"){
