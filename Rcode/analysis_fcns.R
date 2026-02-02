@@ -321,6 +321,15 @@ err_by_max_bfdr <- function(
 
 
 
+# CORRECTIONS ----
+
+## m_eff ----
+m_eff <- function(nn_layer){
+  k <- get_kappas(nn_layer)
+  sum(1 - k)
+}
+
+
 
 
 
