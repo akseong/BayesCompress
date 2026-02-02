@@ -71,14 +71,14 @@ plot_datagen_fcns(flist)
 save_mod_path_prestem <- here::here(
   "sims", 
   "results", 
-  "hshoe_smooth_pvtau_2721632_"
+  "hshoe_xunif_fewer_21632_test"
 )
 
 sim_params <- list(
-  "sim_name" = "PV2017 tau_0 all layers, lr 0.001, smoother data, kaiming init, 2L 16 32, nobatching, fcnal data.  ",
-  "seed" = 2721632,
-  "n_sims" = 10, 
-  "train_epochs" = 5e5,
+  "sim_name" = "unif xdist; Fewer obs; PV2017 tau_0 all layers, lr 0.001, smoother data, kaiming init, 2L 16 32, nobatching, fcnal data.   ",
+  "seed" = 21632,
+  "n_sims" = 1, 
+  "train_epochs" = 2e5,
   "report_every" = 1E4,
   "use_cuda" = use_cuda,
   "d_in" = 104,
@@ -88,7 +88,7 @@ sim_params <- list(
   # "d_hidden4" = 16,
   # "d_hidden5" = 16,
   "d_out" = 1,
-  "n_obs" = 12500,
+  "n_obs" = 1250,
   "true_coefs" = c(-0.5, 1, -2, 4, rep(0, times = 100)),
   "alpha_thresh" = 1 / qchisq(1 - (0.05 / 104), df = 1),
   "flist" = flist,
