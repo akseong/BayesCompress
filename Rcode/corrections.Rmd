@@ -411,7 +411,30 @@ ugh <- c(7, 10, 15)
 ```
 
 
-```{r}
 
-```
 
+
+Looking at BFDR plots:
+
+- no sqrt:
+
+  - bad: 15
+
+  - OK: 2, 3, 4, 5, 7, 10, 12, 13
+
+  - good: 6
+
+  - excellent: 8, 9, 11, 14
+
+
+
+- sqrted:
+
+  - bad: 15
+
+  - OK: 2, 4, 8, 14
+
+  - excellent: 3, 5, 6, 7, 9, 10,11, 12, 13
+
+
+Using the square-rooted version makes more sense to me mathematically (since $\tau$ is a scale parameter), and seemingly leads to better behavior (drastically reduces false positives, makes FP line much more concave, fdr and BFDRs tend to match up much better ) 
