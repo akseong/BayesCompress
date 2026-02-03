@@ -524,6 +524,53 @@ get_Wz_params <- function(nn_model_layer){
   )
 }
 
+# PARAM CORRECTIONS ----
+
+## m_eff ----
+m_eff <- function(nn_layer){
+  k <- get_kappas(nn_layer)
+  sum(1 - k)
+}
+
+## frob(enius norm) ----
+frob <- function(mat){
+  sqrt(sum(mat^2))
+}
+
+
+## tau_correction ----
+tau_correction <- function(nn_mod){
+  d_1 <- length(get_kappas(nn_mod$fc2))
+  m_2 <- m_eff(nn_layer = nn_mod$fc2)
+  
+  return(sqrt(d_1 / m_2))
+}
+
+
+## get_kappas_taucorrected ----
+get_kappas_taucorrected <- function(nn_mod, ln_fcn = ln_mode){
+  zsq_1 <- get_zsq(nn_mod$fc1, ln_fcn)
+  tau_correction_factor <- tau_correction(nn_mod)
+  return((1 + zsq_1*tau_correction_factor^2)^(-1))
+}
+
+
+## get_kappas_frobcorrected ----
+get_kappas_frobcorrected <- function(nn_mod, ln_fcn = ln_mode){
+  
+  z1_c <- sqrt(get_zsq(nn_mod$fc1))
+  for (l in 2:length(nn_mod$children)){
+    z_l <- sqrt(get_zsq(nn_mod$children[[l]]))
+    w_l_mu <- get_wtil_params(nn_mod$children[[l]])$wtil_mu
+    z1_c <- z1_c * frob(diag(z_l) %*% t(w_l_mu))
+  }
+  
+  return((1 + z1_c^2)^(-1))
+}
+
+
+
+
 
 ## plotting predicted functions ----
 make_pred_mats <- function(flist, xgrid = seq(-4.9, 5, length.out = 100), d_in){
