@@ -180,19 +180,25 @@ source(here("Rcode", "analysis_fcns.R"))
 
 TO DO this week:
 
-- implement corrections in code: 
+- [x] implement corrections in code: 
 
   - $\tilde \tau_1 = \tau_1 \times \sqrt{  \dfrac{d_1}{m_2^{eff}}    }$
   
   - $Z_1^{corr} = Z_1 \times ||Z_2 W_2|| \times ||Z_3W_3||$
 
-- decide on simulation settings
+- [ ] fix model predictions to generate E[y]
 
-- work on setting up simulated salary data
+- [ ] decide on simulation settings
 
-- work on setting up ECoG data 
+- [ ] work on setting up simulated salary data
+
+- [ ] work on setting up ECoG data 
 
   - just use dummy variables denoting the different intervals of interest?  I.e. is this going to work without orthogonalizing the bases?
+
+__other notes__:
+
+- reverted to normal X-dist
 
 - feel like I might have to bite the bullet and do the scaling stuff.
 
