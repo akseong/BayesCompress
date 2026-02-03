@@ -71,15 +71,15 @@ plot_datagen_fcns(flist)
 save_mod_path_prestem <- here::here(
   "sims", 
   "results", 
-  "hshoe_1kobs_21632_test"
+  "hshoe_pvtau10_correctedkappas_21632"
 )
 
 sim_params <- list(
   "sim_name" = "1k obs; PV2017 tau_1 assumes 10 true, lr 0.001, smoother data, kaiming init, 2L 16 32, nobatching, fcnal data.   ",
   "seed" = 21632,
-  "n_sims" = 1, 
-  "train_epochs" = 5E3,
-  "report_every" = 1E3,
+  "n_sims" = 5, 
+  "train_epochs" = 5E5,
+  "report_every" = 1E4,
   "use_cuda" = use_cuda,
   "d_in" = 104,
   "d_hidden1" = 16,
