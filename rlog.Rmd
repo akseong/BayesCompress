@@ -176,6 +176,42 @@ source(here("Rcode", "analysis_fcns.R"))
 
 
 
+## 2/3/26
+
+TO DO this week:
+
+- implement corrections in code: 
+
+  - $\tilde \tau_1 = \tau_1 \times \sqrt{  \dfrac{d_1}{m_2^{eff}}    }$
+  
+  - $Z_1^{corr} = Z_1 \times ||Z_2 W_2|| \times ||Z_3W_3||$
+
+- decide on simulation settings
+
+- work on setting up simulated salary data
+
+- work on setting up ECoG data 
+
+  - just use dummy variables denoting the different intervals of interest?  I.e. is this going to work without orthogonalizing the bases?
+
+- feel like I might have to bite the bullet and do the scaling stuff.
+
+
+## 2/2/26
+- started simulations using $X \sim Unif(-\sqrt{12}, \sqrt{12})$ (i.e. mean 0, var 1), but realized that $f_4()$ doesn't create much variation in $y$ in that range of $x$ (range of $x$is $\approx [-1.73, 1.73]$).  
+
+
+- looking at weight variances / possibility of using $\sigma_{\tilde W_1}$ to weight layer 2 $\kappa$'s
+
+- __Frobenius norm correction to $Z$__: looked at correcting $Z_1$ (diagonal matrix of $\lambda \tau$): $Z_1^{corr} = Z_1 \times ||Z_2 W_2|| \times ||Z_3W_3||$ where $Z_l$ is diagonal matrix of scale parameters for layer $l$, and $W_l$ is the weight matrix for layer $l$, and $||$ denotes the Frobenius matrix norm.  __Appears to work fairly well.__  
+
+  - rationale: tracks (to some degree at least) the impact of the scale parameters through all network layers.  
+  
+  - possible issues: 
+  
+    - Frobenius norm of a matrix in general grows with dimension.  This is, however, likely mitigated by the horseshoe scale parameters in each layer.
+    
+    - Not sure about theory.  Just working off the idea that the Frobenius norm measures in some sense the "magnitude" of a matrix.  Intuition is that the intervening layers all contribute to shrinkage.
 
 
 ## 1/30/26
