@@ -310,14 +310,23 @@ err_by_max_bfdr <- function(
       title = "TPR & FPR ~ max_bfdr"
     )
   
+  plt_fdrs <- res_mat[, 1:5] %>% 
+    as_data_frame() %>% 
+    pivot_longer(cols = -max_bfdr) %>% 
+    ggplot(aes(y = value, x = max_bfdr, color = name)) +
+    geom_line() + 
+    labs(
+      title = "TPR & FPR vs max_BFDR"
+    )
+  
   return(
     list(
       "err_mat" = res_mat,
-      "plt" = plt
+      "plt" = plt,
+      "plt_fdrs" = plt_fdrs
     )
   )
 }
-
 
 
 
