@@ -1,0 +1,638 @@
+---
+title: "param deep dive"
+author: "Arnie Seong"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+header-includes:
+  - \usepackage{bm}
+  - \usepackage{xcolor}
+  - \usepackage{amssymb}
+output: 
+  html_document:
+    df_print: paged
+    theme: cerulean
+    highlight: tango
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
+    code_fold: show
+urlcolor: blue
+params:
+  retrain: FALSE
+  seed: 314
+editor_options: 
+  chunk_output_type: console
+---
+  
+<style>
+  .panel-tabs{
+    opacity: 1;
+    background-color: #2fa4e7;
+      color: #ffffff;
+      position: sticky;
+    top: 0
+  }
+</style>
+
+```{r setup, include=FALSE, message=F, echo=F, warning=F}
+# LIBRARIES----
+
+#### plotting:
+library(ggplot2)
+library(gridExtra)
+
+# #### Misc:
+library(here)
+library(tidyr)
+library(knitr)
+library(kableExtra)
+library(dplyr)
+
+# model packages
+library(torch)
+
+# DOCUMENT SETUP ----
+# detect pdf/html output, set chunk options, sci.notation 
+latex_out <- knitr::is_latex_output()
+knitr::opts_chunk$set(
+  cache = FALSE, 
+  message = FALSE, 
+  echo = !knitr::is_latex_output(), 
+  warning = FALSE
+)
+
+
+if (knitr::is_latex_output()) {
+  knitr::opts_chunk$set(fig.height=4, 
+                        fig.width=6)
+} else {
+  knitr::opts_chunk$set(out.width = "100%")
+}
+
+options(scipen=10)
+
+# PANELSET
+xaringanExtra::use_panelset()
+xaringanExtra::style_panelset_tabs(font_family = "inherit")
+
+
+
+# TEXT/TABLE FORMATTING----
+
+custom_purple <- ifelse(
+  knitr::is_latex_output(),
+  "purple",
+  "#b51ced"
+)
+
+custom_blue <- ifelse(
+  knitr::is_latex_output(),
+  "blue",
+  "#11579e"
+)
+
+colorize <- function(x, color=custom_purple) {
+  # text color conditional on latex/html output
+  # from rmarkdown cookbook
+  if (knitr::is_latex_output()) {
+    sprintf("\\textcolor{ %s}{ %s}", color, x)
+  } else if (knitr::is_html_output()) {
+    sprintf("<span style='color: %s;'>%s</span>", color, x)
+  } else x
+}
+
+cat_color <- function(txt, style = 1, color = 36){
+  cat(
+    paste0(
+      "\033[0;",
+      style, ";",
+      color, "m",
+      txt,
+      "\033[0m","\n"
+    )
+  )  
+}
+
+# kable NA handling
+options(knitr.kable.NA = '')
+
+# mykable function
+mykable <- function(tab, cap,
+                    latex_options=c("hold_position", "scale_down", "striped"), 
+                    bootstrap_options=c("striped", "hover", "condensed"), 
+                    full_width=F, position="center", ...){
+  # kable formatting conditional on latex or html output
+  if (is.null(getOption("knitr.in.progress"))){
+    print(tab)
+  } else if (knitr::is_latex_output()){
+    kable(x=tab, caption=cap, ...) %>%
+      kableExtra::kable_styling(latex_options = latex_options)
+  } else if (knitr::is_html_output()){
+    kable(x=tab, caption=cap, ...) %>%
+      kableExtra::kable_styling(bootstrap_options = bootstrap_options, full_width=full_width, position=position)
+  }
+}
+
+# notin
+`%notin%` <- Negate(`%in%`)
+
+source(here("Rcode", "torch_horseshoe_klcorrected.R"))
+source(here("Rcode", "sim_functions.R"))
+source(here("Rcode", "analysis_fcns.R"))
+```
+
+
+
+
+
+
+```{r LOAD_10kobs_xnorm}
+# load ----
+img_suffixes <- c(paste0("_e", 1:9, "e_+05.png"), "_e1e_+06.png")
+
+stem_pvtau1 <- here::here("sims", "results", "hshoe_smooth_pvtau_1721632_12500obs_")
+stem_pvtau2 <- here::here("sims", "results", "hshoe_smooth_pvtau_2721632_12500obs_")
+seed_pvtau2 <- c(19709, 809872, 264744, 498729, 336130, 263808, 877164, 218489, 234821, 616240)
+seed_pvtau1 <- c(561114, 453639, 663173, 108703, 165780)
+
+resfile_pvtau1 <- paste0(stem_pvtau1, seed_pvtau1, ".RData")
+modfile_pvtau1 <- paste0(stem_pvtau1, seed_pvtau1, ".pt")
+
+resfile_pvtau2 <- paste0(stem_pvtau2, seed_pvtau2, ".RData")
+modfile_pvtau2 <- paste0(stem_pvtau2, seed_pvtau2, ".pt")
+
+res_fnames <- c(resfile_pvtau1, resfile_pvtau2)
+mod_fnames <- c(modfile_pvtau1, modfile_pvtau2)
+seeds <- c(seed_pvtau1, seed_pvtau2)
+```
+
+
+
+# $X$ norm, 10k obs
+
+```{r CHECK_FITS}
+# check model fits across sims
+load(res_fnames[1])
+epoch <- 1:nrow(sim_res$loss_mat) * sim_res$sim_params$report_every
+lmat <- cbind(1, epoch, sim_res$loss_mat)
+colnames(lmat)[1] <- "sim"
+
+for (sim_ind in 2:length(seeds)){
+  load(res_fnames[sim_ind])
+  epoch <- 1:length(sim_res$loss_mat) * sim_res$sim_params$report_every
+  curr_lmat <- cbind(sim_ind, epoch, sim_res$loss_mat)
+  lmat <- rbind(lmat, curr_lmat)
+}
+
+colnames(lmat)
+lmat %>% 
+  as_data_frame() %>% 
+  mutate(sim = factor(sim)) %>% 
+  ggplot(aes(y = kl, x = epoch, color = sim)) +
+  geom_line() + 
+  ylim(c(0.1, 0.2)) + 
+  labs(title = "xnorm, 1k obs: KLs across epochs & sims")
+
+lmat %>% 
+  as_data_frame() %>% 
+  mutate(sim = factor(sim)) %>% 
+  pivot_longer(cols = -c("epoch", "sim")) %>% 
+  filter(name != "kl") %>% 
+  ggplot(aes(x = epoch, color = sim, linetype = name)) +
+  geom_line(aes(y = value)) + 
+  ylim(c(0.9, 1.4)) + 
+  labs(title = "xnorm, 1k obs: test/train MSE across epochs & sims")
+```
+
+
+
+
+## weight params
+
+- looking at sim 11 (known good; can compare to known bad 15)
+
+
+<!-- - no sqrt:     -->
+<!--   - bad: 15     -->
+<!--   - OK: 2, 3, 4, 5, 7, 10, 12, 13     -->
+<!--   - good: 6     -->
+<!--   - excellent: 8, 9, 11, 14     -->
+<!-- - sqrted:     -->
+<!--   - bad: 15     -->
+<!--   - OK: 2, 4, 8, 14     -->
+<!--   - excellent: 3, 5, 6, 7, 9, 10,11, 12, 13     -->
+
+
+
+```{r weight_params}
+sim_ind <- 11
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+
+varmat_pltfcn(
+  sim_res$kappa_local_mat,
+  y_name = "local kappa",
+  burn = 0
+)$all_vars_plt
+
+varmat_pltfcn(
+  sim_res$kappa_mat,
+  y_name = "kappa",
+  burn = 0
+)$all_vars_plt
+
+k1 <- get_kappas(nn_mod$fc1)
+k2 <- get_kappas(nn_mod$fc2)
+wtil_params <- get_wtil_params(nn_mod$fc1)
+w_mu <- wtil_params$wtil_mu
+w_lvar <- wtil_params$wtil_lvar
+
+k1
+k2
+
+vismat(exp(w_lvar)) + 
+  labs(title = "weight matrix variances")
+vismat(abs(w_mu)) + 
+  labs(title = "weight matrix means (abs val)")
+
+k1_weighted_mu <- sweep(abs(w_mu), MARGIN = 2, STATS = (1 - k1), FUN = "*")
+k12_weighted_mu <- sweep(abs(k1_weighted_mu), MARGIN = 1, STATS = (1 - k2), FUN = "*")
+vismat(k1_weighted_mu)
+round(k1_weighted_mu, 2)
+
+vismat(k12_weighted_mu)
+
+
+k1_weighted_var <- sweep(w_var, MARGIN = 2, STATS = k1, FUN = "*")
+k2_weighted_var <- sweep(w_var, MARGIN = 1, STATS = k2, FUN = "*")
+k12_weighted_var <- sweep(k1_weighted_var, MARGIN = 1, STATS = k2, FUN = "*")
+vismat(k1_weighted_var)
+vismat(k12_weighted_var)
+
+
+Wald_mat <- w_mu^2 / w_var
+tstat <- sqrt(Wald_mat)
+colMeans(Wald_mat)
+colMeans(tstat)
+
+apply(Wald_mat, 2, geom_mean)
+apply(tstat, 2, geom_mean)
+
+apply(k12_weighted_var, 2, geom_mean)
+
+
+
+
+zsq2 <- get_zsq(nn_mod$fc2)
+z2wvar <- sweep(w_var, MARGIN = 1, STATS = sqrt(zsq2), FUN = "*")
+
+apply(w_var, 2, geom_mean)
+
+weighted_zsq2 <- geom_mean(sqrt(zsq2)) / apply(z2wvar, 2, geom_mean)
+geom_mean(weighted_zsq2)
+
+# 
+# w_var <- exp(w_lvar)
+# dim(w_var)
+# 
+# tm <- matrix(rep(1:5, 3), nrow = 5)
+# tm
+# sweep(tm, MARGIN = 2, STATS = 1:3, FUN = "*")
+
+
+
+
+
+get_kappas(nn_mod$fc2)
+# 3, 4, 8, 10
+varmat_pltfcn(
+  exp(sim_res$w_lvar_arr[2,,]),
+  y_name = "var(tilde_w)",
+  burn = 0
+)$all_vars_plt
+
+
+varmat_pltfcn(
+  exp(sim_res$w_lvar_arr[3,,]),
+  y_name = "var(tilde_w)",
+  burn = 0
+)$all_vars_plt
+
+varmat_pltfcn(
+  exp(sim_res$w_lvar_arr[10,,]),
+  y_name = "var(tilde_w)",
+  burn = 0
+)$all_vars_plt
+
+```
+
+
+
+```{r}
+tau0_PV <- function(p_0, d, sig = 1, n){
+  p_0 / (d - p_0) * sig / sqrt(n)
+}
+
+tau0_PV(p_0 = 4, d = 104, sig = 1, n = 1000)
+
+sqrt(get_s_sq(nn_mod$fc1)) * m_eff(nn_mod$fc2) / 16
+
+sim_res$sim_params$sim_name
+
+
+k1*geom_mean(k2)
+```
+
+
+
+
+
+```{r}
+k1 <- get_kappas(nn_mod$fc1)
+
+k2 <- get_kappas(nn_mod$fc2)
+gam <- 1 - k1
+xi <- 1 - k2
+gx <- outer(gam, xi)
+kmat <- t(1-gx)
+kc_mean <- colMeans(kmat)
+kc_geom <- apply(kmat,2,geom_mean)
+cbind(k1, kc_mean, kc_geom)
+
+zsq1 <- get_zsq(nn_mod$fc1)
+zsq2 <- get_zsq(nn_mod$fc2)
+
+zsqmat <- t(outer(zsq1, zsq2))
+apply(zsqmat, 2, geom_mean)
+
+
+
+# $k_1_corr = 1 - (1-k1) * ||diag(1-k2) W_2|| * ||diag(z3) W_3||$
+# or, alternatively $z1_corr = Z1 * ||diag(Z2) W2|| * ||diag(Z3) W_3||$
+frob <- function(mat){
+  sqrt(sum(mat^2))
+}
+
+k1 <- get_kappas(nn_mod$fc1)
+k2 <- get_kappas(nn_mod$fc2)
+k3 <- get_kappas(nn_mod$fc3)
+w2 <- get_wtil_params(nn_mod$fc2)$wtil_mu
+w3 <- get_wtil_params(nn_mod$fc3)$wtil_mu
+
+k1_c <- 1 - (1 - k1) * frob(diag(1-k2) %*% t(w2)) * frob(diag(1-k3)%*%t(w3))
+cbind(k1, k1_c)
+
+m2 <- m_eff(nn_mod$fc2)
+z1 <- sqrt(get_zsq(nn_mod$fc1))
+z2 <- sqrt(get_zsq(nn_mod$fc2))
+z3 <- sqrt(get_zsq(nn_mod$fc3))
+
+z1_c <- z1 * frob(diag(z2) %*% t(w2)) * frob(diag(z3) %*% t(w3))
+k1_c <- (1 + z1_c^2)^(-1)
+
+k1_taucorr <- (1 + z1^2 * 16/m2)^(-1)
+
+err_by_max_bfdr(k1)$plt
+err_by_max_bfdr(k1_taucorr)$plt
+err_by_max_bfdr(k1_c)$plt
+
+
+
+cbind(k1, k1_taucorr, k1_c)[1:20,]
+
+```
+
+
+
+
+```{r}
+# 
+# varmat_pltfcn(
+#   sim_res$alpha_mat,
+#   y_name = "alpha",
+#   burn = 0
+# )$all_vars_plt
+# 
+# 
+# varmat_pltfcn(
+#   sim_res$kappa_local_mat,
+#   y_name = "local kappa",
+#   burn = 0
+# )$all_vars_plt
+# 
+# varmat_pltfcn(
+#   sim_res$kappa_mat,
+#   y_name = "kappa",
+#   burn = 0
+# )$all_vars_plt
+# 
+# k1 <- get_kappas(nn_mod$fc1)
+# k2 <- get_kappas(nn_mod$fc2)
+# wtil_params <- get_wtil_params(nn_mod$fc1)
+# w_mu <- wtil_params$wtil_mu
+# w_lvar <- wtil_params$wtil_lvar
+# 
+# vismat(exp(w_lvar))
+# vismat(w_mu)
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# get_kappas(nn_mod$fc2)
+# # 3, 4, 8, 10
+# varmat_pltfcn(
+#   exp(sim_res$w_lvar_arr[2,,]),
+#   y_name = "var(tilde_w)",
+#   burn = 0
+# )$all_vars_plt
+# 
+# 
+# varmat_pltfcn(
+#   exp(sim_res$w_lvar_arr[3,,]),
+#   y_name = "var(tilde_w)",
+#   burn = 0
+# )$all_vars_plt
+# 
+# varmat_pltfcn(
+#   exp(sim_res$w_lvar_arr[10,,]),
+#   y_name = "var(tilde_w)",
+#   burn = 0
+# )$all_vars_plt
+
+
+
+
+
+
+# sim_ind <- 1
+# 
+# ztilsq_1 <- get_ztil_sq(nn_mod$fc1) 
+# ssq_1 <- get_s_sq(nn_mod$fc1)
+# ztilsq_2 <- get_ztil_sq(nn_mod$fc2) 
+# ssq_2 <- get_s_sq(nn_mod$fc2)
+# 
+# zsq_1 <- ztilsq_1 * ssq_1
+# zsq_2 <- ztilsq_2 * ssq_2
+# 
+# zsq_1_tc <- zsq_1 * (16 / m_eff(nn_mod$fc2))^2
+# k_1_tc <- (1 + zsq_1_tc)^(-1)
+# err_mat <- err_by_max_bfdr(k_1_tc)$err_mat
+# err_mat[, 1:5] %>% 
+#   as_data_frame() %>% 
+#   pivot_longer(cols = -max_bfdr) %>% 
+#   ggplot(aes(y = value, x = max_bfdr, color = name)) +
+#   geom_line() + 
+#   labs(
+#     title = paste0("tau_corr 1: sim ", sim_ind, ": FP/TP vs max_BFDR")
+#   )
+# 
+# 
+# zsq_1_tc2 <- zsq_1 * (16 / m_eff(nn_mod$fc2))
+# k_1_tc2 <- (1 + zsq_1_tc2)^(-1)
+# err_mat2 <- err_by_max_bfdr(k_1_tc2)$err_mat
+# err_mat2[, 1:5] %>% 
+#   as_data_frame() %>% 
+#   pivot_longer(cols = -max_bfdr) %>% 
+#   ggplot(aes(y = value, x = max_bfdr, color = name)) +
+#   geom_line() + 
+#   labs(
+#     title = paste0("tau_corr 2 (sqrt): sim ", sim_ind, ": FP/TP vs max_BFDR")
+#   )
+# 
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r LOAD_1kobs_xnorm}
+# load ----
+seeds <- c(
+  215244, 
+  272835, 
+  124107, 
+  782699, 
+  798186, 
+  68021, 
+  849913, 
+  283608, 
+  658409, 
+  130356
+)
+
+mod_stem <- here::here("sims", "results", "hshoe_smooth_pvtau_testfewer21632_1250obs_")
+mod_fnames <- paste0(mod_stem, seeds, ".pt")
+res_fnames <- paste0(mod_stem, seeds, ".RData")
+```
+
+
+
+# $X$ norm, 1k obs
+
+```{r CHECK_FITS_1k}
+# check model fits across sims
+load(res_fnames[1])
+epoch <- 1:nrow(sim_res$loss_mat) * sim_res$sim_params$report_every
+lmat <- cbind(1, epoch, sim_res$loss_mat)
+colnames(lmat)[1] <- "sim"
+
+for (sim_ind in 2:length(seeds)){
+  load(res_fnames[sim_ind])
+  epoch <- 1:length(sim_res$loss_mat) * sim_res$sim_params$report_every
+  curr_lmat <- cbind(sim_ind, epoch, sim_res$loss_mat)
+  lmat <- rbind(lmat, curr_lmat)
+}
+
+colnames(lmat)
+lmat %>% 
+  as_data_frame() %>% 
+  mutate(sim = factor(sim)) %>% 
+  ggplot(aes(y = kl, x = epoch, color = sim)) +
+  geom_line() + 
+  labs(title = "xnorm, 1k obs: KLs across epochs & sims")
+
+lmat %>% 
+  as_data_frame() %>% 
+  mutate(sim = factor(sim)) %>% 
+  pivot_longer(cols = -c("epoch", "sim")) %>% 
+  filter(name != "kl") %>% 
+  ggplot(aes(x = epoch, color = sim, linetype = name)) +
+  geom_line(aes(y = value)) + 
+  labs(title = "xnorm, 1k obs: test/train MSE across epochs & sims")
+```
+
+
+- all of the fits appear to overfit generalize well --- high test MSE, especially 6'th sim.
+
+- low number of obs probably makes this particularly difficult
+
+- exacerbated by using normal distribution to generate $X$ values, i.e. xvals will tend to be clustered around 0.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
