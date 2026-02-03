@@ -71,13 +71,13 @@ plot_datagen_fcns(flist)
 save_mod_path_prestem <- here::here(
   "sims", 
   "results", 
-  "hshoe_xunif_fewer_21632_test"
+  "hshoe_xnorm_2500obs_21632_test"
 )
 
 sim_params <- list(
-  "sim_name" = "unif xdist; Fewer obs; PV2017 tau_0 all layers, lr 0.001, smoother data, kaiming init, 2L 16 32, nobatching, fcnal data.   ",
+  "sim_name" = "2500 obs; PV2017 tau_0 all layers, lr 0.001, smoother data, kaiming init, 2L 16 32, nobatching, fcnal data.   ",
   "seed" = 21632,
-  "n_sims" = 1, 
+  "n_sims" = 5, 
   "train_epochs" = 2e5,
   "report_every" = 1E4,
   "use_cuda" = use_cuda,
@@ -94,6 +94,7 @@ sim_params <- list(
   "flist" = flist,
   "lr" = 0.05,  # sim_hshoe learning rate arg.  If not specified, uses optim_adam default (0.001)
   "err_sig" = 1,
+  "xdist" = "norm",
   "convergence_crit" = 1e-7,
   "ttsplit" = 4/5,
   "batch_size" = NULL,
