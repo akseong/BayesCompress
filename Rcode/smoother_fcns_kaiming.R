@@ -71,7 +71,7 @@ plot_datagen_fcns(flist)
 save_mod_path_prestem <- here::here(
   "sims", 
   "results", 
-  "hshoe_pvtau10_correctedkappas_21632"
+  "hshoe_pvtau10_correctedkappas_816"
 )
 
 sim_params <- list(
@@ -82,8 +82,8 @@ sim_params <- list(
   "report_every" = 1E4,
   "use_cuda" = use_cuda,
   "d_in" = 104,
-  "d_hidden1" = 16,
-  "d_hidden2" = 32,
+  "d_hidden1" = 8,
+  "d_hidden2" = 16,
   # "d_hidden3" = 16,
   # "d_hidden4" = 16,
   # "d_hidden5" = 16,
