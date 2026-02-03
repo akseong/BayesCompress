@@ -71,15 +71,15 @@ plot_datagen_fcns(flist)
 save_mod_path_prestem <- here::here(
   "sims", 
   "results", 
-  "hshoe_xnorm_2500obs_21632_test"
+  "hshoe_1kobs_21632_test"
 )
 
 sim_params <- list(
-  "sim_name" = "2500 obs; PV2017 tau_0 all layers, lr 0.001, smoother data, kaiming init, 2L 16 32, nobatching, fcnal data.   ",
+  "sim_name" = "1k obs; PV2017 tau_1 assumes 10 true, lr 0.001, smoother data, kaiming init, 2L 16 32, nobatching, fcnal data.   ",
   "seed" = 21632,
-  "n_sims" = 5, 
-  "train_epochs" = 2e5,
-  "report_every" = 1E4,
+  "n_sims" = 1, 
+  "train_epochs" = 5E3,
+  "report_every" = 1E3,
   "use_cuda" = use_cuda,
   "d_in" = 104,
   "d_hidden1" = 16,
@@ -92,7 +92,7 @@ sim_params <- list(
   "true_coefs" = c(-0.5, 1, -2, 4, rep(0, times = 100)),
   "alpha_thresh" = 1 / qchisq(1 - (0.05 / 104), df = 1),
   "flist" = flist,
-  "lr" = 0.05,  # sim_hshoe learning rate arg.  If not specified, uses optim_adam default (0.001)
+  "lr" = 0.001,  # sim_hshoe learning rate arg.  If not specified, uses optim_adam default (0.001)
   "err_sig" = 1,
   "xdist" = "norm",
   "convergence_crit" = 1e-7,
@@ -105,14 +105,18 @@ sim_params <- list(
 set.seed(sim_params$seed)
 sim_params$sim_seeds <- floor(runif(n = sim_params$n_sims, 0, 1000000))
 
+
+# calibrate tau
 # Piironen & Vehtari 2017 suggest tau_0 = p_0 / (d - p_0) * sig / sqrt(n)
 # where p_0 = prior estimate of number of nonzero betas, d = total number of covs
-tau0_PV <- function(p_0, d, sig = 1, n){
-  p_0 / (d - p_0) * sig / sqrt(n)
-}
 
 sim_params$prior_tau <- tau0_PV(
-  p_0 = 50, d = 100, sig = 1, 
+  p_0 = 10, d = 104, sig = 1, 
+  n = round(sim_params$n_obs * sim_params$ttsplit)
+)
+
+agnostic_tau <- tau0_PV(
+  p_0 = 1, d = 2, sig = 1, 
   n = round(sim_params$n_obs * sim_params$ttsplit)
 )
 
@@ -135,7 +139,7 @@ MLHS <- nn_module(
       in_features = sim_params$d_hidden1,
       out_features = sim_params$d_hidden2,
       use_cuda = sim_params$use_cuda,
-      tau_0 = sim_params$prior_tau,
+      tau_0 = agnostic_tau,
       init_weight = NULL,
       init_bias = NULL,
       init_alpha = 0.9,
@@ -146,7 +150,7 @@ MLHS <- nn_module(
       in_features = sim_params$d_hidden2,
       #   out_features = sim_params$d_hidden3,
       #   use_cuda = sim_params$use_cuda,
-      #   tau = 1,
+      #   tau = agnostic_tau,
       #   init_weight = NULL,
       #   init_bias = NULL,
       #   init_alpha = 0.9,
@@ -157,7 +161,7 @@ MLHS <- nn_module(
       #   in_features = sim_params$d_hidden3,
       #   out_features = sim_params$d_hidden4,
       #   use_cuda = sim_params$use_cuda,
-      #   tau = 1,
+      #   tau = agnostic_tau,
       #   init_weight = NULL,
       #   init_bias = NULL,
       #   init_alpha = 0.9,
@@ -168,7 +172,7 @@ MLHS <- nn_module(
       #   in_features = sim_params$d_hidden4,
       out_features = sim_params$d_out,
       use_cuda = sim_params$use_cuda,
-      tau_0 = sim_params$prior_tau,
+      tau_0 = agnostic_tau,
       init_weight = NULL,
       init_bias = NULL,
       init_alpha = 0.9,
