@@ -267,7 +267,7 @@ sim_func_data <- function(
   flist = list(fcn1, fcn2, fcn3, fcn4),
   err_sigma = 1,
   use_cuda = FALSE,
-  xdist = "unif"
+  xdist = "norm"
 ){
   # generate x, y
   if (xdist == "unif"){
@@ -1922,7 +1922,8 @@ sim_hshoe <- function(
     n_obs = sim_params$n_obs,
     d_in = sim_params$d_in,
     flist = sim_params$flist,
-    err_sigma = sim_params$err_sig
+    err_sigma = sim_params$err_sig,
+    xdist = sim_params$xdist
   )
   if (sim_params$use_cuda){
     simdat$x <- simdat$x$to(device = "cuda")
