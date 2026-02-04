@@ -202,6 +202,13 @@ __other notes__:
 
 - feel like I might have to bite the bullet and do the scaling stuff.
 
+- started 2 simulations:
+
+  - `hshoe_pvtau10_correctedkappas_21632`: 5 sims, 1k obs, 3 layers, 16-32-1, tau_0 calibrated to assume 10 true covs 
+  
+  - `hshoe_pvtau10_correctedkappas_816`: same, except 8-16-1.  (started 10 min afterwards)
+
+
 
 ## 2/2/26
 - started simulations using $X \sim Unif(-\sqrt{12}, \sqrt{12})$ (i.e. mean 0, var 1), but realized that $f_4()$ doesn't create much variation in $y$ in that range of $x$ (range of $x$is $\approx [-1.73, 1.73]$).  
