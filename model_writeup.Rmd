@@ -330,9 +330,31 @@ $$\begin{align}
 \end{align}$$
 
 
+### Kullback-Leibler Divergences
+
+$$\begin{align}
+  KL \left( LN(\mu, \sigma^2) ~ || ~ Gamma(\alpha, k) \right)
+  & =
+    - \dfrac{1}{2} \left( \log(2 \pi \sigma^2) + 1 \right)
+    + \log \left( \Gamma(\alpha) \right)
+    + \alpha (\log k - \mu)
+    + \dfrac{1}{k} \exp \left( \mu + \dfrac{\sigma^2}{2} \right)
+  \\
+  KL \left( LN(\mu, \sigma^2) ~ || ~ InvGamma(\alpha, k) \right)
+  & =
+    - \dfrac{1}{2} \left( \log(2 \pi \sigma^2) + 1 \right)
+    + \log \left( \Gamma(\alpha) \right)
+    - \alpha (\log k - \mu)
+    + k \exp \left( - \mu + \dfrac{\sigma^2}{2} \right)
+  \\
+  KL \left( LN(\mu, \sigma^2) ~ || ~ InvGamma(\alpha, k) \right) 
+  & = 
+    KL \left( LN(- \mu, \sigma^2) ~ || ~ Gamma(\alpha, \dfrac{1}{k}) \right)
+\end{align}$$
 
 
-> KL divergences to follow
+
+
 
 
 ## Inference
@@ -396,9 +418,18 @@ $$\tilde \tau_1 = \tau_1 \times \sqrt{  \dfrac{d_1}{m_2^{eff}}    }$$
 .
 
 
-We then calculate the input layer $\kappa$'s as $\kappa_j = (1 + \lambda_j^2 \tilde\tau_1^2)^{-1}$, and use $1 - \kappa_j$ for the posterior inclusion probabilities when calculating the Bayesian FDR.
+We then calculate the input layer $\kappa$'s as $\kappa_j = (1 + \lambda_j^2 \tilde\tau_1^2)^{-1}$ (using the variational posterior modes for $\lambda$ and $\tau$).  Finally, we use the resulting  $1 - \kappa_j$ for the posterior inclusion probabilities (or $\kappa_j$ for exclusion probabilities) when calculating the Bayesian False Discovery Rate (BFDR):
 
-> include notes on BFDR
+$$BFDR(\eta) = 
+  \dfrac{  
+    \sum_j \kappa_j \mathbb{I}(\kappa_j < \eta)
+  }{  
+    \sum_j \mathbb{I}(\kappa_j < \eta)
+  }$$,
+
+i.e. the sum of the posterior probabilities that an included variable (inclusion into the model being determined by the exclusion probability $\kappa_j$ being less than the threshold $\eta$) should actually have been excluded, divided by the total number of included variables.
+
+We find in simulation that the correction to the global scale parameter $\tilde \tau_1 = \tau_1 \times \sqrt{  \dfrac{d_1}{m_2^{eff}}    }$ results in Bayesian FDR calculations that track the frequentist FDR much more closely, even in very sparse settings, than when using an uncorrected $\tau$.
 
 
 
