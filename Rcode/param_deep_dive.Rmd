@@ -169,7 +169,8 @@ seeds <- c(seed_pvtau1, seed_pvtau2)
 
 
 
-# $X$ norm, 10k obs
+# 10k obs
+
 
 ```{r CHECK_FITS}
 # check model fits across sims
@@ -192,7 +193,7 @@ lmat %>%
   ggplot(aes(y = kl, x = epoch, color = sim)) +
   geom_line() + 
   ylim(c(0.1, 0.2)) + 
-  labs(title = "xnorm, 1k obs: KLs across epochs & sims")
+  labs(title = "10k obs: KLs across epochs & sims")
 
 lmat %>% 
   as_data_frame() %>% 
@@ -202,8 +203,18 @@ lmat %>%
   ggplot(aes(x = epoch, color = sim, linetype = name)) +
   geom_line(aes(y = value)) + 
   ylim(c(0.9, 1.4)) + 
-  labs(title = "xnorm, 1k obs: test/train MSE across epochs & sims")
+  labs(title = "10k obs: test/train MSE across epochs & sims")
 ```
+
+
+__Note:__ sims 1-5 trained for 1M epochs; 6-15 for 500k epochs.
+
+- KL divergences continually decrease;
+
+- neigther train (dotted) nor test MSE seem to benefit significantly from longer training;
+
+  - however, slight upward trend in train MSE towards 1 (true value of $\sigma^2_\epsilon$) indicates further training actually alleviates overfitting somewhat.
+
 
 
 
@@ -247,9 +258,7 @@ k2 <- get_kappas(nn_mod$fc2)
 wtil_params <- get_wtil_params(nn_mod$fc1)
 w_mu <- wtil_params$wtil_mu
 w_lvar <- wtil_params$wtil_lvar
-
-k1
-k2
+w_var <- exp(w_lvar)
 
 vismat(exp(w_lvar)) + 
   labs(title = "weight matrix variances")
@@ -258,115 +267,75 @@ vismat(abs(w_mu)) +
 
 k1_weighted_mu <- sweep(abs(w_mu), MARGIN = 2, STATS = (1 - k1), FUN = "*")
 k12_weighted_mu <- sweep(abs(k1_weighted_mu), MARGIN = 1, STATS = (1 - k2), FUN = "*")
-vismat(k1_weighted_mu)
-round(k1_weighted_mu, 2)
+vismat(k1_weighted_mu) + 
+  labs(title = "weight matrix means (abs val) weighted by layer 1 kappas")
 
-vismat(k12_weighted_mu)
+vismat(k12_weighted_mu) + 
+  labs(title = "weight matrix means (abs val) weighted by layer 1 AND 2 kappas")
 
 
 k1_weighted_var <- sweep(w_var, MARGIN = 2, STATS = k1, FUN = "*")
 k2_weighted_var <- sweep(w_var, MARGIN = 1, STATS = k2, FUN = "*")
 k12_weighted_var <- sweep(k1_weighted_var, MARGIN = 1, STATS = k2, FUN = "*")
-vismat(k1_weighted_var)
-vismat(k12_weighted_var)
+vismat(k1_weighted_var) + 
+  labs(title = "weight matrix variances weighted by layer 1 kappas")
+vismat(k12_weighted_var) + 
+  labs(title = "weight matrix variances weighted by layer 1 AND 2 kappas")
+```
 
 
-Wald_mat <- w_mu^2 / w_var
-tstat <- sqrt(Wald_mat)
-colMeans(Wald_mat)
-colMeans(tstat)
+### inspecting $\sigma_{\tilde{w}}$ across training epochs {.panelset}
 
-apply(Wald_mat, 2, geom_mean)
-apply(tstat, 2, geom_mean)
+layer 2 kappas (neuron dropout):
 
-apply(k12_weighted_var, 2, geom_mean)
-
-
-
-
-zsq2 <- get_zsq(nn_mod$fc2)
-z2wvar <- sweep(w_var, MARGIN = 1, STATS = sqrt(zsq2), FUN = "*")
-
-apply(w_var, 2, geom_mean)
-
-weighted_zsq2 <- geom_mean(sqrt(zsq2)) / apply(z2wvar, 2, geom_mean)
-geom_mean(weighted_zsq2)
-
-# 
-# w_var <- exp(w_lvar)
-# dim(w_var)
-# 
-# tm <- matrix(rep(1:5, 3), nrow = 5)
-# tm
-# sweep(tm, MARGIN = 2, STATS = 1:3, FUN = "*")
-
-
-
-
-
-get_kappas(nn_mod$fc2)
-# 3, 4, 8, 10
-varmat_pltfcn(
-  exp(sim_res$w_lvar_arr[2,,]),
-  y_name = "var(tilde_w)",
-  burn = 0
-)$all_vars_plt
-
-
-varmat_pltfcn(
-  exp(sim_res$w_lvar_arr[3,,]),
-  y_name = "var(tilde_w)",
-  burn = 0
-)$all_vars_plt
-
-varmat_pltfcn(
-  exp(sim_res$w_lvar_arr[10,,]),
-  y_name = "var(tilde_w)",
-  burn = 0
-)$all_vars_plt
-
+```{r}
+k2 <- get_kappas(nn_mod$fc2)
+k2
 ```
 
 
 
-```{r}
-tau0_PV <- function(p_0, d, sig = 1, n){
-  p_0 / (d - p_0) * sig / sqrt(n)
+```{r results = "asis"}
+for (i in 1:length(k2)){
+  
+  cat("\n  \n  \n#### ", i, "th neuron \n")
+  
+  plt_title <- paste0("var(tilde_w) ~ epochs; k2=", round(k2[i], 4))
+  print(
+    varmat_pltfcn(
+      exp(sim_res$w_lvar_arr[i,,]),
+      y_name = "var(tilde_w)",
+      burn = 0
+    )$all_vars_plt +
+      labs(title = plt_title)
+  )
 }
 
-tau0_PV(p_0 = 4, d = 104, sig = 1, n = 1000)
-
-sqrt(get_s_sq(nn_mod$fc1)) * m_eff(nn_mod$fc2) / 16
-
-sim_res$sim_params$sim_name
-
-
-k1*geom_mean(k2)
 ```
 
 
 
 
+# Corrections
 
-```{r}
-k1 <- get_kappas(nn_mod$fc1)
-
-k2 <- get_kappas(nn_mod$fc2)
-gam <- 1 - k1
-xi <- 1 - k2
-gx <- outer(gam, xi)
-kmat <- t(1-gx)
-kc_mean <- colMeans(kmat)
-kc_geom <- apply(kmat,2,geom_mean)
-cbind(k1, kc_mean, kc_geom)
-
-zsq1 <- get_zsq(nn_mod$fc1)
-zsq2 <- get_zsq(nn_mod$fc2)
-
-zsqmat <- t(outer(zsq1, zsq2))
-apply(zsqmat, 2, geom_mean)
+$\tau$ correction, 
 
 
+iterative $\tau$ correction:
+
+
+__Frobenius norm correction to $Z$__: looked at correcting $Z_1$ (diagonal matrix of $\lambda \tau$): $Z_1^{corr} = Z_1 \times ||Z_2 W_2|| \times ||Z_3W_3||$ where $Z_l$ is diagonal matrix of scale parameters for layer $l$, and $W_l$ is the weight matrix for layer $l$, and $||$ denotes the Frobenius matrix norm.  __Appears to work fairly well.__  
+
+  - rationale: tracks (to some degree at least) the impact of the scale parameters through all network layers.  
+  
+  - possible issues: 
+  
+    - Frobenius norm of a matrix in general grows with dimension.  This is, however, likely mitigated by the horseshoe scale parameters in each layer.
+    
+    - Not sure about theory.  Just working off the idea that the Frobenius norm measures in some sense the "magnitude" of a matrix.  Intuition is that the intervening layers all contribute to shrinkage.
+
+
+```{r FROB}
 
 # $k_1_corr = 1 - (1-k1) * ||diag(1-k2) W_2|| * ||diag(z3) W_3||$
 # or, alternatively $z1_corr = Z1 * ||diag(Z2) W2|| * ||diag(Z3) W_3||$
@@ -380,33 +349,127 @@ k3 <- get_kappas(nn_mod$fc3)
 w2 <- get_wtil_params(nn_mod$fc2)$wtil_mu
 w3 <- get_wtil_params(nn_mod$fc3)$wtil_mu
 
-k1_c <- 1 - (1 - k1) * frob(diag(1-k2) %*% t(w2)) * frob(diag(1-k3)%*%t(w3))
-cbind(k1, k1_c)
+# doesn't work on kappa parameters (negative values)
+# k1_c <- 1 - (1 - k1) * frob(diag(1-k2) %*% t(w2)) * frob(diag(1-k3)%*%t(w3))
+# cbind(k1, k1_c)[1:10, ]
 
-m2 <- m_eff(nn_mod$fc2)
 z1 <- sqrt(get_zsq(nn_mod$fc1))
 z2 <- sqrt(get_zsq(nn_mod$fc2))
 z3 <- sqrt(get_zsq(nn_mod$fc3))
 
-z1_c <- z1 * frob(diag(z2) %*% t(w2)) * frob(diag(z3) %*% t(w3))
-k1_c <- (1 + z1_c^2)^(-1)
+z1_frob <- z1 * frob(diag(z2) %*% t(w2)) * frob(diag(z3) %*% t(w3))
+k1_frob <- (1 + z1_frob^2)^(-1)
 
+```
+
+## iteratively-corrected kappas
+
+- kappas generated by applying tau correction throughout network
+
+
+```{r ITERATIVE_TAU}
+
+# using layer 2 only
+m2 <- m_eff(nn_mod$fc2)
 k1_taucorr <- (1 + z1^2 * 16/m2)^(-1)
 
-err_by_max_bfdr(k1)$plt
-err_by_max_bfdr(k1_taucorr)$plt
-err_by_max_bfdr(k1_c)$plt
+# iteratively over layers
+get_kappas_taucorrected_iterative <- function(nn_mod){
+  L <- length(nn_mod$children)
+  m_eff_l <- sum(1 - get_kappas(nn_mod$children[[L]]))
+  
+  for (l in L:2){
+    correction_l <- length(get_kappas(nn_mod$children[[l]])) / m_eff_l
+    zsq_l <- get_zsq(nn_mod$children[[l-1]])
+    k_l_corrected <- (1 + zsq_l*correction_l)^(-1)
+    m_eff_l <- sum(1-k_l_corrected)
+  }
+  
+  return(k_l_corrected)
+}
 
+# apply(w_mu^2 / w_var, 2, mean)
+# W_var <- sweep(w_var, 2, zsq1, "*")
+# wvar_weighted_zsq1 <- apply(W_var, 2, mean)
+# 
+# 
+# 
+# w_var <- exp(w_lvar)
+# dim(w_var)
+# 
+# tm <- matrix(rep(1:5, 3), nrow = 5)
+# tm
+# sweep(tm, MARGIN = 2, STATS = 1:3, FUN = "*")
 
-
-cbind(k1, k1_taucorr, k1_c)[1:20,]
 
 ```
 
 
 
 
+
+
+
+
+```{r COMPARISON}
+
+err_by_max_bfdr(k1)$plt_fdrs + 
+  labs(subtitle = "uncorrected kappas")
+
+err_by_max_bfdr(get_kappas_taucorrected(nn_mod))$plt_fdrs + 
+  labs(subtitle = "tau corrected with layer 2 only")
+
+err_by_max_bfdr(get_kappas_taucorrected_iterative(nn_mod))$plt_fdrs + 
+  labs(subtitle = "tau corrected iteratively")
+
+err_by_max_bfdr(k1_frob)$plt_fdrs + 
+  labs(subtitle = "frobenius correction to scale params")
+# checking functions places in `analysis_fcns.R`
+# err_by_max_bfdr(get_kappas_frobcorrected(nn_mod))$plt_fdrs
+# err_by_max_bfdr(get_kappas_taucorrected(nn_mod, ln_mean))$plt_fdrs
+```
+
+
+- correction to $\tau$ with layer 2 appears best.
+
+- rather than thinking about how shrinkage gets carried through the whole network, for feature selection it seems __more important to think about how the inputs get passed to the next layer__.  The poor performance of the Frobenius norm-based correction seems to suggest this as well.
+
+  - would be interesting to compare performance against "relevance" detection techniques.  My guess would be that we would do better on smaller signal-to-noise covariates or when the effects are more localized.
+
+
+
 ```{r}
+
+# zsq1 <- get_zsq(nn_mod$fc1)
+# zsq2 <- get_zsq(nn_mod$fc2)
+# 
+# zmat <- t(outer(sqrt(zsq1), sqrt(zsq2)))
+# apply(zmat, 2, geom_mean)
+# 
+# 
+# 
+# # older thoughts 
+# # Wald_mat <- w_mu^2 / w_var
+# # tstat <- sqrt(Wald_mat)
+# # colMeans(Wald_mat)
+# # colMeans(tstat)
+# # 
+# # apply(Wald_mat, 2, geom_mean)
+# # apply(tstat, 2, geom_mean)
+# # 
+# # apply(k12_weighted_var, 2, geom_mean)
+# 
+# 
+# 
+# zsq1 <- get_zsq(nn_mod$fc1)
+# zsq2 <- get_zsq(nn_mod$fc2)
+# z2wvar <- sweep(w_var, MARGIN = 1, STATS = sqrt(zsq2), FUN = "*")
+# vismat(z2wvar)
+# 
+# 
+# apply(w_var, 2, geom_mean)
+# 
+# w_var_z2weighted <- geom_mean(sqrt(zsq2)) / apply(z2wvar, 2, geom_mean)
 # 
 # varmat_pltfcn(
 #   sim_res$alpha_mat,
