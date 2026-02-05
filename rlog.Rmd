@@ -175,6 +175,37 @@ source(here("Rcode", "analysis_fcns.R"))
 # formatted (most recent first)
 
 
+## 2/5/26 - meeting
+
+- Veronica (chair), Weining, 
+
+  - ask Veronica - email today, ask for ideas on who else in addition to Michele
+
+- Bayesian ideas book - chapter 10 survival - accelerated failure time model
+
+- Overleaf for paper, overleaf for dissertation
+
+  - intro - diff models for variable selection, look at handbook of variable selection, some discussion of functional data analysis, BART as competitor (pros/cons), ECoG data
+  
+  - 2nd chapter - first paper
+  
+  - 3rd chapter - current
+  
+  - 4th chapter - limitations and future work --- correlation, independence
+
+- simulation scenarios 
+
+  - competitors: VCBART, OLS, LASSO
+  
+- dataset
+
+
+- averages across simulation replicates
+
+- coverage of FDR
+
+- shrinkage factors per variable
+
 
 ## 2/3/26
 
