@@ -167,12 +167,70 @@ mykable <- function(tab, cap,
 # notin
 `%notin%` <- Negate(`%in%`)
 
-source(here("Rcode", "torch_horseshoe_klcorrected.R"))
-source(here("Rcode", "sim_functions.R"))
-source(here("Rcode", "analysis_fcns.R"))
+# source(here("Rcode", "torch_horseshoe_klcorrected.R"))
+# source(here("Rcode", "sim_functions.R"))
+# source(here("Rcode", "analysis_fcns.R"))
 ```
 
 # formatted (most recent first)
+
+
+
+## 2/9/26
+
+### Possible data:
+
+#### sparseVCBART
+
+[Ghosh, Bogale, Deshpande 2025 (Arxiv; unpublished)](https://arxiv.org/pdf/2510.08204) - sparseVCBART; primarily focused on Varying Coef effect modification, and var selection for varying coefs.  They keep VCBART mostly the same EXCEPT they apply a regularized horsehoe prior Piiornen & Vehtari 2017) with local scale parameters $\lambda_j$ shared between all leaves in an ensemble of trees $\mathcal{E}_j$ (each $\mathcal{E}_j$ models a $\Beta_j(z)$).  __Question:__ how is the number of ensembles determined?  Need to look at original paper more.
+
+- **"Semi-synthetic"** data: use political science data from Kalla & Broockman 2023 on whether conversations can affect prejudice against immigrants (3 intervention arms).  
+  
+  - N = 4921, R = 99 effect modifiers (demographics, political attitudes) + p = 2 binary indicators for full/partial intervention arm.  "Semi-synthetic" b/c added 18 noise covariates from N(0,1).
+
+    - interesting note: at first this reminded me of the famously discredited work "When Contact Changes Minds" in 2015 about conversations changing homophobic attitudes.  Was worried at first that this was those authors, but it turns out that Kalla & Broockman were the ones who discredited it! (They had wanted to replicate the study by LeCour and Green 2015; K & B discredited the data as false, but a few years later they released a study that had _some_ of the same findings).
+    
+- **Synthetic Data**: 2 experiments:
+  
+  - experiment 1) $R = 20$ effect modifiers, $p=3$ covariates, 1000 training obs, 200 test 
+    
+  - experiment 2) same, but $p = 50$ covariates
+    
+  - both had:
+    
+    - iid covariate vectors $x \sim N_p (0_p, \Sigma)$ with $\Sigma_{ij} = 0.5 ^{|i-j|}$
+    
+    - iid modifier vectors $z_i \sim Unif[0,1]^R$
+      
+    - iid $N(0,1)$ errors
+      
+    - following non-null covariate functions.  __NOTE:__ smaller number of functions than original VCBART paper had 6 functions [Deshpande et al published in Bayesian Analysis 2024](https://projecteuclid.org/journals/bayesian-analysis/advance-publication/VCBART-Bayesian-Trees-for-Varying-Coefficients/10.1214/24-BA1470.full):
+
+$$\begin{align}
+  \beta_0(z) 
+    &= 
+    3 z_1 
+    + (2 - 5 \mathbb{I}(z_2 > 0.5)) \sin(\pi z_1) 
+    - 2 \mathbb{I} (z_2 > 0.5),
+    \\
+  \beta_1(z) 
+    &= 
+    (3 - 3 z_1^2) \times \mathbb{I}(z_1 > 0.6)
+    - 10 \sqrt{z_1} \times \mathbb{I}(z_1 < 0.25),
+    \\
+  \beta_2(z) 
+    &=
+    1
+    \\
+  \beta_3(z) 
+    & = 
+    10 \sin(\pi z_1 z_2) 
+    + 20 (z_3 - 0.5)^2
+    + 10 z_4 
+    + 5 z_5. 
+    \\
+\end{align}$$
+
 
 
 ## 2/5/26 - meeting
