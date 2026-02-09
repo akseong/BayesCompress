@@ -2643,6 +2643,116 @@ ul.task-list{list-style: none;}
 
 
 
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ background-color: #f8f8f8; }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ef2929; } 
+code span.an { color: #8f5902; font-weight: bold; font-style: italic; } 
+code span.at { color: #204a87; } 
+code span.bn { color: #0000cf; } 
+code span.cf { color: #204a87; font-weight: bold; } 
+code span.ch { color: #4e9a06; } 
+code span.cn { color: #8f5902; } 
+code span.co { color: #8f5902; font-style: italic; } 
+code span.cv { color: #8f5902; font-weight: bold; font-style: italic; } 
+code span.do { color: #8f5902; font-weight: bold; font-style: italic; } 
+code span.dt { color: #204a87; } 
+code span.dv { color: #0000cf; } 
+code span.er { color: #a40000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #0000cf; } 
+code span.fu { color: #204a87; font-weight: bold; } 
+code span.im { } 
+code span.in { color: #8f5902; font-weight: bold; font-style: italic; } 
+code span.kw { color: #204a87; font-weight: bold; } 
+code span.op { color: #ce5c00; font-weight: bold; } 
+code span.ot { color: #8f5902; } 
+code span.pp { color: #8f5902; font-style: italic; } 
+code span.sc { color: #ce5c00; font-weight: bold; } 
+code span.ss { color: #4e9a06; } 
+code span.st { color: #4e9a06; } 
+code span.va { color: #000000; } 
+code span.vs { color: #4e9a06; } 
+code span.wa { color: #8f5902; font-weight: bold; font-style: italic; } 
+.sourceCode .row {
+width: 100%;
+}
+.sourceCode {
+overflow-x: auto;
+}
+.code-folding-btn {
+margin-right: -30px;
+}
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
 
 
 
@@ -2779,6 +2889,12 @@ font-size: 0.90em;
 .tocify .list-group-item {
 border-radius: 0px;
 }
+.tocify-subheader {
+display: inline;
+}
+.tocify-subheader .tocify-item {
+font-size: 0.95em;
+}
 </style>
 
 
@@ -2852,17 +2968,69 @@ background-color: #11579e;
 background-color: #d5f2f5;
 }
 </style>
-<div id="formatted-most-recent-first" class="section level1">
-<h1>formatted (most recent first)</h1>
-<div id="section" class="section level2">
-<h2>2/9/26</h2>
-<div id="possible-data" class="section level3">
-<h3>Possible data:</h3>
-<div id="ghosh-bogale-deshpande-2025-arxiv-unpublished---sparsevcbart-primarily-focused-on-varying-coef-effect-modification-and-var-selection-for-varying-coefs" class="section level4">
-<h4><a href="https://arxiv.org/pdf/2510.08204">Ghosh, Bogale, Deshpande
+<div id="k-update-possible-data" class="section level1">
+<h1>2/9 1k update; possible data</h1>
+<div id="k-obs-sims-results" class="section level2">
+<h2>1k obs sims results</h2>
+<p>Ran 5 sims for 1k training obs for 2 different sizes of networks
+(16-32 and 8-16 in hidden layers). <a href="http://akseong.github.io/BayesCompress/Rcode/various_sim_results.html">Results</a>
+are not good. I’m guessing the network is just too big compared to the
+data causing major <strong>overfitting:</strong></p>
+<ul>
+<li><p>In the 10k obs case, train MSE tends to be between 0.95 - 1.1
+(true <span class="math inline">\(\sigma^2_\epsilon = 1\)</span>), and
+test MSE tends to be about 1.2.</p></li>
+<li><p>in the 1k obs case, train MSE tends to be between 0.8 - 1, while
+test MSE tends to be btwn <strong>3.5 - 4.5</strong> (though with much
+more variation in both)</p></li>
+</ul>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">param_counts_from_dims</span>(<span class="at">dim_vec =</span> <span class="fu">c</span>(<span class="dv">104</span>, <span class="dv">16</span>, <span class="dv">32</span>, <span class="dv">1</span>))</span></code></pre></div>
+<pre><code>## layer_1 layer_2 layer_3   TOTAL 
+##    3780    1156     198    5134</code></pre>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="fu">param_counts_from_dims</span>(<span class="at">dim_vec =</span> <span class="fu">c</span>(<span class="dv">104</span>, <span class="dv">8</span>, <span class="dv">16</span>, <span class="dv">1</span>))</span></code></pre></div>
+<pre><code>## layer_1 layer_2 layer_3   TOTAL 
+##    2100     324     102    2526</code></pre>
+<p>Furthermore, regarding network size, with 104 input covariates,</p>
+<ul>
+<li><p>a network with <strong>16 neurons in the first layer, 32 in the
+second has 5134</strong> parameters;</p></li>
+<li><p>a network with <strong>8 neurons in the first layer, 16 in the
+second still has 2526</strong> parameters.</p></li>
+</ul>
+<p>Going to try 1k obs trying a much smaller network and/or fewer
+nuisance covars.</p>
+<ul>
+<li>Without reducing the number of niusance covars, going to need to use
+a very small network (4-16 and 4-4 network sizes below):</li>
+</ul>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="fu">param_counts_from_dims</span>(<span class="at">dim_vec =</span> <span class="fu">c</span>(<span class="dv">104</span>, <span class="dv">4</span>, <span class="dv">16</span>, <span class="dv">1</span>))</span></code></pre></div>
+<pre><code>## layer_1 layer_2 layer_3   TOTAL 
+##    1260     180     102    1542</code></pre>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="fu">param_counts_from_dims</span>(<span class="at">dim_vec =</span> <span class="fu">c</span>(<span class="dv">104</span>, <span class="dv">4</span>, <span class="dv">4</span>, <span class="dv">1</span>))</span></code></pre></div>
+<pre><code>## layer_1 layer_2 layer_3   TOTAL 
+##    1260      60      30    1350</code></pre>
+<p><strong>What’s the bright side?</strong></p>
+<ul>
+<li><p>I do kind of like that this happens, as it comports with
+expectations, and adds a reasonable calibration (network size) based on
+data size but not characteristics of data;</p></li>
+<li><p><strong>WAIT</strong> what if we tried it again with a major
+<strong>underestimate</strong> of <span class="math inline">\(\tau_0\)</span>?? That might be interesting. The
+current simulations still use an overestimate of the number of true
+variables (1 out of 10).</p></li>
+</ul>
+</div>
+<div id="sparsevcbart-paper" class="section level2">
+<h2>sparseVCBART paper</h2>
+<p><a href="https://arxiv.org/pdf/2510.08204">Ghosh, Bogale, Deshpande
 2025 (Arxiv; unpublished)</a> - sparseVCBART; primarily focused on
-Varying Coef effect modification, and var selection for varying
-coefs</h4>
+Varying Coef effect modification, and var selection for varying coefs.
+They keep VCBART mostly the same EXCEPT they apply a regularized
+horsehoe prior Piiornen &amp; Vehtari 2017) with local scale parameters
+<span class="math inline">\(\lambda_j\)</span> shared between all leaves
+in an ensemble of trees <span class="math inline">\(\mathcal{E}_j\)</span> (each <span class="math inline">\(\mathcal{E}_j\)</span> models a <span class="math inline">\(\beta_j(z)\)</span>). <strong>Question:</strong>
+how is the number of ensembles determined? Need to look at original
+paper more.</p>
 <ul>
 <li><p><strong>“Semi-synthetic”</strong> data: use political science
 data from Kalla &amp; Broockman 2023 on whether conversations can affect
@@ -2870,12 +3038,17 @@ prejudice against immigrants (3 intervention arms).</p>
 <ul>
 <li><p>N = 4921, R = 99 effect modifiers (demographics, political
 attitudes) + p = 2 binary indicators for full/partial intervention arm.
-“Semi-synthetic” b/c added 18 noise covariates from N(0,1).</p></li>
-<li><p>interesting note: this reminded me of the famously discredited
-work of LeCour and Green 2015 “When Contact Changes Minds”. Turns out
-Kalla &amp; Broockman were the ones who discredited it! (They had wanted
-to replicate study) A few years later released study that had
-<em>some</em> of the same findings.</p></li>
+“Semi-synthetic” b/c added 18 noise covariates from N(0,1).</p>
+<ul>
+<li>interesting note: at first this reminded me of the famously
+discredited work “When Contact Changes Minds” in 2015 about
+conversations changing homophobic attitudes. Was worried at first that
+this was those authors, but it turns out that Kalla &amp; Broockman were
+the ones who discredited it! (They had wanted to replicate the study by
+LeCour and Green 2015; K &amp; B discredited the data as false, but a
+few years later they released a study that had <em>some</em> of the same
+findings).</li>
+</ul></li>
 </ul></li>
 <li><p><strong>Synthetic Data</strong>: 2 experiments:</p>
 <ul>
@@ -2892,10 +3065,10 @@ training obs, 200 test</p></li>
 <li><p>iid modifier vectors <span class="math inline">\(z_i \sim
 Unif[0,1]^R\)</span></p></li>
 <li><p>iid <span class="math inline">\(N(0,1)\)</span> errors</p></li>
-<li><p>following non-null covariate functions (much smaller number of
-functions than <a href="https://projecteuclid.org/journals/bayesian-analysis/advance-publication/VCBART-Bayesian-Trees-for-Varying-Coefficients/10.1214/24-BA1470.full">original
-VCBART paper Deshpande et al published in Bayesian Analysis
-2024</a>:</p></li>
+<li><p>following non-null covariate functions. <strong>NOTE:</strong>
+smaller number of functions than original VCBART paper had 6 functions
+<a href="https://projecteuclid.org/journals/bayesian-analysis/advance-publication/VCBART-Bayesian-Trees-for-Varying-Coefficients/10.1214/24-BA1470.full">Deshpande
+et al published in Bayesian Analysis 2024</a>:</p></li>
 </ul></li>
 </ul></li>
 </ul>
@@ -2925,17 +3098,14 @@ VCBART paper Deshpande et al published in Bayesian Analysis
 \end{align}\]</span></p>
 </div>
 </div>
-</div>
-<div id="meeting" class="section level2">
-<h2>2/5/26 - meeting</h2>
+<div id="meeting" class="section level1">
+<h1>2/5 meeting</h1>
 <ul>
 <li><p>Veronica (chair), Weining,</p>
 <ul>
 <li>ask Veronica - email today, ask for ideas on who else in addition to
 Michele</li>
 </ul></li>
-<li><p>Bayesian ideas book - chapter 10 survival - accelerated failure
-time model</p></li>
 <li><p>Overleaf for paper, overleaf for dissertation</p>
 <ul>
 <li><p>intro - diff models for variable selection, look at handbook of
@@ -2950,14 +3120,29 @@ independence</p></li>
 <ul>
 <li>competitors: VCBART, OLS, LASSO</li>
 </ul></li>
-<li><p>dataset</p></li>
+<li><p>dataset</p>
+<ul>
+<li><p>Bayesian ideas book - chapter 10 survival - accelerated failure
+time model</p></li>
+<li><p>VCBART paper?</p></li>
+<li><p>for ECoG data - how to handle correlated errors / time series?
+Can I add an LSTM layer after the input layer? After the first 2 layers
+(since correction to tau depends on 2nd layer estimates?)</p></li>
+<li><p>could also do a logistic regression setting (simple as just
+changing out the log-likelihood — i.e. in code just need to replace
+objective function from MSE to cross-entropy, and stick on a sigmoid
+activation function after last layer)</p></li>
+</ul></li>
+<li><p>images:</p>
+<ul>
 <li><p>averages across simulation replicates</p></li>
 <li><p>coverage of FDR</p></li>
 <li><p>shrinkage factors per variable</p></li>
+</ul></li>
 </ul>
 </div>
-<div id="section-1" class="section level2">
-<h2>2/3/26</h2>
+<div id="to-do" class="section level1">
+<h1>2/3 TO DO</h1>
 <p>TO DO this week:</p>
 <ul class="task-list">
 <li><p><label><input type="checkbox" checked></input>implement corrections
@@ -2996,8 +3181,8 @@ stuff.</p></li>
 </ul></li>
 </ul>
 </div>
-<div id="section-2" class="section level2">
-<h2>2/2/26</h2>
+<div id="frobenius-norm" class="section level1">
+<h1>2/2/26 Frobenius norm?</h1>
 <ul>
 <li><p>started simulations using <span class="math inline">\(X \sim
 Unif(-\sqrt{12}, \sqrt{12})\)</span> (i.e. mean 0, var 1), but realized
@@ -3027,17 +3212,17 @@ shrinkage.</p></li>
 </ul></li>
 </ul>
 </div>
-<div id="section-3" class="section level2">
-<h2>1/30/26</h2>
+<div id="update" class="section level1">
+<h1>1/30 update</h1>
 <p>continued writing up setting, model</p>
 <p><strong><code>sim_func_data</code> modified</strong> to simulate X
 from mean 0 var 1 uniform (Unif(-sqrt(12), sqrt(12)))</p>
 </div>
-<div id="section-4" class="section level2">
-<h2>1/9/26</h2>
+<div id="sim-setting-posterior-concentration" class="section level1">
+<h1>1/9 sim setting, posterior concentration</h1>
 <p>writing up setting, model</p>
-<div id="simulation-setting-ideas" class="section level3">
-<h3>Simulation setting ideas:</h3>
+<div id="simulation-setting-ideas" class="section level2">
+<h2>Simulation setting ideas:</h2>
 <ul>
 <li><p>unmeasured relevant covariates;</p>
 <ul>
@@ -3046,8 +3231,8 @@ from mean 0 var 1 uniform (Unif(-sqrt(12), sqrt(12)))</p>
 <li><p>non-linear group interactions</p></li>
 </ul>
 </div>
-<div id="discover-interactions" class="section level3">
-<h3>Discover interactions?</h3>
+<div id="discover-interactions" class="section level2">
+<h2>Discover interactions?</h2>
 <ul>
 <li><p>is there some way to model how effects pass through the network
 using trees?</p></li>
@@ -3059,8 +3244,8 @@ Genes</a></p>
 </ul></li>
 </ul>
 </div>
-<div id="performance-of-bfdr-inference" class="section level3">
-<h3>performance of BFDR &amp; inference</h3>
+<div id="performance-of-bfdr-inference" class="section level2">
+<h2>performance of BFDR &amp; inference</h2>
 <ul>
 <li><p>need to my model test in a variety of settings — i.e. non-sparse,
 diff <span class="math inline">\(n\)</span> — to support validity of
@@ -3093,8 +3278,8 @@ Bayesian Neural Networks with Latent Variables</a></li>
 </ul>
 </div>
 </div>
-<div id="meeting-with-michele" class="section level2">
-<h2>1/7/26 Meeting with Michele</h2>
+<div id="meeting-1" class="section level1">
+<h1>1/7 Meeting</h1>
 <ul>
 <li><p>write down the full model, rationale for correction</p></li>
 <li><p>credible interval method vs correcting <span class="math inline">\(\tau\)</span></p>
@@ -3114,8 +3299,8 @@ Vaart, Uncertainty quantification for the horseshoe</a></li>
 <p>Talk to Laura - start putting together date / committee: graduation
 by May - Zhaoxia, Veronica, Babak?</p>
 </div>
-<div id="correcting-tau" class="section level2">
-<h2>1/7/26: correcting <span class="math inline">\(\tau\)</span></h2>
+<div id="correcting-tau-with-m_eff" class="section level1">
+<h1>1/7: correcting <span class="math inline">\(\tau\)</span> with <span class="math inline">\(m_{eff}\)</span></h1>
 <ul>
 <li><p><code>corrections.Rmd</code></p></li>
 <li><p>pursued correcting <span class="math inline">\(\tau_1\)</span> by
@@ -3140,9 +3325,9 @@ given by <span class="math display">\[\tau^{corr}_1 = \hat{\tau}_1
 makes more sense since <span class="math inline">\(\tau\)</span> is a
 multiplicative scaling factor for the Normally-dist’d coefficients; it’s
 also more conservative)</p>
-<div id="correct-kappa_j-prob-not" class="section level3">
-<h3>Correct <span class="math inline">\(\kappa_j\)</span> (prob
-not):</h3>
+<div id="correct-kappa_j-prob-not" class="section level2">
+<h2>Correct <span class="math inline">\(\kappa_j\)</span> (prob
+not):</h2>
 <p>Applying similar matrix algebra as below to the total shrinkage
 (essentially, instead of using the diagonal matrices of <span class="math inline">\(z_j\)</span>’s from layers 1 and 2 — <span class="math inline">\(Z_1\)</span> and <span class="math inline">\(Z_2\)</span> — we replace these with the
 shrinkage, <span class="math inline">\(1 - \kappa_{l=1, j}\)</span> and
@@ -3180,8 +3365,8 @@ large.</p></li>
 separation. Quick enough to look at though, I suppose.</p></li>
 </ul>
 </div>
-<div id="increase-separation" class="section level3">
-<h3>Increase separation:</h3>
+<div id="increase-separation" class="section level2">
+<h2>Increase separation:</h2>
 <p><strong>What I want: stop the neurons that are 0’d out from
 ASYMMETRICALLY affecting the layer 1 true covariates’ <span class="math inline">\(\kappa_j\)</span>’s.</strong></p>
 <ul>
@@ -3196,14 +3381,13 @@ the machinery I already have is to use the actual weights??? They
 already tend to be near 0 for the neurons corresponding to low <span class="math inline">\(\tilde{z}_j\)</span>’s in layer 2?</p>
 </div>
 </div>
-<div id="effect-of-z_j-tildez_j-s-over-multiple-layers" class="section level2">
-<h2>1/6/26: effect of <span class="math inline">\(z_j = \tilde{z}_j
-s\)</span> over multiple layers</h2>
+<div id="effect-of-pruning-over-multiple-layers" class="section level1">
+<h1>1/6: effect of pruning over multiple layers</h1>
 <p>Continuing thoughts on possible fix 3 below (correcting the layer 1
 <span class="math inline">\(z_j\)</span>’s to account for pruning from
 later layers):</p>
-<div id="layer-network" class="section level3">
-<h3>2 Layer Network:</h3>
+<div id="layer-network" class="section level2">
+<h2>2 Layer Network:</h2>
 <p><span class="math display">\[\begin{align}
   \hat{y}_i
   &amp; =
@@ -3294,8 +3478,8 @@ with some measure of <span class="math inline">\(Z_2 W_2\)</span>,
 e.g. matrix determinant or matrix norm.</p></li>
 </ul>
 </div>
-<div id="layer-and-more-networks" class="section level3">
-<h3>3-layer ( and more) networks:</h3>
+<div id="layer-and-more-networks" class="section level2">
+<h2>3-layer ( and more) networks:</h2>
 <p><span class="math display">\[\begin{align}
   \hat{y}_i
   &amp; =
@@ -3328,8 +3512,8 @@ determinants or some kind of norm (Frobenius?) of <span class="math inline">\(Z_
 <p>Ok, time to code some of this up.</p>
 </div>
 </div>
-<div id="happy-new-year" class="section level2">
-<h2>1/5/26: Happy New Year</h2>
+<div id="possible-corrections" class="section level1">
+<h1>1/5/26: possible corrections</h1>
 <p>Let’s figure this out.</p>
 <ul>
 <li><p>Thoughts re: fixing the issue affecting the local shrinkage
@@ -3396,8 +3580,8 @@ non-negative, <span class="math inline">\(\tau_1 \geq
 inclusion of neurons (determining <span class="math inline">\(\hat{d}_1\)</span>) and 2) determining <span class="math inline">\(\hat{p}\)</span></p></li>
 </ul>
 </div>
-<div id="section-5" class="section level2">
-<h2>12/27:</h2>
+<div id="tau-correction" class="section level1">
+<h1>12/27/25: <span class="math inline">\(\tau\)</span> correction</h1>
 <p>New models — corrected KL, calibrating <span class="math inline">\(\tau_0\)</span> via Piironen Vehtari 2017 (PV2017)
 to assume half covars should be trimmed, Kaiming initialization —, are
 doing well in terms of MSE and function fitting.</p>
@@ -3465,8 +3649,8 @@ diagonal.</p></li>
 - \left(\kappa_{1,j} + \kappa_{2,k} - \kappa_{1,j} \kappa_{2,k}\right)
 \right]\hat{w}_{j,k}\]</span></p></li>
 </ul>
-<div id="new-perspective-work-on-lambda_js" class="section level3">
-<h3>new perspective: work on <span class="math inline">\(\lambda_j\)</span>’s</h3>
+<div id="new-perspective-work-on-lambda_js" class="section level2">
+<h2>new perspective: work on <span class="math inline">\(\lambda_j\)</span>’s</h2>
 <ul>
 <li><p>maybe I need to think about if the actual correction needs to be
 to the <strong>local</strong> scale parameters to make up for the v.
@@ -3487,7 +3671,6 @@ than we are seeing. This makes more sense to me.</p></li>
 </ul>
 </div>
 </div>
-</div>
 <div id="unformatted-notes" class="section level1">
 <h1>unformatted notes</h1>
 <ul>
@@ -3496,8 +3679,8 @@ than we are seeing. This makes more sense to me.</p></li>
 <li>mostly unaltered apart from fixing into descending chronological
 order (most recent at top) and making each date a heading</li>
 </ul>
-<div id="section-6" class="section level4">
-<h4>12/19</h4>
+<div id="section" class="section level3">
+<h3>12/19</h3>
 <ul>
 <li><p>currently running: hshoe_smooth_pvtau_1721632</p>
 <ul>
@@ -3549,8 +3732,8 @@ move more in right direction</li>
 dimension - weights: 2 params per weight: input x output dim - biases: 2
 params per output dimension</p>
 </div>
-<div id="section-7" class="section level4">
-<h4>12/17:</h4>
+<div id="section-1" class="section level3">
+<h3>12/17:</h3>
 <ul>
 <li>activation scaling doesn’t work! just ends up not training anymore,
 exarcebated extremely small global scale params</li>
@@ -3585,8 +3768,8 @@ kaiming init. - started 2nd: smoother_fcns_kaiming — smoother functions,
 5 layers, leaky relu, 8 in all - started 3rd: smoother_fcns_kaiming —
 smoother functions, 2 layers, leaky relu, 32 32</p>
 </div>
-<div id="section-8" class="section level4">
-<h4>12/16</h4>
+<div id="section-2" class="section level3">
+<h3>12/16</h3>
 <ul>
 <li>ablation: try smoother_functions_kaiming with
 <ul>
@@ -3596,8 +3779,8 @@ smoother functions, 2 layers, leaky relu, 32 32</p>
 <code>torch_horseshoe_scaledacts.R</code></li>
 </ul>
 </div>
-<div id="section-9" class="section level4">
-<h4>12/14</h4>
+<div id="section-3" class="section level3">
+<h3>12/14</h3>
 <ul>
 <li><code>smoother_functions_kaiming.R</code>: smoother functions,
 kaiming initialization
@@ -3618,8 +3801,8 @@ captured</li>
 </ul></li>
 </ul>
 </div>
-<div id="section-10" class="section level4">
-<h4>11/20</h4>
+<div id="section-4" class="section level3">
+<h3>11/20</h3>
 <p>testing over the last few weeks suggests that 1) when the network’s
 parameters outnumber the observations we have to work with, the
 unmodified alpha parameter is best to work with, and we should stop
@@ -3640,8 +3823,8 @@ RELU - each weight sampled from N(0, 2 / n_{l-1}) - Hu 2020 - orthogonal
 initialization - maximal update parametrization</p>
 <p>nn_init_kaiming_normal_(mod<span class="math inline">\(fc1\)</span>weight_mu)</p>
 </div>
-<div id="section-11" class="section level4">
-<h4>11/10</h4>
+<div id="section-5" class="section level3">
+<h3>11/10</h3>
 <p>ideas to try: - scale outputs by layer dimension - divide
 pre-activations by d — mitigate tau getting too small? - e.g. Y1 + Y1 +
 Y1 + Y1 vs Y1 + Y2 + Y3 + Y4</p>
@@ -3654,8 +3837,8 @@ Y1 + Y1 vs Y1 + Y2 + Y3 + Y4</p>
 <li><p>justify multiplying / dividing scale param</p></li>
 </ul>
 </div>
-<div id="section-12" class="section level4">
-<h4>11/8</h4>
+<div id="section-6" class="section level3">
+<h3>11/8</h3>
 <ul>
 <li><p>need to monitor test-train split along with TP TN rate</p></li>
 <li><p>run 10 times</p></li>
@@ -3714,8 +3897,8 @@ hidden layers, retraining - what about eliminating nodes with alpha &gt;
 because keeping all these unused vars in? - look at the clip variances
 thing in Ullrich’s code</p>
 </div>
-<div id="march-18" class="section level4">
-<h4>March 18</h4>
+<div id="march-18" class="section level3">
+<h3>March 18</h3>
 <p>Job<br />
 by Joseph Millar</p>
 <p>I’ve just come from walking to and fro<br />
@@ -3740,8 +3923,8 @@ raises welts of sunlight<br />
 over the torqued and rippling surface<br />
 and the beautiful ravenous fish.</p>
 </div>
-<div id="bvs-for-dnn-lit-review" class="section level4">
-<h4>3/19 BVS for DNN lit review</h4>
+<div id="bvs-for-dnn-lit-review" class="section level3">
+<h3>3/19 BVS for DNN lit review</h3>
 <p>—- Variational Inf and dropout/compression</p>
 <ul>
 <li><p>Gal &amp; Ghahramani, 2015; Kingma et al 2015</p></li>
@@ -3823,8 +4006,8 @@ target distributions”</li>
 </ul></li>
 </ul>
 </div>
-<div id="feb-11" class="section level4">
-<h4>Feb 11</h4>
+<div id="feb-11" class="section level3">
+<h3>Feb 11</h3>
 <p>interesting talk at Qualcomm by Van Der Wilk:</p>
 <p><a href="https://youtu.be/m1dSrXBEZIQ" class="uri">https://youtu.be/m1dSrXBEZIQ</a> <a href="https://www.youtube.com/watch?v=m1dSrXBEZIQ" class="uri">https://www.youtube.com/watch?v=m1dSrXBEZIQ</a> ELBO good in
 deep Gaussian Processes (Damianou Lawrence 2)</p>
@@ -3901,7 +4084,7 @@ $(document).ready(function ()  {
       ignoreSelector: ".toc-ignore",
       scrollTo: 0
     };
-    options.showAndHide = true;
+    options.showAndHide = false;
     options.smoothScroll = true;
 
     // tocify

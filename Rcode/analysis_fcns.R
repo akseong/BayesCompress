@@ -274,6 +274,47 @@ kappamat_from_sim_res <- function(sim_res, ln_fcn = ln_mode, type = "global"){
 }
 
 
+# NN PARAM COUNTS ----
+
+## global scale params s_a, s_b: 4 params (mean, var)
+## weights: 2 each (mean, var) - d_in x d_out x 2
+## local scale params atilde, btilde:  d_in x 4 
+## biases: d_out x2
+
+param_counts_from_nn_mod <- function(nn_mod){
+  num_layers <- length(nn_mod$children)
+  param_counts <- rep(NA, times = num_layers)
+  
+  for (layer_num in 1:num_layers){
+    d_in <- nn_mod$children[[layer_num]]$weight_mu$size()[2]
+    d_out <- nn_mod$children[[layer_num]]$weight_mu$size()[1]
+    param_counts[layer_num] <- 4 + d_in*d_out*2 + d_in*4 + d_out*2
+  }
+  res <- c(param_counts, sum(param_counts))
+  names(res) <- c(
+    paste0("layer_", 1:num_layers),
+    "TOTAL"
+  )
+  return(res)
+}
+
+## param_counts_from_dims ---- 
+param_counts_from_dims <- function(dim_vec){
+  num_layers <- length(dim_vec) - 1
+  param_counts <- rep(NA, times = num_layers)
+  
+  for (layer_num in 1:num_layers){
+    d_in <- dim_vec[layer_num]
+    d_out <- dim_vec[layer_num + 1]
+    param_counts[layer_num] <- 4 + d_in*d_out*2 + d_in*4 + d_out*2
+  }
+  res <- c(param_counts, sum(param_counts))
+  names(res) <- c(
+    paste0("layer_", 1:num_layers),
+    "TOTAL"
+  )
+  return(res)
+}
 
 
 
@@ -326,16 +367,6 @@ err_by_max_bfdr <- function(
       "plt_fdrs" = plt_fdrs
     )
   )
-}
-
-
-
-# CORRECTIONS ----
-
-## m_eff ----
-m_eff <- function(nn_layer){
-  k <- get_kappas(nn_layer)
-  sum(1 - k)
 }
 
 

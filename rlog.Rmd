@@ -14,7 +14,7 @@ output:
     toc: yes
     toc_depth: 3
     toc_float:
-      collapsed: true
+      collapsed: false
       smooth_scroll: true
     code_fold: show
 urlcolor: blue
@@ -73,11 +73,11 @@ editor_options:
 ```{r setup, include=FALSE, message=F, echo=F, warning=F}
 # LIBRARIES----
 
-#### plotting:
+### plotting:
 library(ggplot2)
 library(gridExtra)
 
-# #### Misc:
+# ### Misc:
 library(here)
 library(tidyr)
 library(knitr)
@@ -167,22 +167,62 @@ mykable <- function(tab, cap,
 # notin
 `%notin%` <- Negate(`%in%`)
 
-# source(here("Rcode", "torch_horseshoe_klcorrected.R"))
-# source(here("Rcode", "sim_functions.R"))
-# source(here("Rcode", "analysis_fcns.R"))
+source(here("Rcode", "torch_horseshoe_klcorrected.R"))
+source(here("Rcode", "sim_functions.R"))
+source(here("Rcode", "analysis_fcns.R"))
 ```
 
-# formatted (most recent first)
+
+
+# 2/9 1k update; possible data
+
+## 1k obs sims results
+
+Ran 5 sims for 1k training obs for 2 different sizes of networks (16-32 and 8-16 in hidden layers).  [Results](http://akseong.github.io/BayesCompress/Rcode/various_sim_results.html) are not good.  I'm guessing the network is just too big compared to the data causing major __overfitting:__ 
+
+  - In the 10k obs case, train MSE tends to be between 0.95 - 1.1 (true $\sigma^2_\epsilon = 1$), and test MSE tends to be about 1.2.
+  
+  - in the 1k obs case, train MSE tends to be between 0.8 - 1, while test MSE tends to be btwn __3.5 - 4.5__ (though with much more variation in both)
 
 
 
-## 2/9/26
+```{r}
+param_counts_from_dims(dim_vec = c(104, 16, 32, 1))
+param_counts_from_dims(dim_vec = c(104, 8, 16, 1))
+```
 
-### Possible data:
 
-#### sparseVCBART
+Furthermore, regarding network size, with 104 input covariates,
 
-[Ghosh, Bogale, Deshpande 2025 (Arxiv; unpublished)](https://arxiv.org/pdf/2510.08204) - sparseVCBART; primarily focused on Varying Coef effect modification, and var selection for varying coefs.  They keep VCBART mostly the same EXCEPT they apply a regularized horsehoe prior Piiornen & Vehtari 2017) with local scale parameters $\lambda_j$ shared between all leaves in an ensemble of trees $\mathcal{E}_j$ (each $\mathcal{E}_j$ models a $\Beta_j(z)$).  __Question:__ how is the number of ensembles determined?  Need to look at original paper more.
+- a network with __16 neurons in the first layer, 32 in the second has 5134__ parameters;
+
+- a network with __8 neurons in the first layer, 16 in the second still has 2526__ parameters.
+
+
+Going to try 1k obs trying a much smaller network and/or fewer nuisance covars.  
+
+- Without reducing the number of niusance covars, going to need to use a very small network (4-16 and 4-4 network sizes below):
+
+```{r}
+param_counts_from_dims(dim_vec = c(104, 4, 16, 1))
+
+param_counts_from_dims(dim_vec = c(104, 4, 4, 1))
+```
+
+
+__What's the bright side?__ 
+
+- I do kind of like that this happens, as it comports with expectations, and adds a reasonable calibration (network size) based on data size but not characteristics of data;  
+
+- __WAIT__ what if we tried it again with a major __underestimate__ of $\tau_0$??  That might be interesting.  The current simulations still use an overestimate of the number of true variables (1 out of 10).
+
+
+
+
+
+## sparseVCBART paper
+
+[Ghosh, Bogale, Deshpande 2025 (Arxiv; unpublished)](https://arxiv.org/pdf/2510.08204) - sparseVCBART; primarily focused on Varying Coef effect modification, and var selection for varying coefs.  They keep VCBART mostly the same EXCEPT they apply a regularized horsehoe prior Piiornen & Vehtari 2017) with local scale parameters $\lambda_j$ shared between all leaves in an ensemble of trees $\mathcal{E}_j$ (each $\mathcal{E}_j$ models a $\beta_j(z)$).  __Question:__ how is the number of ensembles determined?  Need to look at original paper more.
 
 - **"Semi-synthetic"** data: use political science data from Kalla & Broockman 2023 on whether conversations can affect prejudice against immigrants (3 intervention arms).  
   
@@ -233,13 +273,14 @@ $$\begin{align}
 
 
 
-## 2/5/26 - meeting
+
+
+# 2/5 meeting
 
 - Veronica (chair), Weining, 
 
   - ask Veronica - email today, ask for ideas on who else in addition to Michele
-
-- Bayesian ideas book - chapter 10 survival - accelerated failure time model
+  
 
 - Overleaf for paper, overleaf for dissertation
 
@@ -251,21 +292,33 @@ $$\begin{align}
   
   - 4th chapter - limitations and future work --- correlation, independence
 
+
 - simulation scenarios 
 
   - competitors: VCBART, OLS, LASSO
+
   
 - dataset
 
+  - Bayesian ideas book - chapter 10 survival - accelerated failure time model
+  
+  - VCBART paper?
+  
+  - for ECoG data - how to handle correlated errors / time series?  Can I add an LSTM layer after the input layer?  After the first 2 layers (since correction to tau depends on 2nd layer estimates?)
+  
+  - could also do a logistic regression setting (simple as just changing out the log-likelihood --- i.e. in code just need to replace objective function from MSE to cross-entropy, and stick on a sigmoid activation function after last layer)
 
-- averages across simulation replicates
 
-- coverage of FDR
+- images:  
 
-- shrinkage factors per variable
+  - averages across simulation replicates
+
+  - coverage of FDR
+
+  - shrinkage factors per variable
 
 
-## 2/3/26
+# 2/3 TO DO
 
 TO DO this week:
 
@@ -299,7 +352,7 @@ __other notes__:
 
 
 
-## 2/2/26
+# 2/2/26 Frobenius norm?
 - started simulations using $X \sim Unif(-\sqrt{12}, \sqrt{12})$ (i.e. mean 0, var 1), but realized that $f_4()$ doesn't create much variation in $y$ in that range of $x$ (range of $x$is $\approx [-1.73, 1.73]$).  
 
 
@@ -316,18 +369,18 @@ __other notes__:
     - Not sure about theory.  Just working off the idea that the Frobenius norm measures in some sense the "magnitude" of a matrix.  Intuition is that the intervening layers all contribute to shrinkage.
 
 
-## 1/30/26
+# 1/30 update
 continued writing up setting, model
 
 __`sim_func_data` modified__ to simulate X from mean 0 var 1 uniform (Unif(-sqrt(12), sqrt(12)))
 
 
-## 1/9/26
+# 1/9 sim setting, posterior concentration
 
 writing up setting, model
 
 
-### Simulation setting ideas:
+## Simulation setting ideas:
 
 - unmeasured relevant covariates;
   
@@ -336,7 +389,7 @@ writing up setting, model
 - non-linear group interactions 
 
 
-### Discover interactions?
+## Discover interactions?
 
 - is there some way to model how effects pass through the network using trees?
 
@@ -345,7 +398,7 @@ writing up setting, model
   - discussion of Figures 3a and 4 showing weight layer connections
 
 
-### performance of BFDR & inference
+## performance of BFDR & inference
 
 - need to my model test in a variety of settings --- i.e. non-sparse, diff $n$ --- to support validity of BFDR (since on somewhat shaky theoretical grounds with correction to global scale parameter)
 
@@ -370,7 +423,7 @@ writing up setting, model
 
 
 
-## 1/7/26 Meeting with Michele
+# 1/7 Meeting
 
 - write down the full model, rationale for correction
 
@@ -395,7 +448,7 @@ Talk to Laura
 
 
 
-## 1/7/26: correcting $\tau$
+# 1/7: correcting $\tau$ with $m_{eff}$
 
 - `corrections.Rmd`
 
@@ -407,7 +460,7 @@ $$\tau^{corr}_1 = \hat{\tau}_1 \times \dfrac{d_1}{m_2}$$
 Not sure if using $\dfrac{d_1}{m_2}$ or $\sqrt{\dfrac{d_1}{m_2}}$ makes more sense.  ($\sqrt{\dfrac{d_1}{m_2}}$ probably makes more sense since $\tau$ is a multiplicative scaling factor for the Normally-dist'd coefficients; it's also more conservative)
 
 
-### Correct $\kappa_j$ (prob not):
+## Correct $\kappa_j$ (prob not):
 
 Applying similar matrix algebra as below to the total shrinkage (essentially, instead of using the diagonal matrices of $z_j$'s from layers 1 and 2 --- $Z_1$ and $Z_2$ --- we replace these with the shrinkage, $1 - \kappa_{l=1, j}$ and $1 - \kappa_{l=2, k}$).  Then we get an expression for the $j,k$^th^ weight of layer 1 as:
 
@@ -436,7 +489,7 @@ $$\kappa_{1,j}^{corr} = \kappa_{1,j} + \kappa_{2,k} - \kappa_{1,j}\kappa_{2,k}$$
 - if anything this is going to __decrease__ separation.  Quick enough to look at though, I suppose.
 
 
-### Increase separation:
+## Increase separation:
 
 __What I want: stop the neurons that are 0'd out from ASYMMETRICALLY affecting the layer 1 true covariates' $\kappa_j$'s.__
 
@@ -451,11 +504,11 @@ Seems like the only other things I can look at to mitigate this using the machin
 
 
 
-## 1/6/26: effect of $z_j = \tilde{z}_j s$ over multiple layers
+# 1/6: effect of pruning over multiple layers
 
 Continuing thoughts on possible fix 3 below (correcting the layer 1 $z_j$'s to account for pruning from later layers):
 
-### 2 Layer Network:
+## 2 Layer Network:
 
 $$\begin{align}
   \hat{y}_i 
@@ -525,7 +578,7 @@ __Thus:__
 
 
 
-### 3-layer ( and more) networks:
+## 3-layer ( and more) networks:
 
 $$\begin{align}
   \hat{y}_i
@@ -559,7 +612,7 @@ ___
 Ok, time to code some of this up.
 
 
-## 1/5/26: Happy New Year
+# 1/5/26: possible corrections
 
 Let's figure this out.
 
@@ -591,7 +644,7 @@ Let's figure this out.
 
 - Could work on these in conjunction with a correction to the global scale parameter ($\tau$ in usual horseshoe prior notation, $s$ in mine): $\tau_1 = \hat{\tau_1} \times \left(  1 + \dfrac{p (d_1 - \hat{d_1})}{\hat{d_1}(p - \hat{p})}  \right)$.  Since the fractional term will always be non-negative, $\tau_1 \geq \hat{\tau}_1$.  The issue here is 1) setting a threshold for inclusion of neurons (determining $\hat{d}_1$) and 2) determining $\hat{p}$
 
-## 12/27:
+# 12/27/25: $\tau$ correction
 
 New models --- corrected KL, calibrating $\tau_0$ via Piironen Vehtari 2017 (PV2017) to assume half covars should be trimmed, Kaiming initialization ---, are doing well in terms of MSE and function fitting.  
 
@@ -635,7 +688,7 @@ Where matrices $1 - \kappa_l$ are diagonal matrices with $1 - \kappa_j$ for the 
 $$\bar{w}_{j,k} = \left(1 - \kappa_{1,j}\right)\left(1 - \kappa_{2,k}\right) \hat{w}_{j,k} = \left[1 - \left(\kappa_{1,j} + \kappa_{2,k} - \kappa_{1,j} \kappa_{2,k}\right) \right]\hat{w}_{j,k}$$
 
 
-### new perspective: work on $\lambda_j$'s
+## new perspective: work on $\lambda_j$'s
 
 - maybe I need to think about if the actual correction needs to be to the __local__ scale parameters to make up for the v. small global scale params?
 
@@ -658,7 +711,7 @@ $$\bar{w}_{j,k} = \left(1 - \kappa_{1,j}\right)\left(1 - \kappa_{2,k}\right) \ha
 - mostly unaltered apart from fixing into descending chronological order (most recent at top) and making each date a heading
 
 
-#### 12/19
+### 12/19
 - currently running: hshoe_smooth_pvtau_1721632
   - 5 sims, 1M epochs
   - 3 layers, 16, 32 hidden; smoother fcns
@@ -700,7 +753,7 @@ params:
 
 
 
-#### 12/17:
+### 12/17:
 - activation scaling doesn't work!  just ends up not training anymore, exarcebated extremely small global scale params
 - smoother functions - 
    - consistently higher MSE?  1.82 or so (whereas old functions had ~ 1.2)
@@ -727,14 +780,14 @@ Currently running:
 
 
 
-#### 12/16
+### 12/16
 - ablation: try smoother_functions_kaiming with 
   - larger BNN?  original set of functions?
 - test activation scaling - `torch_horseshoe_scaledacts.R`
 
 
 
-#### 12/14
+### 12/14
 - `smoother_functions_kaiming.R`: smoother functions, kaiming initialization
   - tau_0 = 1
   - RESULTS: not bad:
@@ -749,7 +802,7 @@ Currently running:
 
 
 
-#### 11/20
+### 11/20
 
 testing over the last few weeks suggests that 
 1) when the network's parameters outnumber the observations we have to work with, the unmodified alpha parameter is best to work with, and we should stop training early (otherwise the network will overfit by fitting nuisance variables to noise / fill in gaps)
@@ -783,7 +836,7 @@ nn_init_kaiming_normal_(mod$fc1$weight_mu)
 
 
 
-#### 11/10
+### 11/10
 
 ideas to try:
 - scale outputs by layer dimension
@@ -805,7 +858,7 @@ ideas to try:
 
 
 
-#### 11/8
+### 11/8
 
 - need to monitor test-train split along with TP TN rate
 - run 10 times
@@ -862,7 +915,7 @@ ideas:
 
 
 
-#### March 18
+### March 18
 
 Job  
 by Joseph Millar  
@@ -893,7 +946,7 @@ and the beautiful ravenous fish.
 
 
 
-#### 3/19 BVS for DNN lit review
+### 3/19 BVS for DNN lit review
 
 ---- Variational Inf and dropout/compression
 
@@ -956,7 +1009,7 @@ and the beautiful ravenous fish.
 
 
 
-#### Feb 11
+### Feb 11
 interesting talk at Qualcomm by Van Der Wilk:
 
 https://youtu.be/m1dSrXBEZIQ
