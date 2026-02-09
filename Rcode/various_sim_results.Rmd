@@ -159,6 +159,7 @@ modfile_orig <- paste0(stem_orig, seed_orig, ".pt")
 
 ```{r}
 load(resfile_orig[1])
+nn_mod <- torch_load(modfile_orig[1])
 plot_datagen_fcns(sim_res$sim_params$flist)
 ```
 
@@ -202,14 +203,31 @@ varmat_pltfcn(
   burn = 0
 )$all_vars_plt
 
-err_by_max_bfdr(kmat_local[nrow(kmat_local), ])$plt + 
+
+if (!is.null(sim_res$kappa_tc_mat)){
+  # didn't add tau-corrected kappas to sims until later
+  varmat_pltfcn(
+    sim_res$kappa_tc_mat,
+    y_name = "tau-corrected kappas",
+    burn = 0
+  )$all_vars_plt
+}
+
+
+err_by_max_bfdr(kmat_local[nrow(kmat_local), ])$plt_fdrs + 
   labs(
     subtitle = "using local kappas as dropout probabilities"
   )
-err_by_max_bfdr(kmat_global[nrow(kmat_global), ])$plt + 
+err_by_max_bfdr(kmat_global[nrow(kmat_global), ])$plt_fdrs + 
   labs(
     subtitle = "using global kappas as dropout probabilities"
   )
+
+err_by_max_bfdr(get_kappas_taucorrected(nn_mod))$plt_fdrs + 
+  labs(
+    subtitle = "tau-corrected kappas as dropout probabilities"
+  )
+
 
 ```
 
@@ -217,6 +235,7 @@ err_by_max_bfdr(kmat_global[nrow(kmat_global), ])$plt +
 
 ```{r}
 load(resfile_orig[2])
+nn_mod <- torch_load(modfile_orig[2])
 <<VIS_CHUNK>>
 ```
 
@@ -225,6 +244,7 @@ load(resfile_orig[2])
 
 ```{r}
 load(resfile_orig[3])
+nn_mod <- torch_load(modfile_orig[3])
 <<VIS_CHUNK>>
 ```
 
@@ -232,6 +252,7 @@ load(resfile_orig[3])
 
 ```{r}
 load(resfile_orig[4])
+nn_mod <- torch_load(modfile_orig[4])
 <<VIS_CHUNK>>
 ```
 
@@ -239,13 +260,14 @@ load(resfile_orig[4])
 
 ```{r}
 load(resfile_orig[5])
+nn_mod <- torch_load(modfile_orig[5])
 <<VIS_CHUNK>>
 ```
 
 
 
 
-# smoother function set
+# smoother function set - 10k obs
 
 - other changes: corrected KL, Kaiming initialization, calibrated $\tau_0$ re: Piironen & Vehtari 2017 to assume 1/2 covaraiates are nuisance.
 
@@ -266,7 +288,8 @@ modfile_pvtau2 <- paste0(stem_pvtau2, seed_pvtau2, ".pt")
 ```
 
 ```{r}
-load(resfile_pvtau1[1])  
+load(resfile_pvtau1[1])
+nn_mod <- torch_load(modfile_pvtau1[1])
 plot_datagen_fcns(sim_res$sim_params$flist)
 ```
 
@@ -281,6 +304,7 @@ sim_ind = 1
 
 ```{r, echo = FALSE}
 load(resfile_pvtau1[sim_ind])
+nn_mod <- torch_load(modfile_pvtau1[sim_ind])
 <<VIS_CHUNK>>
 sim_ind = sim_ind + 1
 ```
@@ -290,6 +314,7 @@ sim_ind = sim_ind + 1
 
 ```{r, echo = FALSE}
 load(resfile_pvtau1[sim_ind])
+nn_mod <- torch_load(modfile_pvtau1[sim_ind])
 <<VIS_CHUNK>>
 sim_ind = sim_ind + 1
 ```
@@ -299,6 +324,7 @@ sim_ind = sim_ind + 1
 
 ```{r, echo = FALSE}
 load(resfile_pvtau1[sim_ind])
+nn_mod <- torch_load(modfile_pvtau1[sim_ind])
 <<VIS_CHUNK>>
 sim_ind = sim_ind + 1
 ```
@@ -308,6 +334,7 @@ sim_ind = sim_ind + 1
 
 ```{r, echo = FALSE}
 load(resfile_pvtau1[sim_ind])
+nn_mod <- torch_load(modfile_pvtau1[sim_ind])
 <<VIS_CHUNK>>
 sim_ind = sim_ind + 1
 ```
@@ -317,6 +344,7 @@ sim_ind = sim_ind + 1
 
 ```{r, echo = FALSE}
 load(resfile_pvtau1[sim_ind])
+nn_mod <- torch_load(modfile_pvtau1[sim_ind])
 <<VIS_CHUNK>>
 sim_ind = sim_ind + 1
 ```
@@ -333,6 +361,7 @@ sim_ind = 1
 
 ```{r, echo = FALSE}
 load(resfile_pvtau2[sim_ind])
+nn_mod <- torch_load(modfile_pvtau2[sim_ind])
 <<VIS_CHUNK>>
 sim_ind = sim_ind + 1
 ```
@@ -342,6 +371,7 @@ sim_ind = sim_ind + 1
 
 ```{r, echo = FALSE}
 load(resfile_pvtau2[sim_ind])
+nn_mod <- torch_load(modfile_pvtau2[sim_ind])
 <<VIS_CHUNK>>
 sim_ind = sim_ind + 1
 ```
@@ -351,6 +381,7 @@ sim_ind = sim_ind + 1
 
 ```{r, echo = FALSE}
 load(resfile_pvtau2[sim_ind])
+nn_mod <- torch_load(modfile_pvtau2[sim_ind])
 <<VIS_CHUNK>>
 sim_ind = sim_ind + 1
 ```
@@ -360,6 +391,7 @@ sim_ind = sim_ind + 1
 
 ```{r, echo = FALSE}
 load(resfile_pvtau2[sim_ind])
+nn_mod <- torch_load(modfile_pvtau2[sim_ind])
 <<VIS_CHUNK>>
 sim_ind = sim_ind + 1
 ```
@@ -369,6 +401,7 @@ sim_ind = sim_ind + 1
 
 ```{r, echo = FALSE}
 load(resfile_pvtau2[sim_ind])
+nn_mod <- torch_load(modfile_pvtau2[sim_ind])
 <<VIS_CHUNK>>
 sim_ind = sim_ind + 1
 ```
@@ -378,6 +411,7 @@ sim_ind = sim_ind + 1
 
 ```{r, echo = FALSE}
 load(resfile_pvtau2[sim_ind])
+nn_mod <- torch_load(modfile_pvtau2[sim_ind])
 <<VIS_CHUNK>>
 sim_ind = sim_ind + 1
 ```
@@ -387,6 +421,7 @@ sim_ind = sim_ind + 1
 
 ```{r, echo = FALSE}
 load(resfile_pvtau2[sim_ind])
+nn_mod <- torch_load(modfile_pvtau2[sim_ind])
 <<VIS_CHUNK>>
 sim_ind = sim_ind + 1
 ```
@@ -396,6 +431,7 @@ sim_ind = sim_ind + 1
 
 ```{r, echo = FALSE}
 load(resfile_pvtau2[sim_ind])
+nn_mod <- torch_load(modfile_pvtau2[sim_ind])
 <<VIS_CHUNK>>
 sim_ind = sim_ind + 1
 ```
@@ -405,6 +441,7 @@ sim_ind = sim_ind + 1
 
 ```{r, echo = FALSE}
 load(resfile_pvtau2[sim_ind])
+nn_mod <- torch_load(modfile_pvtau2[sim_ind])
 <<VIS_CHUNK>>
 sim_ind = sim_ind + 1
 ```
@@ -414,12 +451,149 @@ sim_ind = sim_ind + 1
 
 ```{r, echo = FALSE}
 load(resfile_pvtau2[sim_ind])
+nn_mod <- torch_load(modfile_pvtau2[sim_ind])
 <<VIS_CHUNK>>
 sim_ind = sim_ind + 1
 ```
 
 
 
-# 
+# smoother function set - 1k obs
+
+
+```{r ONEk_FNAMES}
+stem_1k_1632 <- here::here("sims", "results", "hshoe_pvtau10_correctedkappas_216321250obs_")
+stem_1k_816 <- here::here("sims", "results", "hshoe_pvtau10_correctedkappas_8161250obs_")
+
+seed_1k <- c(215244, 272835, 124107, 782699, 798186)
+
+resfile_1k_1632 <- paste0(stem_1k_1632, seed_1k, ".RData")
+modfile_1k_1632 <- paste0(stem_1k_1632, seed_1k, ".pt")
+
+resfile_1k_816 <- paste0(stem_1k_816, seed_1k, ".RData")
+modfile_1k_816 <- paste0(stem_1k_816, seed_1k, ".pt")
+```
+
+```{r}
+load(resfile_1k_1632[1])
+plot_datagen_fcns(sim_res$sim_params$flist)
+```
+
+## hidden layer dim: 16-32 {.panelset}
+
+```{r, echo = FALSE}
+sim_ind = 1
+```
+
+
+### sim `r sim_ind`
+
+```{r, echo = FALSE}
+load(resfile_1k_1632[sim_ind])
+nn_mod <- torch_load(modfile_1k_1632[sim_ind])
+<<VIS_CHUNK>>
+sim_ind = sim_ind + 1
+```
+
+
+### sim `r sim_ind`
+
+```{r, echo = FALSE}
+load(resfile_1k_1632[sim_ind])
+nn_mod <- torch_load(modfile_1k_1632[sim_ind])
+<<VIS_CHUNK>>
+sim_ind = sim_ind + 1
+```
+
+
+### sim `r sim_ind`
+
+```{r, echo = FALSE}
+load(resfile_1k_1632[sim_ind])
+nn_mod <- torch_load(modfile_1k_1632[sim_ind])
+<<VIS_CHUNK>>
+sim_ind = sim_ind + 1
+```
+
+
+### sim `r sim_ind`
+
+```{r, echo = FALSE}
+load(resfile_1k_1632[sim_ind])
+nn_mod <- torch_load(modfile_1k_1632[sim_ind])
+<<VIS_CHUNK>>
+sim_ind = sim_ind + 1
+```
+
+
+### sim `r sim_ind`
+
+```{r, echo = FALSE}
+load(resfile_1k_1632[sim_ind])
+nn_mod <- torch_load(modfile_1k_1632[sim_ind])
+<<VIS_CHUNK>>
+sim_ind = sim_ind + 1
+```
+
+
+
+## hidden layer dim: 8-16 {.panelset}
+
+```{r, echo = FALSE}
+sim_ind = 1
+```
+
+
+### sim `r sim_ind`
+
+```{r, echo = FALSE}
+load(resfile_1k_816[sim_ind])
+nn_mod <- torch_load(modfile_1k_816[sim_ind])
+<<VIS_CHUNK>>
+sim_ind = sim_ind + 1
+```
+
+
+### sim `r sim_ind`
+
+```{r, echo = FALSE}
+load(resfile_1k_816[sim_ind])
+nn_mod <- torch_load(modfile_1k_816[sim_ind])
+<<VIS_CHUNK>>
+sim_ind = sim_ind + 1
+```
+
+
+### sim `r sim_ind`
+
+```{r, echo = FALSE}
+load(resfile_1k_816[sim_ind])
+nn_mod <- torch_load(modfile_1k_816[sim_ind])
+<<VIS_CHUNK>>
+sim_ind = sim_ind + 1
+```
+
+
+### sim `r sim_ind`
+
+```{r, echo = FALSE}
+load(resfile_1k_816[sim_ind])
+nn_mod <- torch_load(modfile_1k_816[sim_ind])
+<<VIS_CHUNK>>
+sim_ind = sim_ind + 1
+```
+
+
+### sim `r sim_ind`
+
+```{r, echo = FALSE}
+load(resfile_1k_816[sim_ind])
+nn_mod <- torch_load(modfile_1k_816[sim_ind])
+<<VIS_CHUNK>>
+sim_ind = sim_ind + 1
+```
+
+
+
 
 
