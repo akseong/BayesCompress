@@ -17,6 +17,7 @@ library(gridExtra)
 library(torch)
 source(here("Rcode", "torch_horseshoe_klcorrected.R"))
 source(here("Rcode", "sim_functions.R"))
+source(here("Rcode", "anaysis_fcns.R"))
 # source(here("Rcode", "sim_hshoe_normedresponse.R"))
 
 if (torch::cuda_is_available()){
@@ -71,7 +72,7 @@ plot_datagen_fcns(flist)
 save_mod_path_prestem <- here::here(
   "sims", 
   "results", 
-  "hshoe_pvtau10_correctedkappas_816"
+  "hshoe_pvtau01_816_"
 )
 
 sim_params <- list(
@@ -111,7 +112,7 @@ sim_params$sim_seeds <- floor(runif(n = sim_params$n_sims, 0, 1000000))
 # where p_0 = prior estimate of number of nonzero betas, d = total number of covs
 
 sim_params$prior_tau <- tau0_PV(
-  p_0 = 10, d = 104, sig = 1, 
+  p_0 = 0.1, d = 104, sig = 1, 
   n = round(sim_params$n_obs * sim_params$ttsplit)
 )
 
