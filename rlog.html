@@ -11,7 +11,6 @@
 
 <meta name="author" content="Arnie Seong" />
 
-<meta name="date" content="2026-02-09" />
 
 <title>research log</title>
 
@@ -2933,7 +2932,7 @@ font-size: 0.95em;
 
 <h1 class="title toc-ignore">research log</h1>
 <h4 class="author">Arnie Seong</h4>
-<h4 class="date">09 February 2026</h4>
+<h4 class="date">Last updated: 10 February 2026</h4>
 
 </div>
 
@@ -2968,14 +2967,113 @@ background-color: #11579e;
 background-color: #d5f2f5;
 }
 </style>
-<div id="k-update-possible-data" class="section level1">
-<h1>2/9 1k update; possible data</h1>
+<div id="tau_0-and-overfitting" class="section level1">
+<h1>2/10 <span class="math inline">\(\tau_0\)</span> and
+overfitting</h1>
+<div id="work-today-issues" class="section level2">
+<h2>work today / issues</h2>
+<ul>
+<li><p><code>gen_pred.R</code> - extract and plot <span class="math inline">\(\hat{y}\)</span> with prediction intervals with
+quantiles from Bnn model</p>
+<ul>
+<li><p>old issue of functions getting shifted around came up again.
+<em>Shape</em> of predicted curves is fine, but they are shifted
+around.</p></li>
+<li><p>also that weird instability around 0 is apparent. Really
+weird.</p></li>
+</ul></li>
+<li><p>started a few sims / trying out idea for low <span class="math inline">\(n\)</span> settings (below)</p></li>
+</ul>
+</div>
+<div id="lowering-tau_0-for-paramsn" class="section level2">
+<h2>lowering <span class="math inline">\(\tau_0\)</span> for
+params&gt;n</h2>
+<ul>
+<li><p>redoing sim with 1k obs, 8-16, but setting prior expected number
+of true covariates to an extremely low 0.1 to alleviate overfitting /
+false discoveries. Will see if it works! Save stem
+<code>hshoe_pvtau01_816_</code></p>
+<ul>
+<li><p>setting to 0.1 out of 100 might be too extreme and just make a
+network that pushes everything to 0.</p></li>
+<li><p><strong>Update: yup, network doesn’t learn anything.</strong>
+Stopped training.</p></li>
+</ul></li>
+<li><p>also trying with agnostic prior expected number of true covs
+(<span class="math inline">\(p_0 = D/2\)</span>), but <em>fewer nuisance
+covs — 4 true, 36 nuisance</em>. (Save stem
+<code>hshoe_agnostic_816_36nuisance_</code>)</p>
+<ul>
+<li><p><strong>Update: learning, selecting variables fairly
+well</strong></p></li>
+<li><p>still more params than obs, but only ~1.25 as many</p></li>
+</ul></li>
+</ul>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">param_counts_from_dims</span>(<span class="at">dim_vec =</span> <span class="fu">c</span>(<span class="dv">40</span>, <span class="dv">8</span>, <span class="dv">16</span>, <span class="dv">1</span>))</span></code></pre></div>
+<pre><code>## layer_1 layer_2 layer_3   TOTAL 
+##     820     324     102    1246</code></pre>
+<p>If lowering <span class="math inline">\(\tau_0\)</span> alleviates
+the issue, could be interesting to propose some rule of thumb based on
+the ratio of the observations to parameters. Something like <span class="math inline">\(\tau_0^{PV} \times \dfrac{\text{total network
+params}}{\text{n}}\)</span></p>
+<ul>
+<li><p>started sim using <em>scaled</em> optimistic <span class="math inline">\(\tau_0\)</span> (p_0 = 10 of 104), 1k obs, 8-16:
+<code>hshoe_pvtau10scaled_816_</code></p>
+<ul>
+<li><strong>Update:</strong> interestingly, still overfitting but not as
+prone to false positives (thus far — only 1/3 way through training 1st
+replicate)</li>
+</ul></li>
+</ul>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="co"># agnostic tau_0</span></span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a><span class="fu">tau0_PV</span>(<span class="at">p_0 =</span> <span class="dv">1</span>, <span class="at">d =</span> <span class="dv">2</span>, <span class="at">sig =</span> <span class="dv">1</span>, <span class="at">n =</span> <span class="fl">1e3</span>)</span></code></pre></div>
+<pre><code>## [1] 0.03162278</code></pre>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="co"># agnostic tau, scaled by params to obs</span></span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a><span class="fu">tau0_PV</span>(<span class="at">p_0 =</span> <span class="dv">1</span>, <span class="at">d =</span> <span class="dv">2</span>, <span class="at">sig =</span> <span class="dv">1</span>, <span class="at">n =</span> <span class="fl">1e3</span>) <span class="sc">*</span> </span>
+<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a>  <span class="fl">1e3</span> <span class="sc">/</span> <span class="fu">param_counts_from_dims</span>(<span class="fu">c</span>(<span class="dv">104</span>, <span class="dv">8</span>, <span class="dv">16</span>, <span class="dv">1</span>))[<span class="dv">4</span>]</span></code></pre></div>
+<pre><code>##      TOTAL 
+## 0.01251891</code></pre>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="co"># optimistic tau (expecting 10 of 104 instead of true 4)</span></span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a><span class="fu">tau0_PV</span>(<span class="at">p_0 =</span> <span class="dv">10</span>, <span class="at">d =</span> <span class="dv">104</span>, <span class="at">sig =</span> <span class="dv">1</span>, <span class="at">n =</span> <span class="fl">1e3</span>)</span></code></pre></div>
+<pre><code>## [1] 0.003364125</code></pre>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a><span class="co"># optimistic tau, scaled by params to obs</span></span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a><span class="fu">tau0_PV</span>(<span class="at">p_0 =</span> <span class="dv">10</span>, <span class="at">d =</span> <span class="dv">104</span>, <span class="at">sig =</span> <span class="dv">1</span>, <span class="at">n =</span> <span class="fl">1e3</span>) <span class="sc">*</span> </span>
+<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a>  <span class="fl">1e3</span> <span class="sc">/</span> <span class="fu">param_counts_from_dims</span>(<span class="fu">c</span>(<span class="dv">104</span>, <span class="dv">8</span>, <span class="dv">16</span>, <span class="dv">1</span>))[<span class="dv">4</span>] </span></code></pre></div>
+<pre><code>##       TOTAL 
+## 0.001331799</code></pre>
+<ul>
+<li>last, should probably just train a small network with agnostic <span class="math inline">\(\tau_0\)</span> to see how it does. First layer
+dimension needs to be small, which feels very limiting, but let’s
+see.</li>
+</ul>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a><span class="fu">param_counts_from_dims</span>(<span class="fu">c</span>(<span class="dv">104</span>, <span class="dv">4</span>, <span class="dv">4</span>, <span class="dv">1</span>))</span></code></pre></div>
+<pre><code>## layer_1 layer_2 layer_3   TOTAL 
+##    1260      60      30    1350</code></pre>
+<div id="depth" class="section level3">
+<h3>Depth</h3>
+<p><strong>Also,</strong> perhaps it’s time to revisit depth
+vs. breadth. Last time I looked at a deeper network’s performance was
+before I corrected the KLs,figured out the parameter correction, and
+worked on calibration of <span class="math inline">\(\tau_0\)</span>.</p>
+</div>
+</div>
+<div id="to-do" class="section level2">
+<h2>To do</h2>
+<p>[x] email Veronica!</p>
+<p>[ ] figure out synthetic data for sparseVCBART / VCBART, figure out
+data access to Kalla &amp; Broockman 2023?</p>
+<p>[ ] start smaller/deeper network sims after these finish</p>
+</div>
+</div>
+<div id="k-obs-update-possible-data" class="section level1">
+<h1>2/9 1k obs update; possible data</h1>
 <div id="k-obs-sims-results" class="section level2">
 <h2>1k obs sims results</h2>
 <p>Ran 5 sims for 1k training obs for 2 different sizes of networks
-(16-32 and 8-16 in hidden layers). <a href="http://akseong.github.io/BayesCompress/Rcode/various_sim_results.html">Results</a>
-are not good. I’m guessing the network is just too big compared to the
-data causing major <strong>overfitting:</strong></p>
+(16-32 and 8-16 in hidden layers). <a href="http://akseong.github.io/BayesCompress/Rcode/various_sim_results.html">Results
+(at bottom of link)</a> are not good. <strong>I’m guessing the network
+is just too big compared to the data causing major
+overfitting:</strong></p>
 <ul>
 <li><p>In the 10k obs case, train MSE tends to be between 0.95 - 1.1
 (true <span class="math inline">\(\sigma^2_\epsilon = 1\)</span>), and
@@ -2984,41 +3082,45 @@ test MSE tends to be about 1.2.</p></li>
 test MSE tends to be btwn <strong>3.5 - 4.5</strong> (though with much
 more variation in both)</p></li>
 </ul>
-<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">param_counts_from_dims</span>(<span class="at">dim_vec =</span> <span class="fu">c</span>(<span class="dv">104</span>, <span class="dv">16</span>, <span class="dv">32</span>, <span class="dv">1</span>))</span></code></pre></div>
+<div id="number-of-nn-params" class="section level3">
+<h3>number of NN params</h3>
+<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a><span class="co"># network parameter counts</span></span>
+<span id="cb13-2"><a href="#cb13-2" tabindex="-1"></a><span class="fu">param_counts_from_dims</span>(<span class="at">dim_vec =</span> <span class="fu">c</span>(<span class="dv">104</span>, <span class="dv">16</span>, <span class="dv">32</span>, <span class="dv">1</span>))</span></code></pre></div>
 <pre><code>## layer_1 layer_2 layer_3   TOTAL 
 ##    3780    1156     198    5134</code></pre>
-<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="fu">param_counts_from_dims</span>(<span class="at">dim_vec =</span> <span class="fu">c</span>(<span class="dv">104</span>, <span class="dv">8</span>, <span class="dv">16</span>, <span class="dv">1</span>))</span></code></pre></div>
+<div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" tabindex="-1"></a><span class="fu">param_counts_from_dims</span>(<span class="at">dim_vec =</span> <span class="fu">c</span>(<span class="dv">104</span>, <span class="dv">8</span>, <span class="dv">16</span>, <span class="dv">1</span>))</span></code></pre></div>
 <pre><code>## layer_1 layer_2 layer_3   TOTAL 
 ##    2100     324     102    2526</code></pre>
-<p>Furthermore, regarding network size, with 104 input covariates,</p>
+<p>Regarding network size, with 104 input covariates,</p>
 <ul>
 <li><p>a network with <strong>16 neurons in the first layer, 32 in the
 second has 5134</strong> parameters;</p></li>
 <li><p>a network with <strong>8 neurons in the first layer, 16 in the
 second still has 2526</strong> parameters.</p></li>
 </ul>
-<p>Going to try 1k obs trying a much smaller network and/or fewer
-nuisance covars.</p>
+<p>Going to retry 1k obs with a smaller network and/or fewer nuisance
+covars.</p>
 <ul>
 <li>Without reducing the number of niusance covars, going to need to use
 a very small network (4-16 and 4-4 network sizes below):</li>
 </ul>
-<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="fu">param_counts_from_dims</span>(<span class="at">dim_vec =</span> <span class="fu">c</span>(<span class="dv">104</span>, <span class="dv">4</span>, <span class="dv">16</span>, <span class="dv">1</span>))</span></code></pre></div>
+<div class="sourceCode" id="cb17"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" tabindex="-1"></a><span class="fu">param_counts_from_dims</span>(<span class="at">dim_vec =</span> <span class="fu">c</span>(<span class="dv">104</span>, <span class="dv">4</span>, <span class="dv">16</span>, <span class="dv">1</span>))</span></code></pre></div>
 <pre><code>## layer_1 layer_2 layer_3   TOTAL 
 ##    1260     180     102    1542</code></pre>
-<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="fu">param_counts_from_dims</span>(<span class="at">dim_vec =</span> <span class="fu">c</span>(<span class="dv">104</span>, <span class="dv">4</span>, <span class="dv">4</span>, <span class="dv">1</span>))</span></code></pre></div>
+<div class="sourceCode" id="cb19"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" tabindex="-1"></a><span class="fu">param_counts_from_dims</span>(<span class="at">dim_vec =</span> <span class="fu">c</span>(<span class="dv">104</span>, <span class="dv">4</span>, <span class="dv">4</span>, <span class="dv">1</span>))</span></code></pre></div>
 <pre><code>## layer_1 layer_2 layer_3   TOTAL 
 ##    1260      60      30    1350</code></pre>
 <p><strong>What’s the bright side?</strong></p>
 <ul>
 <li><p>I do kind of like that this happens, as it comports with
-expectations, and adds a reasonable calibration (network size) based on
-data size but not characteristics of data;</p></li>
-<li><p><strong>WAIT</strong> what if we tried it again with a major
-<strong>underestimate</strong> of <span class="math inline">\(\tau_0\)</span>?? That might be interesting. The
-current simulations still use an overestimate of the number of true
-variables (1 out of 10).</p></li>
+expectations, and adds a reasonable consideration / calibration (network
+size) based on data size;</p></li>
+<li><p>An interesting question: what if we tried to adapt to this
+situation by <strong>underestimating</strong> the prior <span class="math inline">\(\tau_0\)</span>?? These current simulations with
+poor results still use an overestimate of the number of true variables
+(1 out of 10).</p></li>
 </ul>
+</div>
 </div>
 <div id="sparsevcbart-paper" class="section level2">
 <h2>sparseVCBART paper</h2>
@@ -3101,7 +3203,7 @@ et al published in Bayesian Analysis 2024</a>:</p></li>
 <div id="meeting" class="section level1">
 <h1>2/5 meeting</h1>
 <ul>
-<li><p>Veronica (chair), Weining,</p>
+<li><p>Veronica (chair), Weining, ____?</p>
 <ul>
 <li>ask Veronica - email today, ask for ideas on who else in addition to
 Michele</li>
@@ -3141,7 +3243,7 @@ activation function after last layer)</p></li>
 </ul></li>
 </ul>
 </div>
-<div id="to-do" class="section level1">
+<div id="to-do-1" class="section level1">
 <h1>2/3 TO DO</h1>
 <p>TO DO this week:</p>
 <ul class="task-list">

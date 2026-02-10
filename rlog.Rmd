@@ -1,7 +1,7 @@
 ---
 title: "research log"
 author: "Arnie Seong"
-date: "`r format(Sys.time(), '%d %B %Y')`"
+date: "Last updated: `r format(Sys.time(), '%d %B %Y')`"
 header-includes:
   - \usepackage{bm}
   - \usepackage{xcolor}
@@ -174,32 +174,114 @@ source(here("Rcode", "analysis_fcns.R"))
 
 
 
-# 2/9 1k update; possible data
+# 2/10 $\tau_0$ and overfitting 
+
+## work today / issues
+
+- `gen_pred.R` - extract and plot $\hat{y}$ with prediction intervals with quantiles from Bnn model
+
+  - old issue of functions getting shifted around came up again.  _Shape_ of predicted curves is fine, but they are shifted around.  
+  
+  - also that weird instability around 0 is apparent.  Really weird.
+
+- started a few sims / trying out idea for low $n$ settings (below)
+
+## lowering $\tau_0$ for params>n
+
+- redoing sim with 1k obs, 8-16, but setting prior expected number of true covariates to an extremely low 0.1 to alleviate overfitting / false discoveries.  Will see if it works!  Save stem `hshoe_pvtau01_816_`
+
+  - setting to 0.1 out of 100 might be too extreme and just make a network that pushes everything to 0. 
+
+  - **Update: yup, network doesn't learn anything.**  Stopped training.
+
+
+- also trying with agnostic prior expected number of true covs ($p_0 = D/2$), but _fewer nuisance covs --- 4 true, 36 nuisance_.  (Save stem `hshoe_agnostic_816_36nuisance_`)
+
+  - **Update: learning, selecting variables fairly well**
+  
+  - still more params than obs, but only ~1.25 as many
+
+```{r}
+param_counts_from_dims(dim_vec = c(40, 8, 16, 1))
+```
+
+
+If lowering $\tau_0$ alleviates the issue, could be interesting to propose some rule of thumb based on the ratio of the observations to parameters.  Something like $\tau_0^{PV} \times \dfrac{\text{total network params}}{\text{n}}$
+
+
+- started sim using _scaled_ optimistic $\tau_0$ (p_0 = 10 of 104), 1k obs, 8-16: `hshoe_pvtau10scaled_816_`
+
+  - __Update:__ interestingly, still overfitting but not as prone to false positives (thus far --- only 1/3 way through training 1st replicate)
+
+```{r}
+# agnostic tau_0
+tau0_PV(p_0 = 1, d = 2, sig = 1, n = 1e3)
+
+# agnostic tau, scaled by params to obs
+tau0_PV(p_0 = 1, d = 2, sig = 1, n = 1e3) * 
+  1e3 / param_counts_from_dims(c(104, 8, 16, 1))[4]
+
+# optimistic tau (expecting 10 of 104 instead of true 4)
+tau0_PV(p_0 = 10, d = 104, sig = 1, n = 1e3)
+
+# optimistic tau, scaled by params to obs
+tau0_PV(p_0 = 10, d = 104, sig = 1, n = 1e3) * 
+  1e3 / param_counts_from_dims(c(104, 8, 16, 1))[4] 
+
+```
+
+- last, should probably just train a small network with agnostic $\tau_0$ to see how it does.  First layer dimension needs to be small, which feels very limiting, but let's see.  
+
+```{r}
+param_counts_from_dims(c(104, 4, 4, 1))
+```
+
+
+### Depth
+
+__Also,__ perhaps it's time to revisit depth vs. breadth.  Last time I looked at a deeper network's performance was before I corrected the KLs,figured out the parameter correction, and worked on calibration of $\tau_0$.  
+
+
+## To do
+
+[x] email Veronica!
+
+[ ] figure out synthetic data for sparseVCBART / VCBART, figure out data access to Kalla & Broockman 2023?
+
+[ ] start smaller/deeper network sims after these finish
+
+
+
+
+
+# 2/9 1k obs update; possible data
 
 ## 1k obs sims results
 
-Ran 5 sims for 1k training obs for 2 different sizes of networks (16-32 and 8-16 in hidden layers).  [Results](http://akseong.github.io/BayesCompress/Rcode/various_sim_results.html) are not good.  I'm guessing the network is just too big compared to the data causing major __overfitting:__ 
+Ran 5 sims for 1k training obs for 2 different sizes of networks (16-32 and 8-16 in hidden layers).  [Results (at bottom of link)](http://akseong.github.io/BayesCompress/Rcode/various_sim_results.html) are not good.  __I'm guessing the network is just too big compared to the data causing major overfitting:__ 
 
   - In the 10k obs case, train MSE tends to be between 0.95 - 1.1 (true $\sigma^2_\epsilon = 1$), and test MSE tends to be about 1.2.
   
   - in the 1k obs case, train MSE tends to be between 0.8 - 1, while test MSE tends to be btwn __3.5 - 4.5__ (though with much more variation in both)
 
 
+### number of NN params
 
 ```{r}
+# network parameter counts
 param_counts_from_dims(dim_vec = c(104, 16, 32, 1))
 param_counts_from_dims(dim_vec = c(104, 8, 16, 1))
 ```
 
 
-Furthermore, regarding network size, with 104 input covariates,
+Regarding network size, with 104 input covariates,
 
 - a network with __16 neurons in the first layer, 32 in the second has 5134__ parameters;
 
 - a network with __8 neurons in the first layer, 16 in the second still has 2526__ parameters.
 
 
-Going to try 1k obs trying a much smaller network and/or fewer nuisance covars.  
+Going to retry 1k obs with a smaller network and/or fewer nuisance covars.  
 
 - Without reducing the number of niusance covars, going to need to use a very small network (4-16 and 4-4 network sizes below):
 
@@ -212,9 +294,9 @@ param_counts_from_dims(dim_vec = c(104, 4, 4, 1))
 
 __What's the bright side?__ 
 
-- I do kind of like that this happens, as it comports with expectations, and adds a reasonable calibration (network size) based on data size but not characteristics of data;  
+- I do kind of like that this happens, as it comports with expectations, and adds a reasonable consideration / calibration (network size) based on data size;  
 
-- __WAIT__ what if we tried it again with a major __underestimate__ of $\tau_0$??  That might be interesting.  The current simulations still use an overestimate of the number of true variables (1 out of 10).
+- An interesting question: what if we tried to adapt to this situation by __underestimating__ the prior $\tau_0$??  These current simulations with poor results still use an overestimate of the number of true variables (1 out of 10).
 
 
 
@@ -277,7 +359,7 @@ $$\begin{align}
 
 # 2/5 meeting
 
-- Veronica (chair), Weining, 
+- Veronica (chair), Weining, ____?
 
   - ask Veronica - email today, ask for ideas on who else in addition to Michele
   
