@@ -76,7 +76,7 @@ save_mod_path_prestem <- here::here(
 )
 
 sim_params <- list(
-  "sim_name" = "1k obs; optimistic, scaled tau",
+  "sim_name" = "1k obs; optimistic (p_0 = 10 of 104), scaled tau",
   "seed" = 21632,
   "n_sims" = 5, 
   "train_epochs" = 5E5,
@@ -113,12 +113,13 @@ sim_params$sim_seeds <- floor(runif(n = sim_params$n_sims, 0, 1000000))
 
 # scaled optimistic tau (expecting 10 true of 104)
 dim_vec <- do.call(c, sim_params[grep(pattern = "d_", names(sim_params))])
+param_scaling <- round(sim_params$n_obs * sim_params$ttsplit) / param_counts_from_dims(dim_vec)[4]
 
 sim_params$prior_tau <- tau0_PV(
   p_0 = 10, d = 104, sig = 1, 
   n = round(sim_params$n_obs * sim_params$ttsplit)
 ) * 
-  1e3 / param_counts_from_dims(dim_vec)[4]
+  param_scaling
 
 agnostic_tau <- tau0_PV(
   p_0 = 1, d = 2, sig = 1, 
