@@ -72,17 +72,17 @@ plot_datagen_fcns(flist)
 save_mod_path_prestem <- here::here(
   "sims", 
   "results", 
-  "hshoe_agnostic_816_36nuisance_"
+  "hshoe_pvtau10scaled_816_"
 )
 
 sim_params <- list(
-  "sim_name" = "1k obs; agnostic tau, fewer nuisance covs (36 of 40)",
+  "sim_name" = "1k obs; optimistic, scaled tau",
   "seed" = 21632,
   "n_sims" = 5, 
   "train_epochs" = 5E5,
   "report_every" = 1E4,
   "use_cuda" = use_cuda,
-  "d_in" = 40,
+  "d_in" = 104,
   "d_hidden1" = 8,
   "d_hidden2" = 16,
   # "d_hidden3" = 16,
@@ -111,10 +111,14 @@ sim_params$sim_seeds <- floor(runif(n = sim_params$n_sims, 0, 1000000))
 # Piironen & Vehtari 2017 suggest tau_0 = p_0 / (d - p_0) * sig / sqrt(n)
 # where p_0 = prior estimate of number of nonzero betas, d = total number of covs
 
+# scaled optimistic tau (expecting 10 true of 104)
+dim_vec <- do.call(c, sim_params[grep(pattern = "d_", names(sim_params))])
+
 sim_params$prior_tau <- tau0_PV(
-  p_0 = 1, d = 2, sig = 1, 
+  p_0 = 10, d = 104, sig = 1, 
   n = round(sim_params$n_obs * sim_params$ttsplit)
-)
+) * 
+  1e3 / param_counts_from_dims(dim_vec)[4]
 
 agnostic_tau <- tau0_PV(
   p_0 = 1, d = 2, sig = 1, 
