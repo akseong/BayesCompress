@@ -17,7 +17,7 @@ library(gridExtra)
 library(torch)
 source(here("Rcode", "torch_horseshoe_klcorrected.R"))
 source(here("Rcode", "sim_functions.R"))
-source(here("Rcode", "anaysis_fcns.R"))
+source(here("Rcode", "analysis_fcns.R"))
 # source(here("Rcode", "sim_hshoe_normedresponse.R"))
 
 if (torch::cuda_is_available()){
@@ -72,17 +72,17 @@ plot_datagen_fcns(flist)
 save_mod_path_prestem <- here::here(
   "sims", 
   "results", 
-  "hshoe_pvtau01_816_"
+  "hshoe_agnostic_816_36nuisance_"
 )
 
 sim_params <- list(
-  "sim_name" = "1k obs; PV2017 tau_1 assumes 10 true, lr 0.001, smoother data, kaiming init, 2L 16 32, nobatching, fcnal data.   ",
+  "sim_name" = "1k obs; agnostic tau, fewer nuisance covs (36 of 40)",
   "seed" = 21632,
   "n_sims" = 5, 
   "train_epochs" = 5E5,
   "report_every" = 1E4,
   "use_cuda" = use_cuda,
-  "d_in" = 104,
+  "d_in" = 40,
   "d_hidden1" = 8,
   "d_hidden2" = 16,
   # "d_hidden3" = 16,
@@ -112,7 +112,7 @@ sim_params$sim_seeds <- floor(runif(n = sim_params$n_sims, 0, 1000000))
 # where p_0 = prior estimate of number of nonzero betas, d = total number of covs
 
 sim_params$prior_tau <- tau0_PV(
-  p_0 = 0.1, d = 104, sig = 1, 
+  p_0 = 1, d = 2, sig = 1, 
   n = round(sim_params$n_obs * sim_params$ttsplit)
 )
 
