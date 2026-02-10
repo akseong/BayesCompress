@@ -4,19 +4,14 @@
 ## Author:    Arnie Seong
 ##################################################
 
-# #### setup ----
-# library(here)
-# library(tidyr)
-# library(dplyr)
-# library(ggplot2)
-# library(gridExtra)
-# 
-# library(torch)
+#### setup ----
+library(here)
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(gridExtra)
 
-
-
-
-
+library(torch)
 source(here("Rcode", "torch_horseshoe_klcorrected.R"))
 source(here("Rcode", "sim_functions.R"))
 source(here("Rcode", "analysis_fcns.R"))
@@ -56,8 +51,6 @@ x_plot <- torch_tensor(cbind(curvmat, mat0))
 
 
 get_nn_mod_Ey <- function(nn_mod, X, ln_fcn = ln_mode){
-  
-  
   # pre_act
   num_layers <- length(nn_mod$children)
   input <- X
@@ -102,76 +95,117 @@ get_nn_mod_Ey <- function(nn_mod, X, ln_fcn = ln_mode){
 }  
 
 
-get_nn_mod_y_new <- function(nn_mod, X, sampling = TRUE){
-  
-  # pre_act
-  num_layers <- length(nn_mod$children)
-  input <- X
-  for (nn_layer in 1:num_layers){
-    
-    log_atilde <- reparameterize(mu = nn_mod$children[[nn_layer]]$atilde_mu, logvar = nn_mod$children[[nn_layer]]$atilde_logvar)
-    log_btilde <- reparameterize(mu = nn_mod$children[[nn_layer]]$btilde_mu, logvar = nn_mod$children[[nn_layer]]$btilde_logvar)
-    log_sa <- reparameterize(mu = nn_mod$children[[nn_layer]]$sa_mu, logvar = nn_mod$children[[nn_layer]]$sa_logvar)
-    log_sb <- reparameterize(mu = nn_mod$children[[nn_layer]]$sb_mu, logvar = nn_mod$children[[nn_layer]]$sb_logvar)
-    log_s <- 1/2 * (log_sa + log_sb)
-    log_ztilde <- 1/2 * (log_atilde + log_btilde)
-    log_s$exp() * log_ztilde$exp()
-    
-    z <- (log_s + log_ztilde)$exp()
-    Xz <- input*z
-    
-    mu_activations <- nnf_linear(
-      input = Xz, 
-      weight = nn_mod$children[[nn_layer]]$weight_mu, 
-      bias = nn_mod$children[[nn_layer]]$bias_mu
+# generate y_news and get sds, quantiles
+generate_y_news <- function(nn_mod, X, n_reps = 100){
+  drop(
+    replicate(
+      n = n_reps, 
+      expr = as_array(nn_mod(X))
     )
-    
-    var_activations <- nnf_linear(
-      input = xz$pow(2), 
-      weight = nn_mod$children[[nn_layer]]$weight_logvar$exp(), 
-      bias = nn_mod$children[[nn_layer]]$bias_logvar$exp()
-    )
-    
-    activations <- reparameterize(
-        mu = mu_activations, 
-        logvar = var_activations$log(), 
-        sampling = sampling
-      )
-    
-    if (nn_layer < num_layers){
-      # input for next layer
-      input <- nnf_relu(activations)
-    }
-  }
-  
-  return(activations)
-}  
-
-
-
-ynew <- get_nn_mod_y_new(nn_mod, x_plot, sampling = TRUE)
-
-yhat <- get_nn_mod_Ey(nn_mod, X = x_plot, ln_fcn = ln_mean)
-df <- cbind(as_array(yhat), as_array(x_plot))
-colnames(df) <- c("yhat", paste0("x", 1:ncol(as_array(x_plot))))
-as_data_frame(df) %>% 
-    select(1:5) %>% 
-    pivot_longer(cols = -yhat) %>% 
-    ggplot(aes(y = yhat, x = value, color = name)) + 
-    geom_line() + 
-  labs(
-    title = "yhat functions"
   )
+}
 
-  
-  
-  # # deterministic version in original code
-  # nnf_linear(
-  #   input = X, 
-  #   weight = nn_mod$children[[nn_layer]]$weight_mu, 
-  #   bias = nn_mod$children[[nn_layer]]$bias_mu
-  # )
-  
-  
-  
+# 
+# 
+# 
+# 
+# X = x_plot
+# qtiles <- c(0.025, .975)
+# n_reps <- 100
+# X_showcols <- 1:4
 
+plot_pred_quantiles <- function(
+    nn_mod, 
+    X, 
+    X_showcols = 1:4,
+    qtiles = c(0.025, 0.975),
+    n_reps = 100,
+    ln_fcn = ln_mode
+){
+  # mean functions
+  Ey <- as_array(
+    get_nn_mod_Ey(nn_mod, X, ln_fcn)
+  )
+  
+  # generate y_new predictions, sdevs, qtiles
+  ynews <- generate_y_news(nn_mod, X, n_reps)
+  sd_ynew <- apply(ynews, 1, sd)
+  qtilemat <- t(apply(
+    ynews, 1, 
+    function(X) quantile(X, qtiles)
+  ))
+  
+  # gather into df for plotting
+  resmat <- cbind(
+    Ey,
+    sd_ynew,
+    qtilemat,
+    as_array(X[, X_showcols])
+  )
+  colnames(resmat) <- c(
+    "Ey",
+    "sd_ynew",
+    paste0("p", qtiles),
+    paste0("X", X_showcols)
+  )
+  df <- as_data_frame(resmat)
+  
+  Ey_plt <- df %>% 
+    pivot_longer(
+      cols = starts_with("X"),
+      names_to = "fcn",
+      values_to = "x"
+    ) %>% 
+    ggplot() + 
+    geom_line(
+      aes(
+        y = Ey, 
+        x = x,
+        color = fcn
+      )
+    ) + 
+    labs(title = "estimated mean functions")
+  
+  qtile_plt <- Ey_plt + 
+    geom_ribbon(
+      aes_string(
+        x = "x",
+        ymin = paste0("p", qtiles[1]),
+        ymax = paste0("p", qtiles[2]),
+        fill = "fcn"
+      ),
+      alpha = 0.2
+    ) + 
+    labs(
+      subtitle = paste0(
+        "with (", qtiles[1], ", ", qtiles[2], ") ",
+        "prediction quantiles"
+      )
+    )
+  
+  return(
+    list(
+      "df" = df,
+      "Ey_plt" = Ey_plt,
+      "qtile_plt" = qtile_plt
+    )
+  )
+}
+
+
+qtile_plt <- plot_pred_quantiles(nn_mod, X = x_plot)$qtile_plt
+
+
+og_fcn_plt <- plot_datagen_fcns(flist = sim_res$sim_params$flist)
+qtile_plt + 
+  geom_line(
+    data = og_fcns$data,
+    aes(
+      y = value,
+      x = x, 
+      group = fcn
+    ),
+    color = "black",
+    linetype = "dotted"
+  )
+og_fcn_plt
