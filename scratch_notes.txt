@@ -1,21 +1,58 @@
+2/10 sims tracking
+
+- extremely low p_0 = 0.1 - earliest started
+  - 10k: tr 2.85, te 3.09, kl 0.069, ssq 1e-5
+  - 20k: tr 2.85, te 3.07, kl 0.053, ssq 0
+  - 30k: tr 2.85, te 3.08, kl 0.049, ssq 0
+  - 40k: tr 2.85, te 3.07, kl 0.048, ssq 0
+  - 50k: tr 2.85, te 3.07, kl 0.048, ssq 0
+  - 60k: tr 2.85, te 3.09, kl 0.048, ssq 0
+  - 70k: tr  , te  , kl  , ssq 0
+  - 80k: tr  , te  , kl  , ssq 0
+  - 90k: tr  , te  , kl  , ssq 0
+  - 00k: tr  , te  , kl  , ssq 0
+  - network not learning.  Stop at 100k if similar.
+
+
+- agnostic tau, fewer covs (40 total) 
+  - 10k: tr 2.58, te 2.82, kl 0.431, ssq 0.029
+  - 20k: tr 2.27, te 2.62, kl 0.369, ssq 0.033
+  - 30k: tr 1.91, te 2.33, kl 0.431, ssq 0.030
+  - 40k: tr 1.73, te 2.35, kl 0.530, ssq 0.029
+  - 50k: tr 1.62, te 2.40, kl 0.580, ssq 0.028
+  - 60k: tr  , te  , kl  , ssq 
+  - 70k: tr  , te  , kl  , ssq 
+  - 80k: tr  , te  , kl  , ssq 
+  - 90k: tr  , te  , kl  , ssq 
+  - 00k: tr  , te  , kl  , ssq 
+
+
+- optimistic p_0 = 10 of 104, scaled
+  - 10k: tr 2.30, te 3.00, kl 0.879, ssq 0.00232
+  - 20k: tr 1.50, te 2.47, kl 0.935, ssq 0.00213
+  - 30k: tr  , te  , kl  , ssq 
+  - 40k: tr  , te  , kl  , ssq 
+  - 50k: tr  , te  , kl  , ssq 
+  - 60k: tr  , te  , kl  , ssq 
+  - 70k: tr  , te  , kl  , ssq 
+  - 80k: tr  , te  , kl  , ssq 
+  - 90k: tr  , te  , kl  , ssq 
+  - 00k: tr  , te  , kl  , ssq 
 
 
 
 
 sim_ind = 1
+learning_rate = 0.001
 nn_model <- MLHS
-train_epochs <- sim_params$train_epochs
 verbose = TRUE
-display_alpha_thresh <- sim_params$wald_thresh
-report_every = 1000
 want_plots = TRUE
 want_fcn_plots = TRUE
+save_fcn_plots = FALSE
 want_all_params = FALSE
+local_only = FALSE
 save_mod = TRUE
-save_mod_path = NULL
-stop_k = 100
-stop_streak = 25
-burn_in = 5E5
+save_results = TRUE
 
 
 
