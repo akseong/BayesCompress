@@ -174,6 +174,64 @@ source(here("Rcode", "analysis_fcns.R"))
 
 
 
+# 2/12 meeting
+
+
+Meeting with Veronica:
+
+  - scheduling:
+  
+  - committee makeup:
+
+    - possibilities: Weining, Mine, Tianchen?  Do affiliates (e.g. Joachim Vanderckhove?) count for the quorum?
+
+  - get torch for R onto stats5
+  
+
+Research:
+
+  - focus on sparseVCBART paper data
+
+
+## Michele's followup:
+
+1. Reduce number of covariates to 20-25 for initial simulations
+
+  - Improve computational efficiency and reduce training time
+
+  - Focus on feasibility given the  graduation deadline
+  
+1. Justify choice of tau zero prior scaling
+
+  - Document the rationale for scaling tau zero by the observations-to-parameters ratio
+  
+  - Include this justification in dissertation/paper
+
+1. Continue coding and debugging synthetic data simulations
+
+  - Work on sparse VC BART synthetic data simulations from the Deshpande paper
+  
+  - Resolve inconsistencies between source equations and plots in the paper (if possible)
+  
+1. Prioritize finishing synthetic data simulation analyses and paper
+  
+  - Complete synthetic data work before exploring brain/ECG data (may be done after we are sure we have a story otherwise)
+
+  - Focus on wrapping up the dissertation given the June (or May?) deadline
+
+1. Leave increasing covariates and complexity after dissertatio/paper submission 
+
+  - Plan for potential revisions that may require more complex models with increased covariates
+  
+  - Be ready to scale up computational experiments if needed post-submission
+
+1. Schedule and attend follow-up meeting next week
+
+  - Meet to discuss progress on all items
+
+
+
+
 # 2/10 $\tau_0$ and overfitting 
 
 ## work today / issues
