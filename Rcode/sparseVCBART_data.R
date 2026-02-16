@@ -7,9 +7,12 @@
 # sparseVCBART paper: https://arxiv.org/pdf/2510.08204
 # original VCBART paper: https://arxiv.org/pdf/2003.06416
 
+library(here)
 library(latex2exp)
-library(ggplot2)
+library(tidyverse)
 library(MASS)
+
+source(here("Rcode", "analysis_fcns.R"))
 
 # EFFECT MODIFIER FCNS ----
 beta_0 <- function(Z){
@@ -19,7 +22,6 @@ beta_0 <- function(Z){
     (sin(pi * z1)) * (2 - 5 * (z2 > 0.5)) - 
     2 * (z2 > 0.5)
 }
-
 
 # beta_1 Incorrect in sparseVCBART paper ---_
 #   - plots don't match formula
@@ -52,6 +54,15 @@ beta_3 <- function(Z){
   10*sin(pi*z1*z2) + 20*((z3-0.5)^2) + 10*z4 + 5*z5
 }
 
+bfcns_list <- list(
+  "beta_0" = beta_0,
+  "beta_1" = beta_1,
+  "beta_2" = beta_2,
+  "beta_3" = beta_3
+)
+
+
+
 
 # GENERATE DATA ----
 # experiments
@@ -65,7 +76,7 @@ beta_3 <- function(Z){
 library(MASS)
 
 ## make X vars ----
-mild_corr_fcn <- function(i, j) {0.5^(abs(i-j))}
+corr_fcn <- function(i, j) {0.5^(abs(i-j))}
 
 make_Covmat <- function(p, covar_fcn){
   Sigma <- matrix(NA, nrow = p, ncol = p)
@@ -77,34 +88,90 @@ make_Covmat <- function(p, covar_fcn){
   return(Sigma)
 }
 
+gen_Eydat_sparseVCBART <- function(
+  n_obs = 1e3,
+  p = 50,
+  R = 20,
+  covar_fcn = corr_fcn,
+  beta_0,
+  beta_1,
+  beta_2,
+  beta_3
+){
+  # in sparseVCBART paper, Z1:Z5 important, X1:X3 important
+  Covmat <- make_Covmat(p, covar_fcn = corr_fcn)
+  X <- as.data.frame(
+    mvrnorm(n = n_obs, mu = rep(0, p), Sigma = Covmat)
+  )
+  names(X) <- paste0("x", 1:p)
+  
+  ## make Z vars (effect modifiers)
+  Z <- as.data.frame(
+    matrix(
+      runif(R*n_obs, 0, 1),
+      nrow = n_obs,
+      ncol = R
+    )
+  )
+  names(Z) <- paste0("z", 1:R)
+  
+  ## apply fcns
+  b0 <- beta_0(Z)
+  b1 <- beta_1(Z)
+  b2 <- beta_2(Z)
+  b3 <- beta_3(Z)
+  
+  # generate response vector
+  Ey <- b0 + b1 * rowSums(cbind(b1, b2, b3) * X[, 1:3])
+  
+  true_covs <- c(
+    paste0("x", 1:3),
+    paste0("z", 1:5)
+  )
+  
+  df <- as.data.frame(
+   cbind(
+     Ey,
+     Z[, 1:5],
+     X[, 1:3],
+     Z[, 6:R],
+     X[, 4:p]
+   )
+  )
+  
+  return(df)
+}
+
+
+
 n_obs <- 1e3
 p <- 50
 R <- 20
 sig_eps <- 1
 mu_eps <- 0
-Covmat <- make_Covmat(p, covar_fcn = mild_corr_fcn)
-X <- mvrnorm(n = n_obs, mu = rep(0, p), Sigma = Covmat)
 
-
-## make Z vars (effect modifiers)
-
-Z <- matrix(
-  runif(R*n_obs, 0, 1),
-  nrow = n_obs,
-  ncol = R
+Ey_df <- gen_Eydat_sparseVCBART(
+  n_obs,
+  p,
+  R,
+  beta_0 = bfcns_list[1],
+  beta_1 = bfcns_list[2],
+  beta_2 = bfcns_list[3],
+  beta_3 = bfcns_list[4]
 )
 
+y <- Ey_df[, 1] + rnorm(n_obs)
+covars <- Ey_df[, -1]
+# check tensor dimensions and feed to NN
 
-## apply fcns
-b0 <- beta_0(Z)
-b1 <- beta_1(Z)
-b2 <- beta_2(Z)
-b3 <- beta_3(Z)
 
-Ey <- b0 + 
-  b1 * rowSums(cbind(b1, b2, b3) * X[, 1:3])
+# param counts
+param_counts_from_dims(dim_vec = c(R + p, 4, 16, 1))
 
-y <- Ey + rnorm(n = length(Ey), mu_eps, sig_eps)
+
+
+
+
 
 
 # PLOTTING ----
@@ -150,6 +217,65 @@ data.frame(
   labs(
     title = TeX("$\\beta_1(z)$ ~ $z_1$")
   )
+
+
+# to plot output from our neural network requires reparam, since
+# we aren't explicitly modeling effect modifiers
+# VC model: 
+# y = \beta_0(z1, z2) + \beta_1(z1)x1 + \beta_2(.)x2 + \beta_3(z1, z2, z3, z4, z5)x3
+beta_0
+# for beta_0, plot y against z1 for fixed values of z2, other covs = 0
+
+beta_1
+# depends only on z1.  Plot y/x1 against z1 for fixed values of x1
+
+beta_2
+# just plot y ~ x2
+
+beta_3
+# plot y~z1*z2, y~z3, y~z4, y~z5 for fixed values of x3
+
+make_b0_pred_df <- function(
+    resol = 100, 
+    p = 50, 
+    z2_vals = c(.25, .75)
+  ){
+  # note: take out x1_vals --- shouldn't depend on it
+  # b0(z1, z2) is an intercept term
+  b0_z1 <- rep(1:resol/resol, length(z2_vals))
+  b0_z2 <- rep(z2_vals, each = resol)
+  b0_covars <- cbind(b0_z1, b0_z2, 0, 0, 0)
+  colnames(b0_covars) <- paste0("z", 1:5)
+  zero_mat <- matrix(0, nrow = nrow(b0_covars), ncol = p)
+  colnames(zero_mat) <- paste0("x", 1:p) 
+  return(
+    as.data.frame(
+      cbind(b0_covars, zero_mat)
+    )
+  )
+}
+
+
+
+make_b1_pred_df <- function(
+  resol = 100,
+  x1_vals = c(-2, -1, 0, 1, 2),
+  p = 50
+){
+  # Plot y/x1 against z1 for fixed values of x1
+  # beta_1 only depends on z1.
+  b1_z1 <- rep(1:resol/resol, length(x1_vals))
+  b1_x1 <- rep(x1_vals, each = resol)
+  b1_covars <- cbind(b1_z1, 0, 0, 0, 0, b1_x1, 0, 0)
+  colnames(b1_covars) <- c(paste0("z", 1:5), paste0("x", 1:3))
+  zero_mat <- matrix(0, nrow = nrow(b1_covars), ncol = p-3)
+  colnames(zero_mat) <- paste0("x", 4:p) 
+  return(
+    as.data.frame(
+      cbind(b1_covars, zero_mat)
+    )
+  )
+}
 
 
 
