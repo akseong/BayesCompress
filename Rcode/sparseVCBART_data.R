@@ -219,6 +219,7 @@ data.frame(
   )
 
 
+# FCNS TO PLOT BETAs FROM NN OUTPUT PREDS ----
 # to plot output from our neural network requires reparam, since
 # we aren't explicitly modeling effect modifiers
 # VC model: 
@@ -238,15 +239,37 @@ beta_3
 make_b0_pred_df <- function(
     resol = 100, 
     p = 50, 
-    z2_vals = c(.25, .75)
+    z2_vals = c(.25, .75),
+    froth = FALSE,
+    froth_mu = 0.25,
+    froth_sig = 0.05
   ){
-  # note: take out x1_vals --- shouldn't depend on it
+  # use this to plot Ey ~ z1, for values of z2 below and above 0.5
   # b0(z1, z2) is an intercept term
+  # use froth = TRUE to add some noise to the nuisance covars
   b0_z1 <- rep(1:resol/resol, length(z2_vals))
   b0_z2 <- rep(z2_vals, each = resol)
-  b0_covars <- cbind(b0_z1, b0_z2, 0, 0, 0)
+  if (froth){
+    zfroth <- matrix(
+      rnorm(3*length(b0_z1), froth_mu, froth_sig),
+      ncol = 3
+    )
+    b0_covars <- cbind(b0_z1, b0_z2, zfroth)
+  } else {
+    b0_covars <- cbind(b0_z1, b0_z2, 0, 0, 0)    
+  }
+
   colnames(b0_covars) <- paste0("z", 1:5)
-  zero_mat <- matrix(0, nrow = nrow(b0_covars), ncol = p)
+  
+  if (froth){
+    zero_mat <- matrix(
+      rnorm(p*length(b0_z1), froth_mu, froth_sig),
+      ncol = p
+    )
+  } else {
+    zero_mat <- matrix(0, nrow = nrow(b0_covars), ncol = p)    
+  }
+
   colnames(zero_mat) <- paste0("x", 1:p) 
   return(
     as.data.frame(
@@ -255,21 +278,36 @@ make_b0_pred_df <- function(
   )
 }
 
-
-
 make_b1_pred_df <- function(
   resol = 100,
   x1_vals = c(-2, -1, 0, 1, 2),
-  p = 50
+  p = 50,
+  froth = FALSE,
+  froth_mu = 0.25,
+  froth_sig = 0.05
 ){
-  # Plot y/x1 against z1 for fixed values of x1
+  # Use this to plot Ey/x1 against z1 for fixed values of x1
   # beta_1 only depends on z1.
+  # use froth = TRUE to add some noise to the nuisance covars
   b1_z1 <- rep(1:resol/resol, length(x1_vals))
   b1_x1 <- rep(x1_vals, each = resol)
   b1_covars <- cbind(b1_z1, 0, 0, 0, 0, b1_x1, 0, 0)
   colnames(b1_covars) <- c(paste0("z", 1:5), paste0("x", 1:3))
-  zero_mat <- matrix(0, nrow = nrow(b1_covars), ncol = p-3)
-  colnames(zero_mat) <- paste0("x", 4:p) 
+  if (froth){
+    froth_mat <- matrix(
+      rnorm(6 * length(b1_z1), froth_mu, froth_sig),
+      ncol = 6
+    )
+    b1_covars[, c(2:5, 7:8)] <- froth_mat
+    zero_mat <- matrix(
+      rnorm((p-3)*length(b1_z1), froth_mu, froth_sig),
+      ncol = p-3
+    )
+  } else {
+    zero_mat <- matrix(0, nrow = nrow(b1_covars), ncol = p-3)
+  }
+  colnames(zero_mat) <- paste0("x", 4:p)
+  
   return(
     as.data.frame(
       cbind(b1_covars, zero_mat)
@@ -279,3 +317,42 @@ make_b1_pred_df <- function(
 
 
 
+make_b2_pred_df <- function(
+    resol = 100,
+    p = 50,
+    froth = FALSE,
+    froth_mu = 0.25,
+    froth_sig = 0.05
+){
+  # Use this to plot Ey/x2 ~ x2
+  # beta_2 = 1 (i.e. does not depend on any z)
+  b2_x2 <- rep(1:resol/resol)
+  b2_covars <- cbind(0, 0, 0, 0, 0, 0, b2_x2, 0)
+  colnames(b2_covars) <- c(paste0("z", 1:5), paste0("x", 1:3))
+  
+  if (froth){
+    froth_mat <- matrix(
+      rnorm(7 * length(b2_x2), froth_mu, froth_sig),
+      ncol = 7
+    )
+    b2_covars[, c(1:6, 8)] <- froth_mat
+    zero_mat <- matrix(
+      rnorm((p-3)*length(b2_x2), froth_mu, froth_sig),
+      ncol = p-3
+    )
+  } else {
+    zero_mat <- matrix(0, nrow = nrow(b2_covars), ncol = p-3)
+  }
+  
+  colnames(zero_mat) <- paste0("x", 4:p) 
+  return(
+    as.data.frame(
+      cbind(b2_covars, zero_mat)
+    )
+  )
+}
+
+
+make_b0_pred_df(froth = TRUE)
+make_b1_pred_df(froth = TRUE)
+make_b2_pred_df(froth = TRUE)
