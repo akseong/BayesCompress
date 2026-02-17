@@ -122,20 +122,12 @@ gen_Eydat_sparseVCBART <- function(
   b3 <- beta_3(Z)
   
   # generate response vector
-  Ey <- b0 + b1 * rowSums(cbind(b1, b2, b3) * X[, 1:3])
-  
-  true_covs <- c(
-    paste0("x", 1:3),
-    paste0("z", 1:5)
-  )
-  
+  Ey <- b0 + rowSums(cbind(b1, b2, b3) * X[, 1:3])
   df <- as.data.frame(
    cbind(
      Ey,
-     Z[, 1:5],
-     X[, 1:3],
-     Z[, 6:R],
-     X[, 4:p]
+     Z,
+     X
    )
   )
   
@@ -178,7 +170,7 @@ param_counts_from_dims(dim_vec = c(R + p, 4, 16, 1))
 # make grids for plotting
 resol <- 100 # grid resolution
 z_gridvec <- 0:resol/resol
-x_gridvec <- -(3*resol):(3*resol) / resol
+# x_gridvec <- -(3*resol):(3*resol) / resol
 
 ## beta_0 ----
 z11_plotmat <- cbind(z_gridvec, 1)
