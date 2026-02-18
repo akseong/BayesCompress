@@ -187,7 +187,7 @@ make_b0_pred_df <- function(
   } else {
     z_fill <- matrix(0, nrow = length(b0_z1), ncol = R-2)
   }
-  b0_Z <- cbind(b0_z1, b0_z2, z_fill0)    
+  b0_Z <- cbind(b0_z1, b0_z2, z_fill)    
   colnames(b0_Z) <- paste0("z", 1:R)
   
   if (froth){
@@ -206,7 +206,7 @@ make_b0_pred_df <- function(
 
 make_b1_pred_df <- function(
     resol = 100,
-    x1_vals = c(-2, -1, 0, 1, 2),
+    x1_vals = 1,
     p = 50,
     R = 20,
     froth = FALSE,
@@ -214,8 +214,11 @@ make_b1_pred_df <- function(
     froth_sig = 0.05
 ){
   # Use this to plot Ey/x1 against z1 for fixed values of x1
-  # beta_1 only depends on z1.
+  # Beta_1 only depends on z1.
+  # Need to subtract an intercept term (generate using
+  #   make_b0_pred_df, set z2vals = 0)
   # use froth = TRUE to add some noise to the nuisance covars
+  # 
   b1_z1 <- rep(1:resol/resol, length(x1_vals))
   b1_x1 <- rep(x1_vals, each = resol)
   
@@ -278,116 +281,179 @@ make_b2_pred_df <- function(
 }
 
 
-# TESTING----
-n_obs <- 1e3
-p <- 50
-R <- 20
-sig_eps <- 1
-mu_eps <- 0
-
-bfcns_list <- list(
-  "beta_0" = beta_0,
-  "beta_1" = beta_1,
-  "beta_2" = beta_2,
-  "beta_3" = beta_3
-)
-
-Ey_df <- gen_Eydat_sparseVCBART(
-  n_obs,
-  p,
-  R,
-  covar_fcn = corr_fcn,
-  beta_0 = bfcns_list$beta_0,
-  beta_1 = bfcns_list$beta_1,
-  beta_2 = bfcns_list$beta_2,
-  beta_3 = bfcns_list$beta_3
-)
-
-range(Ey_df[, 1])
-head(Ey_df)
-true_covs <- c(
-  paste0("x", 1:3),
-  paste0("z", 1:5)
-)
-
-# param counts
-source(here::here("Rcode", "analysis_fcns.R"))
-param_counts_from_dims(dim_vec = c(R + p, 4, 16, 1))
-
-
-plot_b0_true()
-plot_b1_true()
-
-
-
-
-
-
-## check plotting strat for b0 ----
-b0_pred_df <- make_b0_pred_df()
-head(b0_pred_df)
-
-b0 <- beta_0(b0_pred_df[, 1:R])
-plot(b0 ~ b0_pred_df[,1])
-
-b1 <- beta_1(b0_pred_df[, 1:R])
-b2 <- beta_2(b0_pred_df[, 1:R])
-b3 <- beta_3(b0_pred_df[, 1:R])
-
-Ey <- b0 + rowSums(cbind(b1, b2, b3) * b0_pred_df[, 1:p + R])
-plot(Ey ~ b0_pred_df[, 1])
-
-
-## check plotting strat for b1 ----
-# Ey/x1 ~ z1
-# beta_3 = 10*sin(pi*z1*z2) + 20*((z3-0.5)^2) + 10*z4 + 5*z5
-#   so to recover b1, set z2 = 0, z3 = .5, z4=0, z5=0,
-#   or just x3 = 0
-# beta_2 = 1, so just set x2 = 0
-# beta_0 =   3*z1   +   (sin(pi * z1)) * (2 - 5 * (z2 > 0.5))   -   2 * (z2 > 0.5)
-#   also depends on z1; does not depend on any x value, 
-#   i.e. cannot separate beta_1 from beta_0
-#   - guess just plot against the truth here
-# Maybe can alleviate this by placing an intercept term in design matrix?
-#    - if doing this, need to omit bias term in first layer.
-b1_pred_df <- make_b1_pred_df()
-head(b1_pred_df)
-
-b1 <- beta_1(b1_pred_df[, 1:R])
-plot(b1 ~ b1_pred_df[,1])
-
-b0 <- beta_0(b1_pred_df[, 1:R])
-b2 <- beta_2(b1_pred_df[, 1:R])
-b3 <- beta_3(b1_pred_df[, 1:R])
-
-cbind(b1, b2, b3) * b1_pred_df[, 1:3 + R]
-b0
-
-Ey <- b0 + rowSums(cbind(b1, b2, b3) * b1_pred_df[, 1:3 + R])
-
-plot(Ey/b1_pred_df[,(R+1)] ~ b1_pred_df[, 1])
-
-
-
-
-
-## check plotting strat for b2 ----
-# Ey/x2 ~ x2 seems fines
-b2_pred_df <- make_b2_pred_df()
-head(b2_pred_df)
-
-b2 <- beta_2(b2_pred_df[, 1:R])
-plot(b2 ~ b2_pred_df[,1])
-
-b0 <- beta_0(b2_pred_df[, 1:R])
-b1 <- beta_1(b2_pred_df[, 1:R])
-b3 <- beta_3(b2_pred_df[, 1:R])
-
-Ey <- b0 + rowSums(cbind(b1, b2, b3) * b2_pred_df[, 1:p + R])
-plot(Ey/b2_pred_df[, R+2] ~ b2_pred_df[, R+2])
-
-
-
-
+# # TESTING----
+# 
+# ## data generation----
+# n_obs <- 1e3
+# p <- 50
+# R <- 20
+# sig_eps <- 1
+# mu_eps <- 0
+# 
+# bfcns_list <- list(
+#   "beta_0" = beta_0,
+#   "beta_1" = beta_1,
+#   "beta_2" = beta_2,
+#   "beta_3" = beta_3
+# )
+# 
+# Ey_df <- gen_Eydat_sparseVCBART(
+#   n_obs,
+#   p,
+#   R,
+#   covar_fcn = corr_fcn,
+#   beta_0 = bfcns_list$beta_0,
+#   beta_1 = bfcns_list$beta_1,
+#   beta_2 = bfcns_list$beta_2,
+#   beta_3 = bfcns_list$beta_3
+# )
+# 
+# range(Ey_df[, 1])
+# head(Ey_df)
+# true_covs <- c(
+#   paste0("x", 1:3),
+#   paste0("z", 1:5)
+# )
+# 
+# # param counts
+# source(here::here("Rcode", "analysis_fcns.R"))
+# param_counts_from_dims(dim_vec = c(R + p, 4, 16, 1))
+# 
+# 
+# plot_b0_true()
+# plot_b1_true()
+# 
+# 
+# 
+# ## check plotting strat for b0 ----
+# b0_pred_df <- make_b0_pred_df()
+# head(b0_pred_df)
+# 
+# b0 <- beta_0(b0_pred_df[, 1:R])
+# plot(b0 ~ b0_pred_df[,1])
+# 
+# b1 <- beta_1(b0_pred_df[, 1:R])
+# b2 <- beta_2(b0_pred_df[, 1:R])
+# b3 <- beta_3(b0_pred_df[, 1:R])
+# 
+# Ey_b0 <- b0 + rowSums(cbind(b1, b2, b3) * b0_pred_df[, 1:p + R])
+# plot(Ey_b0 ~ b0_pred_df[, 1])
+# 
+# 
+# ## check plotting strat for b1 ----
+# # Ey/x1 ~ z1
+# # beta_3 = 10*sin(pi*z1*z2) + 20*((z3-0.5)^2) + 10*z4 + 5*z5
+# #   so to recover b1, set z2 = 0, z3 = .5, z4=0, z5=0,
+# #   or just x3 = 0
+# # beta_2 = 1, so just set x2 = 0
+# # beta_0 =   3*z1   +   (sin(pi * z1)) * (2 - 5 * (z2 > 0.5))   -   2 * (z2 > 0.5)
+# #   also depends on z1; does not depend on any x value,
+# #   i.e. cannot separate beta_1 from beta_0
+# # So need to subtract an "intercept" from y
+# #    - i.e. generate predictions for the same Z values with all x_j = 0
+# 
+# b1_pred_df <- make_b1_pred_df()
+# head(b1_pred_df)
+# 
+# b1 <- beta_1(b1_pred_df[, 1:R])
+# plot(b1 ~ b1_pred_df[,1])
+# 
+# b0 <- beta_0(b1_pred_df[, 1:R])
+# b2 <- beta_2(b1_pred_df[, 1:R])
+# b3 <- beta_3(b1_pred_df[, 1:R])
+# 
+# Ey_b1 <- b0 + rowSums(cbind(b1, b2, b3) * b1_pred_df[, 1:3 + R])
+# 
+# # without subtracting intercept
+# # for x1 = 0, should just be the intercept term
+# x1 <- b1_pred_df[,(R+1)]
+# df <- data.frame(
+#   # "Ey" = Ey,
+#   "b1resp" = ifelse(x1 == 0, Ey, Ey/x1),
+#   "x1" = x1,
+#   "z1" = b1_pred_df[, 1]
+# )
+# 
+# df %>%
+#   ggplot() +
+#   geom_line(
+#     aes(
+#       y = b1resp,
+#       x = z1,
+#       color = as_factor(x1)
+#     )
+#   )
+# 
+# 
+# ### now subtract intercept predictions
+# x1_vals = c(-2, 1, 0, 1, 2)
+# b1_pred_df <- make_b1_pred_df(
+#   resol = 100,
+#   x1_vals = x1_vals,
+#   p = 50,
+#   R = 20
+# )
+# 
+# b0_for_b1 <- make_b0_pred_df(
+#   resol = 100, 
+#   p = 50,
+#   R = 20,
+#   z2_vals = rep(0, length(x1_vals))
+# )
+# 
+# # NOTE: should be able to input X portion of these dataframes
+# # into nn_mod instead of what I'm doing here to test
+# 
+# # generate Ey_b1
+# b0 <- beta_0(b1_pred_df[, 1:R])
+# b1 <- beta_1(b1_pred_df[, 1:R])
+# b2 <- beta_2(b1_pred_df[, 1:R])
+# b3 <- beta_3(b1_pred_df[, 1:R])
+# Ey_b1 <- b0 + rowSums(cbind(b1, b2, b3) * b1_pred_df[, 1:3 + R])
+# 
+# # generate intercept term
+# b0_int <- beta_0(b0_for_b1[, 1:R])
+# b1_int <- beta_1(b0_for_b1[, 1:R])
+# b2_int <- beta_2(b0_for_b1[, 1:R])
+# b3_int <- beta_3(b0_for_b1[, 1:R])
+# int <- b0_int + rowSums(cbind(b1_int, b2_int, b3_int) * b0_for_b1[, 1:3 + R])
+# 
+# x1 <- b1_pred_df[, R+1]
+# z1 <- b1_pred_df[, 1]
+# Ey_minus_b0 <- Ey_b1 - int
+# plot(Ey_minus_b0 ~ z1)
+# 
+# b1_to_plot <- Ey_b1/x1 - int 
+# df <- as.data.frame(b1_to_plot, Ey_minus_b0, x1, z1) 
+# df %>% 
+#   ggplot() + 
+#   geom_line(
+#     aes(
+#       y = b1_to_plot,
+#       x = z1,
+#       color = as_factor(x1)
+#     )
+#   ) + 
+#   labs(
+#     title = "Ey/x1 minus intercept ~ z1",
+#     subtitle = "x1 = 1 (turqouise) is what should match paper"
+#   )
+# 
+# 
+# 
+# ## check plotting strat for b2 ----
+# # Ey/x2 ~ x2 seems fine
+# b2_pred_df <- make_b2_pred_df()
+# head(b2_pred_df)
+# 
+# b2 <- beta_2(b2_pred_df[, 1:R])
+# plot(b2 ~ b2_pred_df[,1])
+# 
+# b0 <- beta_0(b2_pred_df[, 1:R])
+# b1 <- beta_1(b2_pred_df[, 1:R])
+# b3 <- beta_3(b2_pred_df[, 1:R])
+# 
+# Ey <- b0 + rowSums(cbind(b1, b2, b3) * b2_pred_df[, 1:p + R])
+# plot(Ey/b2_pred_df[, R+2] ~ b2_pred_df[, R+2])
 
 
