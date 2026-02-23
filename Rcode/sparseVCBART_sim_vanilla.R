@@ -1,9 +1,13 @@
 ##################################################
-## Project:   sparseVCBART sim
+## Project:   sparseVCBART sim - VANILLA BNN
 ## Date:      Feb 18, 2026
 ## Author:    Arnie Seong
 ##################################################
 
+
+# VC structure **NOT** explicitly modeled.  
+# Not super optimistic about performance here,
+# at least in terms of recovering covariate functions
 
 # SETUP: LIBS & FCNS ----
 library(here)
@@ -27,6 +31,11 @@ source(here("Rcode", "sparseVCBART_fcns.R"))
 # (doesn't even match their own plot).  The plot looks
 # much closer to the function for \beta_2 in the orig. VCBART paper
 # which is what I'm using instead.
+
+## simdat params ----
+n_sims <- 2
+tt_ratio <- 1.25
+
 
 ## gendat params ----
 n_obs <- 1e3
@@ -63,7 +72,7 @@ plot_b1_true(resol = 100, b1 = bfcns_list$beta_1)
 #   corr_fcn <- function(i, j) {0.5^(abs(i-j))} 
 
 Ey_df <- gen_Eydat_sparseVCBART(
-  round(n_obs * 1.5), # training obs
+  round(n_obs * tt_ratio), # training obs
   p,
   R,
   covar_fcn = corr_fcn,
@@ -77,17 +86,30 @@ Ey_df <- gen_Eydat_sparseVCBART(
 # Note: (test obs aren't used to calibrate NN,
 # just for me to observe for training progress
 # and catch simulation problems)
-trn_inds <- 1:n_obs
-tst_inds <- (n_obs + 1):round(n_obs * 1.5)
-Ey <- Ey_df[,1]
-Ey_trn <- Ey[trn_inds]
-Ey_tst <- Ey[tst_inds]
-XZ_trn <- Ey_df[trn_inds, -1]
-XZ_tst <- Ey_df[tst_inds, -1]
+tr_inds <- 1:n_obs
+te_inds <- (n_obs + 1):round(n_obs * tt_ratio)
+Ey_raw <- Ey_df[,1]
+Ey_raw_tr <- Ey_raw[tr_inds]
+Ey_raw_te <- Ey_raw[te_inds]
+XZ_raw <- Ey_df[, -1]
 
+# standardize XZ.  
+# standardizing Y will have to happen after epsilons added
+XZ_means <- colMeans(XZ_raw)
+XZ_sds <- apply(XZ_raw, 2, sd)
+XZ_centered <- sweep(XZ_raw, 2, STATS = XZ_means, "-")
+XZ <- sweep(XZ_centered, 2, STATS = XZ_sds, "/")
+
+# # check standardized
+# colMeans(XZ)
+# diag(cov(XZ))
+XZ_tr <- XZ[tr_inds, ]
+XZ_te <- XZ[te_inds, ]
+
+# generate epsilons
 eps_mat <- matrix(
   rnorm(
-    n = n_sims * round(n_obs * 1.5),
+    n = n_sims * round(n_obs * tt_ratio),
     mean = mu_eps,
     sd = sig_eps
   ), 
@@ -95,12 +117,9 @@ eps_mat <- matrix(
 )
 
 
-
-
 # NETWORK SETUP ----
 
 ## param counts ----
-source(here::here("Rcode", "analysis_fcns.R"))
 param_counts_from_dims(dim_vec = c(23, 4, 8, 8, 1))  # first experiment p=3
 param_counts_from_dims(dim_vec = c(70, 4, 8, 8, 1))  # second experiment p=50
 
