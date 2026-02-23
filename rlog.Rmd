@@ -177,8 +177,63 @@ source(here("Rcode", "analysis_fcns.R"))
 
 # 2/23
 
+__TO DO by Thurs__:
+
+- plan first simulations (fewer covars), start running
+
+  - need to check performance with deeper networks
+  
+  - also visualize the sims from a few weeks ago
+  
+    - fewer obs; 2 versions - fewer covs and prior $\tau_0$ scaled by obs/params
+
+- finish coding VCBART sims 
+
+- create Overleaf for current project
+
+- figure out scheduling for committee
+
+  - need to contact Weining
 
 
+## testing spVCBART sim
+
+- first try experiment 1 setting --- $R$ = 20 (5 true), $p$ = 3 (all true) --- with network that performed well already: `d_1 = 8, d_2 = 16` for total 906 NN params.
+
+```{r}
+param_counts_from_dims(dim_vec = c(23, 8, 16, 1))
+```
+
+
+- try also with deeper, narrower network, i.e. 4-8-8, for total 622 params
+
+```{r}
+param_counts_from_dims(dim_vec = c(23, 4, 8, 8, 1))
+```
+
+- savings will be important for exp 2 setting --- $p$ = 50 (same original 3 true):
+
+  - 1186 params for deeper/narrower; 1846 for wider/shallower
+
+```{r}
+param_counts_from_dims(dim_vec = c(70, 8, 16, 1))
+param_counts_from_dims(dim_vec = c(70, 4, 8, 8, 1)) 
+```
+
+
+## possible data:
+
+Overweg, Popke - https://arxiv.org/pdf/1905.02599
+
+  - using similar model (except no shrinkage in hidden layers); var sel is heuristic
+  
+  - datasets: 
+  
+    1. UCI benchmarks (Boston, yacht, wine)
+    
+    1. MIMIC-III mortality prediction (preprocessed "using code introduced in [Harutyunyanetal.(2017)](https://www.nature.com/articles/s41597-019-0103-9"), uses mean imputation for missing values; more detailed preprocessing outlined in article.
+    
+    1. CENTER-TBI: mortality prediction (subset of patients in emergency room or admitted to ICU); more detailed preprocessing outlined in article.
 
 
 # 2/18
@@ -291,7 +346,7 @@ Research:
 
   - Focus on wrapping up the dissertation given the June (or May?) deadline
 
-1. Leave increasing covariates and complexity after dissertatio/paper submission 
+1. Leave increasing covariates and complexity after dissertation/paper submission 
 
   - Plan for potential revisions that may require more complex models with increased covariates
   
