@@ -2932,7 +2932,7 @@ font-size: 0.95em;
 
 <h1 class="title toc-ignore">research log</h1>
 <h4 class="author">Arnie Seong</h4>
-<h4 class="date">Last updated: 13 February 2026</h4>
+<h4 class="date">Last updated: 23 February 2026</h4>
 
 </div>
 
@@ -2967,6 +2967,171 @@ background-color: #11579e;
 background-color: #d5f2f5;
 }
 </style>
+<div id="section" class="section level1">
+<h1>2/23</h1>
+<p><strong>TO DO by Thurs</strong>:</p>
+<ul>
+<li><p>plan first simulations (fewer covars), start running</p>
+<ul>
+<li><p>need to check performance with deeper networks</p></li>
+<li><p>also visualize the sims from a few weeks ago</p>
+<ul>
+<li>fewer obs; 2 versions - fewer covs and prior <span class="math inline">\(\tau_0\)</span> scaled by obs/params</li>
+</ul></li>
+</ul></li>
+<li><p>finish coding VCBART sims</p></li>
+<li><p>create Overleaf for current project</p></li>
+<li><p>figure out scheduling for committee</p>
+<ul>
+<li>need to contact Weining</li>
+</ul></li>
+</ul>
+<div id="testing-spvcbart-sim" class="section level2">
+<h2>testing spVCBART sim</h2>
+<ul>
+<li>first try experiment 1 setting — <span class="math inline">\(R\)</span> = 20 (5 true), <span class="math inline">\(p\)</span> = 3 (all true) — with network that
+performed well already: <code>d_1 = 8, d_2 = 16</code> for total 906 NN
+params.</li>
+</ul>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">param_counts_from_dims</span>(<span class="at">dim_vec =</span> <span class="fu">c</span>(<span class="dv">23</span>, <span class="dv">8</span>, <span class="dv">16</span>, <span class="dv">1</span>))</span></code></pre></div>
+<pre><code>## layer_1 layer_2 layer_3   TOTAL 
+##     480     324     102     906</code></pre>
+<ul>
+<li>try also with deeper, narrower network, i.e. 4-8-8, for total 622
+params</li>
+</ul>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="fu">param_counts_from_dims</span>(<span class="at">dim_vec =</span> <span class="fu">c</span>(<span class="dv">23</span>, <span class="dv">4</span>, <span class="dv">8</span>, <span class="dv">8</span>, <span class="dv">1</span>))</span></code></pre></div>
+<pre><code>## layer_1 layer_2 layer_3 layer_4   TOTAL 
+##     288     100     180      54     622</code></pre>
+<ul>
+<li><p>savings will be important for exp 2 setting — <span class="math inline">\(p\)</span> = 50 (same original 3 true):</p>
+<ul>
+<li>1186 params for deeper/narrower; 1846 for wider/shallower</li>
+</ul></li>
+</ul>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="fu">param_counts_from_dims</span>(<span class="at">dim_vec =</span> <span class="fu">c</span>(<span class="dv">70</span>, <span class="dv">8</span>, <span class="dv">16</span>, <span class="dv">1</span>))</span></code></pre></div>
+<pre><code>## layer_1 layer_2 layer_3   TOTAL 
+##    1420     324     102    1846</code></pre>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="fu">param_counts_from_dims</span>(<span class="at">dim_vec =</span> <span class="fu">c</span>(<span class="dv">70</span>, <span class="dv">4</span>, <span class="dv">8</span>, <span class="dv">8</span>, <span class="dv">1</span>)) </span></code></pre></div>
+<pre><code>## layer_1 layer_2 layer_3 layer_4   TOTAL 
+##     852     100     180      54    1186</code></pre>
+</div>
+<div id="possible-data" class="section level2">
+<h2>possible data:</h2>
+<p>Overweg, Popke - <a href="https://arxiv.org/pdf/1905.02599" class="uri">https://arxiv.org/pdf/1905.02599</a></p>
+<ul>
+<li><p>using similar model (except no shrinkage in hidden layers); var
+sel is heuristic</p></li>
+<li><p>datasets:</p>
+<ol style="list-style-type: decimal">
+<li><p>UCI benchmarks (Boston, yacht, wine)</p></li>
+<li><p>MIMIC-III mortality prediction (preprocessed “using code
+introduced in <a href="https://www.nature.com/articles/s41597-019-0103-9%22">Harutyunyanetal.(2017)</a>,
+uses mean imputation for missing values; more detailed preprocessing
+outlined in article.</p></li>
+<li><p>CENTER-TBI: mortality prediction (subset of patients in emergency
+room or admitted to ICU); more detailed preprocessing outlined in
+article.</p></li>
+</ol></li>
+</ul>
+</div>
+</div>
+<div id="section-1" class="section level1">
+<h1>2/18</h1>
+<ul>
+<li>updated 2/23</li>
+</ul>
+<p>Working on synthetic data from sparseVCBART and visualization
+fcns.</p>
+<div id="sparsevcbart-issue" class="section level2">
+<h2>sparseVCBART issue</h2>
+<p>sparseVCBART model is a varying coef model assuming effect
+modification of <span class="math inline">\(x_j\)</span> via coordinates
+<span class="math inline">\(Z \in [0,1]^{\mathbb{R}}\)</span>,
+i.e. <span class="math display">\[y_i = \beta_0(Z) + \sum_{j=1}^p
+\beta_j(Z) x_j + \epsilon_i\]</span>. <span class="math inline">\(R\)</span> = dimension of <span class="math inline">\(Z\)</span>, <span class="math inline">\(p\)</span>
+= dim of <span class="math inline">\(X\)</span>.</p>
+<p><strong>sparseVCBART models <span class="math inline">\(\beta_j
+(Z)\)</span> explicitly</strong>, i.e. each <span class="math inline">\(\beta_j\)</span> receives a dedicated tree
+ensemble (with shrinkage). Each ensemble shares a global shrinkage
+parameter.</p>
+<p>Furthermore, there is overlap in the elements of <span class="math inline">\(Z\)</span> that each <span class="math inline">\(\beta_j(Z)\)</span> function depends on,
+e.g. <span class="math inline">\(\beta_0\)</span> depends on <span class="math inline">\(z_1, z_2\)</span>, <span class="math inline">\(\beta_1\)</span> depends on <span class="math inline">\(z_1\)</span>, and <span class="math inline">\(\beta_3\)</span> depends on <span class="math inline">\(z_1, z_2, z_3, z_4, z_5\)</span>.</p>
+<p>Our method as it stands currently does not model the coef functions
+explicitly or separately. We would have to recover them from the
+predictions generated by the model: For example, for <span class="math inline">\(\beta_1(z_1)\)</span>, we could plot <span class="math inline">\((\hat{y} - \hat{\beta_0})/x_1\)</span> against
+<span class="math inline">\(z_1\)</span>, with all other <span class="math inline">\(x_j, z_r = 0\)</span> (or <span class="math inline">\(z_2\)</span> set to specific values).</p>
+<ul>
+<li><p>seems fairly ad hoc</p></li>
+<li><p>I also worry that the coef functions recovered in this way are
+still likely to be a mix of each other, not completely recoverable, or
+particularly noisy.</p></li>
+<li><p>one thing we don’t get (that sparseVCBART does) is <em>which
+<span class="math inline">\(z_r\)</span> affect which <span class="math inline">\(x_j\)</span></em>.</p></li>
+</ul>
+<p><strong>Options</strong>:</p>
+<ol style="list-style-type: decimal">
+<li><strong>Option 1</strong>: explicitly model each <span class="math inline">\(\beta_j\)</span> as well, i.e.:</li>
+</ol>
+<ul>
+<li><p>initialize separate mini-NN’s for each <span class="math inline">\(\beta_j\)</span>, feed each of them the <span class="math inline">\(Z\)</span> matrix only;</p></li>
+<li><p>get the scalar outputs from each of these mini-NN’s and use them
+as coefs for X.</p></li>
+<li><p>Think this should work, but the number of NN parameters grows
+with <span class="math inline">\(\mathcal{O}(R \times p)\)</span>, as
+opposed to just <span class="math inline">\(\mathcal{O}(R+p)\)</span>
+(unlike VCBART, the number of params we use is <em>static</em>, as
+opposed to <strong>building</strong> trees and adding params to
+accomodate complexity). We are likely to need many more observations to
+perform well.</p></li>
+<li><p>sparseVCBART relies on heuristic criteria for variable selection.
+I worry we start to enter this territory, since shrinkage is done only
+on the <span class="math inline">\(\beta_j\)</span>’s / <span class="math inline">\(Z\)</span> variables. Then we end up with multiple
+(<span class="math inline">\(R\)</span>) <span class="math inline">\(\kappa_r\)</span>’s to consider for each <span class="math inline">\(x_j\)</span>.</p></li>
+</ul>
+<ol start="2" style="list-style-type: decimal">
+<li><strong>Option 2</strong>: proceed as usual, don’t model <span class="math inline">\(\beta_j\)</span>’s, just recover some <span class="math inline">\(f(X, Z)\)</span>:</li>
+</ol>
+<ul>
+<li><p>recover <span class="math inline">\(\beta_j\)</span>’s via
+trained model output, as described above. I’m somewhat skeptical this
+would work as neatly, since the network is not constrained to keep <span class="math inline">\(x_j\)</span> and <span class="math inline">\(x_k\)</span> separate from each other, for
+example. <span class="math inline">\(f(Z,X)\)</span> is a much larger
+function space.</p>
+<ul>
+<li>I suppose though that it would be good if we can recover the VC
+model-like structure when the data is truly generated in this way.</li>
+</ul></li>
+</ul>
+<ol start="3" style="list-style-type: decimal">
+<li><strong>Option 3</strong>: explicitly model VC model, but not the
+<span class="math inline">\(\beta_j(Z)\)</span> coefficient
+functions:</li>
+</ol>
+<ul>
+<li><p>BNN used to model coefs together.</p>
+<ul>
+<li><p>BNN input is <span class="math inline">\(Z\)</span> (input
+dimension <span class="math inline">\(R\)</span>)</p></li>
+<li><p>BNN output is the <span class="math inline">\(p + 1\)</span>
+coefs <span class="math inline">\(\beta_j(Z), j \in \{0, 1, ...,
+p\}\)</span></p></li>
+</ul></li>
+<li><p>inference conducted on both first layer <span class="math inline">\(\kappa_j\)</span>’s (for var sel on <span class="math inline">\(Z\)</span>) as well as final layer <span class="math inline">\(\kappa_j\)</span>’s (for var sel on <span class="math inline">\(X\)</span>)</p></li>
+<li><p>don’t need as many params / obs this way. Appears to be the usual
+way VC model is implemented in NNs.</p></li>
+</ul>
+<p><strong>For now:</strong> try option 2 (business as usual), if it
+doesn’t work well, try option 3.</p>
+</div>
+<div id="future-research-possibility" class="section level2">
+<h2>future research possibility:</h2>
+<ul>
+<li>combining with gradient boosting? Will require many obs I
+think.</li>
+</ul>
+</div>
+</div>
 <div id="meeting" class="section level1">
 <h1>2/12 meeting</h1>
 <p>Meeting with Veronica:</p>
@@ -3021,7 +3186,7 @@ be done after we are sure we have a story otherwise)</p></li>
 deadline</p></li>
 </ul>
 <ol style="list-style-type: decimal">
-<li>Leave increasing covariates and complexity after dissertatio/paper
+<li>Leave increasing covariates and complexity after dissertation/paper
 submission</li>
 </ol>
 <ul>
@@ -3080,7 +3245,7 @@ well</strong></p></li>
 <li><p>still more params than obs, but only ~1.25 as many</p></li>
 </ul></li>
 </ul>
-<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">param_counts_from_dims</span>(<span class="at">dim_vec =</span> <span class="fu">c</span>(<span class="dv">40</span>, <span class="dv">8</span>, <span class="dv">16</span>, <span class="dv">1</span>))</span></code></pre></div>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a><span class="fu">param_counts_from_dims</span>(<span class="at">dim_vec =</span> <span class="fu">c</span>(<span class="dv">40</span>, <span class="dv">8</span>, <span class="dv">16</span>, <span class="dv">1</span>))</span></code></pre></div>
 <pre><code>## layer_1 layer_2 layer_3   TOTAL 
 ##     820     324     102    1246</code></pre>
 <p>If lowering <span class="math inline">\(\tau_0\)</span> alleviates
@@ -3096,20 +3261,20 @@ prone to false positives (thus far — only 1/3 way through training 1st
 replicate)</li>
 </ul></li>
 </ul>
-<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="co"># agnostic tau_0</span></span>
-<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a><span class="fu">tau0_PV</span>(<span class="at">p_0 =</span> <span class="dv">1</span>, <span class="at">d =</span> <span class="dv">2</span>, <span class="at">sig =</span> <span class="dv">1</span>, <span class="at">n =</span> <span class="fl">1e3</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a><span class="co"># agnostic tau_0</span></span>
+<span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a><span class="fu">tau0_PV</span>(<span class="at">p_0 =</span> <span class="dv">1</span>, <span class="at">d =</span> <span class="dv">2</span>, <span class="at">sig =</span> <span class="dv">1</span>, <span class="at">n =</span> <span class="fl">1e3</span>)</span></code></pre></div>
 <pre><code>## [1] 0.03162278</code></pre>
-<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="co"># agnostic tau, scaled by params to obs</span></span>
-<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a><span class="fu">tau0_PV</span>(<span class="at">p_0 =</span> <span class="dv">1</span>, <span class="at">d =</span> <span class="dv">2</span>, <span class="at">sig =</span> <span class="dv">1</span>, <span class="at">n =</span> <span class="fl">1e3</span>) <span class="sc">*</span> </span>
-<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a>  <span class="fl">1e3</span> <span class="sc">/</span> <span class="fu">param_counts_from_dims</span>(<span class="fu">c</span>(<span class="dv">104</span>, <span class="dv">8</span>, <span class="dv">16</span>, <span class="dv">1</span>))[<span class="dv">4</span>]</span></code></pre></div>
+<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a><span class="co"># agnostic tau, scaled by params to obs</span></span>
+<span id="cb13-2"><a href="#cb13-2" tabindex="-1"></a><span class="fu">tau0_PV</span>(<span class="at">p_0 =</span> <span class="dv">1</span>, <span class="at">d =</span> <span class="dv">2</span>, <span class="at">sig =</span> <span class="dv">1</span>, <span class="at">n =</span> <span class="fl">1e3</span>) <span class="sc">*</span> </span>
+<span id="cb13-3"><a href="#cb13-3" tabindex="-1"></a>  <span class="fl">1e3</span> <span class="sc">/</span> <span class="fu">param_counts_from_dims</span>(<span class="fu">c</span>(<span class="dv">104</span>, <span class="dv">8</span>, <span class="dv">16</span>, <span class="dv">1</span>))[<span class="dv">4</span>]</span></code></pre></div>
 <pre><code>##      TOTAL 
 ## 0.01251891</code></pre>
-<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="co"># optimistic tau (expecting 10 of 104 instead of true 4)</span></span>
-<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a><span class="fu">tau0_PV</span>(<span class="at">p_0 =</span> <span class="dv">10</span>, <span class="at">d =</span> <span class="dv">104</span>, <span class="at">sig =</span> <span class="dv">1</span>, <span class="at">n =</span> <span class="fl">1e3</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" tabindex="-1"></a><span class="co"># optimistic tau (expecting 10 of 104 instead of true 4)</span></span>
+<span id="cb15-2"><a href="#cb15-2" tabindex="-1"></a><span class="fu">tau0_PV</span>(<span class="at">p_0 =</span> <span class="dv">10</span>, <span class="at">d =</span> <span class="dv">104</span>, <span class="at">sig =</span> <span class="dv">1</span>, <span class="at">n =</span> <span class="fl">1e3</span>)</span></code></pre></div>
 <pre><code>## [1] 0.003364125</code></pre>
-<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a><span class="co"># optimistic tau, scaled by params to obs</span></span>
-<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a><span class="fu">tau0_PV</span>(<span class="at">p_0 =</span> <span class="dv">10</span>, <span class="at">d =</span> <span class="dv">104</span>, <span class="at">sig =</span> <span class="dv">1</span>, <span class="at">n =</span> <span class="fl">1e3</span>) <span class="sc">*</span> </span>
-<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a>  <span class="fl">1e3</span> <span class="sc">/</span> <span class="fu">param_counts_from_dims</span>(<span class="fu">c</span>(<span class="dv">104</span>, <span class="dv">8</span>, <span class="dv">16</span>, <span class="dv">1</span>))[<span class="dv">4</span>] </span></code></pre></div>
+<div class="sourceCode" id="cb17"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" tabindex="-1"></a><span class="co"># optimistic tau, scaled by params to obs</span></span>
+<span id="cb17-2"><a href="#cb17-2" tabindex="-1"></a><span class="fu">tau0_PV</span>(<span class="at">p_0 =</span> <span class="dv">10</span>, <span class="at">d =</span> <span class="dv">104</span>, <span class="at">sig =</span> <span class="dv">1</span>, <span class="at">n =</span> <span class="fl">1e3</span>) <span class="sc">*</span> </span>
+<span id="cb17-3"><a href="#cb17-3" tabindex="-1"></a>  <span class="fl">1e3</span> <span class="sc">/</span> <span class="fu">param_counts_from_dims</span>(<span class="fu">c</span>(<span class="dv">104</span>, <span class="dv">8</span>, <span class="dv">16</span>, <span class="dv">1</span>))[<span class="dv">4</span>] </span></code></pre></div>
 <pre><code>##       TOTAL 
 ## 0.001331799</code></pre>
 <ul>
@@ -3117,7 +3282,7 @@ replicate)</li>
 dimension needs to be small, which feels very limiting, but let’s
 see.</li>
 </ul>
-<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a><span class="fu">param_counts_from_dims</span>(<span class="fu">c</span>(<span class="dv">104</span>, <span class="dv">4</span>, <span class="dv">4</span>, <span class="dv">1</span>))</span></code></pre></div>
+<div class="sourceCode" id="cb19"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" tabindex="-1"></a><span class="fu">param_counts_from_dims</span>(<span class="fu">c</span>(<span class="dv">104</span>, <span class="dv">4</span>, <span class="dv">4</span>, <span class="dv">1</span>))</span></code></pre></div>
 <pre><code>## layer_1 layer_2 layer_3   TOTAL 
 ##    1260      60      30    1350</code></pre>
 <div id="depth" class="section level3">
@@ -3155,11 +3320,11 @@ more variation in both)</p></li>
 </ul>
 <div id="number-of-nn-params" class="section level3">
 <h3>number of NN params</h3>
-<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a><span class="co"># network parameter counts</span></span>
-<span id="cb13-2"><a href="#cb13-2" tabindex="-1"></a><span class="fu">param_counts_from_dims</span>(<span class="at">dim_vec =</span> <span class="fu">c</span>(<span class="dv">104</span>, <span class="dv">16</span>, <span class="dv">32</span>, <span class="dv">1</span>))</span></code></pre></div>
+<div class="sourceCode" id="cb21"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" tabindex="-1"></a><span class="co"># network parameter counts</span></span>
+<span id="cb21-2"><a href="#cb21-2" tabindex="-1"></a><span class="fu">param_counts_from_dims</span>(<span class="at">dim_vec =</span> <span class="fu">c</span>(<span class="dv">104</span>, <span class="dv">16</span>, <span class="dv">32</span>, <span class="dv">1</span>))</span></code></pre></div>
 <pre><code>## layer_1 layer_2 layer_3   TOTAL 
 ##    3780    1156     198    5134</code></pre>
-<div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" tabindex="-1"></a><span class="fu">param_counts_from_dims</span>(<span class="at">dim_vec =</span> <span class="fu">c</span>(<span class="dv">104</span>, <span class="dv">8</span>, <span class="dv">16</span>, <span class="dv">1</span>))</span></code></pre></div>
+<div class="sourceCode" id="cb23"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" tabindex="-1"></a><span class="fu">param_counts_from_dims</span>(<span class="at">dim_vec =</span> <span class="fu">c</span>(<span class="dv">104</span>, <span class="dv">8</span>, <span class="dv">16</span>, <span class="dv">1</span>))</span></code></pre></div>
 <pre><code>## layer_1 layer_2 layer_3   TOTAL 
 ##    2100     324     102    2526</code></pre>
 <p>Regarding network size, with 104 input covariates,</p>
@@ -3175,10 +3340,10 @@ covars.</p>
 <li>Without reducing the number of niusance covars, going to need to use
 a very small network (4-16 and 4-4 network sizes below):</li>
 </ul>
-<div class="sourceCode" id="cb17"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" tabindex="-1"></a><span class="fu">param_counts_from_dims</span>(<span class="at">dim_vec =</span> <span class="fu">c</span>(<span class="dv">104</span>, <span class="dv">4</span>, <span class="dv">16</span>, <span class="dv">1</span>))</span></code></pre></div>
+<div class="sourceCode" id="cb25"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" tabindex="-1"></a><span class="fu">param_counts_from_dims</span>(<span class="at">dim_vec =</span> <span class="fu">c</span>(<span class="dv">104</span>, <span class="dv">4</span>, <span class="dv">16</span>, <span class="dv">1</span>))</span></code></pre></div>
 <pre><code>## layer_1 layer_2 layer_3   TOTAL 
 ##    1260     180     102    1542</code></pre>
-<div class="sourceCode" id="cb19"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" tabindex="-1"></a><span class="fu">param_counts_from_dims</span>(<span class="at">dim_vec =</span> <span class="fu">c</span>(<span class="dv">104</span>, <span class="dv">4</span>, <span class="dv">4</span>, <span class="dv">1</span>))</span></code></pre></div>
+<div class="sourceCode" id="cb27"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" tabindex="-1"></a><span class="fu">param_counts_from_dims</span>(<span class="at">dim_vec =</span> <span class="fu">c</span>(<span class="dv">104</span>, <span class="dv">4</span>, <span class="dv">4</span>, <span class="dv">1</span>))</span></code></pre></div>
 <pre><code>## layer_1 layer_2 layer_3   TOTAL 
 ##    1260      60      30    1350</code></pre>
 <p><strong>What’s the bright side?</strong></p>
@@ -3852,7 +4017,7 @@ than we are seeing. This makes more sense to me.</p></li>
 <li>mostly unaltered apart from fixing into descending chronological
 order (most recent at top) and making each date a heading</li>
 </ul>
-<div id="section" class="section level3">
+<div id="section-2" class="section level3">
 <h3>12/19</h3>
 <ul>
 <li><p>currently running: hshoe_smooth_pvtau_1721632</p>
@@ -3905,7 +4070,7 @@ move more in right direction</li>
 dimension - weights: 2 params per weight: input x output dim - biases: 2
 params per output dimension</p>
 </div>
-<div id="section-1" class="section level3">
+<div id="section-3" class="section level3">
 <h3>12/17:</h3>
 <ul>
 <li>activation scaling doesn’t work! just ends up not training anymore,
@@ -3941,7 +4106,7 @@ kaiming init. - started 2nd: smoother_fcns_kaiming — smoother functions,
 5 layers, leaky relu, 8 in all - started 3rd: smoother_fcns_kaiming —
 smoother functions, 2 layers, leaky relu, 32 32</p>
 </div>
-<div id="section-2" class="section level3">
+<div id="section-4" class="section level3">
 <h3>12/16</h3>
 <ul>
 <li>ablation: try smoother_functions_kaiming with
@@ -3952,7 +4117,7 @@ smoother functions, 2 layers, leaky relu, 32 32</p>
 <code>torch_horseshoe_scaledacts.R</code></li>
 </ul>
 </div>
-<div id="section-3" class="section level3">
+<div id="section-5" class="section level3">
 <h3>12/14</h3>
 <ul>
 <li><code>smoother_functions_kaiming.R</code>: smoother functions,
@@ -3974,7 +4139,7 @@ captured</li>
 </ul></li>
 </ul>
 </div>
-<div id="section-4" class="section level3">
+<div id="section-6" class="section level3">
 <h3>11/20</h3>
 <p>testing over the last few weeks suggests that 1) when the network’s
 parameters outnumber the observations we have to work with, the
@@ -3996,7 +4161,7 @@ RELU - each weight sampled from N(0, 2 / n_{l-1}) - Hu 2020 - orthogonal
 initialization - maximal update parametrization</p>
 <p>nn_init_kaiming_normal_(mod<span class="math inline">\(fc1\)</span>weight_mu)</p>
 </div>
-<div id="section-5" class="section level3">
+<div id="section-7" class="section level3">
 <h3>11/10</h3>
 <p>ideas to try: - scale outputs by layer dimension - divide
 pre-activations by d — mitigate tau getting too small? - e.g. Y1 + Y1 +
@@ -4010,7 +4175,7 @@ Y1 + Y1 vs Y1 + Y2 + Y3 + Y4</p>
 <li><p>justify multiplying / dividing scale param</p></li>
 </ul>
 </div>
-<div id="section-6" class="section level3">
+<div id="section-8" class="section level3">
 <h3>11/8</h3>
 <ul>
 <li><p>need to monitor test-train split along with TP TN rate</p></li>
