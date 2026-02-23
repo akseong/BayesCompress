@@ -101,8 +101,8 @@ eps_mat <- matrix(
 
 ## param counts ----
 source(here::here("Rcode", "analysis_fcns.R"))
-param_counts_from_dims(dim_vec = c(23, 4, 16, 1))  # first experiment p=3
-param_counts_from_dims(dim_vec = c(70, 4, 16, 1))  # second experiment p=50
+param_counts_from_dims(dim_vec = c(23, 4, 8, 8, 1))  # first experiment p=3
+param_counts_from_dims(dim_vec = c(70, 4, 8, 8, 1))  # second experiment p=50
 
 
 ## CUDA----
@@ -114,14 +114,44 @@ if (torch::cuda_is_available()){
   message("Default tensor device remains CPU.")
 }
 
-
-
 ## save paths ----
 save_prestem <- here::here(
   "sims", 
   "results", 
-  "spVCBART_"
+  "spVCBART_exp1_416_"
 )
+
+## sim_params
+sim_params <- list(
+  "sim_name" = "1k obs; sparseVCBART experiment 1: R=20, p=3",
+  "seed" = 416,
+  "n_sims" = 5, 
+  "train_epochs" = 5E5,
+  "report_every" = 1E4,
+  "use_cuda" = use_cuda,
+  "d_in" = R+p,
+  "d_hidden1" = 4,
+  "d_hidden2" = 16,
+  # "d_hidden3" = 16,
+  # "d_hidden4" = 16,
+  # "d_hidden5" = 16,
+  "d_out" = 1,
+  "n_obs" = 1250,
+  "true_coefs" = c(-0.5, 1, -2, 4, rep(0, times = 100)),
+  "alpha_thresh" = 1 / qchisq(1 - (0.05 / 104), df = 1),
+  "flist" = flist,
+  "lr" = 0.001,  # sim_hshoe learning rate arg.  If not specified, uses optim_adam default (0.001)
+  "err_sig" = 1,
+  "xdist" = "norm",
+  "convergence_crit" = 1e-7,
+  "ttsplit" = 4/5,
+  "batch_size" = NULL,
+  "stop_k" = 100,
+  "stop_streak" = 25,
+  "burn_in" = 25e4 # 5E5,
+)
+set.seed(sim_params$seed)
+sim_params$sim_seeds <- floor(runif(n = sim_params$n_sims, 0, 1000000))
 
 
 
