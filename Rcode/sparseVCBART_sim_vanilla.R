@@ -69,9 +69,9 @@ sim_params <- list(
   "seed" = 816,
   "sim_ID" = sim_ID,
   "n_sims" = n_sims,
-  "train_epochs" = 5E3,
+  "train_epochs" = 2E3,
   "report_every" = 1E2,
-  "plot_every_x_reports" = 5,
+  "plot_every_x_reports" = 10,
   "verbose" = verbose,
   "want_metric_plts" = want_metric_plts,
   "want_fcn_plts" = want_fcn_plts,
@@ -601,6 +601,42 @@ while (epoch <= sim_params$train_epochs){
   epoch <- epoch + 1
 }
 
+### compile results ----
+sim_res <- list(
+  "sim_ind" = sim_ind,
+  "loss_mat" = loss_mat,
+  "alpha_mat" = alpha_mat,
+  "kappa_mat" = kappa_mat,
+  "kappa_tc_mat" = kappa_tc_mat,
+  "kappa_fc_mat" = kappa_fc_mat,
+  "kappa_local_mat" = kappa_local_mat
+  
+)
+
+### notify completed training ----
+completed_msg <- paste0(
+  "\n \n ******************** \n ******************** \n",
+  "sim #", 
+  sim_ind, 
+  " completed",
+  "\n ******************** \n ******************** \n \n"
+)
+cat_color(txt = completed_msg)
+
+### save torch model & sim results ----
+if (save_mod){
+  save_mod_path <- paste0(sim_save_path, ".pt")
+  torch_save(model_fit, path = save_mod_path)
+  cat_color(txt = paste0("model saved: ", save_mod_path))
+  sim_res$mod_path = save_mod_path
+}
+
+if (save_results){
+  sim_res$sim_params <- sim_params
+  save_res_path <- paste0(sim_save_path, ".RData")
+  save(sim_res, file = save_res_path)
+  cat_color(txt = paste0("sim results saved: ", save_res_path))
+}
 
 
 
