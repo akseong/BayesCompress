@@ -49,27 +49,40 @@ dont_scale_t0 <- TRUE
 sim_ID <- "VC_vanilla816_agnostic"
 
 verbose <- TRUE
+want_metric_plts <- TRUE
+want_fcn_plts <- TRUE
+save_metric_plts <- TRUE
+save_fcn_plts <- TRUE
 
-
-
-fname_stem <- here::here(
-  "sims", 
-  "results", 
-  paste0(
-    sim_ID,
-    "_p", p,
-    "_n", n_obs/1000, "k",
-    "_"
-  )
+fname_stem <- paste0(
+  sim_ID,
+  "_p", p,
+  "_n", round(n_obs/1000), "k",
+  "_"
 )
+
 
 ## sim_params ** ----
 sim_params <- list(
+  # sim characteristics
   "description" = "agnostic tau_0; sparseVCBART experiment 1 setting",
   "seed" = 816,
-  "n_sims" = 5, 
+  "sim_ID" = sim_ID,
+  "n_sims" = n_sims,
   "train_epochs" = 5E3,
   "report_every" = 1E2,
+  "plot_every_x_reports" = 5,
+  "verbose" = verbose,
+  "want_metric_plts" = want_metric_plts,
+  "want_fcn_plts" = want_fcn_plts,
+  "save_metric_plts" = save_metric_plts,
+  "save_fcn_plts" = save_fcn_plts,
+  
+  
+  # network params
+  "p_0" = p_0,
+  "sig_est" = 1,
+  "dont_scale_t0" = dont_scale_t0,
   "use_cuda" = use_cuda,
   "d_0" = R+p,
   "d_1" = 8,
@@ -78,11 +91,15 @@ sim_params <- list(
   # "d_4" = 16,
   # "d_5" = 16,
   "d_L" = 1,
-  "n_obs" = n_obs,
   "lr" = 0.001,  # sim_hshoe learning rate arg.  If not specified, uses optim_adam default (0.001)
-  "err_sig" = 1,
+  
+  # data characteristics
+  "n_obs" = n_obs,
   "ttsplit" = ttsplit,
-  "dont_scale_t0" = dont_scale_t0
+  "p" = p,
+  "R" = R,
+  "sig_eps" = sig_eps,
+  "mu_eps" = mu_eps
 )
 set.seed(sim_params$seed)
 sim_params$sim_seeds <- floor(runif(n = sim_params$n_sims, 0, 1000000))
@@ -98,18 +115,26 @@ print(param_count)
 # Piironen & Vehtari 2017 suggest tau_0 = p_0 / (d - p_0) * sig / sqrt(n)
 # where p_0 = prior estimate of number of nonzero betas, d = total number of covs
 
+# Not sure if sig = sd(y) or of sd(eps):
+# if sd(y), just set = 1, since standardizing y;
+# if sd(eps), get preliminary estimate of sig using
+# lmfit <- lm(as_array(y_tr) ~ as_array(XZ_tr))
+# summary(lmfit)$sigma
+
 # If many more network params than obs (e.g. like 2x), 
 # can try scaling the prior tau by n_obs/n_params
 # to induce more shrinkage (put pressure against overfitting)
 obs_to_nnparams <- sim_params$n_obs / last(param_count)
 tau0_scaling <- ifelse(
-  (obs_to_nnparams > .5) | dont_scale_t0, 
+  (obs_to_nnparams > .5) | sim_params$dont_scale_t0, 
   1, 
   obs_to_nnparams
-) 
+)
 
 sim_params$prior_tau <- tau0_scaling * tau0_PV(
-  p_0 = p_0, d = p+R, sig = 1, 
+  p_0 = sim_params$p_0, 
+  d = sim_params$p + sim_params$R, 
+  sig = sim_params$sig_est, 
   n = sim_params$n_obs
 )
 
@@ -222,6 +247,7 @@ bfcns_list <- list(
   "beta_2" = beta_2,
   "beta_3" = beta_3
 )
+sim_params$bfcns_list <- bfcns_list
 
 # plot beta_0, beta_1 fcns
 #   note that b1 and b0 are not really separable when looking at y
@@ -229,8 +255,8 @@ bfcns_list <- list(
 #   - to capture "b1" we need to set x1 = 1, generate predictions yhat
 #     and then generate intercepts b0hat using the same Z coordinates 
 #     and setting all x = 0.  Then, plot (yhat - b0hat) against z1
-plot_b0_true(resol = 100, b0 = bfcns_list$beta_0)
-plot_b1_true(resol = 100, b1 = bfcns_list$beta_1)
+plot_b0_true(resol = 100, b0 = sim_params$bfcns_list$beta_0)
+plot_b1_true(resol = 100, b1 = sim_params$bfcns_list$beta_1)
 
 ## generate Ey, X ----
 # Covariance of X vars (same as in paper)
@@ -239,31 +265,31 @@ plot_b1_true(resol = 100, b1 = bfcns_list$beta_1)
 
 set.seed(sim_params$seed)
 Ey_df <- gen_Eydat_sparseVCBART(
-  n_obs = round(n_obs / ttsplit), # training obs
-  p = p,
-  R = R,
+  n_obs = round(sim_params$n_obs / sim_params$ttsplit), # training obs
+  p = sim_params$p,
+  R = sim_params$R,
   covar_fcn = corr_fcn,
-  beta_0 = bfcns_list$beta_0,
-  beta_1 = bfcns_list$beta_1,
-  beta_2 = bfcns_list$beta_2,
-  beta_3 = bfcns_list$beta_3
+  beta_0 = sim_params$bfcns_list$beta_0,
+  beta_1 = sim_params$bfcns_list$beta_1,
+  beta_2 = sim_params$bfcns_list$beta_2,
+  beta_3 = sim_params$bfcns_list$beta_3
 )
 # generate epsilons
 eps_mat <- matrix(
   rnorm(
     n = nrow(Ey_df),
-    mean = mu_eps,
-    sd = sig_eps
+    mean = sim_params$mu_eps,
+    sd = sim_params$sig_eps
   ), 
-  ncol = n_sims
+  ncol = sim_params$n_sims
 )
 
 ## train/test ----
 # Note: (test obs aren't used to calibrate NN,
 # just for me to observe for training progress
 # and catch simulation problems)
-tr_inds <- 1:n_obs
-te_inds <- (n_obs + 1):nrow(Ey_df)
+tr_inds <- 1:sim_params$n_obs
+te_inds <- (sim_params$n_obs + 1):nrow(Ey_df)
 Ey_raw <- Ey_df[, 1]
 XZ_raw <- Ey_df[, -1]
 
@@ -284,6 +310,16 @@ XZ_te <- torch_tensor(as.matrix(XZ[te_inds, ]))
 sim_ind <- 1
 ######################################################
 
+## sim_save_path ----
+sim_save_path <- here::here(
+  "sims", 
+  "results", 
+  paste0(
+    fname_stem,
+    sim_params$sim_seeds[sim_ind]
+  )
+)
+
 ## add noise and standardize y, test/train split ----
 y_raw <- Ey_raw + eps_mat[, sim_ind]
 y_mean <- mean(y_raw)
@@ -293,7 +329,6 @@ y <- (y_raw - y_mean) / y_sd
 y_tr <- torch_tensor(y[tr_inds])$unsqueeze(2)
 y_te <- torch_tensor(y[te_inds])$unsqueeze(2)
 
-
 if (sim_params$use_cuda){
   y_tr <- y_tr$to(device = "cuda")
   y_te <- y_te$to(device = "cuda")
@@ -301,17 +336,20 @@ if (sim_params$use_cuda){
   XZ_te <- XZ_te$to(device = "cuda")
 }
 
-## initialize BNN & optimizer ----
-model_fit <- MLHS()
-optim_model_fit <- optim_adam(model_fit$parameters, lr = sim_params$lr)
-
-## store: # train, test mse and kl ----
+## when to report / plot ----
 report_epochs <- seq(
   sim_params$report_every, 
   sim_params$train_epochs, 
   by = sim_params$report_every
 )
 
+plot_epochs <- seq(
+  sim_params$report_every*sim_params$plot_every_x_reports, 
+  sim_params$train_epochs, 
+  by = sim_params$report_every*sim_params$plot_every_x_reports
+)
+
+## store: # train, test mse and kl ----
 loss_mat <- matrix(
   NA, 
   nrow = length(report_epochs),
@@ -335,12 +373,14 @@ kappa_local_mat <-
   kappa_fc_mat <- alpha_mat
 
 
-# TRAIN LOOP ----
+# TRAIN ----
+## initialize BNN & optimizer ----
+model_fit <- MLHS()
+optim_model_fit <- optim_adam(model_fit$parameters, lr = sim_params$lr)
 
-# initialize training params
+## TRAIN LOOP
 epoch <- 1
 loss <- torch_tensor(1, device = dev_select(sim_params$use_cuda))
-
 while (epoch <= sim_params$train_epochs){
   
   ## fit & metrics ----
@@ -358,10 +398,22 @@ while (epoch <= sim_params$train_epochs){
   optim_model_fit$step()
   
   
-  ## TRAIN PROGRESS ----
-  time_to_report <- epoch!=0 & (epoch %% sim_params$report_every == 0)
-  if (!time_to_report & verbose & (epoch %% sim_params$report_every == 1)){cat("Training till next report:")}
-  if (!time_to_report & verbose & (epoch %% round(sim_params$report_every/100) == 1)){cat(".")}
+  ## REPORTING ----
+  # track progress
+  time_to_report <- epoch %in% report_epochs
+  if (!time_to_report & verbose){
+    if (epoch %% sim_params$report_every == 1){
+      cat("Training till next report:")
+    }
+    # progress bar
+    if (sim_params$report_every <= 100){
+      # place "." every epoch if report_every < 100
+      cat(".")
+    } else if (epoch %% round(sim_params$report_every/100) == 1){
+      # place "." every percent progress between reports
+      cat(".")
+    }
+  }
   
   ### store results ----
   if (time_to_report){
@@ -389,7 +441,7 @@ while (epoch <= sim_params$train_epochs){
   }
   
   ### in-console reporting ----
-  if (time_to_report & verbose){
+  if (time_to_report & sim_params$verbose){
     cat(
       "\n Epoch:", epoch,
       "MSE + KL/n =", round(mse$item(), 5), "+", round(kl$item(), 5),
@@ -411,7 +463,9 @@ while (epoch <= sim_params$train_epochs){
       "; s_sq3 = ", round(s_sq3, 5),
       sep = ""
     )
-    # cat("\n alphas: ", round(as_array(dropout_alphas), 2), "\n")
+    
+    # report variable importance indicators
+    cat("\n ALPHAS: ", round(as_array(dropout_alphas), 2), "\n")
     # display_alphas <- ifelse(
     #   as_array(dropout_alphas) <= sim_params$alpha_thresh,
     #   round(as_array(dropout_alphas), 3),
@@ -419,11 +473,128 @@ while (epoch <= sim_params$train_epochs){
     # )
     # cat("alphas below 0.82: ")
     # cat(display_alphas, sep = " ")
+    cat("\n LOCAL kappas: ", round(kappas_local, 2), "\n")
+    cat("\n GLOBAL kappas: ", round(kappas, 2), "\n")
+    cat("\n FROB kappas: ", round(kappas_fc, 2), "\n")
+    cat("\n TAU kappas: ", round(kappas_tc, 2), "\n")
+    cat("\n \n")
+  }
+  
+  ## PLOTS ----
+  time_to_plot <- epoch %in% plot_epochs
+  ### metric plot ----
+  if (time_to_plot & sim_params$want_metric_plts){
+    # plot train/test MSE, KL
+    metrics_plt <- varmat_pltfcn(
+      tail(loss_mat, 50), 
+      show_vars = colnames(loss_mat)
+    )$show_vars_plt + 
+      labs(title = "training metrics vs epoch")
     
-    cat("\n global kappas: ", round(kappas, 2), "\n")
-    cat("\n tau-corrected kappas: ", round(kappas_tc, 2), "\n")
-    cat("\n frob-corrected kappas: ", round(kappas_fc, 2), "\n")
-    cat(" \n \n")
+    # save or print
+    if (sim_params$save_fcn_plts){
+      loss_plt_fname <- paste0(sim_save_path, "_loss_e", round(epoch/1000), "k.png")
+      ggsave(filename = loss_plt_fname, plot = metrics_plt, height = 4, width = 6)
+    } else {
+      print(metrics_plt)
+    }
+    
+  }
+
+  ### fcn plots ----
+  if (time_to_plot & sim_params$want_fcn_plts){
+    
+    ## plot beta_0 
+    b0_df_raw <- make_b0_pred_df(
+      p = sim_params$p, 
+      R = sim_params$R,
+      z2_vals = c(0,1)
+    )
+    b0_df <- scale_mat(b0_df_raw, means = XZ_means, sds = XZ_sds)$scaled
+    b0_yhat <- as_array(
+      get_nn_mod_Ey(
+        nn_mod = model_fit, 
+        X = torch_tensor(as.matrix(b0_df))
+      )
+    )
+    b0_yhat_raw <- b0_yhat * y_sd + y_mean
+    
+    b0_plt <- data.frame(
+      "b0" = bfcns_list$beta_0(b0_df_raw),
+      "b0_hat" = b0_yhat_raw,
+      "z1" = b0_df_raw[, 1],
+      "z2" = as_factor(b0_df_raw[, 2])
+    ) %>% 
+      pivot_longer(cols = 1:2, values_to = "b0") %>% 
+      ggplot(aes(y = b0, x = z1, color = z2, linetype = name)) + 
+      geom_line() +
+      labs(title = TeX("estimated $\\beta_0$ ~ $z_1$"))
+    
+    
+    ## plot beta_1
+    b1_df_raw <- make_b1_pred_df(
+      resol = 100,
+      x1_vals = 1,
+      p = sim_params$p,
+      R = sim_params$R
+    )
+    b1_df <- scale_mat(b1_df_raw, XZ_means, XZ_sds)$scaled
+    b0_for_b1_raw <- make_b0_pred_df(
+      resol = 100,
+      p = sim_params$p,
+      R = sim_params$R,
+      z2_vals = 0
+    )
+    b0_for_b1_df <- scale_mat(b0_for_b1_raw, XZ_means, XZ_sds)$scaled
+    
+    # gen scaled Eys
+    Ey_b1_hat <- as_array(
+      get_nn_mod_Ey(
+        nn_mod = model_fit, 
+        X = torch_tensor(as.matrix(b1_df))
+      )
+    )
+    b0_hat <- as_array(
+      get_nn_mod_Ey(
+        nn_mod = model_fit, 
+        X = torch_tensor(as.matrix(b0_for_b1_df))
+      )
+    )
+    
+    # indirectly get b1:
+    b1_hat <- Ey_b1_hat/b1_df$x1 - b0_hat
+    b1_hat_to_plot <- (b1_hat*y_sd) + y_mean
+    
+    b1_pltdf <- data.frame(
+      "b1_true" = bfcns_list$beta_1(b1_df_raw),
+      "b1_hat" = b1_hat_to_plot,
+      "z1" = b1_df_raw$z1,
+      "x1" = b1_df_raw$x1
+    )
+    
+    b1_plt <- b1_pltdf %>%
+      pivot_longer(cols = 1:2) %>% 
+      ggplot() +
+      geom_line(
+        aes(
+          y = value,
+          x = z1,
+          color = name
+        )
+      ) +
+      labs(title = "Ey_hat/x1 minus b0_hat ~ z1")
+    
+    # save or print
+    if (sim_params$save_fcn_plts){
+      b0_plt_fname <- paste0(sim_save_path, "_b0_e", round(epoch/1000), "k.png")
+      b1_plt_fname <- paste0(sim_save_path, "_b1_e", round(epoch/1000), "k.png")
+      ggsave(filename = b0_plt_fname, plot = b0_plt, height = 4, width = 6)
+      ggsave(filename = b1_plt_fname, plot = b1_plt, height = 4, width = 6)
+    } else {
+      print(b0_plt)
+      print(b1_plt)
+    }
+    
   }
   
   # increment
