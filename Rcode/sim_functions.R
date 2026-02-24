@@ -185,6 +185,33 @@ dev_auto <- function(){
   ifelse(torch::cuda_is_available(), "cuda", "cpu")
 }
 
+# STANDARDIZING DATA ----
+scale_mat <- function(mat, means = NULL, sds = NULL){
+    # for matrices / dfs
+    if (is.null(means)){means <- colMeans(mat)}
+    if (is.null(sds)){sds <- apply(mat, 2, sd)}
+    centered <- sweep(mat, 2, STATS = means, "-")
+    scaled <- sweep(centered, 2, STATS = sds, "/")
+  
+  return(
+    list(
+      "scaled" = scaled,
+      "means" = means,
+      "sds" = sds
+    )
+  )
+}
+
+
+unscale_mat <- function(mat, means, sds){
+  descaled <- sweep(mat, 2, STATS = sds, "*")
+  decentered <- sweep(descaled, 2, STATS = means, "+")
+  return(decentered)
+}
+
+
+
+
 
 # DATA GENERATION ----
 plot_datagen_fcns <- function(
