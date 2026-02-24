@@ -671,6 +671,41 @@ plot_fcn_preds <- function(torchmod, pred_mats, want_df = FALSE, want_plot = TRU
   }
 }
 
+# GENERATE PREDS ----
+get_nn_mod_Ey <- function(nn_mod, X, ln_fcn = ln_mode){
+  # pre_act
+  num_layers <- length(nn_mod$children)
+  input <- X
+  for (nn_layer in 1:num_layers){
+    
+    ztilde <- ln_fcn(
+      mu = as_array(nn_mod$children[[nn_layer]]$atilde_mu + nn_mod$children[[nn_layer]]$btilde_mu)/2,
+      var = exp(as_array(nn_mod$children[[nn_layer]]$atilde_logvar + nn_mod$children[[nn_layer]]$btilde_logvar))/4
+    )
+    
+    s <- ln_fcn(
+      mu = as_array(nn_mod$children[[nn_layer]]$sa_mu + nn_mod$children[[nn_layer]]$sb_mu)/2,
+      var = exp(as_array(nn_mod$children[[nn_layer]]$sa_logvar + nn_mod$children[[nn_layer]]$sb_logvar))/4
+    )
+    
+    z <- torch_tensor(ztilde*s)
+    
+    Xz <- input*z
+    
+    mu_activations <- nnf_linear(
+      input = Xz, 
+      weight = nn_mod$children[[nn_layer]]$weight_mu, 
+      bias = nn_mod$children[[nn_layer]]$bias_mu
+    )
+    
+    if (nn_layer < num_layers){
+      # input for next layer
+      input <- nnf_relu(mu_activations)
+    }
+  }
+  
+  return(mu_activations)
+}
 
 
 
