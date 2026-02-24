@@ -77,7 +77,8 @@ sim_params <- list(
   "want_fcn_plts" = want_fcn_plts,
   "save_metric_plts" = save_metric_plts,
   "save_fcn_plts" = save_fcn_plts,
-  
+  "save_mod" = TRUE,
+  "save_results" = TRUE,
   
   # network params
   "p_0" = p_0,
@@ -624,14 +625,14 @@ completed_msg <- paste0(
 cat_color(txt = completed_msg)
 
 ### save torch model & sim results ----
-if (save_mod){
+if (sim_params$save_mod){
   save_mod_path <- paste0(sim_save_path, ".pt")
   torch_save(model_fit, path = save_mod_path)
   cat_color(txt = paste0("model saved: ", save_mod_path))
   sim_res$mod_path = save_mod_path
 }
 
-if (save_results){
+if (sim_params$save_results){
   sim_res$sim_params <- sim_params
   save_res_path <- paste0(sim_save_path, ".RData")
   save(sim_res, file = save_res_path)
