@@ -668,6 +668,8 @@ spVCBART_vanilla_sim <- function(
     ### fcn plots ----
     if (time_to_plot & sim_params$want_fcn_plts){
       
+      subtitle_str <- paste0("epoch :", epoch)
+      
       ## plot beta_0 
       b0_df_raw <- make_b0_pred_df(
         p = sim_params$p, 
@@ -692,7 +694,10 @@ spVCBART_vanilla_sim <- function(
         pivot_longer(cols = 1:2, values_to = "b0") %>% 
         ggplot(aes(y = b0, x = z1, color = z2, linetype = name)) + 
         geom_line() +
-        labs(title = TeX("estimated $\\beta_0$ ~ $z_1$"))
+        labs(
+          title = TeX("estimated $\\beta_0$ ~ $z_1$"),
+          subtitle = subtitle_str
+        )
       
       
       ## plot beta_1
@@ -746,7 +751,10 @@ spVCBART_vanilla_sim <- function(
             color = name
           )
         ) +
-        labs(title = "Ey_hat/x1 minus b0_hat ~ z1")
+        labs(
+          title = "Ey_hat/x1 minus b0_hat ~ z1",
+          subtitle = subtitle_str
+        )
       
       # save or print
       if (sim_params$save_fcn_plts){
