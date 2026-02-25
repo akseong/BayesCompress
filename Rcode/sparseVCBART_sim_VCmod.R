@@ -17,6 +17,7 @@ source(here("Rcode", "torch_horseshoe_klcorrected.R"))
 source(here("Rcode", "sim_functions.R"))
 source(here("Rcode", "analysis_fcns.R"))
 source(here("Rcode", "sparseVCBART_fcns.R"))
+source(here("Rcode", "torch_VC_outputlayer.R"))
 
 # CUDA----
 if (torch::cuda_is_available()){
@@ -29,7 +30,7 @@ if (torch::cuda_is_available()){
 
 
 # data characteristics ----
-n_obs <- 1e4   # try with more obs for now
+n_obs <- 1e1   # try with more obs for now
 ttsplit <- 0.8
 p <- 3  
 R <- 20
@@ -45,7 +46,7 @@ true_covs <- c(
 n_sims <- 2
 p_0 <- (p+R)/2
 dont_scale_t0 <- TRUE
-sim_ID <- "VC_vanilla816_agnostic"
+sim_ID <- "VCmod_testing"
 
 fname_stem <- here::here(
   "sims", 
@@ -60,18 +61,19 @@ fname_stem <- here::here(
 
 ## sim_params ** ----
 sim_params <- list(
-  "description" = "agnostic tau_0; sparseVCBART experiment 1 setting",
+  "description" = "VCs modeled; agnostic tau_0; sparseVCBART experiment 1 setting",
   "seed" = 816,
   "n_sims" = 5, 
-  "train_epochs" = 5E5,
-  "report_every" = 1E4,
+  "train_epochs" = 2e3,
+  "report_every" = 1E2,
   "use_cuda" = use_cuda,
-  "d_0" = R+p,
+  "d_0" = R,
   "d_1" = 8,
   "d_2" = 16,
   # "d_3" = 16,
   # "d_4" = 16,
   # "d_5" = 16,
+  "d_p1" = p+1,
   "d_L" = 1,
   "n_obs" = n_obs,
   "lr" = 0.001,  # sim_hshoe learning rate arg.  If not specified, uses optim_adam default (0.001)
@@ -176,27 +178,35 @@ te_inds <- (n_obs + 1):nrow(Ey_df)
 Ey_raw <- Ey_df[,1]
 Ey_raw_tr <- Ey_raw[tr_inds]
 Ey_raw_te <- Ey_raw[te_inds]
-XZ_raw <- Ey_df[, -1]
+
+Z_raw <- Ey_df[, grepl("z", colnames(Ey_df))]
+X_raw <- Ey_df[, grepl("x", colnames(Ey_df))]
 
 # standardize XZ.  
 # standardizing Y will have to happen after epsilons added
-XZ_means <- colMeans(XZ_raw)
-XZ_sds <- apply(XZ_raw, 2, sd)
-XZ_centered <- sweep(XZ_raw, 2, STATS = XZ_means, "-")
-XZ <- sweep(XZ_centered, 2, STATS = XZ_sds, "/")
+Z <- scale_mat(Z_raw)$scaled
+Z_means <- scale_mat(Z_raw)$means
+Z_sds <- scale_mat(Z_raw)$sds
 
-# # check standardized
-# colMeans(XZ)
-# diag(cov(XZ))
-XZ_tr <- XZ[tr_inds, ]
-XZ_te <- XZ[te_inds, ]
+X <- scale_mat(X_raw)$scaled
+# add intercept to X
+Xint <- cbind(1, X)
+X_means <- scale_mat(X_raw)$means
+X_sds <- scale_mat(X_raw)$sds
+
+Xint_tr <- torch_tensor(as.matrix(Xint[tr_inds, ]))
+Xint_te <- torch_tensor(as.matrix(Xint[te_inds, ]))
+Z_tr <- torch_tensor(as.matrix(Z[tr_inds, ]))
+Z_te <- torch_tensor(as.matrix(Z[te_inds, ]))
+
+
 
 
 
 # NETWORK SETUP ----
 ## define model
-MLHS <- nn_module(
-  "MLHS",
+VCHS <- nn_module(
+  "VCHS",
   initialize = function() {
     self$fc1 = torch_hs(    
       in_features = sim_params$d_0, 
@@ -244,7 +254,7 @@ MLHS <- nn_module(
       # 
       # self$fc5 = torch_hs(
       #   in_features = sim_params$d_4,
-      out_features = sim_params$d_L,
+      out_features = sim_params$d_p1,
       use_cuda = sim_params$use_cuda,
       tau_0 = agnostic_tau,
       init_weight = NULL,
@@ -253,28 +263,44 @@ MLHS <- nn_module(
       clip_var = TRUE
     )
     
+    self$vc = torch_hs_VClast(
+      in_features = sim_params$d_p1,
+      out_features = sim_params$d_L,
+      use_cuda = sim_params$use_cuda,
+      tau_0 = agnostic_tau,
+      init_alpha = 0.9
+    )
   },
   
-  forward = function(x) {
-    x %>%
+  forward = function(zvars, xvars, want_betas = FALSE) {
+    # compute VCs
+    betas <- zvars %>%
       self$fc1() %>%
       nnf_relu() %>%
       self$fc2() %>%
       nnf_relu() %>%
-      self$fc3() # %>%
+      self$fc3() 
     # nnf_relu() %>%
     # self$fc4() %>%
     # nnf_relu() %>%
     # self$fc5()
+    
+    if (want_betas){
+      return(betas)
+    }
+    
+    # yhats via hshoe on VCs
+    self$vc(vcs=betas, xvars=xvars)
   },
   
   get_model_kld = function(){
     kl1 = self$fc1$get_kl()
     kl2 = self$fc2$get_kl()
     kl3 = self$fc3$get_kl()
+    klvc = self$vc$get_kl()
     # kl4 = self$fc3$get_kl()
     # kl5 = self$fc3$get_kl()
-    kld = kl1 + kl2 + kl3 #+ kl4 + kl5
+    kld = klvc + kl1 + kl2 + kl3 #+ kl4 + kl5
     return(kld)
   }
 )
@@ -282,8 +308,33 @@ MLHS <- nn_module(
 
 # TRAIN LOOP ----
 
+model_fit <- VCHS()
+optim_model_fit <- optim_adam(model_fit$parameters, lr = sim_params$lr)
 
 
+model_fit$children
 
 
+## TRAIN LOOP
+epoch <- 1
+loss <- torch_tensor(1, device = dev_select(sim_params$use_cuda))
 
+
+  ## fit & metrics ----
+  yhat_tr <- model_fit$forward(zvars = Z_tr, xvars = Xint_tr)
+  model_fit$forward(zvars = Z_tr, xvars = Xint_tr, want_betas = TRUE)
+  
+  
+  mse <- nnf_mse_loss(yhat_tr, torch_tensor(Ey_raw_tr))
+  kl <- model_fit$get_model_kld() / length(Ey_raw_tr)
+  loss <- mse + kl
+  
+  # gradient step 
+  # zero out previous gradients
+  optim_model_fit$zero_grad()
+  # backprop
+  loss$backward()
+  # update weights
+  optim_model_fit$step()
+
+epoch <- epoch + 1
