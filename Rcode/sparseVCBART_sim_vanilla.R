@@ -43,7 +43,7 @@ true_covs <- c(
 
 
 # SIM PARAMS ----
-n_sims <- 2
+n_sims <- 5
 p_0 <- (p+R)/2
 dont_scale_t0 <- TRUE
 sim_ID <- "VC_vanilla816_agnostic"
@@ -64,8 +64,8 @@ sim_params <- list(
   "seed" = 816,
   "sim_ID" = sim_ID,
   "n_sims" = n_sims,
-  "train_epochs" = 2E3,
-  "report_every" = 1E2,
+  "train_epochs" = 5e5,
+  "report_every" = 1E4,
   "plot_every_x_reports" = 10,
   "verbose" = TRUE,
   "want_metric_plts" = TRUE,
@@ -297,7 +297,7 @@ for (sim_ind in 1:sim_params$n_sims){
   spVCBART_vanilla_sim(
     sim_params = sim_params,
     sim_ind = sim_ind,
-    sim_save_path = sim_ave_path,
+    sim_save_path = sim_save_path,
     Ey_df = Ey_df, 
     eps_mat = eps_mat
   )
