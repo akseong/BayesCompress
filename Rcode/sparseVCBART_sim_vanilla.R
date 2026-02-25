@@ -34,7 +34,7 @@ n_obs <- 1e4   # try with more obs for now
 ttsplit <- 0.8
 p <- 3  
 R <- 20
-sig_eps <- 1
+sig_eps <- 0
 mu_eps <- 0
 true_covs <- c(
   paste0("x", 1:3),
@@ -43,10 +43,10 @@ true_covs <- c(
 
 
 # SIM PARAMS ----
-n_sims <- 5
+n_sims <- 2
 p_0 <- (p+R)/2
 dont_scale_t0 <- TRUE
-sim_ID <- "VC_vanilla816_agnostic"
+sim_ID <- "VC_vanilla816_agnostic_test0sig"
 
 
 fname_stem <- paste0(
