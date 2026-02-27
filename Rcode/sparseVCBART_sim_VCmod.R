@@ -30,7 +30,7 @@ if (torch::cuda_is_available()){
 
 
 # data characteristics ----
-n_obs <- 1e1   # try with more obs for now
+n_obs <- 1e4   # try with more obs for now
 ttsplit <- 0.8
 p <- 3  
 R <- 20
@@ -44,28 +44,43 @@ true_covs <- c(
 
 # SIM PARAMS ----
 n_sims <- 2
-p_0 <- (p+R)/2
+p_0 <- p/2
+R_0 <- R/2
 dont_scale_t0 <- TRUE
 sim_ID <- "VCmod_testing"
 
-fname_stem <- here::here(
-  "sims", 
-  "results", 
-  paste0(
-    sim_ID,
-    "_p", p,
-    "_n", n_obs/1000, "k",
-    "_"
-  )
+
+fname_stem <- paste0(
+  sim_ID,
+  # "_test",
+  "_p", p,
+  "_n", round(n_obs/1000), "k",
+  "_"
 )
+
 
 ## sim_params ** ----
 sim_params <- list(
   "description" = "VCs modeled; agnostic tau_0; sparseVCBART experiment 1 setting",
   "seed" = 816,
-  "n_sims" = 5, 
+  "sim_ID" = sim_ID,
+  "n_sims" = n_sims, 
   "train_epochs" = 2e3,
   "report_every" = 1E2,
+  "plot_every_x_reports" = 10,
+  "verbose" = TRUE,
+  "want_metric_plts" = TRUE,
+  "want_fcn_plts" = TRUE,
+  "save_metric_plts" = TRUE,
+  "save_fcn_plts" = TRUE,
+  "save_mod" = TRUE,
+  "save_results" = TRUE,
+  
+  # network params
+  "R_0" = R_0,
+  "p_0" = p_0,
+  "sig_est" = 1,
+  "dont_scale_t0" = dont_scale_t0,
   "use_cuda" = use_cuda,
   "d_0" = R,
   "d_1" = 8,
@@ -75,11 +90,15 @@ sim_params <- list(
   # "d_5" = 16,
   "d_p1" = p+1,
   "d_L" = 1,
-  "n_obs" = n_obs,
   "lr" = 0.001,  # sim_hshoe learning rate arg.  If not specified, uses optim_adam default (0.001)
-  "err_sig" = 1,
+  
+  # data characteristics
+  "n_obs" = n_obs,
   "ttsplit" = ttsplit,
-  "dont_scale_t0" = dont_scale_t0
+  "p" = p,
+  "R" = R,
+  "sig_eps" = sig_eps,
+  "mu_eps" = mu_eps
 )
 set.seed(sim_params$seed)
 sim_params$sim_seeds <- floor(runif(n = sim_params$n_sims, 0, 1000000))
@@ -105,8 +124,17 @@ tau0_scaling <- ifelse(
   obs_to_nnparams
 ) 
 
-sim_params$prior_tau <- tau0_scaling * tau0_PV(
-  p_0 = p_0, d = p+R, sig = 1, 
+sim_params$prior_tau_R <- tau0_scaling * tau0_PV(
+  p_0 = sim_params$R_0, 
+  d = sim_params$R, 
+  sig = sim_params$sig_est, 
+  n = sim_params$n_obs
+)
+
+sim_params$prior_tau_p <- tau0_scaling * tau0_PV(
+  p_0 = sim_params$p_0, 
+  d = sim_params$p + 1, 
+  sig = sim_params$sig_est,  
   n = sim_params$n_obs
 )
 
@@ -114,94 +142,6 @@ agnostic_tau <- tau0_PV(
   p_0 = 1, d = 2, sig = 1, 
   n = sim_params$n_obs
 )
-
-
-
-# GEN DATA ----
-# matching to description of synthetic data in sparseVCBART. 
-# Experiment 1 uses p=3.  Experiment 2 uses p=50
-# HOWEVER: function for \beta_1 described in paper appears to be wrong
-# (doesn't even match their own plot).  The plot looks
-# much closer to the function for \beta_2 in the orig. VCBART paper
-# which is what I'm using instead.
-
-## beta_j(Z) functions ----
-# beta_j(z) functions in sparseVCBART_fcns.R
-bfcns_list <- list(
-  "beta_0" = beta_0,
-  "beta_1" = beta_1,
-  "beta_2" = beta_2,
-  "beta_3" = beta_3
-)
-
-# plot beta_0, beta_1 fcns
-#   note that b1 and b0 are not really separable when looking at y
-#   without modeling the effect modifiers directly as VCBART does
-#   - to capture "b1" we need to set x1 = 1, generate predictions yhat
-#     and then generate intercepts b0hat using the same Z coordinates 
-#     and setting all x = 0.  Then, plot (yhat - b0hat) against z1
-plot_b0_true(resol = 100, b0 = bfcns_list$beta_0)
-plot_b1_true(resol = 100, b1 = bfcns_list$beta_1)
-
-## generate Ey, X ----
-# Covariance of X vars (same as in paper)
-#   function also in sparseVCBART_fcns.R
-#   corr_fcn <- function(i, j) {0.5^(abs(i-j))} 
-
-set.seed(sim_params$seed)
-Ey_df <- gen_Eydat_sparseVCBART(
-  n_obs = round(n_obs / ttsplit), # training obs
-  p = p,
-  R = R,
-  covar_fcn = corr_fcn,
-  beta_0 = bfcns_list$beta_0,
-  beta_1 = bfcns_list$beta_1,
-  beta_2 = bfcns_list$beta_2,
-  beta_3 = bfcns_list$beta_3
-)
-# generate epsilons
-eps_mat <- matrix(
-  rnorm(
-    n = nrow(Ey_df),
-    mean = mu_eps,
-    sd = sig_eps
-  ), 
-  ncol = n_sims
-)
-
-## train/test ----
-# Note: (test obs aren't used to calibrate NN,
-# just for me to observe for training progress
-# and catch simulation problems)
-tr_inds <- 1:n_obs
-te_inds <- (n_obs + 1):nrow(Ey_df)
-Ey_raw <- Ey_df[,1]
-Ey_raw_tr <- Ey_raw[tr_inds]
-Ey_raw_te <- Ey_raw[te_inds]
-
-Z_raw <- Ey_df[, grepl("z", colnames(Ey_df))]
-X_raw <- Ey_df[, grepl("x", colnames(Ey_df))]
-
-# standardize XZ.  
-# standardizing Y will have to happen after epsilons added
-Z <- scale_mat(Z_raw)$scaled
-Z_means <- scale_mat(Z_raw)$means
-Z_sds <- scale_mat(Z_raw)$sds
-
-X <- scale_mat(X_raw)$scaled
-# add intercept to X
-Xint <- cbind(1, X)
-X_means <- scale_mat(X_raw)$means
-X_sds <- scale_mat(X_raw)$sds
-
-Xint_tr <- torch_tensor(as.matrix(Xint[tr_inds, ]))
-Xint_te <- torch_tensor(as.matrix(Xint[te_inds, ]))
-Z_tr <- torch_tensor(as.matrix(Z[tr_inds, ]))
-Z_te <- torch_tensor(as.matrix(Z[te_inds, ]))
-
-
-
-
 
 # NETWORK SETUP ----
 ## define model
@@ -212,7 +152,7 @@ VCHS <- nn_module(
       in_features = sim_params$d_0, 
       out_features = sim_params$d_1,
       use_cuda = sim_params$use_cuda,
-      tau_0 = sim_params$prior_tau,
+      tau_0 = sim_params$prior_tau_R,
       init_weight = NULL,
       init_bias = NULL,
       init_alpha = 0.9,
@@ -267,12 +207,12 @@ VCHS <- nn_module(
       in_features = sim_params$d_p1,
       out_features = sim_params$d_L,
       use_cuda = sim_params$use_cuda,
-      tau_0 = agnostic_tau,
+      tau_0 = sim_params$prior_tau_p,
       init_alpha = 0.9
     )
   },
   
-  forward = function(zvars, xvars, want_betas = FALSE) {
+  forward = function(zvars, xvars) {
     # compute VCs
     betas <- zvars %>%
       self$fc1() %>%
@@ -285,12 +225,17 @@ VCHS <- nn_module(
     # nnf_relu() %>%
     # self$fc5()
     
-    if (want_betas){
-      return(betas)
-    }
-    
     # yhats via hshoe on VCs
     self$vc(vcs=betas, xvars=xvars)
+  },
+  
+  get_betas = function(zvars){
+    zvars %>%
+      self$fc1() %>%
+      nnf_relu() %>%
+      self$fc2() %>%
+      nnf_relu() %>%
+      self$fc3() 
   },
   
   get_model_kld = function(){
@@ -306,35 +251,163 @@ VCHS <- nn_module(
 )
 
 
-# TRAIN LOOP ----
+# GEN DATA ----
+# matching to description of synthetic data in sparseVCBART. 
+# Experiment 1 uses p=3.  Experiment 2 uses p=50
+# HOWEVER: function for \beta_1 described in paper appears to be wrong
+# (doesn't even match their own plot).  The plot looks
+# much closer to the function for \beta_2 in the orig. VCBART paper
+# which is what I'm using instead.
 
-model_fit <- VCHS()
-optim_model_fit <- optim_adam(model_fit$parameters, lr = sim_params$lr)
+## beta_j(Z) functions ----
+# beta_j(z) functions in sparseVCBART_fcns.R
+bfcns_list <- list(
+  "beta_0" = beta_0,
+  "beta_1" = beta_1,
+  "beta_2" = beta_2,
+  "beta_3" = beta_3
+)
+
+# plot beta_0, beta_1 fcns
+#   note that b1 and b0 are not really separable when looking at y
+#   without modeling the effect modifiers directly as VCBART does
+#   - to capture "b1" we need to set x1 = 1, generate predictions yhat
+#     and then generate intercepts b0hat using the same Z coordinates 
+#     and setting all x = 0.  Then, plot (yhat - b0hat) against z1
+plot_b0_true(resol = 100, b0 = bfcns_list$beta_0)
+plot_b1_true(resol = 100, b1 = bfcns_list$beta_1)
+
+## generate Ey, X ----
+# Covariance of X vars (same as in paper)
+#   function also in sparseVCBART_fcns.R
+#   corr_fcn <- function(i, j) {0.5^(abs(i-j))} 
+
+set.seed(sim_params$seed)
+Ey_df <- gen_Eydat_sparseVCBART(
+  n_obs = round(sim_params$n_obs / sim_params$ttsplit), # training obs
+  p = sim_params$p,
+  R = sim_params$R,
+  covar_fcn = corr_fcn,
+  beta_0 = sim_params$bfcns_list$beta_0,
+  beta_1 = sim_params$bfcns_list$beta_1,
+  beta_2 = sim_params$bfcns_list$beta_2,
+  beta_3 = sim_params$bfcns_list$beta_3
+)
+# generate epsilons
+eps_mat <- matrix(
+  rnorm(
+    n = nrow(Ey_df),
+    mean = sim_params$mu_eps,
+    sd = sim_params$sig_eps
+  ), 
+  ncol = sim_params$n_sims
+)
 
 
-model_fit$children
 
 
-## TRAIN LOOP
-epoch <- 1
-loss <- torch_tensor(1, device = dev_select(sim_params$use_cuda))
 
 
-  ## fit & metrics ----
-  yhat_tr <- model_fit$forward(zvars = Z_tr, xvars = Xint_tr)
-  model_fit$forward(zvars = Z_tr, xvars = Xint_tr, want_betas = TRUE)
-  
-  
-  mse <- nnf_mse_loss(yhat_tr, torch_tensor(Ey_raw_tr))
-  kl <- model_fit$get_model_kld() / length(Ey_raw_tr)
-  loss <- mse + kl
-  
-  # gradient step 
-  # zero out previous gradients
-  optim_model_fit$zero_grad()
-  # backprop
-  loss$backward()
-  # update weights
-  optim_model_fit$step()
 
-epoch <- epoch + 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# EARLY CODE ----
+# ## train/test ----
+# # Note: (test obs aren't used to calibrate NN,
+# # just for me to observe for training progress
+# # and catch simulation problems)
+# tr_inds <- 1:n_obs
+# te_inds <- (n_obs + 1):nrow(Ey_df)
+# Ey_raw <- Ey_df[,1]
+# Ey_raw_tr <- Ey_raw[tr_inds]
+# Ey_raw_te <- Ey_raw[te_inds]
+# 
+# Z_raw <- Ey_df[, grepl("z", colnames(Ey_df))]
+# X_raw <- Ey_df[, grepl("x", colnames(Ey_df))]
+# 
+# # standardize XZ.  
+# # standardizing Y will have to happen after epsilons added
+# Z <- scale_mat(Z_raw)$scaled
+# Z_means <- scale_mat(Z_raw)$means
+# Z_sds <- scale_mat(Z_raw)$sds
+# 
+# X <- scale_mat(X_raw)$scaled
+# # add intercept to X
+# Xint <- cbind(1, X)
+# X_means <- scale_mat(X_raw)$means
+# X_sds <- scale_mat(X_raw)$sds
+# 
+# Xint_tr <- torch_tensor(as.matrix(Xint[tr_inds, ]))
+# Xint_te <- torch_tensor(as.matrix(Xint[te_inds, ]))
+# Z_tr <- torch_tensor(as.matrix(Z[tr_inds, ]))
+# Z_te <- torch_tensor(as.matrix(Z[te_inds, ]))
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# # TRAIN LOOP ----
+# 
+# model_fit <- VCHS()
+# optim_model_fit <- optim_adam(model_fit$parameters, lr = sim_params$lr)
+# 
+# ## TRAIN LOOP
+# 
+# 
+# 
+# epoch <- 1
+# loss <- torch_tensor(1, device = dev_select(sim_params$use_cuda))
+# 
+# 
+# 
+#   ## fit & metrics ----
+  # yhat_tr <- model_fit$forward(zvars = Z_tr, xvars = Xint_tr)
+#   # model_fit$forward(zvars = Z_tr, xvars = Xint_tr, want_betas = TRUE)
+#   
+#   
+#   mse <- nnf_mse_loss(yhat_tr, y_tr)
+#   kl <- model_fit$get_model_kld() / length(Ey_raw_tr)
+#   loss <- mse + kl
+#   
+#   # gradient step 
+#   # zero out previous gradients
+#   optim_model_fit$zero_grad()
+#   # backprop
+#   loss$backward()
+#   # update weights
+#   optim_model_fit$step()
+# 
+# epoch <- epoch + 1
