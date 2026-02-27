@@ -173,11 +173,32 @@ source(here("Rcode", "analysis_fcns.R"))
 ```
 
 
+# 2/27 spVCBART running
+
+- currently running usual model on sparseVCBART data [(option 2 below)](#sparseVCBART-issue)
+
+- working on explicitly modeling VC structure [(option 3)](#sparseVCBART-issue)
+
+  - use first layers of BNN to model $\beta_j(Z)$'s, obtaining $\kappa_r$'s ($r \in \{1, 2,..., R\}$) for effect modifiers / coordinates $Z \in [0,1]^\mathbb{R}$
+  
+  - then use final ($L$'th) layer to obtain $\kappa_j$'s ($j \in \{0, 1, 2, ..., p\}$), i.e. shrinkage on the  $\beta_j(Z)$'s or covariates $X$.  
+  
+    - the output of layer $L-1$ is the $p+1$ vector of $\beta_j(Z)$'s
+    
+    - $L$'th layer does not estimate a weight layer.  Instead, it only computes $$$\hat{y} = \sum_{j=0}^{p+1} X \Lambda \beta_j(Z)$$ where $\Lambda$ is a $(p+1) \times (p+1)$ matrix with the scale parameters on the diagonal, i.e.  `diag(`$\lambda_j \tau_L$`)`.
+
+  - potentially problematic in that we have some degree of "double" shrinkage (but I guess that's always been an issue since each layer applies shrinkage?).  
+
+  - we still don't get one piece of info that sparseVCBART does: which $Z$'s affect which $X$'s
+
+__Next step:__ figure out how to use [Ghosh, Bogale, Deshpande's code](https://github.com/ghoshstats/sparseVCBART/tree/main)
 
 
-# 2/23
 
-__TO DO by Thurs__:
+
+# 2/23 TO DO
+
+__TO DO__:
 
 - plan first simulations (fewer covars), start running
 
@@ -289,7 +310,7 @@ __Options__:
   
   - BNN output is the $p + 1$ coefs $\beta_j(Z), j \in \{0, 1, ..., p\}$
 
-- inference conducted on both first layer $\kappa_j$'s (for var sel on $Z$) as well as final layer $\kappa_j$'s (for var sel on $X$)
+- inference conducted on both first layer $\kappa_r$'s (for var sel on $Z$) as well as final layer $\kappa_j$'s (for var sel on $X$)
 
 - don't need as many params / obs this way.  Appears to be the usual way VC model is implemented in NNs.
 
