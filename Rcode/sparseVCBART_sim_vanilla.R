@@ -298,6 +298,7 @@ for (sim_ind in 1:sim_params$n_sims){
     sim_params = sim_params,
     sim_ind = sim_ind,
     sim_save_path = sim_save_path,
+    nn_model = MLHS,
     Ey_df = Ey_df, 
     eps_mat = eps_mat
   )

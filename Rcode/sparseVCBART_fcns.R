@@ -462,6 +462,7 @@ spVCBART_vanilla_sim <- function(
     sim_params,
     sim_ind,
     sim_save_path,
+    nn_model,
     Ey_df, eps_mat
 ){
   
@@ -539,7 +540,7 @@ spVCBART_vanilla_sim <- function(
   
   # TRAIN ----
   ## initialize BNN & optimizer ----
-  model_fit <- MLHS()
+  model_fit <- nn_model()
   optim_model_fit <- optim_adam(model_fit$parameters, lr = sim_params$lr)
   
   ## TRAIN LOOP
