@@ -601,8 +601,8 @@ spVCBART_vanilla_sim <- function(
       # corrected param kappas
       kappas_tc <- get_kappas_taucorrected(model_fit)
       kappas_fc <- get_kappas_frobcorrected(model_fit)
-      kappa_fc_mat[row_ind, ] <- kappas_tc
-      kappa_tc_mat[row_ind, ] <- kappas_fc
+      kappa_tc_mat[row_ind, ] <- kappas_tc
+      kappa_fc_mat[row_ind, ] <- kappas_fc
     }
     
     ### in-console reporting ----
