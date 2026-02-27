@@ -673,9 +673,16 @@ plot_fcn_preds <- function(torchmod, pred_mats, want_df = FALSE, want_plot = TRU
 
 # GENERATE PREDS ----
 get_nn_mod_Ey <- function(nn_mod, X, ln_fcn = ln_mode){
-  # pre_act
   num_layers <- length(nn_mod$children)
-  input <- X
+  # select cuda or cpu
+  use_cuda <- nn_mod$children[[1]]$sa_mu$is_cuda
+  cuda_or_cpu <-dev_select(use_cuda)
+  if (use_cuda){
+    input <- X$cuda()
+  } else {
+    input <- X$cpu()
+  }
+
   for (nn_layer in 1:num_layers){
     
     ztilde <- ln_fcn(
@@ -688,7 +695,7 @@ get_nn_mod_Ey <- function(nn_mod, X, ln_fcn = ln_mode){
       var = exp(as_array(nn_mod$children[[nn_layer]]$sa_logvar + nn_mod$children[[nn_layer]]$sb_logvar))/4
     )
     
-    z <- torch_tensor(ztilde*s)
+    z <- torch_tensor(ztilde*s, device = cuda_or_cpu)
     
     Xz <- input*z
     

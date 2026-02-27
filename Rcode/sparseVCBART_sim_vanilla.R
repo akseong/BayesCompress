@@ -51,6 +51,7 @@ sim_ID <- "VC_vanilla816_agnostic_test0sig"
 
 fname_stem <- paste0(
   sim_ID,
+  # "_test",
   "_p", p,
   "_n", round(n_obs/1000), "k",
   "_"
@@ -64,7 +65,7 @@ sim_params <- list(
   "seed" = 816,
   "sim_ID" = sim_ID,
   "n_sims" = n_sims,
-  "train_epochs" = 5e5,
+  "train_epochs" = 3e5,
   "report_every" = 1E4,
   "plot_every_x_reports" = 10,
   "verbose" = TRUE,
