@@ -678,10 +678,14 @@ spVCBART_vanilla_sim <- function(
         z2_vals = c(0,1)
       )
       b0_df <- scale_mat(b0_df_raw, means = XZ_means, sds = XZ_sds)$scaled
+      b0_df_tensor <- torch_tensor(
+        as.matrix(b0_df), 
+        device = ifelse(sim_params$use_cuda, "cuda", "cpu"))
+      
       b0_yhat <- as_array(
         get_nn_mod_Ey(
           nn_mod = model_fit, 
-          X = torch_tensor(as.matrix(b0_df))
+          X = b0_df_tensor
         )
       )
       b0_yhat_raw <- b0_yhat * y_sd + y_mean
@@ -717,17 +721,26 @@ spVCBART_vanilla_sim <- function(
       )
       b0_for_b1_df <- scale_mat(b0_for_b1_raw, XZ_means, XZ_sds)$scaled
       
+      b1_df_tensor <- torch_tensor(
+        as.matrix(b1_df), 
+        device = ifelse(sim_params$use_cuda, "cuda", "cpu"))
+      
+      b0_for_b1_df_tensor <- torch_tensor(
+        as.matrix(b0_for_b1_df), 
+        device = ifelse(sim_params$use_cuda, "cuda", "cpu"))
+      
+      
       # gen scaled Eys
       Ey_b1_hat <- as_array(
         get_nn_mod_Ey(
           nn_mod = model_fit, 
-          X = torch_tensor(as.matrix(b1_df))
+          X = b1_df_tensor
         )
       )
       b0_hat <- as_array(
         get_nn_mod_Ey(
           nn_mod = model_fit, 
-          X = torch_tensor(as.matrix(b0_for_b1_df))
+          X = b0_for_b1_df_tensor
         )
       )
       
