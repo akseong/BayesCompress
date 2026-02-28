@@ -19,6 +19,7 @@ source(here("Rcode", "analysis_fcns.R"))
 source(here("Rcode", "sparseVCBART_fcns.R"))
 source(here("Rcode", "torch_VC_outputlayer.R"))
 
+
 # CUDA----
 if (torch::cuda_is_available()){
   use_cuda <- TRUE
@@ -47,7 +48,7 @@ n_sims <- 2
 p_0 <- p/2
 R_0 <- R/2
 dont_scale_t0 <- TRUE
-sim_ID <- "VCmod_testing"
+sim_ID <- "VCmod"
 
 
 fname_stem <- paste0(
@@ -65,8 +66,8 @@ sim_params <- list(
   "seed" = 816,
   "sim_ID" = sim_ID,
   "n_sims" = n_sims, 
-  "train_epochs" = 2e3,
-  "report_every" = 1E2,
+  "train_epochs" = 3e5,
+  "report_every" = 1E4,
   "plot_every_x_reports" = 10,
   "verbose" = TRUE,
   "want_metric_plts" = TRUE,
@@ -304,110 +305,24 @@ eps_mat <- matrix(
 )
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# EARLY CODE ----
-# ## train/test ----
-# # Note: (test obs aren't used to calibrate NN,
-# # just for me to observe for training progress
-# # and catch simulation problems)
-# tr_inds <- 1:n_obs
-# te_inds <- (n_obs + 1):nrow(Ey_df)
-# Ey_raw <- Ey_df[,1]
-# Ey_raw_tr <- Ey_raw[tr_inds]
-# Ey_raw_te <- Ey_raw[te_inds]
-# 
-# Z_raw <- Ey_df[, grepl("z", colnames(Ey_df))]
-# X_raw <- Ey_df[, grepl("x", colnames(Ey_df))]
-# 
-# # standardize XZ.  
-# # standardizing Y will have to happen after epsilons added
-# Z <- scale_mat(Z_raw)$scaled
-# Z_means <- scale_mat(Z_raw)$means
-# Z_sds <- scale_mat(Z_raw)$sds
-# 
-# X <- scale_mat(X_raw)$scaled
-# # add intercept to X
-# Xint <- cbind(1, X)
-# X_means <- scale_mat(X_raw)$means
-# X_sds <- scale_mat(X_raw)$sds
-# 
-# Xint_tr <- torch_tensor(as.matrix(Xint[tr_inds, ]))
-# Xint_te <- torch_tensor(as.matrix(Xint[te_inds, ]))
-# Z_tr <- torch_tensor(as.matrix(Z[tr_inds, ]))
-# Z_te <- torch_tensor(as.matrix(Z[te_inds, ]))
-# 
-# 
-# 
-# 
-# 
-# 
-# 
-# 
-# # TRAIN LOOP ----
-# 
-# model_fit <- VCHS()
-# optim_model_fit <- optim_adam(model_fit$parameters, lr = sim_params$lr)
-# 
-# ## TRAIN LOOP
-# 
-# 
-# 
-# epoch <- 1
-# loss <- torch_tensor(1, device = dev_select(sim_params$use_cuda))
-# 
-# 
-# 
-#   ## fit & metrics ----
-  # yhat_tr <- model_fit$forward(zvars = Z_tr, xvars = Xint_tr)
-#   # model_fit$forward(zvars = Z_tr, xvars = Xint_tr, want_betas = TRUE)
-#   
-#   
-#   mse <- nnf_mse_loss(yhat_tr, y_tr)
-#   kl <- model_fit$get_model_kld() / length(Ey_raw_tr)
-#   loss <- mse + kl
-#   
-#   # gradient step 
-#   # zero out previous gradients
-#   optim_model_fit$zero_grad()
-#   # backprop
-#   loss$backward()
-#   # update weights
-#   optim_model_fit$step()
-# 
-# epoch <- epoch + 1
+# SIM_LOOP ----
+for (sim_ind in 1:sim_params$n_sims){
+  ## sim_save_path ----
+  sim_save_path <- here::here(
+    "sims", 
+    "results", 
+    paste0(
+      fname_stem,
+      sim_params$sim_seeds[sim_ind]
+    )
+  )
+  
+  sim_res <- spVCBART_VCmod_sim(
+    sim_params = sim_params,
+    sim_ind = sim_ind,
+    sim_save_path = sim_save_path,
+    nn_model = VCHS,
+    Ey_df = Ey_df, 
+    eps_mat = eps_mat
+  )
+}
