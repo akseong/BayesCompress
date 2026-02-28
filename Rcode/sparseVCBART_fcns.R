@@ -164,6 +164,28 @@ plot_b1_true <- function(resol = 100, b1 = beta_1){
 
 
 # MAKE PRED PLOT DFs----
+## USE WITH VC MOD NN ----
+## make Z grid
+make_isolated_Zgrids <- function(R, resol = 100, z2vals = c(0.25, 0.75)){
+  zvals <- 1:resol / resol
+  zmat <- matrix(0, nrow = R*resol, ncol = R)
+  colnames(zmat) <- paste0("z", 1:R)
+  
+  for (r in 1:R){
+    fillrows <- (r-1)*resol + 1:resol
+    zmat[fillrows, r] <- zvals
+  }
+  zmat[1:resol, 2] <- z2vals[1]
+  
+  # need two vals of z2 for each z1
+  z1extra <- zmat[1:resol, ]
+  z1extra[, 2] <- z2vals[2]
+  
+  return(rbind(z1extra, zmat))
+}
+
+
+## USE WITH VANILLA NN ----
 # fcns make dataframes used to plot predictions
 make_b0_pred_df <- function(
     resol = 100, 
