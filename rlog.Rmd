@@ -173,6 +173,30 @@ source(here("Rcode", "analysis_fcns.R"))
 ```
 
 
+
+# 2/27
+
+- vanilla model with 3L, 8-16, PV tau 0, agnostic tau for hidden layers does OK.
+
+- VC mod does worse --- picks up Z vars (except Z3), but does not pick up X vars as well.  Maybe just need more training?
+
+
+Running some more VC mods:
+
+- Earliest sim currently running: 5 layers, pv tau_0, but otherwise agnostic
+
+- middle: 5 layers, pv tau 0, then tau = 1
+
+- latest: 3 layers, prior_tau_R = R/2, then agnostic all the way through.  Pretty bad
+
+May need to rethink this.  Perhaps shrinkage in the final layer leads to too much shrinkage?
+
+Also, maybe I shouldn't be standardizing the response?  Their data generation is really weird --- beta5 has huge values in it, which appear to make the response's range quite huge.    Probably also leading to more shrinkage.  __Take a look at Ghosh's code to see how they train/fit their models.__
+
+
+
+
+
 # 2/27 spVCBART running
 
 - currently running usual model on sparseVCBART data [(option 2 below)](#sparseVCBART-issue)
