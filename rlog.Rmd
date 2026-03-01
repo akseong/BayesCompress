@@ -180,6 +180,8 @@ source(here("Rcode", "analysis_fcns.R"))
 
 - VC mod does worse --- picks up Z vars (except Z3), but does not pick up X vars as well.  Maybe just need more training?
 
+  - filename VCmod_p3_n10k_846743 and _525655
+
 
 Running some more VC mods:
 
@@ -189,7 +191,9 @@ Running some more VC mods:
 
 - latest: 3 layers, prior_tau_R = R/2, then agnostic all the way through.  Pretty bad
 
-May need to rethink this.  Perhaps shrinkage in the final layer leads to too much shrinkage?
+None of these are doing great when explicitly modeling the VC structure.
+
+May need to rethink this.  Perhaps shrinkage in the final layer does not make sense, or needs to be corrected for previous layers' shrinkage somehow.  
 
 Also, maybe I shouldn't be standardizing the response?  Their data generation is really weird --- beta5 has huge values in it, which appear to make the response's range quite huge.    Probably also leading to more shrinkage.  __Take a look at Ghosh's code to see how they train/fit their models.__
 
@@ -199,7 +203,8 @@ Also, maybe I shouldn't be standardizing the response?  Their data generation is
 
 # 2/27 spVCBART running
 
-- currently running usual model on sparseVCBART data [(option 2 below)](#sparseVCBART-issue)
+- currently running usual model on sparseVCBART data [(option 2 below)](#sparseVCBART-issue).  
+  - filenames `VCmod_vanilla816_agnostic_test0sig_p3_n10k_` + 525655 or 846743
 
 - working on explicitly modeling VC structure [(option 3)](#sparseVCBART-issue)
 
