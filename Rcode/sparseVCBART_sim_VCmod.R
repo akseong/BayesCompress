@@ -31,7 +31,7 @@ if (torch::cuda_is_available()){
 
 
 # data characteristics ----
-n_obs <- 1e4   # try with more obs for now
+n_obs <- 1e3   # try with more obs for now
 ttsplit <- 0.8
 p <- 3  
 R <- 20
@@ -48,7 +48,7 @@ n_sims <- 2
 p_0 <- p/2
 R_0 <- R/2
 dont_scale_t0 <- TRUE
-sim_ID <- "VCmod"
+sim_ID <- "VCmod_3L_pvtau_500k"
 
 
 fname_stem <- paste0(
@@ -66,7 +66,7 @@ sim_params <- list(
   "seed" = 816,
   "sim_ID" = sim_ID,
   "n_sims" = n_sims, 
-  "train_epochs" = 3e5,
+  "train_epochs" = 5e5,
   "report_every" = 1E4,
   "plot_every_x_reports" = 10,
   "verbose" = TRUE,
@@ -173,28 +173,28 @@ VCHS <- nn_module(
     
     self$fc3 = torch_hs(
       in_features = sim_params$d_2,
-      #   out_features = sim_params$d_3,
-      #   use_cuda = sim_params$use_cuda,
-      #   tau = agnostic_tau,
-      #   init_weight = NULL,
-      #   init_bias = NULL,
-      #   init_alpha = 0.9,
-      #   clip_var = TRUE
-      # )
-      # 
-      # self$fc4 = torch_hs(
-      #   in_features = sim_params$d_3,
-      #   out_features = sim_params$d_4,
-      #   use_cuda = sim_params$use_cuda,
-      #   tau = agnostic_tau,
-      #   init_weight = NULL,
-      #   init_bias = NULL,
-      #   init_alpha = 0.9,
-      #   clip_var = TRUE
-      # )
-      # 
-      # self$fc5 = torch_hs(
-      #   in_features = sim_params$d_4,
+    #   out_features = sim_params$d_3,
+    #   use_cuda = sim_params$use_cuda,
+    #   tau_0 = 1,
+    #   init_weight = NULL,
+    #   init_bias = NULL,
+    #   init_alpha = 0.9,
+    #   clip_var = TRUE
+    # )
+    # 
+    #   self$fc4 = torch_hs(
+    #     in_features = sim_params$d_3,
+    #     out_features = sim_params$d_4,
+    #     use_cuda = sim_params$use_cuda,
+    #     tau_0 = 1,
+    #     init_weight = NULL,
+    #     init_bias = NULL,
+    #     init_alpha = 0.9,
+    #     clip_var = TRUE
+    #   )
+    # 
+    #   self$fc5 = torch_hs(
+    #     in_features = sim_params$d_4,
       out_features = sim_params$d_p1,
       use_cuda = sim_params$use_cuda,
       tau_0 = agnostic_tau,
@@ -208,7 +208,7 @@ VCHS <- nn_module(
       in_features = sim_params$d_p1,
       out_features = sim_params$d_L,
       use_cuda = sim_params$use_cuda,
-      tau_0 = sim_params$prior_tau_p,
+      tau_0 = agnostic_tau,
       init_alpha = 0.9
     )
   },
@@ -220,11 +220,11 @@ VCHS <- nn_module(
       nnf_relu() %>%
       self$fc2() %>%
       nnf_relu() %>%
-      self$fc3() 
-    # nnf_relu() %>%
-    # self$fc4() %>%
-    # nnf_relu() %>%
-    # self$fc5()
+      self$fc3() # %>% 
+      # nnf_relu() %>%
+      # self$fc4() %>%
+      # nnf_relu() %>%
+      # self$fc5()
     
     # yhats via hshoe on VCs
     self$vc(vcs=betas, xvars=xvars)
@@ -236,7 +236,11 @@ VCHS <- nn_module(
       nnf_relu() %>%
       self$fc2() %>%
       nnf_relu() %>%
-      self$fc3() 
+      self$fc3() %>% 
+      nnf_relu() # %>%
+      # self$fc4() %>%
+      # nnf_relu() %>%
+      # self$fc5()
   },
   
   get_model_kld = function(){
@@ -246,7 +250,7 @@ VCHS <- nn_module(
     klvc = self$vc$get_kl()
     # kl4 = self$fc3$get_kl()
     # kl5 = self$fc3$get_kl()
-    kld = klvc + kl1 + kl2 + kl3 #+ kl4 + kl5
+    kld = klvc + kl1 + kl2 + kl3 # + kl4 + kl5
     return(kld)
   }
 )
