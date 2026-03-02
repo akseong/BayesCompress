@@ -2932,7 +2932,7 @@ font-size: 0.95em;
 
 <h1 class="title toc-ignore">research log</h1>
 <h4 class="author">Arnie Seong</h4>
-<h4 class="date">Last updated: 27 February 2026</h4>
+<h4 class="date">Last updated: 02 March 2026</h4>
 
 </div>
 
@@ -2968,10 +2968,88 @@ background-color: #d5f2f5;
 }
 </style>
 <div id="section" class="section level1">
-<h1>2/27</h1>
+<h1>3/2</h1>
 <ul>
-<li><p>currently running usual model on sparseVCBART data <a href="#sparseVCBART-issue">(option 2 below)</a></p></li>
-<li><p>working on explicitly modeling VC structure <a href="#sparseVCBART-issue">(option 3)</a></p>
+<li><p>visualizing VC mod testing. Not great, trying to figure out why
+(see 2/28 notes below)</p></li>
+<li><p>realized I need to go back and visualize the effects of
+calibrating <span class="math inline">\(\tau_0\)</span> in low <span class="math inline">\(n\)</span> scenarios for last simulations (before
+embarking on VC model stuff)</p></li>
+</ul>
+<div id="nagging-thoughts" class="section level2">
+<h2>nagging thoughts:</h2>
+<ul>
+<li><p>Worry that scale parameters effect each other across layers. Is
+there a way to decouple them (and would that be desirable?)</p>
+<ol style="list-style-type: decimal">
+<li><p>Could try scaling covariates and response, PLUS using some kind
+of normalizing / standardizing activation function
+(e.g. self-normalizing RELU) until the final layer? Perhaps it would put
+all the layers on an equal footing?</p></li>
+<li><p>Would using the same global scale parameter <span class="math inline">\(\tau\)</span> across all layers make sense?
+(sample code for sharing parameters in a autoencoder/decoder example in
+pytorch below)</p>
+<pre><code> class SharedWeightsModel(nn.Module):
+   def __init__(self):
+       super(SharedWeightsModel, self).__init__()
+       self.encoder = nn.Linear(28*28, 40)
+       self.decoder = nn.Linear(40, 28*28)
+
+       # Share the weight parameter
+       # (using the transpose for autoencoder)
+       # The key is assigning the nn.Parameter object directly
+       self.decoder.weight = nn.Parameter(self.encoder.weight.t())
+
+       # Bias can be shared too if desired:
+       # self.decoder.bias = self.encoder.bias 
+
+   def forward(self, x):
+       x = self.encoder(x)
+       x = self.decoder(x)
+       return x</code></pre></li>
+</ol></li>
+</ul>
+</div>
+</div>
+<div id="section-1" class="section level1">
+<h1>2/28</h1>
+<ul>
+<li><p>vanilla model with 3L, 8-16, PV tau 0, agnostic tau for hidden
+layers does OK.</p></li>
+<li><p>VC mod does worse — picks up Z vars (except Z3), but does not
+pick up X vars as well. Maybe just need more training?</p>
+<ul>
+<li>filename VCmod_p3_n10k_846743 and _525655</li>
+</ul></li>
+</ul>
+<p>Running some more VC mods:</p>
+<ul>
+<li><p>Earliest sim currently running: 5 layers, pv tau_0, but otherwise
+agnostic</p></li>
+<li><p>middle: 5 layers, pv tau 0, then tau = 1</p></li>
+<li><p>latest: 3 layers, prior_tau_R = R/2, then agnostic all the way
+through. Pretty bad</p></li>
+</ul>
+<p>None of these are doing great when explicitly modeling the VC
+structure.</p>
+<p>May need to rethink this. Perhaps shrinkage in the final layer does
+not make sense, or needs to be corrected for previous layers’ shrinkage
+somehow.</p>
+<p>Also, maybe I shouldn’t be standardizing the response? Their data
+generation is really weird — <a href="#sparsevcbart-paper">their <span class="math inline">\(\beta_3()\)</span> function has huge values in
+it</a>, which appear to make the response’s range quite huge. Probably
+also leading to more shrinkage. <strong>Take a look at Ghosh’s code to
+see how they train/fit their models.</strong></p>
+</div>
+<div id="spvcbart-running" class="section level1">
+<h1>2/27 spVCBART running</h1>
+<ul>
+<li><p>currently running usual model on sparseVCBART data <a href="#sparsevcbart-issue">(option 2 below)</a>.</p>
+<ul>
+<li>filenames <code>VCmod_vanilla816_agnostic_test0sig_p3_n10k_</code> +
+525655 or 846743</li>
+</ul></li>
+<li><p>working on explicitly modeling VC structure <a href="#sparsevcbart-issue">(option 3)</a></p>
 <ul>
 <li><p>use first layers of BNN to model <span class="math inline">\(\beta_j(Z)\)</span>’s, obtaining <span class="math inline">\(\kappa_r\)</span>’s (<span class="math inline">\(r
 \in \{1, 2,..., R\}\)</span>) for effect modifiers / coordinates <span class="math inline">\(Z \in [0,1]^\mathbb{R}\)</span></p></li>
@@ -2995,9 +3073,11 @@ applies shrinkage?).</p></li>
 which <span class="math inline">\(Z\)</span>’s affect which <span class="math inline">\(X\)</span>’s</p></li>
 </ul></li>
 </ul>
+<p><strong>Next step:</strong> figure out how to use <a href="https://github.com/ghoshstats/sparseVCBART/tree/main">Ghosh,
+Bogale, Deshpande’s code</a></p>
 </div>
-<div id="section-1" class="section level1">
-<h1>2/23</h1>
+<div id="to-do" class="section level1">
+<h1>2/23 TO DO</h1>
 <p><strong>TO DO</strong>:</p>
 <ul>
 <li><p>plan first simulations (fewer covars), start running</p>
@@ -3022,14 +3102,14 @@ which <span class="math inline">\(Z\)</span>’s affect which <span class="math 
 performed well already: <code>d_1 = 8, d_2 = 16</code> for total 906 NN
 params.</li>
 </ul>
-<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">param_counts_from_dims</span>(<span class="at">dim_vec =</span> <span class="fu">c</span>(<span class="dv">23</span>, <span class="dv">8</span>, <span class="dv">16</span>, <span class="dv">1</span>))</span></code></pre></div>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="fu">param_counts_from_dims</span>(<span class="at">dim_vec =</span> <span class="fu">c</span>(<span class="dv">23</span>, <span class="dv">8</span>, <span class="dv">16</span>, <span class="dv">1</span>))</span></code></pre></div>
 <pre><code>## layer_1 layer_2 layer_3   TOTAL 
 ##     480     324     102     906</code></pre>
 <ul>
 <li>try also with deeper, narrower network, i.e. 4-8-8, for total 622
 params</li>
 </ul>
-<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="fu">param_counts_from_dims</span>(<span class="at">dim_vec =</span> <span class="fu">c</span>(<span class="dv">23</span>, <span class="dv">4</span>, <span class="dv">8</span>, <span class="dv">8</span>, <span class="dv">1</span>))</span></code></pre></div>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="fu">param_counts_from_dims</span>(<span class="at">dim_vec =</span> <span class="fu">c</span>(<span class="dv">23</span>, <span class="dv">4</span>, <span class="dv">8</span>, <span class="dv">8</span>, <span class="dv">1</span>))</span></code></pre></div>
 <pre><code>## layer_1 layer_2 layer_3 layer_4   TOTAL 
 ##     288     100     180      54     622</code></pre>
 <ul>
@@ -3038,10 +3118,10 @@ params</li>
 <li>1186 params for deeper/narrower; 1846 for wider/shallower</li>
 </ul></li>
 </ul>
-<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="fu">param_counts_from_dims</span>(<span class="at">dim_vec =</span> <span class="fu">c</span>(<span class="dv">70</span>, <span class="dv">8</span>, <span class="dv">16</span>, <span class="dv">1</span>))</span></code></pre></div>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="fu">param_counts_from_dims</span>(<span class="at">dim_vec =</span> <span class="fu">c</span>(<span class="dv">70</span>, <span class="dv">8</span>, <span class="dv">16</span>, <span class="dv">1</span>))</span></code></pre></div>
 <pre><code>## layer_1 layer_2 layer_3   TOTAL 
 ##    1420     324     102    1846</code></pre>
-<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="fu">param_counts_from_dims</span>(<span class="at">dim_vec =</span> <span class="fu">c</span>(<span class="dv">70</span>, <span class="dv">4</span>, <span class="dv">8</span>, <span class="dv">8</span>, <span class="dv">1</span>)) </span></code></pre></div>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a><span class="fu">param_counts_from_dims</span>(<span class="at">dim_vec =</span> <span class="fu">c</span>(<span class="dv">70</span>, <span class="dv">4</span>, <span class="dv">8</span>, <span class="dv">8</span>, <span class="dv">1</span>)) </span></code></pre></div>
 <pre><code>## layer_1 layer_2 layer_3 layer_4   TOTAL 
 ##     852     100     180      54    1186</code></pre>
 </div>
@@ -3274,7 +3354,7 @@ well</strong></p></li>
 <li><p>still more params than obs, but only ~1.25 as many</p></li>
 </ul></li>
 </ul>
-<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a><span class="fu">param_counts_from_dims</span>(<span class="at">dim_vec =</span> <span class="fu">c</span>(<span class="dv">40</span>, <span class="dv">8</span>, <span class="dv">16</span>, <span class="dv">1</span>))</span></code></pre></div>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a><span class="fu">param_counts_from_dims</span>(<span class="at">dim_vec =</span> <span class="fu">c</span>(<span class="dv">40</span>, <span class="dv">8</span>, <span class="dv">16</span>, <span class="dv">1</span>))</span></code></pre></div>
 <pre><code>## layer_1 layer_2 layer_3   TOTAL 
 ##     820     324     102    1246</code></pre>
 <p>If lowering <span class="math inline">\(\tau_0\)</span> alleviates
@@ -3290,20 +3370,20 @@ prone to false positives (thus far — only 1/3 way through training 1st
 replicate)</li>
 </ul></li>
 </ul>
-<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a><span class="co"># agnostic tau_0</span></span>
-<span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a><span class="fu">tau0_PV</span>(<span class="at">p_0 =</span> <span class="dv">1</span>, <span class="at">d =</span> <span class="dv">2</span>, <span class="at">sig =</span> <span class="dv">1</span>, <span class="at">n =</span> <span class="fl">1e3</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a><span class="co"># agnostic tau_0</span></span>
+<span id="cb12-2"><a href="#cb12-2" tabindex="-1"></a><span class="fu">tau0_PV</span>(<span class="at">p_0 =</span> <span class="dv">1</span>, <span class="at">d =</span> <span class="dv">2</span>, <span class="at">sig =</span> <span class="dv">1</span>, <span class="at">n =</span> <span class="fl">1e3</span>)</span></code></pre></div>
 <pre><code>## [1] 0.03162278</code></pre>
-<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a><span class="co"># agnostic tau, scaled by params to obs</span></span>
-<span id="cb13-2"><a href="#cb13-2" tabindex="-1"></a><span class="fu">tau0_PV</span>(<span class="at">p_0 =</span> <span class="dv">1</span>, <span class="at">d =</span> <span class="dv">2</span>, <span class="at">sig =</span> <span class="dv">1</span>, <span class="at">n =</span> <span class="fl">1e3</span>) <span class="sc">*</span> </span>
-<span id="cb13-3"><a href="#cb13-3" tabindex="-1"></a>  <span class="fl">1e3</span> <span class="sc">/</span> <span class="fu">param_counts_from_dims</span>(<span class="fu">c</span>(<span class="dv">104</span>, <span class="dv">8</span>, <span class="dv">16</span>, <span class="dv">1</span>))[<span class="dv">4</span>]</span></code></pre></div>
+<div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" tabindex="-1"></a><span class="co"># agnostic tau, scaled by params to obs</span></span>
+<span id="cb14-2"><a href="#cb14-2" tabindex="-1"></a><span class="fu">tau0_PV</span>(<span class="at">p_0 =</span> <span class="dv">1</span>, <span class="at">d =</span> <span class="dv">2</span>, <span class="at">sig =</span> <span class="dv">1</span>, <span class="at">n =</span> <span class="fl">1e3</span>) <span class="sc">*</span> </span>
+<span id="cb14-3"><a href="#cb14-3" tabindex="-1"></a>  <span class="fl">1e3</span> <span class="sc">/</span> <span class="fu">param_counts_from_dims</span>(<span class="fu">c</span>(<span class="dv">104</span>, <span class="dv">8</span>, <span class="dv">16</span>, <span class="dv">1</span>))[<span class="dv">4</span>]</span></code></pre></div>
 <pre><code>##      TOTAL 
 ## 0.01251891</code></pre>
-<div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" tabindex="-1"></a><span class="co"># optimistic tau (expecting 10 of 104 instead of true 4)</span></span>
-<span id="cb15-2"><a href="#cb15-2" tabindex="-1"></a><span class="fu">tau0_PV</span>(<span class="at">p_0 =</span> <span class="dv">10</span>, <span class="at">d =</span> <span class="dv">104</span>, <span class="at">sig =</span> <span class="dv">1</span>, <span class="at">n =</span> <span class="fl">1e3</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb16"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" tabindex="-1"></a><span class="co"># optimistic tau (expecting 10 of 104 instead of true 4)</span></span>
+<span id="cb16-2"><a href="#cb16-2" tabindex="-1"></a><span class="fu">tau0_PV</span>(<span class="at">p_0 =</span> <span class="dv">10</span>, <span class="at">d =</span> <span class="dv">104</span>, <span class="at">sig =</span> <span class="dv">1</span>, <span class="at">n =</span> <span class="fl">1e3</span>)</span></code></pre></div>
 <pre><code>## [1] 0.003364125</code></pre>
-<div class="sourceCode" id="cb17"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" tabindex="-1"></a><span class="co"># optimistic tau, scaled by params to obs</span></span>
-<span id="cb17-2"><a href="#cb17-2" tabindex="-1"></a><span class="fu">tau0_PV</span>(<span class="at">p_0 =</span> <span class="dv">10</span>, <span class="at">d =</span> <span class="dv">104</span>, <span class="at">sig =</span> <span class="dv">1</span>, <span class="at">n =</span> <span class="fl">1e3</span>) <span class="sc">*</span> </span>
-<span id="cb17-3"><a href="#cb17-3" tabindex="-1"></a>  <span class="fl">1e3</span> <span class="sc">/</span> <span class="fu">param_counts_from_dims</span>(<span class="fu">c</span>(<span class="dv">104</span>, <span class="dv">8</span>, <span class="dv">16</span>, <span class="dv">1</span>))[<span class="dv">4</span>] </span></code></pre></div>
+<div class="sourceCode" id="cb18"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" tabindex="-1"></a><span class="co"># optimistic tau, scaled by params to obs</span></span>
+<span id="cb18-2"><a href="#cb18-2" tabindex="-1"></a><span class="fu">tau0_PV</span>(<span class="at">p_0 =</span> <span class="dv">10</span>, <span class="at">d =</span> <span class="dv">104</span>, <span class="at">sig =</span> <span class="dv">1</span>, <span class="at">n =</span> <span class="fl">1e3</span>) <span class="sc">*</span> </span>
+<span id="cb18-3"><a href="#cb18-3" tabindex="-1"></a>  <span class="fl">1e3</span> <span class="sc">/</span> <span class="fu">param_counts_from_dims</span>(<span class="fu">c</span>(<span class="dv">104</span>, <span class="dv">8</span>, <span class="dv">16</span>, <span class="dv">1</span>))[<span class="dv">4</span>] </span></code></pre></div>
 <pre><code>##       TOTAL 
 ## 0.001331799</code></pre>
 <ul>
@@ -3311,7 +3391,7 @@ replicate)</li>
 dimension needs to be small, which feels very limiting, but let’s
 see.</li>
 </ul>
-<div class="sourceCode" id="cb19"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" tabindex="-1"></a><span class="fu">param_counts_from_dims</span>(<span class="fu">c</span>(<span class="dv">104</span>, <span class="dv">4</span>, <span class="dv">4</span>, <span class="dv">1</span>))</span></code></pre></div>
+<div class="sourceCode" id="cb20"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" tabindex="-1"></a><span class="fu">param_counts_from_dims</span>(<span class="fu">c</span>(<span class="dv">104</span>, <span class="dv">4</span>, <span class="dv">4</span>, <span class="dv">1</span>))</span></code></pre></div>
 <pre><code>## layer_1 layer_2 layer_3   TOTAL 
 ##    1260      60      30    1350</code></pre>
 <div id="depth" class="section level3">
@@ -3322,7 +3402,7 @@ before I corrected the KLs,figured out the parameter correction, and
 worked on calibration of <span class="math inline">\(\tau_0\)</span>.</p>
 </div>
 </div>
-<div id="to-do" class="section level2">
+<div id="to-do-1" class="section level2">
 <h2>To do</h2>
 <p>[x] email Veronica!</p>
 <p>[ ] figure out synthetic data for sparseVCBART / VCBART, figure out
@@ -3349,11 +3429,11 @@ more variation in both)</p></li>
 </ul>
 <div id="number-of-nn-params" class="section level3">
 <h3>number of NN params</h3>
-<div class="sourceCode" id="cb21"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" tabindex="-1"></a><span class="co"># network parameter counts</span></span>
-<span id="cb21-2"><a href="#cb21-2" tabindex="-1"></a><span class="fu">param_counts_from_dims</span>(<span class="at">dim_vec =</span> <span class="fu">c</span>(<span class="dv">104</span>, <span class="dv">16</span>, <span class="dv">32</span>, <span class="dv">1</span>))</span></code></pre></div>
+<div class="sourceCode" id="cb22"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" tabindex="-1"></a><span class="co"># network parameter counts</span></span>
+<span id="cb22-2"><a href="#cb22-2" tabindex="-1"></a><span class="fu">param_counts_from_dims</span>(<span class="at">dim_vec =</span> <span class="fu">c</span>(<span class="dv">104</span>, <span class="dv">16</span>, <span class="dv">32</span>, <span class="dv">1</span>))</span></code></pre></div>
 <pre><code>## layer_1 layer_2 layer_3   TOTAL 
 ##    3780    1156     198    5134</code></pre>
-<div class="sourceCode" id="cb23"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" tabindex="-1"></a><span class="fu">param_counts_from_dims</span>(<span class="at">dim_vec =</span> <span class="fu">c</span>(<span class="dv">104</span>, <span class="dv">8</span>, <span class="dv">16</span>, <span class="dv">1</span>))</span></code></pre></div>
+<div class="sourceCode" id="cb24"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" tabindex="-1"></a><span class="fu">param_counts_from_dims</span>(<span class="at">dim_vec =</span> <span class="fu">c</span>(<span class="dv">104</span>, <span class="dv">8</span>, <span class="dv">16</span>, <span class="dv">1</span>))</span></code></pre></div>
 <pre><code>## layer_1 layer_2 layer_3   TOTAL 
 ##    2100     324     102    2526</code></pre>
 <p>Regarding network size, with 104 input covariates,</p>
@@ -3369,10 +3449,10 @@ covars.</p>
 <li>Without reducing the number of niusance covars, going to need to use
 a very small network (4-16 and 4-4 network sizes below):</li>
 </ul>
-<div class="sourceCode" id="cb25"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" tabindex="-1"></a><span class="fu">param_counts_from_dims</span>(<span class="at">dim_vec =</span> <span class="fu">c</span>(<span class="dv">104</span>, <span class="dv">4</span>, <span class="dv">16</span>, <span class="dv">1</span>))</span></code></pre></div>
+<div class="sourceCode" id="cb26"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1" tabindex="-1"></a><span class="fu">param_counts_from_dims</span>(<span class="at">dim_vec =</span> <span class="fu">c</span>(<span class="dv">104</span>, <span class="dv">4</span>, <span class="dv">16</span>, <span class="dv">1</span>))</span></code></pre></div>
 <pre><code>## layer_1 layer_2 layer_3   TOTAL 
 ##    1260     180     102    1542</code></pre>
-<div class="sourceCode" id="cb27"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" tabindex="-1"></a><span class="fu">param_counts_from_dims</span>(<span class="at">dim_vec =</span> <span class="fu">c</span>(<span class="dv">104</span>, <span class="dv">4</span>, <span class="dv">4</span>, <span class="dv">1</span>))</span></code></pre></div>
+<div class="sourceCode" id="cb28"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1" tabindex="-1"></a><span class="fu">param_counts_from_dims</span>(<span class="at">dim_vec =</span> <span class="fu">c</span>(<span class="dv">104</span>, <span class="dv">4</span>, <span class="dv">4</span>, <span class="dv">1</span>))</span></code></pre></div>
 <pre><code>## layer_1 layer_2 layer_3   TOTAL 
 ##    1260      60      30    1350</code></pre>
 <p><strong>What’s the bright side?</strong></p>
@@ -3508,7 +3588,7 @@ activation function after last layer)</p></li>
 </ul></li>
 </ul>
 </div>
-<div id="to-do-1" class="section level1">
+<div id="to-do-2" class="section level1">
 <h1>2/3 TO DO</h1>
 <p>TO DO this week:</p>
 <ul class="task-list">

@@ -174,7 +174,46 @@ source(here("Rcode", "analysis_fcns.R"))
 
 
 
-# 2/27
+# 3/2 VC mods not working great
+
+- [visualizing VC mod testing](../VCmod/VC_first_sims_vis.html).  Vanilla modeling is OK, but not amazing.  Explicitly modeling VC structure is not working well; trying to figure out why (see 2/28 notes below)
+
+- realized I need to go back and visualize the effects of calibrating $\tau_0$ in low $n$ scenarios for last simulations (before embarking on VC model stuff)
+
+
+## nagging thoughts:
+
+- Worry that scale parameters effect each other across layers.  Is there a way to decouple them (and would that be desirable?)  
+
+  1. Could try scaling covariates and response, PLUS using some kind of normalizing / standardizing activation function (e.g. self-normalizing RELU) until the final layer?  Perhaps it would put all the layers on an equal footing?
+  
+  2. Would using the same global scale parameter $\tau$ across all layers make sense? (sample code for sharing parameters in a autoencoder/decoder example in pytorch below)
+  
+
+          class SharedWeightsModel(nn.Module):
+            def __init__(self):
+                super(SharedWeightsModel, self).__init__()
+                self.encoder = nn.Linear(28*28, 40)
+                self.decoder = nn.Linear(40, 28*28)
+        
+                # Share the weight parameter
+                # (using the transpose for autoencoder)
+                # The key is assigning the nn.Parameter object directly
+                self.decoder.weight = nn.Parameter(self.encoder.weight.t())
+                
+                # Bias can be shared too if desired:
+                # self.decoder.bias = self.encoder.bias 
+        
+            def forward(self, x):
+                x = self.encoder(x)
+                x = self.decoder(x)
+                return x
+
+
+
+
+
+# 2/28
 
 - vanilla model with 3L, 8-16, PV tau 0, agnostic tau for hidden layers does OK.
 
@@ -195,7 +234,7 @@ None of these are doing great when explicitly modeling the VC structure.
 
 May need to rethink this.  Perhaps shrinkage in the final layer does not make sense, or needs to be corrected for previous layers' shrinkage somehow.  
 
-Also, maybe I shouldn't be standardizing the response?  Their data generation is really weird --- beta5 has huge values in it, which appear to make the response's range quite huge.    Probably also leading to more shrinkage.  __Take a look at Ghosh's code to see how they train/fit their models.__
+Also, maybe I shouldn't be standardizing the response?  Their data generation is really weird --- [their $\beta_3()$ function has huge values in it](#sparsevcbart-paper), which appear to make the response's range quite huge.    Probably also leading to more shrinkage.  __Take a look at Ghosh's code to see how they train/fit their models.__
 
 
 
@@ -203,10 +242,10 @@ Also, maybe I shouldn't be standardizing the response?  Their data generation is
 
 # 2/27 spVCBART running
 
-- currently running usual model on sparseVCBART data [(option 2 below)](#sparseVCBART-issue).  
+- currently running usual model on sparseVCBART data [(option 2 below)](#sparsevcbart-issue).  
   - filenames `VCmod_vanilla816_agnostic_test0sig_p3_n10k_` + 525655 or 846743
 
-- working on explicitly modeling VC structure [(option 3)](#sparseVCBART-issue)
+- working on explicitly modeling VC structure [(option 3)](#sparsevcbart-issue)
 
   - use first layers of BNN to model $\beta_j(Z)$'s, obtaining $\kappa_r$'s ($r \in \{1, 2,..., R\}$) for effect modifiers / coordinates $Z \in [0,1]^\mathbb{R}$
   

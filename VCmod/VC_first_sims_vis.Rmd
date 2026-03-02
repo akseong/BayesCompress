@@ -1,0 +1,506 @@
+---
+title: "VC data, first sim results"
+author: "Arnie Seong"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+header-includes:
+  - \usepackage{bm}
+  - \usepackage{xcolor}
+  - \usepackage{amssymb}
+output: 
+  html_document:
+    df_print: paged
+    theme: cerulean
+    highlight: tango
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
+    code_fold: show
+urlcolor: blue
+editor_options: 
+  chunk_output_type: console
+---
+
+<style>
+  .panel-tabs{
+    opacity: 1;
+    background-color: #2fa4e7;
+      color: #ffffff;
+      position: sticky;
+    top: 0
+  }
+</style>
+  
+
+```{r setup, include=FALSE, message=F, echo=F, warning=F}
+# LIBRARIES----
+
+#### plotting:
+library(ggplot2)
+library(gridExtra)
+
+# #### Misc:
+library(here)
+library(tidyr)
+library(knitr)
+library(kableExtra)
+library(dplyr)
+
+# model packages
+library(torch)
+
+# DOCUMENT SETUP ----
+# detect pdf/html output, set chunk options, sci.notation 
+latex_out <- knitr::is_latex_output()
+knitr::opts_chunk$set(
+  cache = FALSE, 
+  message = FALSE, 
+  echo = !knitr::is_latex_output(), 
+  warning = FALSE
+)
+
+
+if (knitr::is_latex_output()) {
+  knitr::opts_chunk$set(fig.height=4, 
+                        fig.width=6)
+} else {
+  knitr::opts_chunk$set(out.width = "100%")
+}
+
+options(scipen=10)
+
+# PANELSET
+xaringanExtra::use_panelset()
+xaringanExtra::style_panelset_tabs(font_family = "inherit")
+
+
+
+# TEXT/TABLE FORMATTING----
+
+custom_purple <- ifelse(
+  knitr::is_latex_output(),
+  "purple",
+  "#b51ced"
+)
+
+custom_blue <- ifelse(
+  knitr::is_latex_output(),
+  "blue",
+  "#11579e"
+)
+
+colorize <- function(x, color=custom_purple) {
+  # text color conditional on latex/html output
+  # from rmarkdown cookbook
+  if (knitr::is_latex_output()) {
+    sprintf("\\textcolor{ %s}{ %s}", color, x)
+  } else if (knitr::is_html_output()) {
+    sprintf("<span style='color: %s;'>%s</span>", color, x)
+  } else x
+}
+
+cat_color <- function(txt, style = 1, color = 36){
+  cat(
+    paste0(
+      "\033[0;",
+      style, ";",
+      color, "m",
+      txt,
+      "\033[0m","\n"
+    )
+  )  
+}
+
+# kable NA handling
+options(knitr.kable.NA = '')
+
+# mykable function
+mykable <- function(tab, cap,
+                    latex_options=c("hold_position", "scale_down", "striped"), 
+                    bootstrap_options=c("striped", "hover", "condensed"), 
+                    full_width=F, position="center", ...){
+  # kable formatting conditional on latex or html output
+  if (is.null(getOption("knitr.in.progress"))){
+    print(tab)
+  } else if (knitr::is_latex_output()){
+    kable(x=tab, caption=cap, ...) %>%
+      kableExtra::kable_styling(latex_options = latex_options)
+  } else if (knitr::is_html_output()){
+    kable(x=tab, caption=cap, ...) %>%
+      kableExtra::kable_styling(bootstrap_options = bootstrap_options, full_width=full_width, position=position)
+  }
+}
+
+# notin
+`%notin%` <- Negate(`%in%`)
+
+library(torch)
+source(here("Rcode", "torch_horseshoe_klcorrected.R"))
+source(here("Rcode", "sim_functions.R"))
+source(here("Rcode", "analysis_fcns.R"))
+source(here("Rcode", "sparseVCBART_fcns.R"))
+source(here("Rcode", "torch_VC_outputlayer.R"))
+```
+
+
+
+
+
+# testing the VC waters
+
+- $Z$ dimension $R$ = 20, results only depend on first 5 $Z$ variables,
+
+- $X$ dimension $p$ = 3,
+
+Just to see if we can adequately capture the data generating functions, tested with $n = 10k$, noise variance $\sigma^2_\epsilon = 0$
+
+## vanilla model
+
+Just proceeding as usual without explicitly modeling the VC structure:
+
+
+```{r FNAMES_SETUP, echo = FALSE}
+stem_vanilla <- "VC_vanilla816_agnostic_test0sig_p3_n10k_"
+seeds_vanilla <- c(525655, 846743)
+resfile_vanilla <- here::here(
+  "sims", "results", 
+  paste0(stem_vanilla, seeds_vanilla, ".RData")
+)
+modfile_vanilla <- here::here(
+  "sims", "results", 
+  paste0(stem_vanilla, seeds_vanilla, ".pt")
+)
+# VCmod_p3_n10k_846743 and _525655
+
+```
+
+
+- 2 hidden layers, 8 and 16 units;
+
+- $\tau_0$ agnostic for all.
+
+```{r}
+load(resfile_vanilla[1])
+nn_mod <- torch_load(modfile_vanilla[1])
+plot_b0_true()
+plot_b1_true()
+
+sim_res$sim_params$p_0
+dim_vec <- c(
+  sim_res$sim_params$d_0,
+  sim_res$sim_params$d_1,
+  sim_res$sim_params$d_2,
+  sim_res$sim_params$d_L
+)
+param_counts_from_dims(dim_vec)
+```
+
+
+
+```{r PLOTTING_SETUP}
+varnames <- c(
+  paste0("z", 1:sim_res$sim_params$R),
+  paste0("x", 1:sim_res$sim_params$p)
+)
+showvars <- c(
+  paste0("z", 1:5),
+  paste0("x", 1:sim_res$sim_params$p)
+)
+true_vec <- varnames %in% showvars
+```
+
+
+### results {.panelset}
+
+  
+  
+#### sim 1
+  
+```{r VIS_CHUNK}
+loss_pltfcn(sim_res, burn = 5e4)$mse_plt
+loss_pltfcn(sim_res, burn = 5e4)$kl_plt
+
+kmat_tc <- sim_res$kappa_tc_mat
+kmat_gl <- sim_res$kappa_mat
+kmat_lo <- sim_res$kappa_local_mat
+kmat_fc <- sim_res$kappa_fc_mat
+
+colnames(sim_res$alpha_mat)  <- 
+  colnames(kmat_tc) <- 
+  colnames(kmat_gl) <-
+  colnames(kmat_lo) <- varnames
+
+if (!is.null(sim_res$kappa_fc_mat)){
+  kmat_fc <- sim_res$kappa_fc_mat
+  colnames(kmat_fc) <- varnames
+}
+
+varmat_pltfcn(
+  sim_res$alpha_mat,
+  y_name = "alpha",
+  burn = 0,
+  show_vars = showvars
+)$all_vars_plt
+
+varmat_pltfcn(
+  kmat_gl,
+  y_name = "GLOBAL kappa",
+  burn = 0,
+  show_vars = showvars
+)$all_vars_plt
+
+varmat_pltfcn(
+  kmat_lo,
+  y_name = "LOCAL kappa",
+  burn = 0,
+  show_vars = showvars
+)$all_vars_plt
+
+varmat_pltfcn(
+  kmat_tc,
+  y_name = "tau-corrected kappas",
+  burn = 0,
+  show_vars = showvars
+)$all_vars_plt
+
+if (!is.null(sim_res$kappa_fc_mat)){
+  varmat_pltfcn(
+    kmat_fc,
+    y_name = "frob-corrected kappas",
+    burn = 0,
+    show_vars = showvars
+  )$all_vars_plt
+}
+
+
+err_by_max_bfdr(
+  kmat_lo[nrow(kmat_lo), ],
+  true_vec = true_vec
+)$plt_fdrs + 
+  labs(
+    subtitle = "using local kappas as dropout probabilities"
+  )
+
+err_by_max_bfdr(
+  kmat_gl[nrow(kmat_gl), ],
+  true_vec = true_vec
+)$plt_fdrs + 
+  labs(
+    subtitle = "using global kappas as dropout probabilities"
+  )
+
+err_by_max_bfdr(
+  kmat_tc[nrow(kmat_tc),],
+  true_vec = true_vec
+)$plt_fdrs + 
+  labs(
+    subtitle = "tau-corrected kappas as dropout probabilities"
+  )
+
+if (!is.null(sim_res$kappa_fc_mat)){
+  err_by_max_bfdr(
+    kmat_fc[nrow(kmat_fc),],
+    true_vec = true_vec
+  )$plt_fdrs + 
+    labs(
+      subtitle = "frob-corrected kappas as dropout probabilities"
+    )
+}
+
+```
+
+#### sim 2
+
+```{r}
+load(resfile_vanilla[2])
+nn_mod <- torch_load(modfile_vanilla[2])
+<<VIS_CHUNK>>
+```
+
+
+
+# VC mod testing
+
+Explicitly modeling the VC structure:
+
+- input $X, Z$ vars separately.  First $L-1$ layers take only $Z$ variables as input.
+
+- First $L-1$ layers (all but last) used to estimate $\beta_j(Z)$'s and perform variable selection on the $Z$ variables;
+
+- layer $L$ (output layer) does not have a weight matrix; only exists to estimate final scale parameters for the $\beta_j$'s / provide variable selection on the $X$ variables:
+
+  - layer $L$ computes $\hat{y_i} = \beta_0(Z_i) \times \lambda_0 \tau_L + \sum_{j=1}^p \beta_j(Z_i) \times \lambda_j \tau_L \times x_{i,j}$
+  
+
+
+
+## first VC sim
+
+
+```{r VC_FNAMES_SETUP, echo = FALSE}
+stem_vc0 <- "VCmod_p3_n10k_"
+seeds_vc0 <- c(525655, 846743)
+
+resfile_vc0 <- here::here(
+  "sims", "results", 
+  paste0(stem_vc0, seeds_vc0, ".RData")
+)
+modfile_vc0 <- here::here(
+  "sims", "results", 
+  paste0(stem_vc0, seeds_vc0, ".pt")
+)
+load(resfile_vc0[1])
+nn_mod <- torch_load(modfile_vc0[1])
+```
+
+- data: R = 20, p = 3, n = 10k, noise = 0
+
+- model: 3 regular hshoe layers + vc layer
+
+- prior tau_R (used in first layer): `sim_res$sim_params$prior_tau_R`
+
+- prior tau_p (used in last layer): `sim_res$sim_params$prior_tau_p`
+
+- agnostic tau otherwise
+
+- 2 hidden layers, 8 and 16 units;
+
+- $\tau_0$ agnostic for all.
+
+```{r}
+dim_list <- sim_res$sim_params[grepl("d_", names(sim_res$sim_params))]
+dim_vec <- do.call(c, dim_list)
+print(dim_vec)
+# param_counts_from_dims is slight overcount (written for regular hshoe layers)
+# subtract (d_in*d_out + 1)*2 from param counts b/c vc layer has no weights/bias
+param_counts_from_dims(dim_vec) 
+```
+
+
+
+```{r VC0_PLOTTING_SETUP}
+varnames <- c(
+  paste0("z", 1:sim_res$sim_params$R),
+  "b_int",
+  paste0("b", 1:sim_res$sim_params$p)
+)
+showvars <- c(
+  paste0("z", 1:5),
+  "b_int",
+  paste0("b", 1:sim_res$sim_params$p)
+)
+true_vec <- varnames %in% showvars
+```
+
+
+### results {.panelset}
+
+
+```{r}
+load(resfile_vc0[1])
+nn_mod <- torch_load(modfile_vc0[1])
+```
+
+
+```{r, echo = FALSE}
+sim_ind = 1
+```
+
+
+#### sim `r sim_ind`
+
+```{r, echo = FALSE}
+load(resfile_vc0[sim_ind])
+nn_mod <- torch_load(modfile_vc0[sim_ind])
+<<VIS_CHUNK>>
+sim_ind = sim_ind + 1
+```
+
+
+#### sim `r sim_ind`
+
+```{r, echo = FALSE}
+load(resfile_vc0[sim_ind])
+nn_mod <- torch_load(modfile_vc0[sim_ind])
+<<VIS_CHUNK>>
+sim_ind = sim_ind + 1
+```
+
+
+### comments
+
+MSE/loss plots look __nowhere near convergence.__  Actually kind of heartening that maybe it can do better, but how long will we need to train?  Increase the learning rate a bunch.
+
+
+
+
+
+
+## all agnostic 3L VC sim
+
+```{r vc3l_FNAMES, echo = FALSE}
+stem_vc3l <- "VCmod_3L_t1_p3_n1k_"
+seeds_vc3l <- c(846743)
+
+resfile_vc3l <- here::here(
+  "sims", "results", 
+  paste0(stem_vc3l, seeds_vc3l, ".RData")
+)
+modfile_vc3l <- here::here(
+  "sims", "results", 
+  paste0(stem_vc3l, seeds_vc3l, ".pt")
+)
+
+load(resfile_vc3l[1])
+nn_mod <- torch_load(modfile_vc3l[1])
+```
+
+- data: R = 20, p = 3, n = 10k, noise = 0
+
+- model: 3 regular hshoe layers + vc layer
+
+- (agnostic) prior tau_R (used in first layer): `sim_res$sim_params$prior_tau_R`
+
+- (agnostic) prior tau_p (used in last layer): `sim_res$sim_params$prior_tau_p`
+
+- 2 hidden layers, 8 and 16 units;
+
+- $\tau_0$ agnostic for all.
+
+```{r}
+nn_mod$children
+```
+
+
+### results {.panelset}
+
+
+```{r}
+load(resfile_vc3l[1])
+nn_mod <- torch_load(modfile_vc3l[1])
+```
+
+
+```{r, echo = FALSE}
+sim_ind = 1
+```
+
+
+#### sim `r sim_ind`
+
+```{r, echo = FALSE}
+load(resfile_vc3l[sim_ind])
+nn_mod <- torch_load(modfile_vc3l[sim_ind])
+<<VIS_CHUNK>>
+sim_ind = sim_ind + 1
+```
+
+
+
+### comments
+
+Terrible.  First layer (look at $Z$-related $\kappa$'s) doesn't seem to really be learning.
+
+
+
