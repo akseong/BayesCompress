@@ -183,6 +183,8 @@ source(here("Rcode", "analysis_fcns.R"))
   - more inconsistencies in the function for $\beta_1$
 
 
+also realized the test runs were not all noise sd 0.  should go back to look.
+
 
 # 3/2 VC mods not working great
 
