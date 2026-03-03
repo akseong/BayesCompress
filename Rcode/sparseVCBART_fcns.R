@@ -10,9 +10,7 @@ library(MASS)
 beta_0 <- function(Z){
   z1 <- Z[, 1]
   z2 <- Z[, 2]
-  3*z1 + 
-    (sin(pi * z1)) * (2 - 5 * (z2 > 0.5)) - 
-    2 * (z2 > 0.5)
+  3*z1 + (sin(pi*z1))*(2-5*(z2>0.5)) - 2*(z2>0.5)
 }
 
 # beta_1 Incorrect in sparseVCBART paper ---
@@ -28,11 +26,20 @@ beta_0 <- function(Z){
 # }
 
 beta_1 <- function(Z){
-  # this is function beta_2(z) from the OG VCBART paper
-  # https://arxiv.org/pdf/2003.06416
   z1 <- Z[, 1]
-  (3 - 3*(z1^2)*cos(6*pi*z1))*(z1 > 0.6) - 10*sqrt(z1)*(z1 < 0.25)
+  z2 <- Z[, 2]
+  # beta_2(z) from the OG VCBART paper # https://arxiv.org/pdf/2003.06416
+  # (3 - 3*(z1^2)*cos(6*pi*z1))*(z1 > 0.6) - 10*sqrt(z1)*(z1 < 0.25)
+  
+  # from paper: https://arxiv.org/pdf/2510.08204
+  # (3 - 3*(z1^2)*(z1 > 0.6) - 10*sqrt(z1)*(z1 < 0.25)
+  
+  # from published code, as of 3/3: 
+  # https://github.com/ghoshstats/sparseVCBART/blob/main/codes/common_sim.R
+  # but this only looks like the plot if z2 = 0.75
+  cos(6*pi*z1) * ((3 - 3*z2) * (z1>0.6) - 10*sqrt(pmax(z1, 0)) * (z1<0.25))
 }
+
 
 beta_2 <- function(Z) {1}
 
@@ -139,11 +146,11 @@ plot_b0_true <- function(resol = 100, b0 = beta_0){
 }
 
 
-plot_b1_true <- function(resol = 100, b1 = beta_1){
+plot_b1_true <- function(resol = 100, b1 = beta_1, z2val = 0.75){
   require(tidyverse)
   require(latex2exp)
   z_gridvec <- 0:resol/resol
-  z11_plotmat <- cbind(z_gridvec, 1)
+  z11_plotmat <- cbind(z_gridvec, z2val)
   b1 <- beta_1(z11_plotmat)
   
   plt <- data.frame(
