@@ -31,11 +31,11 @@ if (torch::cuda_is_available()){
 
 
 # data characteristics ----
-n_obs <- 1e3   # try with more obs for now
+n_obs <- 1e4   # try with more obs for now
 ttsplit <- 0.8
 p <- 3  
 R <- 20
-sig_eps <- 1
+sig_eps <- 0
 mu_eps <- 0
 true_covs <- c(
   paste0("x", 1:3),
@@ -48,7 +48,7 @@ n_sims <- 2
 p_0 <- p/2
 R_0 <- R/2
 dont_scale_t0 <- TRUE
-sim_ID <- "VCmod_3L_pvtau_500k"
+sim_ID <- "VCmod_3L_test0sig"
 
 
 fname_stem <- paste0(
@@ -59,6 +59,10 @@ fname_stem <- paste0(
   "_"
 )
 
+sim_descr <- c(
+  "test run for VC model with selection on X and Z",
+  "lr = 0.01, sig = 0, n=10k, 8-16, agnostic tau's"
+)
 
 ## sim_params ** ----
 sim_params <- list(
@@ -91,7 +95,7 @@ sim_params <- list(
   # "d_5" = 16,
   "d_p1" = p+1,
   "d_L" = 1,
-  "lr" = 0.001,  # sim_hshoe learning rate arg.  If not specified, uses optim_adam default (0.001)
+  "lr" = 0.01,  # sim_hshoe learning rate arg.  If not specified, uses optim_adam default (0.001)
   
   # data characteristics
   "n_obs" = n_obs,
