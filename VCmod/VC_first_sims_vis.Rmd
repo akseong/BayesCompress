@@ -369,12 +369,14 @@ nn_mod <- torch_load(modfile_vc0[1])
 - $\tau_0$ agnostic for all.
 
 ```{r}
+sim_res$sim_params
 dim_list <- sim_res$sim_params[grepl("d_", names(sim_res$sim_params))]
 dim_vec <- do.call(c, dim_list)
 print(dim_vec)
 # param_counts_from_dims is slight overcount (written for regular hshoe layers)
 # subtract (d_in*d_out + 1)*2 from param counts b/c vc layer has no weights/bias
 param_counts_from_dims(dim_vec) 
+nn_mod$children
 ```
 
 
