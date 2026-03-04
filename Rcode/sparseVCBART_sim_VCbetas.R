@@ -31,7 +31,7 @@ if (torch::cuda_is_available()){
 
 
 # data characteristics ----
-n_obs <- 1e4   # try with more obs for now
+n_obs <- 1e3
 ttsplit <- 0.8
 p <- 3  
 R <- 20
@@ -48,7 +48,7 @@ n_sims <- 2
 p_0 <- p/2
 R_0 <- R/2
 dont_scale_t0 <- TRUE
-sim_ID <- "VCbetas_3L_pvtau_500k"
+sim_ID <- "VCbetas_816_sig0"
 
 
 fname_stem <- paste0(
@@ -60,16 +60,18 @@ fname_stem <- paste0(
 )
 
 
-desc_list <- list(
-  "try higher learning rate, recalibrate tau_0's"
-  
-)
+sim_descr <- 
+  "test run: experiment 1 setting with noise 0; \n
+  selection on Z, no sel on X; \n
+  lr = 0.01, R_0 = R/2, (no p_0 since no sel on X); \n
+  agnostic tau on hidden layers"
+
 
 
 
 ## sim_params ** ----
 sim_params <- list(
-  "description" = "VCs modeled; agnostic tau_0; sparseVCBART experiment 1 setting",
+  "description" = sim_descr,
   "seed" = 816,
   "sim_ID" = sim_ID,
   "n_sims" = n_sims, 
@@ -97,8 +99,8 @@ sim_params <- list(
   # "d_4" = 16,
   # "d_5" = 16,
   "d_p1" = p+1,
-  "d_L" = 1,
-  "lr" = 0.001,  # sim_hshoe learning rate arg.  If not specified, uses optim_adam default (0.001)
+  # "d_L" = 1,
+  "lr" = 0.01,  # sim_hshoe learning rate arg.  If not specified, uses optim_adam default (0.001)
   
   # data characteristics
   "n_obs" = n_obs,
@@ -139,12 +141,12 @@ sim_params$prior_tau_R <- tau0_scaling * tau0_PV(
   n = sim_params$n_obs
 )
 
-sim_params$prior_tau_p <- tau0_scaling * tau0_PV(
-  p_0 = sim_params$p_0, 
-  d = sim_params$p + 1, 
-  sig = sim_params$sig_est,  
-  n = sim_params$n_obs
-)
+# sim_params$prior_tau_p <- tau0_scaling * tau0_PV(
+#   p_0 = sim_params$p_0, 
+#   d = sim_params$p + 1, 
+#   sig = sim_params$sig_est,  
+#   n = sim_params$n_obs
+# )
 
 agnostic_tau <- tau0_PV(
   p_0 = 1, d = 2, sig = 1, 
@@ -230,7 +232,7 @@ VCHS_betas <- nn_module(
     kl1 = self$fc1$get_kl()
     kl2 = self$fc2$get_kl()
     kl3 = self$fc3$get_kl()
-    klvc = self$vc$get_kl()
+    # klvc = self$vc$get_kl()
     # kl4 = self$fc3$get_kl()
     # kl5 = self$fc3$get_kl()
     kld = kl1 + kl2 + kl3 # + kl4 + kl5
@@ -263,7 +265,7 @@ bfcns_list <- list(
 #     and then generate intercepts b0hat using the same Z coordinates 
 #     and setting all x = 0.  Then, plot (yhat - b0hat) against z1
 plot_b0_true(resol = 100, b0 = bfcns_list$beta_0)
-plot_b1_true(resol = 100, b1 = bfcns_list$beta_1)
+plot_b1_true(resol = 100, b1 = bfcns_list$beta_1, z2val = 0.75)
 
 ## generate Ey, X ----
 # Covariance of X vars (same as in paper)
@@ -304,7 +306,7 @@ for (sim_ind in 1:sim_params$n_sims){
     )
   )
   
-  sim_res <- spVCBART_VCmod_sim(
+  sim_res <- spVCBART_VCbetas_sim(
     sim_params = sim_params,
     sim_ind = sim_ind,
     sim_save_path = sim_save_path,

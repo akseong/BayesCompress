@@ -1230,26 +1230,16 @@ spVCBART_VCbetas_sim <- function(
   XZ_noint <- sweep(XZ_centered, 2, STATS = XZ_sds, "/")
   
   # add intercept!
-  XZ <- cbind(
-    XZ_noint[, 1:sim_params$R], 
-    1, 
-    XZ_noint[, (1 + sim_params$R):(sim_params$R + sim_params$p)]
-  )
-  colnames(XZ) <- c(
-    paste0("z", 1:sim_params$R),
-    "b_int",
-    paste0("b", 1:sim_params$p)
-  )
+  Z <- XZ_noint[, 1:sim_params$R]
+  X <- cbind(1, XZ_noint[, sim_params$R + 1:sim_params$p])
+  colnames(X)[1] <- "int"
   
-  XZ_tr <- torch_tensor(as.matrix(XZ[tr_inds, ]))
-  XZ_te <- torch_tensor(as.matrix(XZ[te_inds, ]))
-  #######################
-  z_tr = XZ_tr[, 1:sim_params$d_0]
-  z_te = XZ_te[, 1:sim_params$d_0]
+  Z_tr = torch_tensor(as.matrix(Z[tr_inds,]))
+  Z_te = torch_tensor(as.matrix(Z[te_inds,]))
   
-  X_tr = XZ_tr[, (1 + sim_params$d_0):(sim_params$d_0 + sim_params$d_p1)]
-  X_te = XZ_te[, (1 + sim_params$d_0):(sim_params$d_0 + sim_params$d_p1)]
-  #######################
+  X_tr = torch_tensor(as.matrix(X[tr_inds,]))
+  X_te = torch_tensor(as.matrix(X[te_inds,]))
+
   ## add noise and standardize y, test/train split ----
   y_raw <- Ey_raw + eps_mat[, sim_ind]
   y_mean <- mean(y_raw)
@@ -1262,8 +1252,10 @@ spVCBART_VCbetas_sim <- function(
   if (sim_params$use_cuda){
     y_tr <- y_tr$to(device = "cuda")
     y_te <- y_te$to(device = "cuda")
-    XZ_tr <- XZ_tr$to(device = "cuda")
-    XZ_te <- XZ_te$to(device = "cuda")
+    Z_tr <- Z_tr$to(device = "cuda")
+    Z_te <- Z_te$to(device = "cuda")
+    X_tr <- X_tr$to(device = "cuda")
+    X_te <- X_te$to(device = "cuda")
   }
   
   ## when to report / plot ----
@@ -1293,10 +1285,10 @@ spVCBART_VCbetas_sim <- function(
   alpha_mat <- matrix(
     NA, 
     nrow = length(report_epochs),
-    ncol = sim_params$d_0 + sim_params$d_p1
+    ncol = sim_params$d_0
   )
   rownames(alpha_mat) <- report_epochs
-  colnames(alpha_mat) <- colnames(XZ)
+  colnames(alpha_mat) <- colnames(Z)
   
   
   kappa_local_mat <- 
@@ -1316,15 +1308,8 @@ spVCBART_VCbetas_sim <- function(
   while (epoch <= sim_params$train_epochs){
     
     ## fit & metrics ----
-    vc_betas <- model_fit(
-      zvars = XZ_tr[, 1:sim_params$d_0]
-    )
-    #############################
-    yhat_tr <- rowSums(vc_betas * xvars)
-    ##############################
-    
-    
-    
+    vc_betas <- model_fit(zvars = Z_tr)
+    yhat_tr <- torch_sum(vc_betas * X_tr, dim = 2)
     mse <- nnf_mse_loss(yhat_tr, y_tr)
     kl <- model_fit$get_model_kld() / length(y_tr)
     loss <- mse + kl
@@ -1360,30 +1345,16 @@ spVCBART_VCbetas_sim <- function(
       row_ind <- epoch %/% sim_params$report_every
       
       # compute test loss
-      yhat_te <- model_fit(
-        zvars = XZ_te[, 1:sim_params$d_0], 
-        xvars = XZ_te[, (1 + sim_params$d_0):(sim_params$d_0 + sim_params$d_p1)]
-      )
+      vc_betas_te <- model_fit(zvars = Z_te)
+      yhat_te <- torch_sum(vc_betas_te * X_te, dim = 2)
       mse_te <- nnf_mse_loss(yhat_te, y_te)
       loss_mat[row_ind, ] <- c(kl$item(), mse$item(), mse_te$item())
       
       # store params
-      dropout_alphas <- c(
-        as_array(model_fit$fc1$get_dropout_rates()),
-        as_array(model_fit$vc$get_dropout_rates())
-      )
-      kappas <- c(
-        get_kappas(model_fit$fc1),
-        get_kappas(model_fit$vc)
-      )
-      kappas_local <- c(
-        get_kappas(model_fit$fc1, type = "local"),
-        get_kappas(model_fit$vc, type = "local")
-      )
-      kappas_tc <- c(
-        get_kappas_taucorrected(model_fit),
-        get_kappas(model_fit$vc)
-      )
+      dropout_alphas <- as_array(model_fit$fc1$get_dropout_rates())
+      kappas <- get_kappas(model_fit$fc1)
+      kappas_local <- get_kappas(model_fit$fc1, type = "local")
+      kappas_tc <- get_kappas_taucorrected(model_fit)
       
       # # omitted frobenius-corrected kappas
       # kappas_fc <- c(
@@ -1414,13 +1385,11 @@ spVCBART_VCbetas_sim <- function(
       s_sq1 <- get_s_sq(model_fit$fc1)
       s_sq2 <- get_s_sq(model_fit$fc2)
       s_sq3 <- get_s_sq(model_fit$fc3)
-      s_sqvc <- get_s_sq(model_fit$vc)
       
       cat(
         "\n s_sq1 = ", round(s_sq1, 5),
         "; s_sq2 = ", round(s_sq2, 5),
         "; s_sq3 = ", round(s_sq3, 5),
-        "; s_sqvc = ", round(s_sqvc, 5),
         sep = ""
       )
       
@@ -1464,7 +1433,7 @@ spVCBART_VCbetas_sim <- function(
     ### fcn plots ----
     if (time_to_plot & sim_params$want_fcn_plts){
       
-      epoch_str <- paste0("epoch :", epoch)
+      epoch_str <- paste0("epoch: ", epoch)
       
       ## make Z grid
       zgrid_raw <- make_isolated_Zgrids(R = sim_params$d_0, resol = 100)
@@ -1476,15 +1445,16 @@ spVCBART_VCbetas_sim <- function(
       )$scaled
       
       beta_hat <- as_array(
-        model_fit$get_betas(zvars = zgrid)
+        model_fit(zvars = zgrid)
       )
       
       colnames(beta_hat) <- paste0(
-        colnames(XZ)[sim_params$R + 1:sim_params$d_p1],
+        "b",
+        c("_int", 1:sim_params$p),
         "_hat"
       )
       
-      
+ 
       beta_plt_df <- data.frame(
         "b0_true" = bfcns_list$beta_0(zgrid_raw),
         "b1_true" = bfcns_list$beta_1(zgrid_raw),
@@ -1501,24 +1471,22 @@ spVCBART_VCbetas_sim <- function(
         filter(beta %in% c("b0_true", "b_int_hat")) %>% 
         ggplot(aes(y = value, x = z1, color = as_factor(z2), linetype = beta)) + 
         geom_line() +
-        labs(
-          title = paste0(
+        ggtitle(
+          paste0(
             epoch_str,
-            " ",
-            TeX("estimated $\\beta_0$ ~ $z_1$")
+            TeX("; estimated $\\beta_0$ ~ $z_1$")
           )
         )
       
       b1_plt <- beta_plt_df %>%
         filter(z1 != 0) %>% 
         filter(beta %in% c("b1_true", "b1_hat")) %>% 
-        ggplot(aes(y = value, x = z1, linetype = beta)) + 
+        ggplot(aes(y = value, x = z1, linetype = beta, color = as_factor(z2))) + 
         geom_line() +
-        labs(
-          title = paste0(
+        ggtitle(
+          paste0(
             epoch_str,
-            " ",
-            TeX("estimated $\\beta_1$ ~ $z_1$")
+            TeX("; estimated $\\beta_1$ ~ $z_1$")
           )
         )
       
