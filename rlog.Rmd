@@ -176,9 +176,9 @@ source(here("Rcode", "analysis_fcns.R"))
 
 # 3/3
 
-[code for sparseVCBART](https://github.com/ghoshstats/sparseVCBART):
+[code for sparseVCBART](https://github.com/ghoshstats/sparseVCBART){target="_blank"}:
 
-- [`gen_data`](https://github.com/ghoshstats/sparseVCBART/blob/main/codes/common_sim.R)
+- [`gen_data`](https://github.com/ghoshstats/sparseVCBART/blob/main/codes/common_sim.R){target="_blank"}
 
   - more inconsistencies in the function for $\beta_1$
 
@@ -188,7 +188,7 @@ also realized the test runs were not all noise sd 0.  should go back to look.
 
 # 3/2 VC mods not working great
 
-- [visualizing VC mod testing](../VCmod/VC_first_sims_vis.html).  Vanilla modeling is OK, but not amazing.  Explicitly modeling VC structure is not working well; trying to figure out why (see 2/28 notes below)
+- [visualizing VC mod testing](VCmod/VC_first_sims_vis.html){target="_blank"}.  Vanilla modeling is OK, but not amazing.  Explicitly modeling VC structure is not working well; trying to figure out why (see 2/28 notes below)
 
 - realized I need to go back and visualize the effects of calibrating $\tau_0$ in low $n$ scenarios for last simulations (before embarking on VC model stuff)
 
