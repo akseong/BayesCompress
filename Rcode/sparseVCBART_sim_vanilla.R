@@ -46,7 +46,7 @@ true_covs <- c(
 n_sims <- 2
 p_0 <- (p+R)/2
 dont_scale_t0 <- TRUE
-sim_ID <- "VC_vanilla816_agnostic_test0sig"
+sim_ID <- "VC_vanilla1632_agnostic_test0sig"
 
 
 fname_stem <- paste0(
@@ -61,11 +61,11 @@ fname_stem <- paste0(
 ## sim_params ** ----
 sim_params <- list(
   # sim characteristics
-  "description" = "agnostic tau_0; sparseVCBART experiment 1 setting",
-  "seed" = 816,
+  "description" = "agnostic tau_0 (scaled to 1/2); higher learning rate, larger network 16-32; sparseVCBART experiment 1 setting",
+  "seed" = 1632,
   "sim_ID" = sim_ID,
   "n_sims" = n_sims,
-  "train_epochs" = 3e5,
+  "train_epochs" = 5e5,
   "report_every" = 1E4,
   "plot_every_x_reports" = 10,
   "verbose" = TRUE,
@@ -82,13 +82,13 @@ sim_params <- list(
   "dont_scale_t0" = dont_scale_t0,
   "use_cuda" = use_cuda,
   "d_0" = R+p,
-  "d_1" = 8,
-  "d_2" = 16,
+  "d_1" = 16,
+  "d_2" = 32,
   # "d_3" = 16,
   # "d_4" = 16,
   # "d_5" = 16,
   "d_L" = 1,
-  "lr" = 0.001,  # sim_hshoe learning rate arg.  If not specified, uses optim_adam default (0.001)
+  "lr" = 1,  # sim_hshoe learning rate arg.  If not specified, uses optim_adam default (0.001)
   
   # data characteristics
   "n_obs" = n_obs,
