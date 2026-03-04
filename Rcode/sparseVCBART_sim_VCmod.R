@@ -61,12 +61,12 @@ fname_stem <- paste0(
 
 sim_descr <- c(
   "test run for VC model with selection on X and Z",
-  "lr = 0.01, sig = 0, n=10k, 8-16, agnostic tau's"
+  "sig = 0, n=10k, 8-16, lr = 0.01, agnostic tau's"
 )
 
 ## sim_params ** ----
 sim_params <- list(
-  "description" = "VCs modeled; agnostic tau_0; sparseVCBART experiment 1 setting",
+  "description" = sim_descr,
   "seed" = 816,
   "sim_ID" = sim_ID,
   "n_sims" = n_sims, 
