@@ -88,7 +88,7 @@ sim_params <- list(
   # "d_4" = 16,
   # "d_5" = 16,
   "d_L" = 1,
-  "lr" = 1,  # sim_hshoe learning rate arg.  If not specified, uses optim_adam default (0.001)
+  "lr" = .01,  # sim_hshoe learning rate arg.  If not specified, uses optim_adam default (0.001)
   
   # data characteristics
   "n_obs" = n_obs,
