@@ -184,6 +184,7 @@ source(here("Rcode", "analysis_fcns.R"))
 
 - Re-running test for VCmod with vc output layer, actually 0 noise, lr = 0.01 (didn't seem to be learning fast enough / training fast enough).  sim_ID: `VCmod_3L_test0sig`
 
+__mid-training update:__ does not appear to be training well, perhaps because yhats are not computed within the network? (possibly causing loss of gradient?  not sure)  Rewrote some code to compute yhats within the network, currently training.  simID `VCbetas2_816_sig0`
 
 
 # 3/3
