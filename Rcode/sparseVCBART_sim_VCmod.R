@@ -45,10 +45,10 @@ true_covs <- c(
 
 # SIM PARAMS ----
 n_sims <- 2
-p_0 <- p/2
+p_0 <- p
 R_0 <- R/2
 dont_scale_t0 <- TRUE
-sim_ID <- "VCmod_3L_test0sig"
+sim_ID <- "VCmod_3L_12864_test0sig"
 
 
 fname_stem <- paste0(
@@ -61,16 +61,16 @@ fname_stem <- paste0(
 
 sim_descr <- c(
   "test run for VC model with selection on X and Z",
-  "sig = 0, n=10k, 8-16, lr = 0.01, agnostic tau's"
+  "sig = 0, n=10k, 128-64, lr = 0.001, agnostic tau's except p_0 = p"
 )
 
 ## sim_params ** ----
 sim_params <- list(
   "description" = sim_descr,
-  "seed" = 816,
+  "seed" = 12864,
   "sim_ID" = sim_ID,
   "n_sims" = n_sims, 
-  "train_epochs" = 5e5,
+  "train_epochs" = 3e5,
   "report_every" = 1E4,
   "plot_every_x_reports" = 10,
   "verbose" = TRUE,
@@ -88,14 +88,14 @@ sim_params <- list(
   "dont_scale_t0" = dont_scale_t0,
   "use_cuda" = use_cuda,
   "d_0" = R,
-  "d_1" = 8,
-  "d_2" = 16,
+  "d_1" = 128,
+  "d_2" = 64,
   # "d_3" = 16,
   # "d_4" = 16,
   # "d_5" = 16,
   "d_p1" = p+1,
   "d_L" = 1,
-  "lr" = 0.01,  # sim_hshoe learning rate arg.  If not specified, uses optim_adam default (0.001)
+  "lr" = 0.001,  # sim_hshoe learning rate arg.  If not specified, uses optim_adam default (0.001)
   
   # data characteristics
   "n_obs" = n_obs,

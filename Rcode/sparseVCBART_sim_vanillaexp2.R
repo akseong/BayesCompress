@@ -32,7 +32,7 @@ if (torch::cuda_is_available()){
 # data characteristics ----
 n_obs <- 1e4   # try with more obs for now
 ttsplit <- 0.8
-p <- 3  
+p <- 50  
 R <- 20
 sig_eps <- 0
 mu_eps <- 0
@@ -46,7 +46,7 @@ true_covs <- c(
 n_sims <- 2
 p_0 <- (p+R)/2
 dont_scale_t0 <- TRUE
-sim_ID <- "VC_vanilla12864_agnostic_test0sig"
+sim_ID <- "VC_vanilla12864_agnostic_test0sigexp2"
 
 
 fname_stem <- paste0(
@@ -60,7 +60,7 @@ fname_stem <- paste0(
 
 sim_desce <- c(
   "agnostic tau_0 (scaled to 1/2), learning rate 0.001",
-  "larger network 128-64; sparseVCBART experiment 1 setting"
+  "larger network 128-64; sparseVCBART experiment 2 setting"
 )
 
 ## sim_params ** ----

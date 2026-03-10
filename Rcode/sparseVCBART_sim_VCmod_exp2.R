@@ -1,13 +1,12 @@
 ##################################################
-## Project:   sparseVCBART sim - VANILLA BNN
+## Project:   sparseVCBART sim - VC structure modeled
 ## Date:      Feb 18, 2026
 ## Author:    Arnie Seong
 ##################################################
 
+# VC structure modeled by BNN (i.e. BNN input is Z, output is coefs)
+# - unlike sparseVCBART, not modeling each coef separately
 
-# VC structure **NOT** explicitly modeled.  
-# Not super optimistic about performance here,
-# at least in terms of recovering covariate functions
 
 # SETUP: LIBS & FCNS ----
 library(here)
@@ -18,6 +17,8 @@ source(here("Rcode", "torch_horseshoe_klcorrected.R"))
 source(here("Rcode", "sim_functions.R"))
 source(here("Rcode", "analysis_fcns.R"))
 source(here("Rcode", "sparseVCBART_fcns.R"))
+source(here("Rcode", "torch_VC_outputlayer.R"))
+
 
 # CUDA----
 if (torch::cuda_is_available()){
@@ -32,7 +33,7 @@ if (torch::cuda_is_available()){
 # data characteristics ----
 n_obs <- 1e4   # try with more obs for now
 ttsplit <- 0.8
-p <- 3  
+p <- 50  
 R <- 20
 sig_eps <- 0
 mu_eps <- 0
@@ -44,9 +45,10 @@ true_covs <- c(
 
 # SIM PARAMS ----
 n_sims <- 2
-p_0 <- (p+R)/2
+p_0 <- p/2
+R_0 <- R/2
 dont_scale_t0 <- TRUE
-sim_ID <- "VC_vanilla12864_agnostic_test0sig"
+sim_ID <- "VCmod_3L_12864_test0sig_exp2"
 
 
 fname_stem <- paste0(
@@ -57,19 +59,17 @@ fname_stem <- paste0(
   "_"
 )
 
-
-sim_desce <- c(
-  "agnostic tau_0 (scaled to 1/2), learning rate 0.001",
-  "larger network 128-64; sparseVCBART experiment 1 setting"
+sim_descr <- c(
+  "test run for VC model with selection on X and Z",
+  "sig = 0, n=10k, 128-64, lr = 0.001, agnostic tau's except p_0 = p"
 )
 
 ## sim_params ** ----
 sim_params <- list(
-  # sim characteristics
-  "description" = sim_desce,
-  "seed" = 6432,
+  "description" = sim_descr,
+  "seed" = 12864,
   "sim_ID" = sim_ID,
-  "n_sims" = n_sims,
+  "n_sims" = n_sims, 
   "train_epochs" = 3e5,
   "report_every" = 1E4,
   "plot_every_x_reports" = 10,
@@ -82,18 +82,20 @@ sim_params <- list(
   "save_results" = TRUE,
   
   # network params
+  "R_0" = R_0,
   "p_0" = p_0,
   "sig_est" = 1,
   "dont_scale_t0" = dont_scale_t0,
   "use_cuda" = use_cuda,
-  "d_0" = R+p,
+  "d_0" = R,
   "d_1" = 128,
   "d_2" = 64,
   # "d_3" = 16,
   # "d_4" = 16,
   # "d_5" = 16,
+  "d_p1" = p+1,
   "d_L" = 1,
-  "lr" = .001,  # sim_hshoe learning rate arg.  If not specified, uses optim_adam default (0.001)
+  "lr" = 0.001,  # sim_hshoe learning rate arg.  If not specified, uses optim_adam default (0.001)
   
   # data characteristics
   "n_obs" = n_obs,
@@ -117,26 +119,27 @@ print(param_count)
 # Piironen & Vehtari 2017 suggest tau_0 = p_0 / (d - p_0) * sig / sqrt(n)
 # where p_0 = prior estimate of number of nonzero betas, d = total number of covs
 
-# Not sure if sig = sd(y) or of sd(eps):
-# if sd(y), just set = 1, since standardizing y;
-# if sd(eps), get preliminary estimate of sig using
-# lmfit <- lm(as_array(y_tr) ~ as_array(XZ_tr))
-# summary(lmfit)$sigma
-
 # If many more network params than obs (e.g. like 2x), 
 # can try scaling the prior tau by n_obs/n_params
 # to induce more shrinkage (put pressure against overfitting)
 obs_to_nnparams <- sim_params$n_obs / last(param_count)
 tau0_scaling <- ifelse(
-  (obs_to_nnparams > .5) | sim_params$dont_scale_t0, 
+  (obs_to_nnparams > .5) | dont_scale_t0, 
   1, 
   obs_to_nnparams
+) 
+
+sim_params$prior_tau_R <- tau0_scaling * tau0_PV(
+  p_0 = sim_params$R_0, 
+  d = sim_params$R, 
+  sig = sim_params$sig_est, 
+  n = sim_params$n_obs
 )
 
-sim_params$prior_tau <- tau0_scaling * tau0_PV(
+sim_params$prior_tau_p <- tau0_scaling * tau0_PV(
   p_0 = sim_params$p_0, 
-  d = sim_params$p + sim_params$R, 
-  sig = sim_params$sig_est, 
+  d = sim_params$p + 1, 
+  sig = sim_params$sig_est,  
   n = sim_params$n_obs
 )
 
@@ -145,17 +148,16 @@ agnostic_tau <- tau0_PV(
   n = sim_params$n_obs
 )
 
-
-# DEFINE MODEL ----
-
-MLHS <- nn_module(
-  "MLHS",
+# NETWORK SETUP ----
+## define model
+VCHS <- nn_module(
+  "VCHS",
   initialize = function() {
     self$fc1 = torch_hs(    
       in_features = sim_params$d_0, 
       out_features = sim_params$d_1,
       use_cuda = sim_params$use_cuda,
-      tau_0 = sim_params$prior_tau,
+      tau_0 = sim_params$prior_tau_R,
       init_weight = NULL,
       init_bias = NULL,
       init_alpha = 0.9,
@@ -175,29 +177,29 @@ MLHS <- nn_module(
     
     self$fc3 = torch_hs(
       in_features = sim_params$d_2,
-      #   out_features = sim_params$d_3,
-      #   use_cuda = sim_params$use_cuda,
-      #   tau = agnostic_tau,
-      #   init_weight = NULL,
-      #   init_bias = NULL,
-      #   init_alpha = 0.9,
-      #   clip_var = TRUE
-      # )
-      # 
-      # self$fc4 = torch_hs(
-      #   in_features = sim_params$d_3,
-      #   out_features = sim_params$d_4,
-      #   use_cuda = sim_params$use_cuda,
-      #   tau = agnostic_tau,
-      #   init_weight = NULL,
-      #   init_bias = NULL,
-      #   init_alpha = 0.9,
-      #   clip_var = TRUE
-      # )
-      # 
-      # self$fc5 = torch_hs(
-      #   in_features = sim_params$d_4,
-      out_features = sim_params$d_L,
+    #   out_features = sim_params$d_3,
+    #   use_cuda = sim_params$use_cuda,
+    #   tau_0 = 1,
+    #   init_weight = NULL,
+    #   init_bias = NULL,
+    #   init_alpha = 0.9,
+    #   clip_var = TRUE
+    # )
+    # 
+    #   self$fc4 = torch_hs(
+    #     in_features = sim_params$d_3,
+    #     out_features = sim_params$d_4,
+    #     use_cuda = sim_params$use_cuda,
+    #     tau_0 = 1,
+    #     init_weight = NULL,
+    #     init_bias = NULL,
+    #     init_alpha = 0.9,
+    #     clip_var = TRUE
+    #   )
+    # 
+    #   self$fc5 = torch_hs(
+    #     in_features = sim_params$d_4,
+      out_features = sim_params$d_p1,
       use_cuda = sim_params$use_cuda,
       tau_0 = agnostic_tau,
       init_weight = NULL,
@@ -206,28 +208,53 @@ MLHS <- nn_module(
       clip_var = TRUE
     )
     
+    self$vc = torch_hs_VClast(
+      in_features = sim_params$d_p1,
+      out_features = sim_params$d_L,
+      use_cuda = sim_params$use_cuda,
+      tau_0 = agnostic_tau,
+      init_alpha = 0.9
+    )
   },
   
-  forward = function(x) {
-    x %>%
+  forward = function(zvars, xvars) {
+    # compute VCs
+    betas <- zvars %>%
       self$fc1() %>%
       nnf_relu() %>%
       self$fc2() %>%
       nnf_relu() %>%
-      self$fc3() # %>%
-    # nnf_relu() %>%
-    # self$fc4() %>%
-    # nnf_relu() %>%
-    # self$fc5()
+      self$fc3() # %>% 
+      # nnf_relu() %>%
+      # self$fc4() %>%
+      # nnf_relu() %>%
+      # self$fc5()
+    
+    # yhats via hshoe on VCs
+    self$vc(vcs=betas, xvars=xvars)
+  },
+  
+  get_betas = function(zvars){
+    zvars %>%
+      self$fc1() %>%
+      nnf_relu() %>%
+      self$fc2() %>%
+      nnf_relu() %>%
+      self$fc3() %>% 
+      nnf_relu() # %>%
+      # self$fc4() %>%
+      # nnf_relu() %>%
+      # self$fc5()
   },
   
   get_model_kld = function(){
     kl1 = self$fc1$get_kl()
     kl2 = self$fc2$get_kl()
     kl3 = self$fc3$get_kl()
+    klvc = self$vc$get_kl()
     # kl4 = self$fc3$get_kl()
     # kl5 = self$fc3$get_kl()
-    kld = kl1 + kl2 + kl3 #+ kl4 + kl5
+    kld = klvc + kl1 + kl2 + kl3 # + kl4 + kl5
     return(kld)
   }
 )
@@ -249,7 +276,6 @@ bfcns_list <- list(
   "beta_2" = beta_2,
   "beta_3" = beta_3
 )
-sim_params$bfcns_list <- bfcns_list
 
 # plot beta_0, beta_1 fcns
 #   note that b1 and b0 are not really separable when looking at y
@@ -257,8 +283,8 @@ sim_params$bfcns_list <- bfcns_list
 #   - to capture "b1" we need to set x1 = 1, generate predictions yhat
 #     and then generate intercepts b0hat using the same Z coordinates 
 #     and setting all x = 0.  Then, plot (yhat - b0hat) against z1
-plot_b0_true(resol = 100, b0 = sim_params$bfcns_list$beta_0)
-plot_b1_true(resol = 100, b1 = sim_params$bfcns_list$beta_1)
+plot_b0_true(resol = 100, b0 = bfcns_list$beta_0)
+plot_b1_true(resol = 100, b1 = bfcns_list$beta_1)
 
 ## generate Ey, X ----
 # Covariance of X vars (same as in paper)
@@ -287,7 +313,6 @@ eps_mat <- matrix(
 )
 
 
-
 # SIM_LOOP ----
 for (sim_ind in 1:sim_params$n_sims){
   ## sim_save_path ----
@@ -300,33 +325,12 @@ for (sim_ind in 1:sim_params$n_sims){
     )
   )
   
-  spVCBART_vanilla_sim(
+  sim_res <- spVCBART_VCmod_sim(
     sim_params = sim_params,
     sim_ind = sim_ind,
     sim_save_path = sim_save_path,
-    nn_model = MLHS,
+    nn_model = VCHS,
     Ey_df = Ey_df, 
     eps_mat = eps_mat
   )
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
