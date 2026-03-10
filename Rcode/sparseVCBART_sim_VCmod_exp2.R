@@ -35,7 +35,7 @@ n_obs <- 1e4   # try with more obs for now
 ttsplit <- 0.8
 p <- 50  
 R <- 20
-sig_eps <- 0
+sig_eps <- 1
 mu_eps <- 0
 true_covs <- c(
   paste0("x", 1:3),
@@ -48,20 +48,11 @@ n_sims <- 2
 p_0 <- p/2
 R_0 <- R/2
 dont_scale_t0 <- TRUE
-sim_ID <- "VCmod_3L_12864_test0sig_exp2"
-
-
-fname_stem <- paste0(
-  sim_ID,
-  # "_test",
-  "_p", p,
-  "_n", round(n_obs/1000), "k",
-  "_"
-)
+sim_ID <- "VCmod_3L_3232_exp2"
 
 sim_descr <- c(
-  "test run for VC model with selection on X and Z",
-  "sig = 0, n=10k, 128-64, lr = 0.001, agnostic tau's except p_0 = p"
+  "VC model with selection on X and Z",
+  "sig = 1, n=10k, 128-64, lr = 0.001, agnostic tau's except p_0 = p"
 )
 
 ## sim_params ** ----
@@ -88,8 +79,8 @@ sim_params <- list(
   "dont_scale_t0" = dont_scale_t0,
   "use_cuda" = use_cuda,
   "d_0" = R,
-  "d_1" = 128,
-  "d_2" = 64,
+  "d_1" = 32,
+  "d_2" = 32,
   # "d_3" = 16,
   # "d_4" = 16,
   # "d_5" = 16,
@@ -107,7 +98,13 @@ sim_params <- list(
 )
 set.seed(sim_params$seed)
 sim_params$sim_seeds <- floor(runif(n = sim_params$n_sims, 0, 1000000))
-
+fname_stem <- paste0(
+  sim_ID,
+  # "_test",
+  "_p", p,
+  "_n", round(n_obs/1000), "k",
+  "_"
+)
 ## param count ----
 dim_vec <- do.call(c, sim_params[grep(pattern = "d_", names(sim_params))])
 param_count <- param_counts_from_dims(dim_vec)
