@@ -30,11 +30,11 @@ if (torch::cuda_is_available()){
 
 
 # data characteristics ----
-n_obs <- 1e4   # try with more obs for now
+n_obs <- 1e3   # try with more obs for now
 ttsplit <- 0.8
 p <- 50  
 R <- 20
-sig_eps <- 0
+sig_eps <- 1
 mu_eps <- 0
 true_covs <- c(
   paste0("x", 1:3),
@@ -46,28 +46,18 @@ true_covs <- c(
 n_sims <- 2
 p_0 <- (p+R)/2
 dont_scale_t0 <- TRUE
-sim_ID <- "VC_vanilla12864_agnostic_test0sigexp2"
+sim_ID <- "VC_vanilla3232_agnostic_exp2"
 
-
-fname_stem <- paste0(
-  sim_ID,
-  # "_test",
-  "_p", p,
-  "_n", round(n_obs/1000), "k",
-  "_"
-)
-
-
-sim_desce <- c(
-  "agnostic tau_0 (scaled to 1/2), learning rate 0.001",
-  "larger network 128-64; sparseVCBART experiment 2 setting"
+sim_descr <- c(
+  "sig=1, agnostic tau_0 (scaled to 1/2), learning rate 0.001",
+  "larger network 32-32; sparseVCBART experiment 2 setting"
 )
 
 ## sim_params ** ----
 sim_params <- list(
   # sim characteristics
-  "description" = sim_desce,
-  "seed" = 6432,
+  "description" = sim_descr,
+  "seed" = 3232,
   "sim_ID" = sim_ID,
   "n_sims" = n_sims,
   "train_epochs" = 3e5,
@@ -87,8 +77,8 @@ sim_params <- list(
   "dont_scale_t0" = dont_scale_t0,
   "use_cuda" = use_cuda,
   "d_0" = R+p,
-  "d_1" = 128,
-  "d_2" = 64,
+  "d_1" = 32,
+  "d_2" = 32,
   # "d_3" = 16,
   # "d_4" = 16,
   # "d_5" = 16,
@@ -105,6 +95,14 @@ sim_params <- list(
 )
 set.seed(sim_params$seed)
 sim_params$sim_seeds <- floor(runif(n = sim_params$n_sims, 0, 1000000))
+
+fname_stem <- paste0(
+  sim_ID,
+  # "_test",
+  "_p", p,
+  "_n", round(n_obs/1000), "k",
+  "_"
+)
 
 ## param count ----
 dim_vec <- do.call(c, sim_params[grep(pattern = "d_", names(sim_params))])
