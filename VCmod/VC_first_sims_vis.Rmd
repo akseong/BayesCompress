@@ -155,7 +155,7 @@ source(here("Rcode", "torch_VC_outputlayer.R"))
 
 Just to see if we can adequately capture the data generating functions, tested with $n = 10k$, noise variance $\sigma^2_\epsilon = 0$
 
-## vanilla model
+## vanilla model, n=10k, sig=0
 
 Just proceeding as usual without explicitly modeling the VC structure:
 
@@ -173,6 +173,15 @@ modfile_vanilla <- here::here(
 )
 # VCmod_p3_n10k_846743 and _525655
 
+data_desc <- function(sim_res){
+  print(paste0("n_obs: ", sim_res$sim_params$n_obs))
+  print(paste0("sig_eps: ", sim_res$sim_params$sig_eps))
+  print(paste0("lr: ", sim_res$sim_params$lr))
+  print(paste0("R: ", sim_res$sim_params$R))
+  print(paste0("p: ", sim_res$sim_params$p))
+  print(paste0("R_0: ", sim_res$sim_params$R_0))
+  print(paste0("p_0: ", sim_res$sim_params$p_0))
+}
 ```
 
 
@@ -186,7 +195,7 @@ nn_mod <- torch_load(modfile_vanilla[1])
 plot_b0_true()
 plot_b1_true()
 
-sim_res$sim_params$p_0
+data_desc(sim_res)
 dim_vec <- c(
   sim_res$sim_params$d_0,
   sim_res$sim_params$d_1,
@@ -318,6 +327,13 @@ nn_mod <- torch_load(modfile_vanilla[2])
 <<VIS_CHUNK>>
 ```
 
+### comments
+
+- alphas capturing everything but z3
+
+- local kappas getting all but z3 and (somewhat) x2
+
+- BFDR not bad, but noise = 0 here for testing.
 
 
 # VC mod testing
@@ -335,7 +351,7 @@ Explicitly modeling the VC structure:
 
 
 
-## first VC sim
+## 3L 8-16 VC, n=10k, sig=1
 
 
 ```{r VC_FNAMES_SETUP, echo = FALSE}
@@ -354,13 +370,13 @@ load(resfile_vc0[1])
 nn_mod <- torch_load(modfile_vc0[1])
 ```
 
-- data: R = 20, p = 3, n = 10k, noise = 0
+- data: R = 20, p = 3, n = 10k, noise = 1
 
 - model: 3 regular hshoe layers + vc layer
 
-- prior tau_R (used in first layer): `sim_res$sim_params$prior_tau_R`
+- prior tau_R (used in first layer): `r `sim_res$sim_params$prior_tau_R`
 
-- prior tau_p (used in last layer): `sim_res$sim_params$prior_tau_p`
+- prior tau_p (used in last layer): `r `sim_res$sim_params$prior_tau_p`
 
 - agnostic tau otherwise
 
@@ -369,7 +385,7 @@ nn_mod <- torch_load(modfile_vc0[1])
 - $\tau_0$ agnostic for all.
 
 ```{r}
-sim_res$sim_params
+data_desc(sim_res)
 dim_list <- sim_res$sim_params[grepl("d_", names(sim_res$sim_params))]
 dim_vec <- do.call(c, dim_list)
 print(dim_vec)
@@ -432,14 +448,20 @@ sim_ind = sim_ind + 1
 
 ### comments
 
-MSE/loss plots look __nowhere near convergence.__  Actually kind of heartening that maybe it can do better, but how long will we need to train?  Increase the learning rate a bunch.
+MSE/loss plots indicate that the models have not really converged. Actually kind of heartening that maybe it can do better, but how long will we need to train?
+
+- weirdly both sims' plots follow roughly same trajectories
+
+- alphas capture everything except z3
+
+- local kappas capture  most (at very end) except z3, b2/x2
+
+- BFDR plots not good
 
 
 
 
-
-
-## all agnostic 3L VC sim
+## 3L 8-16 VC, n = 1k, sig=1
 
 ```{r vc3l_FNAMES, echo = FALSE}
 stem_vc3l <- "VCmod_3L_t1_p3_n1k_"
@@ -456,9 +478,12 @@ modfile_vc3l <- here::here(
 
 load(resfile_vc3l[1])
 nn_mod <- torch_load(modfile_vc3l[1])
+
+data_desc(sim_res)
+
 ```
 
-- data: R = 20, p = 3, n = 10k, noise = 0
+- data: R = 20, p = 3, n = 10k, noise = 1
 
 - model: 3 regular hshoe layers + vc layer
 
@@ -502,7 +527,843 @@ sim_ind = sim_ind + 1
 
 ### comments
 
-Terrible.  First layer (look at $Z$-related $\kappa$'s) doesn't seem to really be learning.
+WEIRD.  First layer (look at $Z$-related $\kappa$'s) doesn't seem to really be learning.  Something seems wrong in BFDR plots (why is fdr non-monotonic)
+
+
+
+
+## 5-L 8-16-16-16 VC, n=10k, sig=1
+
+```{r vc5l_FNAMES, echo = FALSE}
+stem_vc5l <- "VCmod_5L_t1_p3_n10k_"
+seeds_vc5l <- c(846743)
+
+resfile_vc5l <- here::here(
+  "sims", "results", 
+  paste0(stem_vc5l, seeds_vc5l, ".RData")
+)
+modfile_vc5l <- here::here(
+  "sims", "results", 
+  paste0(stem_vc5l, seeds_vc5l, ".pt")
+)
+
+load(resfile_vc5l[1])
+nn_mod <- torch_load(modfile_vc5l[1])
+```
+
+
+- data: R = 20, p = 3, n = 10k, noise = 1
+
+- model: 5 regular hshoe layers + vc layer
+
+- (agnostic) prior tau_R (used in first layer): `sim_res$sim_params$prior_tau_R`
+
+- (agnostic) prior tau_p (used in last layer): `sim_res$sim_params$prior_tau_p`
+
+- 4 hidden layers, 8 and 16 units;
+
+- $\tau_0$ agnostic for all.
+
+```{r}
+nn_mod$children
+data_desc(sim_res)
+```
+
+
+### results {.panelset}
+
+
+```{r}
+load(resfile_vc5l[1])
+nn_mod <- torch_load(modfile_vc5l[1])
+```
+
+
+```{r, echo = FALSE}
+sim_ind = 1
+```
+
+
+#### sim `r sim_ind`
+
+```{r, echo = FALSE}
+load(resfile_vc5l[sim_ind])
+nn_mod <- torch_load(modfile_vc5l[sim_ind])
+<<VIS_CHUNK>>
+sim_ind = sim_ind + 1
+```
+
+
+### comments
+
+- interestingly, train mse consistently higher than test mse
+
+- not sure if converged
+
+- alphas only get beta2, beta3, and somewhat beta1
+
+- same with local and tau-corrected kappas
+
+
+# VC $\beta$ only
+
+- uses NN to model betas, no selection on X vars
+
+## $\beta$s: 3L 8-16, n=1k, sig=0
+
+```{r, echo = FALSE}
+stem_vcb816 <- "VCbetas_816_sig0_p3_n1k_"
+seeds_vcb816 <- c(525655, 846743)
+
+resfile_vcb816 <- here::here(
+  "sims", "results", 
+  paste0(stem_vcb816, seeds_vcb816, ".RData")
+)
+modfile_vcb816 <- here::here(
+  "sims", "results", 
+  paste0(stem_vcb816, seeds_vcb816, ".pt")
+)
+
+sim_ind = 1
+load(resfile_vcb816[sim_ind])
+nn_mod <- torch_load(modfile_vcb816[sim_ind])
+
+data_desc(sim_res)
+```
+
+
+```{r}
+varnames <- paste0("z", 1:sim_res$sim_params$R)
+showvars <- paste0("z", 1:5)
+true_vec <- varnames %in% showvars
+```
+
+
+### results {.panelset}
+
+#### sim `r sim_ind`
+
+```{r, echo = FALSE}
+load(resfile_vcb816[sim_ind])
+nn_mod <- torch_load(modfile_vcb816[sim_ind])
+<<VIS_CHUNK>>
+sim_ind = sim_ind + 1
+```
+
+
+
+#### sim `r sim_ind`
+
+```{r, echo = FALSE}
+load(resfile_vcb816[sim_ind])
+nn_mod <- torch_load(modfile_vcb816[sim_ind])
+<<VIS_CHUNK>>
+sim_ind = sim_ind + 1
+```
+
+
+
+### comments
+
+- obvious problems --- doesn't appear to be learning at all.  Possibly gradient lost from computing $\sum_j \beta_j (Z) X_j$ outside of NN?
+
+
+## retry: 3L 8-16, n=1k, sig=0
+
+- computing summation within network
+
+```{r, echo = FALSE}
+stem_vcb816 <- "VCbetas2_816_sig0_p3_n1k_"
+seeds_vcb816 <- c(525655, 846743)
+
+resfile_vcb816 <- here::here(
+  "sims", "results", 
+  paste0(stem_vcb816, seeds_vcb816, ".RData")
+)
+modfile_vcb816 <- here::here(
+  "sims", "results", 
+  paste0(stem_vcb816, seeds_vcb816, ".pt")
+)
+
+sim_ind = 1
+load(resfile_vcb816[sim_ind])
+nn_mod <- torch_load(modfile_vcb816[sim_ind])
+data_desc(sim_res)
+```
+
+
+### results {.panelset}
+
+#### sim `r sim_ind`
+
+```{r, echo = FALSE}
+load(resfile_vcb816[sim_ind])
+nn_mod <- torch_load(modfile_vcb816[sim_ind])
+<<VIS_CHUNK>>
+sim_ind = sim_ind + 1
+```
+
+
+
+#### sim `r sim_ind`
+
+```{r, echo = FALSE}
+load(resfile_vcb816[sim_ind])
+nn_mod <- torch_load(modfile_vcb816[sim_ind])
+<<VIS_CHUNK>>
+sim_ind = sim_ind + 1
+```
+
+
+
+### comments
+
+issue persists....
+
+
+
+
+## $\beta$'s: 3L 32-16, n=1k, sig=0
+
+
+```{r, echo = FALSE}
+stem_vcb3216 <- "VCbetas2_3216_sig0_p3_n1k_"
+seeds_vcb3216 <- c(86961, 963471)
+
+resfile_vcb3216 <- here::here(
+  "sims", "results", 
+  paste0(stem_vcb3216, seeds_vcb3216, ".RData")
+)
+modfile_vcb3216 <- here::here(
+  "sims", "results", 
+  paste0(stem_vcb3216, seeds_vcb3216, ".pt")
+)
+
+
+
+sim_ind = 1
+load(resfile_vcb3216[sim_ind])
+nn_mod <- torch_load(modfile_vcb3216[sim_ind])
+data_desc(sim_res)
+
+```
+
+
+### results {.panelset}
+
+#### sim `r sim_ind`
+
+```{r, echo = FALSE}
+load(resfile_vcb3216[sim_ind])
+nn_mod <- torch_load(modfile_vcb3216[sim_ind])
+<<VIS_CHUNK>>
+sim_ind = sim_ind + 1
+```
+
+
+
+#### sim `r sim_ind`
+
+```{r, echo = FALSE}
+load(resfile_vcb3216[sim_ind])
+nn_mod <- torch_load(modfile_vcb3216[sim_ind])
+<<VIS_CHUNK>>
+sim_ind = sim_ind + 1
+```
+
+
+
+### comments:
+
+tried fiddling with learning rate, still nothing.  Must be a calculation error somewhere which will take more work to find.
+
+
+
+
+
+
+# 2nd sims set: Vanilla
+
+```{r, echo = FALSE}
+varnames <- c(
+  paste0("z", 1:sim_res$sim_params$R),
+  paste0("x", 1:sim_res$sim_params$p)
+)
+showvars <- c(
+  paste0("z", 1:5),
+  paste0("x", 1:3)
+)
+true_vec <- varnames %in% showvars
+```
+
+
+## sig0, n10k, 16-32
+
+```{r, echo = FALSE}
+stem_vanilla1632_10k <- "VC_vanilla1632_agnostic_test0sig_p3_n10k_"
+seeds_vanilla1632_10k <- c(69530, 846514)
+
+resfile_vanilla1632_10k <- here::here(
+  "sims", "results", 
+  paste0(stem_vanilla1632_10k, seeds_vanilla1632_10k, ".RData")
+)
+modfile_vanilla1632_10k <- here::here(
+  "sims", "results", 
+  paste0(stem_vanilla1632_10k, seeds_vanilla1632_10k, ".pt")
+)
+
+sim_ind = 1
+load(resfile_vanilla1632_10k[sim_ind])
+nn_mod <- torch_load(modfile_vanilla1632_10k[sim_ind])
+data_desc(sim_res)
+
+```
+
+
+### results {.panelset}
+
+#### sim `r sim_ind`
+
+```{r, echo = FALSE}
+load(resfile_vanilla1632_10k[sim_ind])
+nn_mod <- torch_load(modfile_vanilla1632_10k[sim_ind])
+<<VIS_CHUNK>>
+sim_ind = sim_ind + 1
+```
+
+
+
+#### sim `r sim_ind`
+
+```{r, echo = FALSE}
+load(resfile_vanilla1632_10k[sim_ind])
+nn_mod <- torch_load(modfile_vanilla1632_10k[sim_ind])
+<<VIS_CHUNK>>
+sim_ind = sim_ind + 1
+```
+
+
+
+### comments:
+
+- alphas, local kappas: pick up on most except z3, x1
+
+- tau-corr kappas: don't get z3, x1, x2
+
+- BFDR's: not terrible, but requires high BFDR to get most True Pos's
+
+- may have benefitted from further training
+
+
+
+## sig0, n10k, 128-64
+
+```{r, echo = FALSE}
+stem_vanilla12864_10k <- "VC_vanilla12864_agnostic_test0sig_p3_n10k_"
+seeds_vanilla12864_10k <- c(513339, 999784)
+
+resfile_vanilla12864_10k <- here::here(
+  "sims", "results", 
+  paste0(stem_vanilla12864_10k, seeds_vanilla12864_10k, ".RData")
+)
+modfile_vanilla12864_10k <- here::here(
+  "sims", "results", 
+  paste0(stem_vanilla12864_10k, seeds_vanilla12864_10k, ".pt")
+)
+
+sim_ind = 1
+load(resfile_vanilla12864_10k[sim_ind])
+nn_mod <- torch_load(modfile_vanilla12864_10k[sim_ind])
+data_desc(sim_res)
+
+```
+
+
+### results {.panelset}
+
+#### sim `r sim_ind`
+
+```{r, echo = FALSE}
+load(resfile_vanilla12864_10k[sim_ind])
+nn_mod <- torch_load(modfile_vanilla12864_10k[sim_ind])
+<<VIS_CHUNK>>
+sim_ind = sim_ind + 1
+```
+
+
+
+#### sim `r sim_ind`
+
+```{r, echo = FALSE}
+load(resfile_vanilla12864_10k[sim_ind])
+nn_mod <- torch_load(modfile_vanilla12864_10k[sim_ind])
+<<VIS_CHUNK>>
+sim_ind = sim_ind + 1
+```
+
+
+
+### comments:
+
+- may have benefitted from further training
+
+- alphas get everything but z3
+
+- tau-kappas not picking up z3, x1, x2 well
+
+- BFDR is OK
+
+
+
+
+
+
+# 2nd sims set: VCMod
+
+## sig 0, n 10k, 8-16
+
+```{r, echo = FALSE}
+stem_vcmod816_sig0 <- "VCmod_3L_test0sig_p3_n10k_"
+seeds_vcmod816_sig0 <- c(525655, 846743)
+
+resfile_vcmod816_sig0 <- here::here(
+  "sims", "results", 
+  paste0(stem_vcmod816_sig0, seeds_vcmod816_sig0, ".RData")
+)
+modfile_vcmod816_sig0 <- here::here(
+  "sims", "results", 
+  paste0(stem_vcmod816_sig0, seeds_vcmod816_sig0, ".pt")
+)
+
+sim_ind = 1
+load(resfile_vcmod816_sig0[sim_ind])
+nn_mod <- torch_load(modfile_vcmod816_sig0[sim_ind])
+data_desc(sim_res)
+sim_res$alpha_mat
+sim_res$kappa_mat
+```
+
+
+
+```{r, echo = FALSE}
+varnames <- c(
+  paste0("z", 1:sim_res$sim_params$R),
+  "b_int",
+  paste0("b", 1:sim_res$sim_params$p)
+)
+showvars <- c(
+  paste0("z", 1:5),
+  "b_int",
+  paste0("b", 1:3)
+)
+true_vec <- varnames %in% showvars
+```
+
+
+
+### results {.panelset}
+
+#### sim `r sim_ind`
+
+```{r, echo = FALSE}
+load(resfile_vcmod816_sig0[sim_ind])
+nn_mod <- torch_load(modfile_vcmod816_sig0[sim_ind])
+<<VIS_CHUNK>>
+sim_ind = sim_ind + 1
+```
+
+
+
+#### sim `r sim_ind`
+
+```{r, echo = FALSE}
+load(resfile_vcmod816_sig0[sim_ind])
+nn_mod <- torch_load(modfile_vcmod816_sig0[sim_ind])
+<<VIS_CHUNK>>
+sim_ind = sim_ind + 1
+```
+
+
+
+### comments:
+
+- maybe converged?
+
+- alphas get everything except z3
+
+- tau-kappas not great; don't get b0, b1, b2, z3
+
+- puzzling why alphas are so different than the kappas
+
+
+
+
+
+## sig 0, n 10k, 128-64
+
+```{r, echo = FALSE}
+stem_vcmod12864_sig0 <- "VCmod_3L_12864_test0sig_p3_n10k_"
+seeds_vcmod12864_sig0 <- c(222169, 95549)
+
+resfile_vcmod12864_sig0 <- here::here(
+  "sims", "results", 
+  paste0(stem_vcmod12864_sig0, seeds_vcmod12864_sig0, ".RData")
+)
+modfile_vcmod12864_sig0 <- here::here(
+  "sims", "results", 
+  paste0(stem_vcmod12864_sig0, seeds_vcmod12864_sig0, ".pt")
+)
+
+sim_ind = 1
+load(resfile_vcmod12864_sig0[sim_ind])
+nn_mod <- torch_load(modfile_vcmod12864_sig0[sim_ind])
+data_desc(sim_res)
+
+```
+
+
+
+```{r, echo = FALSE}
+varnames <- c(
+  paste0("z", 1:sim_res$sim_params$R),
+  "b_int",
+  paste0("b", 1:sim_res$sim_params$p)
+)
+showvars <- c(
+  paste0("z", 1:5),
+  "b_int",
+  paste0("b", 1:3)
+)
+true_vec <- varnames %in% showvars
+```
+
+
+
+### results {.panelset}
+
+#### sim `r sim_ind`
+
+```{r, echo = FALSE}
+load(resfile_vcmod12864_sig0[sim_ind])
+nn_mod <- torch_load(modfile_vcmod12864_sig0[sim_ind])
+<<VIS_CHUNK>>
+sim_ind = sim_ind + 1
+```
+
+
+
+#### sim `r sim_ind`
+
+```{r, echo = FALSE}
+load(resfile_vcmod12864_sig0[sim_ind])
+nn_mod <- torch_load(modfile_vcmod12864_sig0[sim_ind])
+<<VIS_CHUNK>>
+sim_ind = sim_ind + 1
+```
+
+
+
+### comments:
+
+- interestingly train_mse > test_mse again (similar to 5-layer model, VCBetas models)
+
+- alphas get all but z3
+
+- local kappas: don't get z3, b1; b_int hovers around 0.5
+
+- tau-kappas: don't get z3, any of the betas
+
+
+# 2nd sims EXP 2: vanilla, p=50
+
+
+## sig0, n10k, 128-64
+
+```{r, echo = FALSE}
+stem_vanilla12864_10k_e2 <- "VC_vanilla12864_agnostic_test0sigexp2_p50_n10k_"
+seeds_vanilla12864_10k_e2 <- c(513339, 999784)
+
+resfile_vanilla12864_10k_e2 <- here::here(
+  "sims", "results", 
+  paste0(stem_vanilla12864_10k_e2, seeds_vanilla12864_10k_e2, ".RData")
+)
+modfile_vanilla12864_10k_e2 <- here::here(
+  "sims", "results", 
+  paste0(stem_vanilla12864_10k_e2, seeds_vanilla12864_10k_e2, ".pt")
+)
+
+sim_ind = 1
+load(resfile_vanilla12864_10k_e2[sim_ind])
+nn_mod <- torch_load(modfile_vanilla12864_10k_e2[sim_ind])
+
+varnames <- c(
+  paste0("z", 1:sim_res$sim_params$R),
+  paste0("x", 1:sim_res$sim_params$p)
+)
+showvars <- c(
+  paste0("z", 1:5),
+  paste0("x", 1:3)
+)
+true_vec <- varnames %in% showvars
+
+data_desc(sim_res)
+
+```
+
+
+### results {.panelset}
+
+#### sim `r sim_ind`
+
+```{r, echo = FALSE}
+load(resfile_vanilla12864_10k_e2[sim_ind])
+nn_mod <- torch_load(modfile_vanilla12864_10k_e2[sim_ind])
+<<VIS_CHUNK>>
+sim_ind = sim_ind + 1
+```
+
+
+
+#### sim `r sim_ind`
+
+```{r, echo = FALSE}
+load(resfile_vanilla12864_10k_e2[sim_ind])
+nn_mod <- torch_load(modfile_vanilla12864_10k_e2[sim_ind])
+<<VIS_CHUNK>>
+sim_ind = sim_ind + 1
+```
+
+
+
+### comments:
+
+- could probably benefit from further training?
+
+- alphas & local kappas don't get z3, x1 on wrong trajectory
+
+- BFDR isn't terrible
+
+
+
+## REAL: sig = 1, n = 1k, 3232
+
+```{r, echo = FALSE}
+stem_vanilla3232_e2 <- "VC_vanilla3232_agnostic_exp2_p50_n1k_"
+seeds_vanilla3232_e2 <- c(416363, 506288)
+
+resfile_vanilla3232_e2 <- here::here(
+  "sims", "results", 
+  paste0(stem_vanilla3232_e2, seeds_vanilla3232_e2, ".RData")
+)
+modfile_vanilla3232_e2 <- here::here(
+  "sims", "results", 
+  paste0(stem_vanilla3232_e2, seeds_vanilla3232_e2, ".pt")
+)
+
+sim_ind = 1
+load(resfile_vanilla3232_e2[sim_ind])
+nn_mod <- torch_load(modfile_vanilla3232_e2[sim_ind])
+data_desc(sim_res)
+
+```
+
+
+### results {.panelset}
+
+#### sim `r sim_ind`
+
+```{r, echo = FALSE}
+load(resfile_vanilla3232_e2[sim_ind])
+nn_mod <- torch_load(modfile_vanilla3232_e2[sim_ind])
+<<VIS_CHUNK>>
+sim_ind = sim_ind + 1
+```
+
+
+
+#### sim `r sim_ind`
+
+```{r, echo = FALSE}
+load(resfile_vanilla3232_e2[sim_ind])
+nn_mod <- torch_load(modfile_vanilla3232_e2[sim_ind])
+<<VIS_CHUNK>>
+sim_ind = sim_ind + 1
+```
+
+
+
+### comments:
+
+- could have used further training
+
+- alphas & local: worst so far: doesn't get x1, x2, z3, z5
+
+- tau-kappas have clearer separation but same mistakes as alphas, local
+
+- BFDR is ok-ish, but needs high BFDR to get TPs
+
+
+
+
+
+
+# 2nd sims EXP 2: VCMod
+
+## sig 0, n 10k, 128-64, p=50
+
+```{r, echo = FALSE}
+stem_vcmod12864_sig0_e2 <- "VCmod_3L_12864_test0sig_exp2_p50_n10k_"
+seeds_vcmod12864_sig0_e2 <- c(222169, 95549)
+
+resfile_vcmod12864_sig0_e2 <- here::here(
+  "sims", "results", 
+  paste0(stem_vcmod12864_sig0_e2, seeds_vcmod12864_sig0_e2, ".RData")
+)
+modfile_vcmod12864_sig0_e2 <- here::here(
+  "sims", "results", 
+  paste0(stem_vcmod12864_sig0_e2, seeds_vcmod12864_sig0_e2, ".pt")
+)
+
+sim_ind = 1
+load(resfile_vcmod12864_sig0_e2[sim_ind])
+nn_mod <- torch_load(modfile_vcmod12864_sig0_e2[sim_ind])
+data_desc(sim_res)
+
+```
+
+
+
+```{r, echo = FALSE}
+varnames <- c(
+  paste0("z", 1:sim_res$sim_params$R),
+  "b_int",
+  paste0("b", 1:sim_res$sim_params$p)
+)
+showvars <- c(
+  paste0("z", 1:5),
+  "b_int",
+  paste0("b", 1:3)
+)
+true_vec <- varnames %in% showvars
+```
+
+
+
+### results {.panelset}
+
+#### sim `r sim_ind`
+
+```{r, echo = FALSE}
+load(resfile_vcmod12864_sig0_e2[sim_ind])
+nn_mod <- torch_load(modfile_vcmod12864_sig0_e2[sim_ind])
+<<VIS_CHUNK>>
+sim_ind = sim_ind + 1
+```
+
+
+
+#### sim `r sim_ind`
+
+```{r, echo = FALSE}
+load(resfile_vcmod12864_sig0_e2[sim_ind])
+nn_mod <- torch_load(modfile_vcmod12864_sig0_e2[sim_ind])
+<<VIS_CHUNK>>
+sim_ind = sim_ind + 1
+```
+
+
+
+### comments:
+
+- MSE a bit higher than usual (actual sig = 0)
+
+- alphas pick up b1, b2, b3 but nothing else
+
+- same with local kappas
+
+- tau-corrected kappas all travel together, basically the reverse of the local kappas which is WEIRD
+
+- lots of weirdness in BFDR plots... ???
+
+
+
+
+## REAL: sig 1, n 10k, 32-32, p=50
+
+```{r, echo = FALSE}
+stem_vcmod3232_e2 <- "VCmod_3L_3232_exp2_p50_n10k_"
+seeds_vcmod3232_e2 <- c(222169, 95549)
+
+resfile_vcmod3232_e2 <- here::here(
+  "sims", "results", 
+  paste0(stem_vcmod3232_e2, seeds_vcmod3232_e2, ".RData")
+)
+modfile_vcmod3232_e2 <- here::here(
+  "sims", "results", 
+  paste0(stem_vcmod3232_e2, seeds_vcmod3232_e2, ".pt")
+)
+
+sim_ind = 1
+load(resfile_vcmod3232_e2[sim_ind])
+nn_mod <- torch_load(modfile_vcmod3232_e2[sim_ind])
+data_desc(sim_res)
+
+```
+
+
+
+```{r, echo = FALSE}
+varnames <- c(
+  paste0("z", 1:sim_res$sim_params$R),
+  "b_int",
+  paste0("b", 1:sim_res$sim_params$p)
+)
+showvars <- c(
+  paste0("z", 1:5),
+  "b_int",
+  paste0("b", 1:3)
+)
+true_vec <- varnames %in% showvars
+```
+
+
+
+### results {.panelset}
+
+#### sim `r sim_ind`
+
+```{r, echo = FALSE}
+load(resfile_vcmod3232_e2[sim_ind])
+nn_mod <- torch_load(modfile_vcmod3232_e2[sim_ind])
+<<VIS_CHUNK>>
+sim_ind = sim_ind + 1
+```
+
+
+
+#### sim `r sim_ind`
+
+```{r, echo = FALSE}
+load(resfile_vcmod3232_e2[sim_ind])
+nn_mod <- torch_load(modfile_vcmod3232_e2[sim_ind])
+<<VIS_CHUNK>>
+sim_ind = sim_ind + 1
+```
+
+
+
+### comments:
+
+- loss still decreasing - probably should not have stopped training
+
+- alphas, local kappas looking excellent, except z3 (as usual)
+
+- tau-corrected kappas weirdly very different, only getting the z-variables (except z3)
+
+- A correction on the final-layer-estimated kappas seems motivated.  (notably, those do not actually get a tau-correction)
+
+
+
 
 
 
