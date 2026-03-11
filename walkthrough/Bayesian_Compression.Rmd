@@ -19,7 +19,7 @@ output:
     code_fold: hide
 urlcolor: blue
 params:
-  retrain_mnist: FALSE
+  retrain_mnist: TRUE
   retrain_fashion: FALSE
 ---
 
@@ -137,7 +137,7 @@ if (!"r-reticulate" %in% conda_list()[[1]]){
   conda_install("r-reticulate", "matplotlib", pip=TRUE)
   conda_install("r-reticulate", "scipy", pip=TRUE)
   conda_install("r-reticulate", "scikit-learn", pip=TRUE)
-  conda_install("r-reticulate", "sklearn", pip=TRUE)
+  # conda_install("r-reticulate", "sklearn", pip=TRUE)
   conda_install("r-reticulate", "torch", pip=TRUE)
   conda_install("r-reticulate", "torchvision", pip = TRUE)
   conda_install("r-reticulate", "imageio", pip = TRUE)
@@ -170,6 +170,7 @@ os.chdir(r.FPpath)
 
 import sys
 sys.path.append(r.KUpath)
+sys.path.append("C:/Users/ArnoldSeong/.conda/envs/r-reticulate/Scripts")
 
 from __future__ import print_function
 import numpy as np
