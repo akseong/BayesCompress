@@ -184,8 +184,16 @@ torch_hs_VClast <- nn_module(
     # )
     # z <- log_z$exp()
     
-    xzb <- xvars*z*vcs
-    return(torch_sum(xzb, dim = 2))
+    xz <- xvars*z
+    return(
+      nnf_linear(
+        input = xz,
+        weight = vcs
+      )
+    )
+    
+    # xzb <- xvars*z*vcs
+    # return(torch_sum(xzb, dim = 2))
   },
   
   
