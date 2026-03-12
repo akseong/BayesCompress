@@ -20,12 +20,8 @@ reparameterize <- function(mu, logvar, sampling = TRUE, use_cuda) {
   #   - made extraneous for compatibility with already trained models
 
   if (sampling) {
-    std <- logvar$mul(0.5)$exp_()
-    if (mu$is_cuda) {
-      eps <- torch_randn(std$size(), device = "cuda", requires_grad = TRUE)
-    } else {
-      eps <- torch_randn(std$size(), device = "cpu", requires_grad = TRUE)
-    }
+    std <- logvar$mul(0.5)$exp()
+    eps <- torch_randn(std$size(), device = mu$device)
     return(mu$add(eps$mul(std)))
   } else {
     return(mu)
@@ -162,11 +158,11 @@ log_dropout <- function(hs_layer, type = "local"){
   # type == "marginal":    z = ztilde * s
   
   if (type == "local"){
-    logvar_sum <- hs_layer$atilde_logvar + hs_layer$btilde_logvar
+    logvar_sum <- torch_log(hs_layer$atilde_logvar$exp() + hs_layer$btilde_logvar$exp())
   } else if (type == "global"){
-    logvar_sum <- hs_layer$sa_logvar + hs_layer$sb_logvar
+    logvar_sum <- torch_log(hs_layer$sa_logvarexp() + hs_layer$sb_logvar$exp())
   } else if (type == "marginal"){
-    logvar_sum <- hs_layer$atilde_logvar + hs_layer$btilde_logvar + hs_layer$sa_logvar + hs_layer$sb_logvar
+    logvar_sum <- torch_log(hs_layer$atilde_logvar$exp() + hs_layer$btilde_logvar$exp() + hs_layer$sa_logvar$exp() + hs_layer$sb_logvar$exp())
   }
   
   type_var <- exp(logvar_sum - log(4))
@@ -362,8 +358,10 @@ torch_hs <- nn_module(
   
   clip_variances = function() {
     if (!is.null(self$clip_var)) {
-      self$weight_logvar <- nn_parameter(self$weight_logvar$clamp(max = log(self$clip_var)))
-      self$bias_logvar <- nn_parameter(self$bias_logvar$clamp(max = log(self$clip_var)))
+      with_no_grad({
+        self$weight_logvar$clamp_(max = log(self$clip_var))
+        self$bias_logvar$clamp_(max = log(self$clip_var))
+      })
     }
   },
   
@@ -371,14 +369,14 @@ torch_hs <- nn_module(
   get_Eztilde_i = function(){
     E_lognorm(
       mu = (self$atilde_mu + self$btilde_mu) / 2, 
-      logvar = (self$atilde_logvar + self$btilde_logvar) - log(4)
+      logvar = torch_log(self$atilde_logvar$exp() + self$btilde_logvar$exp()) - log(4)
     )
   },
   
   get_Vztilde_i = function(){
     V_lognorm(
       mu = (self$atilde_mu + self$btilde_mu) / 2, 
-      logvar = (self$atilde_logvar + self$btilde_logvar) - log(4)
+      logvar = torch_log(self$atilde_logvar$exp() + self$btilde_logvar$exp()) - log(4)
     )
   },
   
@@ -386,11 +384,17 @@ torch_hs <- nn_module(
     weight_var <- self$weight_logvar$exp()
     Vz <- V_lognorm(
       mu = (self$atilde_mu + self$btilde_mu + self$sa_mu + self$sb_mu) / 2, 
-      logvar = (self$atilde_logvar + self$btilde_logvar + self$sa_logvar + self$sb_logvar) - log(4)
+      logvar = torch_log(
+        self$atilde_logvar$exp() + self$btilde_logvar$exp() + 
+          self$sa_logvar$exp() + self$sb_logvar$exp()
+        ) - log(4)
     )
     Ez <- E_lognorm(
       mu = (self$atilde_mu + self$btilde_mu + self$sa_mu + self$sb_mu) / 2, 
-      logvar = (self$atilde_logvar + self$btilde_logvar + self$sa_logvar + self$sb_logvar) - log(4)
+      logvar = torch_log(
+        self$atilde_logvar$exp() + self$btilde_logvar$exp() +
+          self$sa_logvar$exp() + self$sb_logvar$exp()
+        ) - log(4)
     )
     
     self$post_weight_var <- Ez$pow(2) * weight_var + Vz * self$weight_mu$pow(2) + Vz * weight_var
@@ -433,19 +437,22 @@ torch_hs <- nn_module(
     }
     
     # generate layer activations from Variational specification
-    log_atilde <- reparameterize(mu = self$atilde_mu, logvar = self$atilde_logvar, use_cuda = self$use_cuda)
-    log_btilde <- reparameterize(mu = self$btilde_mu, logvar = self$btilde_logvar, use_cuda = self$use_cuda)
-    log_sa <- reparameterize(mu = self$sa_mu, logvar = self$sa_logvar, use_cuda = self$use_cuda)
-    log_sb <- reparameterize(mu = self$sb_mu, logvar = self$sb_logvar, use_cuda = self$use_cuda)
-    log_s <- 1/2 * (log_sa + log_sb)
-    log_ztilde <- 1/2 * (log_atilde + log_btilde)
-    z <- (log_s + log_ztilde)$exp()
-    # log_z <- reparameterize(
-    #   mu = 1/2 * (self$atilde_mu + self$btilde_mu + self$sa_mu + self$sb_mu),
-    #   logvar = (self$atilde_logvar$exp() + self$btilde_logvar$exp() + self$sa_logvar$exp() + self$sb_logvar$exp())$log() - log(4),
-    #   use_cuda = self$use_cuda
-    # )
-    # z <- log_z$exp()
+    # log_atilde <- reparameterize(mu = self$atilde_mu, logvar = self$atilde_logvar, use_cuda = self$use_cuda)
+    # log_btilde <- reparameterize(mu = self$btilde_mu, logvar = self$btilde_logvar, use_cuda = self$use_cuda)
+    # log_sa <- reparameterize(mu = self$sa_mu, logvar = self$sa_logvar, use_cuda = self$use_cuda)
+    # log_sb <- reparameterize(mu = self$sb_mu, logvar = self$sb_logvar, use_cuda = self$use_cuda)
+    # log_s <- 1/2 * (log_sa + log_sb)
+    # log_ztilde <- 1/2 * (log_atilde + log_btilde)
+    # z <- (log_s + log_ztilde)$exp()
+    log_z <- reparameterize(
+      mu = 1/2 * (self$atilde_mu + self$btilde_mu + self$sa_mu + self$sb_mu),
+      logvar = torch_log(
+        self$atilde_logvar$exp() + self$btilde_logvar$exp() + 
+          self$sa_logvar$exp() + self$sb_logvar$exp()
+      ) - log(4),
+      use_cuda = self$use_cuda
+    )
+    z <- log_z$exp()
     
     xz <- x*z
     mu_activations <- nnf_linear(
@@ -474,7 +481,7 @@ torch_hs <- nn_module(
   get_kl = function() {
     
     # KL(q(s_a) || p(s_a));   logNormal || Gamma
-    kl_sa <- KL_lognorm_gamma(mu = self$sa_mu, logvar = self$sa_logvar, a = 1/2, b = self$tau_0)
+    kl_sa <- KL_lognorm_gamma(mu = self$sa_mu, logvar = self$sa_logvar, a = 1/2, b = self$tau_0^2)
     
     # KL(q(s_b) || p(s_b));   logNormal || invGamma
     kl_sb <- KL_lognorm_IG(mu = self$sb_mu, logvar = self$sb_logvar, a = 1/2, b = 1)
