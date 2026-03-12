@@ -249,8 +249,8 @@ VCHS <- nn_module(
     kl2 = self$fc2$get_kl()
     kl3 = self$fc3$get_kl()
     klvc = self$vc$get_kl()
-    # kl4 = self$fc3$get_kl()
-    # kl5 = self$fc3$get_kl()
+    # kl4 = self$fc4$get_kl()
+    # kl5 = self$fc5$get_kl()
     kld = klvc + kl1 + kl2 + kl3 # + kl4 + kl5
     return(kld)
   }
