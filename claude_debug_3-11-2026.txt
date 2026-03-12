@@ -1,0 +1,2808 @@
+You: I am developing a Bayesian deep neural network which places a grouped horseshoe prior on the rows of the neural network weight matrices, and performs training updates via Variational Inference.  Code for a similar model exists at https://github.com/KarenUllrich/Tutorial_BayesianCompressionForDL, though this example uses a group Normal-Jeffrey's prior instead of a group horseshoe prior.
+AI: 
+
+ That sounds like a very interesting project! The grouped horseshoe prior is a great choice for inducing structured sparsity in neural network weight matrices — by placing the prior on rows, you can effectively prune entire neurons/units, which is powerful for model compression and architecture search.
+
+I'm familiar with the general framework you're describing:
+
+- **Karen Ullrich's Bayesian Compression** work uses a group Normal-Jeffrey's prior (a scale mixture of Normals) combined with the local reparameterization trick for variational inference, enabling pruning of entire groups (rows/columns) of weights.
+- **The grouped horseshoe prior** is a related but distinct shrinkage prior that offers some appealing theoretical properties, including stronger concentration near zero (encouraging sparsity) while maintaining heavy tails (allowing large signals to persist). It typically involves a global shrinkage parameter and per-group local shrinkage parameters.
+
+Key considerations for your implementation likely include:
+
+1. **Variational family**: Choosing an appropriate approximate posterior (e.g., mean-field Gaussian, or something more expressive) for the local/global shrinkage parameters and the weights themselves.
+2. **Reparameterization**: Ensuring all variational parameters are reparameterizable for low-variance gradient estimates (the horseshoe's half-Cauchy hyperpriors can be tricky — common approaches use auxiliary variable representations or log-normal approximations).
+3. **ELBO computation**: Computing or approximating the KL divergence between the variational posterior and the grouped horseshoe prior, which may not have a closed-form solution depending on your variational family.
+4. **Group structure**: Defining how the local shrinkage parameters are shared across rows of each weight matrix.
+
+How can I help you with your project? For example, I can assist with:
+
+- **Mathematical derivations** (e.g., ELBO terms, KL divergences, auxiliary variable formulations)
+- **Conceptual questions** about the horseshoe prior, variational inference, or structured sparsity
+- **Debugging logic or calculations** related to your implementation
+- **General research guidance**
+
+What would you like to dive into?
+You: I am using torch in R instead of pytorch.  My models appear to converge slowly.  Can you review my code to find possible problems in the code (whether related to speed or otherwise).
+AI: 
+
+ I'd be happy to help review your R Torch code for your Bayesian deep neural network with a grouped horseshoe prior! However, it looks like you haven't shared the code yet.
+
+Could you please paste your code here? To give you the most thorough review, it would be especially helpful to see:
+
+1. **The model definition** — your custom `nn_module` (or equivalent) including how the grouped horseshoe prior is parameterized and how the variational posterior is defined
+2. **The ELBO / loss function** — how you compute the expected log-likelihood, the KL divergence (or log-density ratio) terms for the horseshoe components (global shrinkage, local shrinkage, weights)
+3. **The training loop** — optimizer choice, learning rate, how you handle MC samples for the ELBO, etc.
+4. **Any helper functions** — e.g., reparameterization tricks, auxiliary variable representations, or custom sampling routines
+
+Even partial code would be a great starting point — I can review whatever you have and flag potential issues related to:
+
+- **Convergence speed** (parameterization choices, gradient flow, optimizer settings)
+- **Numerical stability** (log-space computations, clamping, half-Cauchy representations)
+- **Correctness** (ELBO terms, KL computations, prior specification)
+- **R Torch idioms** (efficient tensor operations, avoiding unnecessary copies, etc.)
+
+Please go ahead and share your code!
+You: 
+
+library(torch)
+
+reparameterize <- function(mu, logvar, sampling = TRUE, use_cuda) {
+  # for X ~ N(mu, sigma^2), can rewrite as X = mu + sigma * Z
+  # "reparam trick" often used to preserve gradient on mu and sigma
+  # Last modified 2024/07/16
+  # modified 2025/10/27 --- made use_cuda argument extraneous 
+  #   - mucked up computation when moving model off cuda / to cuda 
+  #     because used stored info to decide whether was cuda or not.
+  #   - made extraneous for compatibility with already trained models
+
+  if (sampling) {
+    std <- logvar$mul(0.5)$exp_()
+    if (mu$is_cuda) {
+      eps <- torch_randn(std$size(), device = "cuda", requires_grad = TRUE)
+    } else {
+      eps <- torch_randn(std$size(), device = "cpu", requires_grad = TRUE)
+    }
+    return(mu$add(eps$mul(std)))
+  } else {
+    return(mu)
+  }
+}
+
+
+
+KL_lognorm_gamma <- function(mu, logvar, a = 1/2, b = 1){
+  # mu and logvar must be torch_tensors
+  # computes KL(logNormal(mu, sig^2)  ||  Gamma(a, b))
+  # used for s_a, alpha_i
+  # corrected; full KL:
+  #   - 1/2 * (log(2) + log(pi) + log(sig^2) + 1)
+  #   + log(gamma(a)) + a*(log(b) - mu)
+  #   + 1/b * exp(mu + sig^2 / 2)
+  # want negative KL
+  # expr1 <- -0.5 * (log(2) + log(pi) + logvar + 1)
+  # expr2 <- lgamma(a) - (mu$add(-log(b)))$mul(a)
+  # expr3 <- (mu$add(  (logvar$exp())$mul(1/2)  ))$exp() / b
+  inner1 <- 1 + log(2) + log(pi) + logvar
+  inner2 <- mu + logvar$exp()$mul(1/2)
+  inner1$mul(-0.5) + lgamma(a) + a*log(b) - mu$mul(a) + inner2$exp() / b
+}
+
+
+
+KL_lognorm_IG <- function(mu, logvar, a = 1/2, b = 1){
+  # for s_b, beta_i
+  # i.e. KL(LogNormal q || Inverse-Gamma p)
+  # corrected; full KL:
+  #   - 1/2 * (log(2) + log(pi) + log(sig^2) + 1)
+  #   + log(gamma(a)) + a*(mu - log(b))
+  #   + b * exp(-mu + sig^2 / 2)
+  # same as KL(LogNormal q || Gamma p) if replace mu with -mu, b with 1/b
+  KL_lognorm_gamma(mu = -mu, logvar = logvar, a = a, b = 1/b)
+}
+
+# # r versions used for testing
+# r_negKL_lognorm_gamma <- function(mu, logvar, a = 1/2, b = 1){
+#   # R version - does not work with torch tensors.  Used for testing.
+#   # corrected; full KL:
+#   #   - 1/2 * (log(2) + log(pi) + log(sig^2) + 1)
+#   #   + log(gamma(a)) + a*(log(b) - mu)
+#   #   + 1/b * exp(mu + sig^2 / 2)
+#   # want negative KL
+#   expr1 <- (log(2) + log(pi) + logvar + 1) / 2
+#   expr2 <- lgamma(a) + a*(mu - log(b))
+#   expr3 <- (mu + exp(logvar)/2) / b
+#   
+#   return(expr1 - expr2 - expr3)
+# }
+# r_negKL_lognorm_IG <- function(mu, logvar, a = 1/2, b = 1){
+#   # R version for testing
+#   r_negKL_lognorm_gamma(-mu, logvar, a, 1/b)
+# }
+# 
+# # test conversion to torch, gradients preserved
+# mu <- rnorm(5)
+# logvar <- rnorm(5)
+# a <- 2
+# b <- 2
+# 
+# r_negKL_lognorm_gamma(mu, logvar, a, b)
+# negKL_lognorm_gamma(
+#   mu = torch_tensor(mu, requires_grad = TRUE),
+#   logvar = torch_tensor(logvar, requires_grad = TRUE),
+#   a, b)
+# 
+# r_negKL_lognorm_IG(mu, logvar, a, b)
+# negKL_lognorm_IG(
+#   mu = torch_tensor(mu, requires_grad = TRUE),
+#   logvar = torch_tensor(logvar, requires_grad = TRUE),
+#   a, b)
+
+
+
+
+## fcns to compute expectation and variance of lognormals & fcns of lognormals
+E_lognorm <- function(mu, logvar){
+  # expectation of X ~ logNormal(mu, var)
+  # exp(mu + (sig^2)/2)
+  # ln_mu <- mu$add( logvar$exp()$mul(0.5) )
+  # return(ln_mu$exp())
+  # alternatively:
+  (mu$add(  logvar$exp()$mul(0.5) ))$exp()
+}
+
+
+V_lognorm <- function(mu, logvar){
+  # variance of X ~ logNormal(mu, var)
+  # (exp(var) - 1) * exp(2*mu + var)
+  expr1 <- logvar$exp()$exp() - 1
+  expr2 <- (mu$mul(2))$add(logvar$exp())
+  return(expr1$mul(expr2$exp()))
+}
+
+
+E_sqrt_lognorm <- function(mu, logvar){
+  # if X ~ LN(mu, var), then X = exp(Y) with Y~N(mu, var)
+  # The sqrt(X) = sqrt(exp^Y) = exp^{Y/2} and Y/2 ~ N(mu/2, var/4)
+  E_lognorm(mu/2, logvar - log(4))
+}
+
+V_sqrt_lognorm <- function(mu, logvar){
+  V_lognorm(mu/2, logvar - log(4))
+}
+
+
+
+
+## VARIATIONAL DISTRIBUTION PARAMETERS FOR \tilde{z}, s
+# z_i = \sqrt(atilde_i btilde_i s_a s_b) = ztilde_i s
+## \tilde{z} = \sqrt{\tilde{\alpha}_i \tilde{\beta}_i}    
+##   \sim  LogNormal with 
+##         mu =     \frac{1}{2}   (\mu_{\tilde{alpha}_i} + \mu_{\tilde{beta}_i} )
+##         variance = \frac{1}{4}   (\sigma^2_{\tilde{\alpha}_i} + \sigma^2_{\tilde{\beta}_i}) 
+##
+## NOTE: for \tilde{z} and s, these are not used in training, but in post-hoc analysis
+mu_sqrt_prod_LN <- function(mu_1, mu_2){
+  # \frac{mu_1 + mu_2}{2}
+  (mu_1$add(mu_2))$mul(1/2)
+}
+
+logvar_sqrt_prod_LN <- function(logvar_1, logvar_2){
+  # \frac{sig^2_1 + sig^2_2}{4}
+  ((logvar_1$exp())$add(logvar_2$exp()))$log() - log(4)
+}
+
+log_dropout <- function(hs_layer, type = "local"){
+  # calculates dropout rates based on :
+  # type == "local":    ztilde = sqrt(atilde btilde)
+  # type == "global":    s = sqrt(sa sb)
+  # type == "marginal":    z = ztilde * s
+  
+  if (type == "local"){
+    logvar_sum <- hs_layer$atilde_logvar + hs_layer$btilde_logvar
+  } else if (type == "global"){
+    logvar_sum <- hs_layer$sa_logvar + hs_layer$sb_logvar
+  } else if (type == "marginal"){
+    logvar_sum <- hs_layer$atilde_logvar + hs_layer$btilde_logvar + hs_layer$sa_logvar + hs_layer$sb_logvar
+  }
+  
+  type_var <- exp(logvar_sum - log(4))
+  log_dropout <- log(exp(type_var) - 1)
+  return(log_dropout)
+}
+
+# # fcn testing code
+# library(torch)
+# self <- list()
+# in_features <- 5
+# out_features <- 5
+# use_cuda <- TRUE
+# tau = 1
+# clip_var <- NULL
+# deterministic = FALSE
+# init_weight <- NULL
+# init_bias <- NULL
+
+
+torch_hs <- nn_module(
+  # last modified 10/29/2025 - can now specify initial values for all params
+  classname = "horseshoe_layer",
+  
+  initialize = function(
+    in_features, out_features,
+    use_cuda = FALSE,
+    tau_0 = 1, # scale parameter for global shrinkage prior
+    init_alpha = NULL,
+    init_weight = NULL, 
+    init_bias = NULL, 
+    init_sa = NULL, 
+    init_sb = NULL, 
+    init_atilde = NULL, 
+    init_btilde = NULL, 
+    init_weight_logvar = NULL, 
+    init_bias_logvar = NULL, 
+    init_sa_logvar = NULL, 
+    init_sb_logvar = NULL, 
+    init_atilde_logvar = NULL, 
+    init_btilde_logvar = NULL, 
+    clip_var = NULL, 
+    deterministic = FALSE
+  ){
+    
+    self$use_cuda <- use_cuda
+    self$tau_0 <- tau_0
+    self$in_features <- in_features
+    self$out_features <- out_features
+    self$clip_var <- clip_var
+    self$deterministic <- deterministic
+    self$devtype <- ifelse(use_cuda, "cuda", "cpu")
+    
+    #### trainable parameters
+    # s = global scale param
+    # s^2 = sa*sb
+    self$sa_mu <- nn_parameter(torch_randn(1, device = self$devtype))
+    self$sa_logvar <- nn_parameter(torch_randn(1, device = self$devtype))
+    self$sb_mu <- nn_parameter(torch_randn(1, device = self$devtype))
+    self$sb_logvar <- nn_parameter(torch_randn(1, device = self$devtype))
+    # z_i_tilde = local scale param
+    # z_i_tilde^2 = alpha_tilde * beta_tilde
+    self$atilde_mu <- nn_parameter(torch_randn(in_features, device = self$devtype))
+    self$atilde_logvar <- nn_parameter(torch_randn(in_features, device = self$devtype))
+    self$btilde_mu <- nn_parameter(torch_randn(in_features, device = self$devtype))
+    self$btilde_logvar <- nn_parameter(torch_randn(in_features, device = self$devtype))
+    
+    # weight dist'n params
+    self$weight_mu <- nn_parameter(torch_randn(out_features, in_features, device = self$devtype))
+    self$weight_logvar <- nn_parameter(torch_randn(out_features, in_features, device = self$devtype))
+    self$bias_mu <- nn_parameter(torch_randn(out_features, device = self$devtype))
+    self$bias_logvar <- nn_parameter(torch_randn(out_features, device = self$devtype))
+    
+    
+    # composite vars
+    # z = \sqrt{  s_a s_b \tilde{\alpha} \tilde{\beta}}
+    # s = \sqrt{  s_a s_b  }
+    # \tilde{z} = \sqrt{  \tilde{\alpha} \tilde{\beta}  }
+    
+    # initialize parameters randomly or with pretrained net
+    self$reset_parameters(
+      init_alpha, init_weight, init_bias, init_sa, init_sb, init_atilde, init_btilde, 
+      init_weight_logvar, init_bias_logvar, init_sa_logvar, init_sb_logvar, init_atilde_logvar, init_btilde_logvar
+    )
+    
+    # numerical stability param
+    self$epsilon <- torch_tensor(1e-8, device = self$devtype)
+  },
+  
+  
+  reset_parameters = function(
+    init_alpha, init_weight, init_bias, init_sa, init_sb, init_atilde, init_btilde, 
+    init_weight_logvar, init_bias_logvar, init_sa_logvar, init_sb_logvar, init_atilde_logvar, init_btilde_logvar
+  ){
+    # specify all for retraining BNN with reduced parameters;
+    # specify only init_weight_mu, init_bias_mu for hot start with weights from regular DNN
+    #     optionally specify init_alpha to define prior sparsity (default is 1/2)
+    
+    # initialize means
+    stdv <- sqrt(2 / self$weight_mu$size(2)) # Kaiming initialization.  changed to scale by # inputs.
+    # self$sa_mu <- nn_parameter(torch_normal(1, 1e-2, size = 1, device = self$devtype))
+    # self$sb_mu <- nn_parameter(torch_normal(1, 1e-2, size = 1, device = self$devtype))
+    # self$atilde_mu <- nn_parameter(torch_normal(1, 1e-2, size = self$atilde_mu$size(), device = self$devtype))
+    # self$btilde_mu <- nn_parameter(torch_normal(1, 1e-2, size = self$atilde_mu$size(), device = self$devtype))
+    
+    
+    if (!is.null(init_sa)) {
+      self$sa_mu <- nn_parameter(torch_tensor(init_sa, device = self$devtype))
+    } else {
+      self$sa_mu <- nn_parameter(torch_normal(log(self$tau_0)/2, 1e-2, size = 1, device = self$devtype))
+    }
+    
+    if (!is.null(init_sb)) {
+      self$sb_mu <- nn_parameter(torch_tensor(init_sb, device = self$devtype))
+    } else {
+      self$sb_mu <- nn_parameter(torch_normal(log(self$tau_0)/2, 1e-2, size = 1, device = self$devtype))
+    }
+    
+    if (!is.null(init_atilde)) {
+      self$atilde_mu <- nn_parameter(torch_tensor(init_atilde, device = self$devtype))
+    } else {
+      self$atilde_mu <- nn_parameter(torch_normal(0, 1e-2, size = self$atilde_mu$size(), device = self$devtype))
+    }
+    
+    if (!is.null(init_btilde)) {
+      self$btilde_mu <- nn_parameter(torch_tensor(init_btilde, device = self$devtype))
+    } else {
+      self$btilde_mu <- nn_parameter(torch_normal(0, 1e-2, size = self$btilde_mu$size(), device = self$devtype))
+    }
+    
+    # self$z_mu <- nn_parameter(torch_normal(1, 1e-2, size = self$z_mu$size()))      # potential issue (if not considered leaf node anymore?)  wrap in nn_parameter()?
+    if (!is.null(init_weight)) {
+      self$weight_mu <- nn_parameter(torch_tensor(init_weight, device = self$devtype))
+    } else {
+      self$weight_mu <- nn_parameter(torch_normal(0, stdv, size = self$weight_mu$size(), device = self$devtype))
+    }
+    
+    if (!is.null(init_bias)) {
+      self$bias_mu <- nn_parameter(torch_tensor(init_bias, device = self$devtype))
+    } else {
+      self$bias_mu <- nn_parameter(torch_zeros(self$out_features, device = self$devtype))
+    }
+    
+    # initialize log variances
+    # self$z_logvar <- nn_parameter(torch_normal(mean = log(init_alpha), 1e-2, size = self$in_features)) 
+    # init_alpha: set atilde_logvar = btilde_logvar = log(2*log(1 + init_alpha))
+    # default is init_alpha = 0.5
+    
+    if (!is.null(init_alpha)) {
+      logvar_abtilde_mu <- log(2*log(1 + init_alpha))
+    } else {
+      logvar_abtilde_mu <- log(2*log(1.5))
+    }
+    
+    if (!is.null(init_sa_logvar)){
+      self$sa_logvar <- nn_parameter(torch_tensor(init_sa_logvar, device = self$devtype))
+    } else {
+      self$sa_logvar <- nn_parameter(torch_normal(mean = log(.5), 1e-2, size = 1, device = self$devtype))
+    }
+    
+    if (!is.null(init_sb_logvar)){
+      self$sb_logvar <- nn_parameter(torch_tensor(init_sb_logvar, device = self$devtype))
+    } else {
+      self$sb_logvar <- nn_parameter(torch_normal(mean = log(.5), 1e-2, size = 1, device = self$devtype))
+    }
+    
+    if (!is.null(init_atilde_logvar)){
+      self$atilde_logvar <- nn_parameter(torch_tensor(init_atilde_logvar, device = self$devtype))
+    } else {
+      self$atilde_logvar <- nn_parameter(torch_normal(mean = logvar_abtilde_mu, 1e-2, size = self$in_features, device = self$devtype))
+    }
+    
+    if (!is.null(init_btilde_logvar)){
+      self$btilde_logvar <- nn_parameter(torch_tensor(init_btilde_logvar, device = self$devtype))
+    } else {
+      self$btilde_logvar <- nn_parameter(torch_normal(mean = logvar_abtilde_mu, 1e-2, size = self$in_features, device = self$devtype))
+    }
+    
+    if (!is.null(init_weight_logvar)){
+      self$weight_logvar <- nn_parameter(torch_tensor(init_weight_logvar, device = self$devtype))
+    } else {
+      self$weight_logvar <- nn_parameter(torch_normal(-9, 1e-2, size = c(self$out_features, self$in_features), device = self$devtype))
+    }
+    
+    if (!is.null(init_bias_logvar)){
+      self$bias_logvar <- nn_parameter(torch_tensor(init_bias_logvar, device = self$devtype))
+    } else {
+      self$bias_logvar <- nn_parameter(torch_normal(-9, 1e-2, size = self$out_features, device = self$devtype))
+    }
+    
+  },
+  
+  
+  clip_variances = function() {
+    if (!is.null(self$clip_var)) {
+      self$weight_logvar <- nn_parameter(self$weight_logvar$clamp(max = log(self$clip_var)))
+      self$bias_logvar <- nn_parameter(self$bias_logvar$clamp(max = log(self$clip_var)))
+    }
+  },
+  
+  
+  get_Eztilde_i = function(){
+    E_lognorm(
+      mu = (self$atilde_mu + self$btilde_mu) / 2, 
+      logvar = (self$atilde_logvar + self$btilde_logvar) - log(4)
+    )
+  },
+  
+  get_Vztilde_i = function(){
+    V_lognorm(
+      mu = (self$atilde_mu + self$btilde_mu) / 2, 
+      logvar = (self$atilde_logvar + self$btilde_logvar) - log(4)
+    )
+  },
+  
+  compute_posterior_param = function() {
+    weight_var <- self$weight_logvar$exp()
+    Vz <- V_lognorm(
+      mu = (self$atilde_mu + self$btilde_mu + self$sa_mu + self$sb_mu) / 2, 
+      logvar = (self$atilde_logvar + self$btilde_logvar + self$sa_logvar + self$sb_logvar) - log(4)
+    )
+    Ez <- E_lognorm(
+      mu = (self$atilde_mu + self$btilde_mu + self$sa_mu + self$sb_mu) / 2, 
+      logvar = (self$atilde_logvar + self$btilde_logvar + self$sa_logvar + self$sb_logvar) - log(4)
+    )
+    
+    self$post_weight_var <- Ez$pow(2) * weight_var + Vz * self$weight_mu$pow(2) + Vz * weight_var
+    self$post_weight_mu <- self$weight_mu * Ez
+    return(list(
+      "post_weight_mu" = self$post_weight_mu,
+      "post_weight_var" = self$post_weight_var
+    ))
+  },
+  
+  get_dropout_rates = function(type = "local"){
+    # calculates dropout rates based on :
+    # type == "local":    ztilde = sqrt(atilde btilde)
+    # type == "global":    s = sqrt(sa sb)
+    # type == "marginal":    z = ztilde * s
+    
+    if (type == "local"){
+      var_sum <- self$atilde_logvar$exp() + self$btilde_logvar$exp()
+    } else if (type == "global"){
+      var_sum <- self$sa_logvar$exp() + self$sb_logvar$exp()
+    } else if (type == "marginal"){
+      var_sum <- self$atilde_logvar$exp() + self$btilde_logvar$exp() + self$sa_logvar$exp() + self$sb_logvar$exp()
+    }
+    
+    type_var <- var_sum / 4
+    alpha = type_var$exp() - 1
+    return(alpha)
+  },
+  
+  forward = function(x){
+    if (self$deterministic) {
+      cat("argument deterministic = TRUE.  Should not be used for training")
+      return(
+        nnf_linear(
+          input = x, 
+          weight = self$weight_mu, 
+          bias = self$bias_mu
+        )
+      )
+    }
+    
+    # generate layer activations from Variational specification
+    log_atilde <- reparameterize(mu = self$atilde_mu, logvar = self$atilde_logvar, use_cuda = self$use_cuda)
+    log_btilde <- reparameterize(mu = self$btilde_mu, logvar = self$btilde_logvar, use_cuda = self$use_cuda)
+    log_sa <- reparameterize(mu = self$sa_mu, logvar = self$sa_logvar, use_cuda = self$use_cuda)
+    log_sb <- reparameterize(mu = self$sb_mu, logvar = self$sb_logvar, use_cuda = self$use_cuda)
+    log_s <- 1/2 * (log_sa + log_sb)
+    log_ztilde <- 1/2 * (log_atilde + log_btilde)
+    z <- (log_s + log_ztilde)$exp()
+    # log_z <- reparameterize(
+    #   mu = 1/2 * (self$atilde_mu + self$btilde_mu + self$sa_mu + self$sb_mu),
+    #   logvar = (self$atilde_logvar$exp() + self$btilde_logvar$exp() + self$sa_logvar$exp() + self$sb_logvar$exp())$log() - log(4),
+    #   use_cuda = self$use_cuda
+    # )
+    # z <- log_z$exp()
+    
+    xz <- x*z
+    mu_activations <- nnf_linear(
+      input = xz, 
+      weight = self$weight_mu, 
+      bias = self$bias_mu
+    )
+    
+    var_activations <- nnf_linear(
+      input = xz$pow(2), 
+      weight = self$weight_logvar$exp(), 
+      bias = self$bias_logvar$exp()
+    )
+    
+    return(
+      reparameterize(
+        mu = mu_activations, 
+        logvar = var_activations$log(), 
+        use_cuda = self$use_cuda, 
+        sampling = !self$deterministic
+      )
+    )
+  },
+  
+  
+  get_kl = function() {
+    
+    # KL(q(s_a) || p(s_a));   logNormal || Gamma
+    kl_sa <- KL_lognorm_gamma(mu = self$sa_mu, logvar = self$sa_logvar, a = 1/2, b = self$tau_0)
+    
+    # KL(q(s_b) || p(s_b));   logNormal || invGamma
+    kl_sb <- KL_lognorm_IG(mu = self$sb_mu, logvar = self$sb_logvar, a = 1/2, b = 1)
+    
+    # KL(q(atilde) || p(atilde));   logNormal || Gamma
+    kl_atilde <- torch_sum(KL_lognorm_gamma(mu = self$atilde_mu, logvar = self$atilde_logvar, a = 1/2, b = 1))
+    
+    # KL(q(btilde) || p(btilde));   logNormal || invGamma
+    kl_btilde <- torch_sum(KL_lognorm_IG(mu = self$btilde_mu, logvar = self$btilde_logvar, a = 1/2, b = 1))
+    
+    # KL(q(w|z) || p(w|z))
+    kl_w_z <- torch_sum(
+      0.5 * (-self$weight_logvar + self$weight_logvar$exp() + self$weight_mu$pow(2) - 1)
+    )
+    
+    # KL for bias term
+    kl_bias <- torch_sum(
+      0.5 * (-self$bias_logvar + self$bias_logvar$exp() + self$bias_mu$pow(2) - 1)
+    )
+    
+    # sum
+    kl <- kl_sa + kl_sb + kl_atilde + kl_btilde + kl_w_z + kl_bias
+    return(kl)
+  }
+)
+AI: 
+
+ Thank you for sharing your code. I've done a thorough review and found issues ranging from correctness bugs to convergence and numerical stability concerns. I'll organize them by severity.
+
+---
+
+## 🔴 Correctness Issues
+
+### 1. In-Place `$exp_()` in `reparameterize` Can Corrupt Gradients
+
+```r
+std <- logvar$mul(0.5)$exp_()   # ← in-place on a graph tensor
+```
+
+Although `$mul(0.5)` creates a new tensor, `$exp_()` modifies it **in-place** while it's part of the autograd computation graph. This can cause silent gradient errors or an outright error like *"a variable needed for gradient computation has been modified by an inplace operation."* Fix:
+
+```r
+std <- logvar$mul(0.5)$exp()    # out-of-place
+```
+
+### 2. `clip_variances()` Orphans Parameters from the Optimizer
+
+```r
+clip_variances = function() {
+  if (!is.null(self$clip_var)) {
+    # These create BRAND NEW nn_parameter objects:
+    self$weight_logvar <- nn_parameter(self$weight_logvar$clamp(max = log(self$clip_var)))
+    self$bias_logvar   <- nn_parameter(self$bias_logvar$clamp(max = log(self$clip_var)))
+  }
+}
+```
+
+Every call constructs new `nn_parameter` objects. The optimizer still holds references to the **old** parameters, so gradients on the new parameters are never applied. If you call this during training, weight and bias variances effectively stop updating. Fix with in-place clamping:
+
+```r
+clip_variances = function() {
+  if (!is.null(self$clip_var)) {
+    with_no_grad({
+      self$weight_logvar$clamp_(max = log(self$clip_var))
+      self$bias_logvar$clamp_(max = log(self$clip_var))
+    })
+  }
+}
+```
+
+### 3. τ₀ Scale Is Off by a Square Root
+
+You decompose τ² = s_a · s_b where s_a ~ Gamma(½, scale = b) and s_b ~ InvGamma(½, scale = 1). This yields:
+
+$$\tau^2 = s_a \cdot s_b \sim b \cdot \text{Gamma}(\tfrac{1}{2}, 1) \cdot \text{InvGamma}(\tfrac{1}{2}, 1) = b \cdot C^+(0,1)^2$$
+
+So τ ~ C⁺(0, √b). In `get_kl` you pass `b = self$tau_0`:
+
+```r
+kl_sa <- KL_lognorm_gamma(mu = self$sa_mu, logvar = self$sa_logvar, a = 1/2, b = self$tau_0)
+```
+
+If you intend τ ~ C⁺(0, τ₀), you need **`b = tau_0^2`**, not `b = tau_0`. With the default `tau_0 = 1` this is invisible, but for any other value the effective prior scale is √τ₀ instead of τ₀.
+
+---
+
+## 🟠 Convergence / Performance Issues
+
+### 4. Sampling 4 Auxiliary Variables Separately — High Gradient Variance *(likely your biggest convergence issue)*
+
+Your forward pass draws **four independent** noise samples (for log_atilde, log_btilde, log_sa, log_sb) and combines them:
+
+```r
+log_atilde <- reparameterize(mu = self$atilde_mu, logvar = self$atilde_logvar, ...)
+log_btilde <- reparameterize(mu = self$btilde_mu, logvar = self$btilde_logvar, ...)
+log_sa     <- reparameterize(mu = self$sa_mu,     logvar = self$sa_logvar, ...)
+log_sb     <- reparameterize(mu = self$sb_mu,     logvar = self$sb_logvar, ...)
+z <- exp((log_sa + log_sb + log_atilde + log_btilde) / 2)
+```
+
+Each independent noise source adds variance to the ELBO gradient estimate. Since log(z) is a linear combination of four independent normals, you can sample it **directly** as a single Gaussian — the commented-out code already does this:
+
+```r
+log_z <- reparameterize(
+  mu = (self$atilde_mu + self$btilde_mu + self$sa_mu + self$sb_mu) / 2,
+  logvar = torch_log(
+    self$atilde_logvar$exp() + self$btilde_logvar$exp() +
+    self$sa_logvar$exp() + self$sb_logvar$exp()
+  ) - log(4),
+  use_cuda = self$use_cuda
+)
+z <- log_z$exp()
+```
+
+> **Note:** the commented-out version in your code has the same log-variance summation bug described in Issue #8 below — use `torch_log(sum of exp(...))`, not a plain sum of logvars.
+
+This single-sample approach gives **identical** marginal distributions but with **much lower** gradient variance. This is very likely the dominant cause of your slow convergence.
+
+### 5. `requires_grad = TRUE` on Noise Tensor `eps`
+
+```r
+eps <- torch_randn(std$size(), device = "cuda", requires_grad = TRUE)
+```
+
+The noise `eps` is not a model parameter — gradients should flow through `mu` and `std`, not `eps`. Setting `requires_grad = TRUE` on it forces the autograd engine to track unnecessary graph nodes, wasting memory and slightly slowing every backward pass. Fix:
+
+```r
+eps <- torch_randn(std$size(), device = mu$device)
+# requires_grad defaults to FALSE — this is correct
+```
+
+(Also note: using `mu$device` is cleaner than the if/else branch.)
+
+### 6. Bias Prior N(0, 1) May Be Overly Restrictive
+
+The KL for the bias is:
+
+```r
+kl_bias <- torch_sum(0.5 * (-self$bias_logvar + self$bias_logvar$exp() + self$bias_mu$pow(2) - 1))
+```
+
+This is KL(q(b) ‖ N(0, 1)). An N(0, 1) prior actively regularizes biases toward zero, which can fight the model's ability to shift activations. Consider a broader prior (e.g., N(0, σ² = 100)) and adjust the KL term accordingly:
+
+```r
+# KL(N(mu, sig2) || N(0, prior_var)):
+prior_var <- 100
+kl_bias <- torch_sum(0.5 * (
+  log(prior_var) - self$bias_logvar +
+  (self$bias_logvar$exp() + self$bias_mu$pow(2)) / prior_var - 1
+))
+```
+
+---
+
+## 🟡 Numerical Stability Issues
+
+### 7. No Overflow Guard on `z = exp(...)`
+
+```r
+z <- (log_s + log_ztilde)$exp()
+```
+
+If the log-shrinkage variables produce large positive values, this overflows to `Inf`, and subsequent operations yield `NaN`. Add a clamp:
+
+```r
+z <- (log_s + log_ztilde)$clamp(max = 30)$exp()   # exp(30) ≈ 1e13, safe
+```
+
+### 8. `var_activations$log()` Has No Floor
+
+```r
+var_activations <- nnf_linear(input = xz$pow(2), weight = self$weight_logvar$exp(), ...)
+# var_activations is guaranteed positive, but can be tiny
+return(reparameterize(mu = mu_activations, logvar = var_activations$log(), ...))
+```
+
+Extremely small variances produce very large negative log-values, which can destabilize the reparameterization. Safeguard with:
+
+```r
+logvar = var_activations$clamp(min = 1e-16)$log()
+```
+
+---
+
+## 🔵 Post-Hoc Analysis Bugs (Won't Affect Training, But Give Wrong Results)
+
+### 9. Log-Variance Summation Bug — Product Instead of Sum
+
+In `compute_posterior_param`, `get_Eztilde_i`, `get_Vztilde_i`, and the standalone `log_dropout`, you combine log-variances by **adding** them:
+
+```r
+# In compute_posterior_param:
+logvar = (self$atilde_logvar + self$btilde_logvar + self$sa_logvar + self$sb_logvar) - log(4)
+```
+
+Since `logvar = log(σ²)`, adding log-variances gives log(∏ σ²ᵢ), i.e., the **product** of variances. But the variance of a sum of independent normals is the **sum** of variances, so you need:
+
+```r
+logvar = torch_log(
+  self$atilde_logvar$exp() + self$btilde_logvar$exp() +
+  self$sa_logvar$exp() + self$sb_logvar$exp()
+) - log(4)
+```
+
+This same bug pattern applies to:
+- `get_Eztilde_i` and `get_Vztilde_i` (2 terms)
+- `log_dropout` (2 or 4 terms depending on type)
+
+Notably, **`get_dropout_rates` does this correctly** (it exponentiates before adding), so the two dropout functions are mutually inconsistent.
+
+---
+
+## Summary Table
+
+| # | Issue | Impact | Affects Training? |
+|---|-------|--------|:-:|
+| 1 | `$exp_()` in-place on graph tensor | Silent gradient corruption | ✅ |
+| 2 | `clip_variances` orphans parameters | Variance params stop updating | ✅ (if called) |
+| 3 | τ₀ vs τ₀² in global shrinkage prior | Wrong prior scale when τ₀ ≠ 1 | ✅ |
+| 4 | 4 separate noise samples for z | ~4× gradient variance → slow convergence | ✅ |
+| 5 | `requires_grad=TRUE` on eps | Wasted memory/compute | ✅ (minor) |
+| 6 | N(0,1) bias prior | Potentially over-regularized biases | ✅ (design) |
+| 7 | No clamp before `$exp()` on z | Overflow → NaN | ✅ (edge case) |
+| 8 | No floor before `$log()` on variance | Underflow instability | ✅ (edge case) |
+| 9 | logvar sum bug (product vs sum) | Wrong posterior summaries/dropout | ❌ (post-hoc) |
+
+Would you like me to provide a corrected version of any specific function, or would you like to share your training loop so I can check the ELBO computation and KL weighting as well?
+You: Hey, thanks!  I've implemented most of the changes and will test.
+AI: 
+
+ You're welcome! Good luck with the testing. A few additional thoughts as you work through the changes:
+
+1. **Start by testing the single-sample z fix (#4)** — that's almost certainly your biggest win for convergence speed. You should see a noticeable difference in how smoothly the ELBO decreases.
+
+2. **If you haven't already, I'd recommend sharing your training loop** — there are several common VI training pitfalls that live outside the model definition, such as:
+   - **KL annealing / warm-up**: Gradually increasing the weight on the KL term from 0 → 1 over early epochs often helps VI models avoid collapsing to the prior too early.
+   - **Minibatch KL scaling**: If you're using minibatches, the KL term should be scaled by `(batch_size / N)` (or equivalently, the likelihood scaled by `(N / batch_size)`), so the ELBO is a proper unbiased estimate of the full-data ELBO.
+   - **Optimizer and learning rate**: Adam with a relatively low learning rate (e.g., 1e-3 or 1e-4) tends to work well for VI, but scheduling can matter too.
+
+3. **Monitor individual ELBO components** during training (log-likelihood, KL for weights, KL for horseshoe terms) — this makes it much easier to diagnose whether the model is underfitting, the KL is dominating, or specific components are diverging.
+
+Feel free to come back with your training loop, results, or any new issues that come up!
+You: here is code used in training (contains some miscellaneous functions; the main one used in training is `sim_hshoe`):
+##################################################
+## Project:   simulation functions
+## Date:      Jul 17, 2024
+## Author:    Arnie Seong
+##################################################
+
+
+# MISC UTILITIES ----
+
+`%notin%` <- Negate(`%in%`)
+
+time_since <- function(){
+  # prints time since last called 
+  # (use to print time a loop takes, for example).
+  # usage:
+  # f <- time_since()
+  # f()
+  # f()
+  
+  st <- Sys.time()
+  function(x = Sys.time()) {
+    print(x-st)
+    st <<- x
+  }
+}
+
+find_array_ind <- function(array, name, marg = 1){
+  # marg = 1 --> rows;    marg = 2 --> cols
+  # generalizes to higher-dim arrays
+  inds <- which(dimnames(array)[[marg]] == name)
+  
+  if (length(inds) == 0){
+    warning("no corresponding row found")
+  } else if (length(inds) > 1) {
+    warning("multiple corresponding rows found")
+    return(inds)
+  } else if (length(inds) == 1) {
+    return(inds)
+  }
+}
+
+update_matrix_row <- function(mat, epoch, update_vec, reportevery = 100, verbose = FALSE){
+  # USAGE EXAMPLE:  
+  #    mat <- matrix(NA, nrow = 20, update_vec = rep(1, 5) ncol = 5)
+  #    for (i in 1:1000){
+  #      mat <- matfunc(mat, epoch = i)
+  #    }
+  
+  if (!epoch%%reportevery){
+    row_ind <- epoch%/%reportevery
+    mat[row_ind, ] <- update_vec
+    if (verbose) {
+      cat("row", row_ind, 
+          "updated on epoch", epoch, 
+          "with", update_vec,
+          sep = " ")
+    }
+  } else if (epoch%%reportevery & verbose){
+    cat("no update on epoch ", epoch)
+  }
+  return(mat)
+}
+
+cat_color <- function(txt, sep_char = ", ", style = 1, color = 36){
+  # prints txt with colored font/bkgrnd
+  cat(
+    paste0(
+      "\033[0;",
+      style, ";",
+      color, "m",
+      txt,
+      "\033[0m"
+    ),
+    sep = sep_char
+  )  
+}
+
+append_txt_file <- function(file_path, msg){
+  # used to keep track of simulation progress on server
+  fileConn<-file(file_path, "a") # "a" specifies "append"
+  writeLines(msg, fileConn)
+  close(fileConn)
+}
+
+## mathematical operations
+softplus <- function(x){
+  log(1 + exp(x))
+}
+
+sigmoid <- function(x){
+  1/(1 + exp(-x))
+}
+
+softmax <- function(z){
+  exp(z) / sum(exp(z))
+}
+
+clamp <- function(v, lo = 0, hi = 1){
+  #ensure values are in [0, 1]
+  v <- ifelse( v <= hi, v, hi)
+  v <- ifelse( v >= lo, v, lo)
+  return(v)
+}
+
+ln_mode <- function(mu, var){
+  # log-normal distribution mode
+  exp(mu - var)
+}
+
+ln_mean <- function(mu, var){
+  # log-normal distribution expected value
+  exp(mu + var/2)
+}
+
+geom_mean <- function(vec){
+  # geometric mean
+  exp(mean(log(vec)))
+}
+
+vismat <- function(mat, cap = NULL, lims = NULL, leg = TRUE, na0 = TRUE, square){
+  # outputs visualization of matrix with few unique values
+  # colnames should be strings, values represented as factors
+  # sci_not=TRUE puts legend in scientific notation
+  require(ggplot2)
+  require(scales)
+  require(reshape2)
+  
+  melted <- melt(mat)
+  melted$value <- ifelse(
+    melted$value == 0 & na0,
+    NA,
+    melted$value
+  )
+  p <- ggplot(melted) + 
+    geom_raster(aes(y = Var1, 
+                    x = Var2, 
+                    fill = value)) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
+    scale_fill_viridis_c(limits = lims)
+  
+  if (is.numeric(melted$Var1)){
+    p <- p + 
+      scale_y_reverse()
+  } else {
+    p <- p + 
+      scale_y_discrete(limits = rev(levels(melted$Var1)))
+  }
+  
+  if (missing(square)) square <- nrow(mat) / ncol(mat) > .9 & nrow(mat) / ncol(mat) < 1.1
+  if (square) p <- p + coord_fixed(1)
+  
+  if (!is.null(cap)) p <- p + labs(title=cap)
+  
+  if (!leg) p <- p + theme(legend.position = "none")
+  
+  return(p)
+}
+
+roll_vec <- function(vec, new_vals){
+  # use to store needed values across epochs.  
+  # moves window forward by however many values added
+  vec <- c(vec[(length(new_vals) + 1): length(vec)], new_vals)
+  return(vec)
+}
+# example code:
+# > test_mse_store <- rep(NA, 102)
+# > stopcrit <- FALSE
+# > i = 1
+# > while (i < 100000 & !stopcrit){
+# >   te_mse <- rnorm(1)
+# >   test_mse_store <- roll_vec(test_mse_store, new_vals = te_mse)
+# >   if (i > 102){
+# >     stopcrit <- abs(.001 * sd(test_mse_store[1:100])) > abs(diff(test_mse_store[101:102]))
+# >   }  
+# >   i = i+1
+# > }
+
+# CUDA ----
+
+dev_select <- function(use_cuda){
+  ifelse(use_cuda, "cuda", "cpu")
+}
+
+dev_auto <- function(){
+  ifelse(torch::cuda_is_available(), "cuda", "cpu")
+}
+
+# STANDARDIZING DATA ----
+scale_mat <- function(mat, means = NULL, sds = NULL){
+    # for matrices / dfs
+    if (is.null(means)){means <- colMeans(mat)}
+    if (is.null(sds)){sds <- apply(mat, 2, sd)}
+    centered <- sweep(mat, 2, STATS = means, "-")
+    scaled <- sweep(centered, 2, STATS = sds, "/")
+  
+  return(
+    list(
+      "scaled" = scaled,
+      "means" = means,
+      "sds" = sds
+    )
+  )
+}
+
+
+unscale_mat <- function(mat, means, sds){
+  descaled <- sweep(mat, 2, STATS = sds, "*")
+  decentered <- sweep(descaled, 2, STATS = means, "+")
+  return(decentered)
+}
+
+
+
+
+
+# DATA GENERATION ----
+plot_datagen_fcns <- function(
+    flist, 
+    min_x = -3, 
+    max_x = 3, 
+    x_length = 100
+  ){
+  xshow <- seq(min_x, max_x, length.out = x_length)
+  yshow <- sapply(flist, function(fcn) fcn(xshow))
+  colnames(yshow) <- paste0("f", 1:length(flist))
+  df <- data.frame(cbind(yshow, "x" = xshow))
+  plt <- df %>% 
+    pivot_longer(cols = -x, names_to = "fcn") %>%
+    ggplot(aes(y = value, x = x, color = fcn)) +
+    geom_line() +
+    labs(title = "functions used to create data")
+
+  return(plt)
+}
+
+sim_linear_data <- function(
+  n_obs = 100,
+  err_sigma = 1,
+  true_coefs = NULL,
+  d_in = 10,
+  d_true = 3,
+  intercept = 0
+){
+  require(torch)
+  
+  # if true_coefs not provided, generates randomly
+  if (is.null(true_coefs)){
+    true_coefs <- round(runif(d_in,-5, 5), 2)
+    true_coefs[(d_true + 1): d_in] <- 0
+  }
+  
+  # ensure d_in, d_true match true_coefs (if true_coefs provided)
+  d_in <- length(true_coefs)
+  d_true <- sum(true_coefs != 0)
+  
+  # generate x, y
+  x <- torch_randn(n_obs, d_in)
+  y <- x$matmul(true_coefs)$unsqueeze(2) + 
+    intercept + 
+    torch_normal(mean = 0, std = err_sigma, size = c(n_obs, 1))
+  
+  return(
+    list(
+      "y" = y,
+      "x" = x,
+      "true_coefs" = true_coefs,
+      "intercept" = intercept,
+      "n_obs" = n_obs,
+      "d_in" = d_in,
+      "d_true" = d_true
+    )
+  )
+}
+
+
+## sim_func_data----
+
+# # sample functions to use
+# fcn1 <- function(x) exp(x/2)
+# fcn2 <- function(x) cos(pi*x)
+# fcn3 <- function(x) abs(x)^(1.5)
+# fcn4 <- function(x) cos(pi*x) + sin(pi/1.2*x) - x
+
+# # slightly harder setting
+# fcn1 <- function(x) exp(x/2)
+# fcn2 <- function(x) cos(pi*x) + sin(pi/1.2*x)
+# fcn3 <- function(x) abs(x)^(1.5)
+# fcn4 <- function(x) - (abs(x))
+# flist = list(fcn1, fcn2, fcn3, fcn4)
+
+sim_func_data <- function(
+  n_obs = 1000,
+  d_in = 10,
+  flist = list(fcn1, fcn2, fcn3, fcn4),
+  err_sigma = 1,
+  use_cuda = FALSE,
+  xdist = "norm"
+){
+  # generate x, y
+  if (xdist == "unif"){
+    x <- torch_rand(n_obs, d_in)
+    x$add_(-0.5)
+    x$mul_(sqrt(12))
+  } else {
+    x <- torch_randn(n_obs, d_in)
+  }
+  
+  y <- rep(0, n_obs)
+  for(j in 1:length(flist)){
+    y <- y + flist[[j]](x[,j])
+  }
+  y <- y$unsqueeze(2) + torch_normal(mean = 0, std = err_sigma, size = c(n_obs, 1))
+  
+  if (use_cuda){
+    x <- x$to(device = "cuda")
+    y <- y$to(device = "cuda")
+  }
+  
+  return(
+    list(
+      "y" = y,
+      "x" = x,
+      "n_obs" = n_obs,
+      "d_in" = d_in,
+      "d_true" = length(flist)
+    )
+  )
+}
+
+
+
+
+sim_func_data_unifx <- function(
+    n_obs = 1000,
+    d_in = 10,
+    flist = list(fcn1, fcn2, fcn3, fcn4),
+    err_sigma = 1,
+    xlo = -5,
+    xhi = 5
+){
+  # simulate covariates X from uniform distributions
+  # generate x, y
+  x <- (xlo - xhi) * torch_rand(n_obs, d_in) + xhi
+  y <- rep(0, n_obs)
+  for(j in 1:length(flist)){
+    y <- y + flist[[j]](x[,j])
+  }
+  y <- y$unsqueeze(2) + torch_normal(mean = 0, std = err_sigma, size = c(n_obs, 1))
+  
+  return(
+    list(
+      "y" = y,
+      "x" = x,
+      "n_obs" = n_obs,
+      "d_in" = d_in,
+      "d_true" = length(flist)
+    )
+  )
+}
+
+
+
+# ASSESSMENT FUNCS ----
+binary_err_mat <- function(est, tru){
+  # returns 4-row matrix of FP, TP, FN, TN
+  FP <- est - tru == 1
+  TP <- est + tru == 2
+  FN <- est - tru == -1
+  TN <- abs(tru) + abs(est) == 0
+  return(rbind(FP, TP, FN, TN))
+}
+
+binary_err <- function(est, tru){
+  # returns FP, TP, FN, TN as percentage of all decisions
+  rowSums(binary_err_mat(est, tru)) / length(tru)  
+}
+
+binary_err_rate <- function(est, tru){
+  # returns FP, TP, FN, TN rates
+  decision_counts <- rowSums(binary_err_mat(est, tru))
+  actual_pos <- decision_counts[2] + decision_counts[3]
+  actual_neg <- decision_counts[1] + decision_counts[4]
+  
+  denom <- c(actual_neg, actual_pos, actual_pos, actual_neg)
+  # in case no positives or negatives predicted
+  denom <- ifelse(denom == 0, 1, denom) 
+  decision_counts / denom
+}
+
+BFDR <- function(dropout_probs, eta){
+  delta_vec <- 1 * (dropout_probs <= eta)
+  if (sum(delta_vec) == 0){ 
+    warning("no included variables; returning BFDR = 0") 
+    bfdr <- 0
+  } else {
+    bfdr <- sum((dropout_probs) * delta_vec) / sum(delta_vec)
+  }
+  return(
+    list(
+      "delta_i" = delta_vec,
+      "bfdr" = bfdr
+    )
+  )
+}
+
+FDR <- function(delta_vec, true_gam = c(rep(1, 4), rep(0, 100))){
+  if (sum(delta_vec) == 0){
+    return(0)
+  } else {
+    return(sum((delta_vec - true_gam) == 1) / sum(delta_vec))
+  }
+}
+
+BFDR_eta_search <- function(dropout_probs, max_rate = 0.05){
+  a_sort <- sort(dropout_probs)
+  bfdrs <- sapply(a_sort, function(X) BFDR(dropout_probs, eta = X)$bfdr)
+  inds <- which(bfdrs <= max_rate)
+  if (length(inds)==0){
+    warning("no threshold found, returning eta = 0")
+    return(0)
+  } else {
+    a_sort[max(inds)]
+  }
+}
+
+err_from_dropout <- function(
+    dropout_vec, 
+    max_bfdr = 0.01, 
+    true_gam = c(rep(1, 4), rep(0, 100))
+){
+  eta <- BFDR_eta_search(dropout_vec, max_rate = max_bfdr)
+  bfdr <- BFDR(dropout_vec, eta)$bfdr
+  delta_i <- BFDR(dropout_vec, eta)$delta_i
+  bin_err <- binary_err_rate(est = delta_i, tru = true_gam)
+  fdr <- FDR(delta_vec = delta_i, true_gam = true_gam)
+  c("fdr" = fdr, "bfdr" = bfdr, bin_err)
+}
+
+get_s_params <- function(nn_model_layer){
+  sa <- as_array(nn_model_layer$sa_mu)
+  sb <- as_array(nn_model_layer$sb_mu)
+  sa_lvar <- as_array(nn_model_layer$sa_logvar)
+  sb_lvar <- as_array(nn_model_layer$sb_logvar)
+  return(
+    list(
+      "sa" = sa,
+      "sb" = sb,
+      "sa_lvar" = sa_lvar,
+      "sb_lvar" = sb_lvar
+    )
+  )
+}
+
+get_ztil_params <- function(nn_model_layer){
+  atil <- as_array(nn_model_layer$atilde_mu)
+  btil <- as_array(nn_model_layer$btilde_mu)
+  atil_lvar <- as_array(nn_model_layer$atilde_logvar)
+  btil_lvar <- as_array(nn_model_layer$btilde_logvar)
+  return(
+    list(
+      "at" = atil,
+      "bt" = btil,
+      "at_lvar" = atil_lvar,
+      "bt_lvar" = btil_lvar
+    )
+  )
+}
+
+get_s_sq <- function(nn_model_layer, ln_fcn = ln_mode){
+  s_params <- get_s_params(nn_model_layer)
+  s_sq <- ln_fcn(
+    s_params$sa + s_params$sb, 
+    exp(s_params$sa_lvar) + exp(s_params$sb_lvar)
+  )
+  return(s_sq)
+}
+
+get_ztil_sq <- function(nn_model_layer, ln_fcn = ln_mode){
+  ztil_params <- get_ztil_params(nn_model_layer)
+  ztil_sq <- ln_fcn(
+    ztil_params$at + ztil_params$bt, 
+    exp(ztil_params$at_lvar) + exp(ztil_params$bt_lvar)
+  )
+  return(ztil_sq)
+}
+
+get_zsq <- function(nn_model_layer, ln_fcn = ln_mode){
+  s_sq <- get_s_sq(nn_model_layer, ln_fcn)
+  ztil_sq <- get_ztil_sq(nn_model_layer, ln_fcn)
+  return(s_sq * ztil_sq)
+}
+
+
+
+get_kappas <- function(nn_model_layer, type = "global"){
+  ztil_sq <- get_ztil_sq(nn_model_layer)
+  if (type == "global"){
+    s_sq <- get_s_sq(nn_model_layer)
+    kappas <- 1 / ( 1 + s_sq*ztil_sq)
+  } else if (type == "local"){
+    kappas <- 1 / ( 1 + ztil_sq)
+  } else {
+    warning("type must be global or local")
+  }
+  return(kappas)
+}
+
+get_wtil_params <- function(nn_model_layer){
+  wtil_lvar <- as_array(nn_model_layer$weight_logvar)
+  wtil_mu <- as_array(nn_model_layer$weight_mu)
+  return(
+    list(
+      "wtil_lvar" = wtil_lvar,
+      "wtil_mu" = wtil_mu
+    )
+  )
+}
+
+
+get_Wz_params <- function(nn_model_layer){
+  # these are the params for the CONDITIONAL W | z 
+  wtil_params <- get_wtil_params(nn_model_layer)
+  z_sq <- get_s_sq(nn_model_layer) * get_ztil_sq(nn_model_layer)
+  # # checking sweep function
+  # # want to multiply test_mat column j by element j in mult_vec
+  # test_mat <- cbind(
+  #   c(0,0,0,0,0),
+  #   c(1, 1, 1, 1, 1),
+  #   c(-1, -1, -1, -1, -1)
+  # )
+  # test_mat
+  # mult_vec <- 1:3
+  # sweep(test_mat, 2, STATS = mult_vec, FUN = "*")
+  Wz_mu <- sweep(
+    wtil_params$wtil_mu, 
+    MARGIN = 2, 
+    STATS = sqrt(z_sq), 
+    FUN = "*"
+  )
+  Wz_var <- sweep(
+    exp(wtil_params$wtil_lvar), 
+    MARGIN = 2, 
+    STATS = z_sq, 
+    FUN = "*"
+  )
+  return(
+    list(
+      "Wz_mu" = Wz_mu,
+      "Wz_var" = Wz_var
+    )
+  )
+}
+
+
+# PRIOR CALIBRATION ----
+
+## tau0_PV ----
+tau0_PV <- function(p_0, d, sig = 1, n){
+  # Piironen & Vehtari 2017 suggest tau_0 = p_0 / (d - p_0) * sig / sqrt(n)
+  # where p_0 = prior estimate of number of nonzero betas, d = total number of covs
+  p_0 / (d - p_0) * sig / sqrt(n)
+}
+
+
+# PARAM CORRECTIONS ----
+
+## m_eff ----
+m_eff <- function(nn_layer){
+  k <- get_kappas(nn_layer)
+  sum(1 - k)
+}
+
+## frob(enius norm) ----
+frob <- function(mat){
+  sqrt(sum(mat^2))
+}
+
+
+## tau_correction ----
+tau_correction <- function(nn_mod){
+  d_1 <- length(get_kappas(nn_mod$fc2))
+  m_2 <- m_eff(nn_layer = nn_mod$fc2)
+  
+  return(sqrt(d_1 / m_2))
+}
+
+
+## get_kappas_taucorrected ----
+get_kappas_taucorrected <- function(nn_mod, ln_fcn = ln_mode){
+  zsq_1 <- get_zsq(nn_mod$fc1, ln_fcn)
+  tau_correction_factor <- tau_correction(nn_mod)
+  return((1 + zsq_1*tau_correction_factor^2)^(-1))
+}
+
+
+## get_kappas_frobcorrected ----
+get_kappas_frobcorrected <- function(nn_mod, ln_fcn = ln_mode){
+  
+  z1_c <- sqrt(get_zsq(nn_mod$fc1))
+  for (l in 2:length(nn_mod$children)){
+    z_l <- sqrt(get_zsq(nn_mod$children[[l]]))
+    w_l_mu <- get_wtil_params(nn_mod$children[[l]])$wtil_mu
+    z1_c <- z1_c * frob(diag(z_l) %*% t(w_l_mu))
+  }
+  
+  return((1 + z1_c^2)^(-1))
+}
+
+
+
+
+
+## plotting predicted functions ----
+make_pred_mats <- function(flist, xgrid = seq(-4.9, 5, length.out = 100), d_in){
+  require(torch)
+  n_truevars <- length(flist)
+  # make torch array to pass into torchmod
+  x_grids <- torch_zeros(n_truevars*length(xgrid), d_in)
+  y_fcn <- rep(NA, n_truevars*length(xgrid))
+  for(i in 1:n_truevars){
+    st_row <- i*length(xgrid)-(length(xgrid)-1)
+    end_row <- i*length(xgrid)
+    x_grids[st_row:end_row, i] <- xgrid
+    y_fcn[st_row:end_row] <- flist[[i]](xgrid)
+  }
+  
+  vis_df <- data.frame(
+    "y_true" = y_fcn,
+    "x" = rep(xgrid, n_truevars),
+    "name" = rep(paste0("x.", 1:n_truevars), each = length(xgrid))
+  ) 
+  
+  return(
+    list(
+      "vis_df" = vis_df,
+      "x_tensor" = x_grids
+    )
+  )
+}
+
+plot_fcn_preds <- function(torchmod, pred_mats, want_df = FALSE, want_plot = TRUE){
+  vis_df <- pred_mats$vis_df
+  vis_df$y_pred <- as_array(torchmod(pred_mats$x_tensor))
+  plt <- vis_df %>% 
+    ggplot() + 
+    geom_line(
+      aes(y = y_pred, x = x, color = name)
+    ) + 
+    geom_line(
+      aes(
+        y = y_true,
+        x = x,
+        color = name
+      ),
+      alpha = 0.15
+    ) + 
+    labs(
+      title = "predicted and true fcns",
+      color = ""
+    )
+  
+  if (want_df & want_plot){
+    return(list(
+      "vis_df" = vis_df,
+      "plt" = plt
+    ))
+  } else if (want_df) {
+    return(vis_df)
+  } else if (want_plot){
+    plt
+  }
+}
+
+# GENERATE PREDS ----
+get_nn_mod_Ey <- function(nn_mod, X, ln_fcn = ln_mode){
+  num_layers <- length(nn_mod$children)
+  # select cuda or cpu
+  use_cuda <- nn_mod$children[[1]]$sa_mu$is_cuda
+  cuda_or_cpu <-dev_select(use_cuda)
+  if (use_cuda){
+    input <- X$cuda()
+  } else {
+    input <- X$cpu()
+  }
+
+  for (nn_layer in 1:num_layers){
+    
+    ztilde <- ln_fcn(
+      mu = as_array(nn_mod$children[[nn_layer]]$atilde_mu + nn_mod$children[[nn_layer]]$btilde_mu)/2,
+      var = exp(as_array(nn_mod$children[[nn_layer]]$atilde_logvar + nn_mod$children[[nn_layer]]$btilde_logvar))/4
+    )
+    
+    s <- ln_fcn(
+      mu = as_array(nn_mod$children[[nn_layer]]$sa_mu + nn_mod$children[[nn_layer]]$sb_mu)/2,
+      var = exp(as_array(nn_mod$children[[nn_layer]]$sa_logvar + nn_mod$children[[nn_layer]]$sb_logvar))/4
+    )
+    
+    z <- torch_tensor(ztilde*s, device = cuda_or_cpu)
+    
+    Xz <- input*z
+    
+    mu_activations <- nnf_linear(
+      input = Xz, 
+      weight = nn_mod$children[[nn_layer]]$weight_mu, 
+      bias = nn_mod$children[[nn_layer]]$bias_mu
+    )
+    
+    if (nn_layer < num_layers){
+      # input for next layer
+      input <- nnf_relu(mu_activations)
+    }
+  }
+  
+  return(mu_activations)
+}
+
+
+
+# FOR LM() ----
+calc_lm_stats <- function(lm_fit, true_coefs, alpha = 0.05){
+  beta_hat <- summary(lm_fit)$coef[-1, 1]
+  binary_err <- binary_err_rate(
+    est = summary(lm_fit)$coef[-1, 4] < alpha, 
+    tru = true_coefs != 0)
+  fit_mse <- mean(lm_fit$residuals^2)
+  coef_mse <- mean((beta_hat - true_coefs)^2)
+  list(
+    "binary_err" = binary_err,
+    "fit_mse" = fit_mse,
+    "coef_mse" = coef_mse
+  )
+}
+
+get_lm_stats <- function(simdat, alpha = 0.05){
+  lm_df <- data.frame(
+    "y" = as_array(simdat$y), 
+    "x" = as_array(simdat$x)
+  )
+  if (simdat$d_in > simdat$n_obs){
+    lm_df <- lm_df[, 1:(ceiling(simdat$n_obs/2)+1)]
+  }
+  
+  lm_fit <- lm(y ~ ., lm_df)
+  if (length(simdat$true_coefs) >= simdat$n_obs){
+    warning("p >= n; (p - n) + floor(n/2) spurious covariates eliminated to accomodate lm")
+    calc_lm_stats(
+      lm_fit = lm_fit, 
+      true_coefs = simdat$true_coefs[1:ceiling(simdat$n_obs/2)], 
+      alpha = alpha
+    )
+  } else {
+    calc_lm_stats(lm_fit = lm_fit, true_coefs = simdat$true_coefs, alpha = alpha)
+  }
+}
+
+
+
+# FOR SPIKE-SLAB ----
+
+
+
+# FOR MOMBF ----
+
+
+# FOR LASSO ----
+
+
+# SIMULATION FCNS ----
+sim_hshoe <- function(
+    sim_ind = NULL,    # to ease parallelization
+    seed = NULL,
+    learning_rate = 0.001, # default for torch::optim_adam.  LUW uses 0.08 for NJ model
+    sim_params,     # same as before, but need to include flist
+    nn_model,   # torch nn_module,
+    verbose = TRUE,   # provide updates in console
+    want_plots = TRUE,   # provide graphical updates of KL, MSE
+    want_fcn_plots = TRUE,   # display predicted functions
+    save_fcn_plots = FALSE,
+    want_all_params = FALSE,
+    local_only = FALSE,
+    save_mod = TRUE,
+    save_results = TRUE,
+    save_mod_path_stem = NULL
+){
+  if (is.null(seed)){
+    seed <- sim_params$sim_seeds[sim_ind]
+  }
+  
+  ## generate data ----
+  set.seed(seed)
+  torch_manual_seed(seed)
+  
+  simdat <- sim_func_data(
+    n_obs = sim_params$n_obs,
+    d_in = sim_params$d_in,
+    flist = sim_params$flist,
+    err_sigma = sim_params$err_sig,
+    xdist = sim_params$xdist
+  )
+  if (sim_params$use_cuda){
+    simdat$x <- simdat$x$to(device = "cuda")
+    simdat$y <- simdat$y$to(device = "cuda")
+  }
+  
+  ## initialize BNN & optimizer ----
+  model_fit <- nn_model()
+  optim_model_fit <- optim_adam(model_fit$parameters, lr = learning_rate)
+  
+  
+  ## set up plotting while training: ----
+  # original function plots
+  xshow <- seq(-3, 3, length.out = 100)
+  yshow <- sapply(sim_params$flist, function(fcn) fcn(xshow))
+  colnames(yshow) <- paste0("f", 1:ncol(yshow))
+  
+  orig_func_df <- data.frame(
+    yshow,
+    "x"  = xshow
+  ) %>% 
+    pivot_longer(cols = -x, names_to = "fcn")
+  
+  # to feed into BNN model during training loop updates
+  curvmat <- matrix(0, ncol = length(sim_params$flist), nrow = length(sim_params$flist) * 100)
+  for (i in 1:length(sim_params$flist)){
+    curvmat[1:length(xshow) + (i-1) * length(xshow), i] <- xshow
+  }
+  mat0 <- matrix(0, nrow = nrow(curvmat), ncol = sim_params$d_in - length(sim_params$flist))
+  x_plot <- torch_tensor(cbind(curvmat, mat0), device = ifelse(sim_params$use_cuda, "cuda", "cpu"))
+  y_plot <- model_fit(x_plot)  # need to add deterministic argument
+  plotmat <- cbind(scale(as_array(y_plot)), curvmat)
+  colnames(plotmat) <- c("y", paste0("f", 1:length(sim_params$flist)))
+  plotdf <- as.data.frame(plotmat)
+  
+  
+  # store: # train, test mse and kl ----
+  report_epochs <- seq(
+    sim_params$report_every, 
+    sim_params$train_epochs, 
+    by = sim_params$report_every
+  )
+  
+  loss_mat <- matrix(
+    NA, 
+    nrow = length(report_epochs),
+    ncol = 3
+  )
+  colnames(loss_mat) <- c("kl", "mse_train", "mse_test")
+  rownames(loss_mat) <- report_epochs
+  
+  
+  # store: alphas, kappas
+  alpha_mat <- matrix(
+    NA, 
+    nrow = length(report_epochs),
+    ncol = sim_params$d_in
+  )
+  rownames(alpha_mat) <- report_epochs
+  kappa_local_mat <- 
+    kappa_mat <- 
+    kappa_tc_mat <- 
+    kappa_fc_mat <- alpha_mat
+  
+  # store: weight params
+  if (want_all_params){
+    w_mu_arr <-
+      w_lvar_arr <- array(NA, dim = c(sim_params$d_hidden1, sim_params$d_in, length(report_epochs)))
+    
+    atilde_mu_mat <- 
+      btilde_mu_mat <-
+      atilde_logvar_mat <-
+      btilde_logvar_mat <- alpha_mat
+
+    if (!local_only){
+      sa_mu_vec <-
+      sb_mu_vec <- 
+      sa_logvar_vec <- 
+      sb_logvar_vec <- rep(NA, length(report_epochs))
+    }
+  }
+  
+  
+  ## SETUP test-train split and minibatching----
+  ttsplit_ind <- floor(sim_params$n_obs * sim_params$ttsplit)
+  x_train <- simdat$x[1:ttsplit_ind, ] 
+  y_train <- simdat$y[1:ttsplit_ind, ]
+  x_test <- simdat$x[(ttsplit_ind+1):sim_params$n_obs, ] 
+  y_test <- simdat$y[(ttsplit_ind+1):sim_params$n_obs, ]
+  
+  if (!is.null(sim_params$batch_size)){
+    num_batches <- ttsplit_ind %/% sim_params$batch_size
+    batch_inds_vec <- 1:ttsplit_ind
+    batch_size <- sim_params$batch_size
+  } else {
+    batch_size <- ttsplit_ind
+  }
+  
+  
+  ## TRAINING LOOP ----
+  ## initialize training params
+  epoch <- 1
+  loss <- torch_tensor(1, device = dev_select(sim_params$use_cuda))
+  
+  ## stop criteria
+  stop_criteria_met <- FALSE
+  stop_epochs <- c()
+  ## test_mse_storage
+  mse_test <- torch_tensor(0, device = dev_select(sim_params$use_cuda))
+  loss_test <- torch_tensor(1, device = dev_select(sim_params$use_cuda)) 
+  test_mse_store <- rep(0, times = sim_params$stop_k + 1)
+  test_mse_streak <- rep(FALSE, times = sim_params$stop_streak)
+  
+  
+  while (!stop_criteria_met){
+    
+    # fit model with / without batching
+    if (is.null(sim_params$batch_size)){
+      yhat_train <- model_fit(x_train)
+      mse <- nnf_mse_loss(yhat_train, y_train)
+    } else {
+      batch_num <- epoch %% num_batches
+      # reshuffle batches if batch_num == 0
+      if (batch_num == 0) {batch_inds_vec <- sample(1:ttsplit_ind)}
+      batch_inds <- batch_inds_vec[1:sim_params$batch_size + (batch_num)*sim_params$batch_size]
+      
+      yhat_train <- model_fit(x_train[batch_inds, ])
+      mse <- nnf_mse_loss(yhat_train, y_train[batch_inds])
+    }
+
+    
+    # fit & metrics
+    kl <- model_fit$get_model_kld() / batch_size
+    loss <- mse + kl
+    
+    
+    # gradient step 
+    # zero out previous gradients
+    optim_model_fit$zero_grad()
+    # backprop
+    loss$backward()
+    # update weights
+    optim_model_fit$step()
+    
+    
+    # if (epoch > (sim_params$burn_in - 2 * (sim_params$stop_k + sim_params$stop_streak))) {
+    #   test_mse_store <- roll_vec(test_mse_store, as_array(mse_test))
+    # }
+    # 
+    #     # check test_mse stop criteria:
+    #     # abs(diff(mse)) < sd(mse) for streak epochs in a row,
+    #     # sd calculated using last stop_k epochs
+    #     if (epoch > sim_params$burn_in){
+    #       test_mse_sd <- sd(test_mse_store[1:sim_params$stop_k])
+    #       test_mse_absdiff <- abs(diff(test_mse_store[sim_params$stop_k + 0:1]))
+    #       test_mse_compare <- test_mse_absdiff < test_mse_sd
+    #       test_mse_streak <- roll_vec(test_mse_streak, test_mse_compare)
+    #       test_mse_stopcrit <- all(test_mse_streak)
+    #       
+    #       if (test_mse_stopcrit){
+    #         stop_epochs <- c(stop_epochs, epoch)
+    #       }
+    #     }
+    
+    # store results (every `report_every` epochs)
+    time_to_report <- epoch!=0 & (epoch %% sim_params$report_every == 0)
+    if (time_to_report){
+      row_ind <- epoch %/% sim_params$report_every
+      
+      # compute test loss 
+      yhat_test <- model_fit(x_test)
+      mse_test <- nnf_mse_loss(yhat_test, y_test)
+      
+      loss_mat[row_ind, ] <- c(kl$item(), mse$item(), mse_test$item())
+      dropout_alphas <- model_fit$fc1$get_dropout_rates()
+      alpha_mat[row_ind, ] <- as_array(dropout_alphas)
+      kappas <- get_kappas(model_fit$fc1)
+      kappa_mat[row_ind, ] <- kappas
+      
+      kappas_local <- get_kappas(model_fit$fc1, type = "local")
+      kappa_local_mat[row_ind, ] <- kappas_local
+      
+      # corrected param kappas
+      kappas_tc <- get_kappas_taucorrected(model_fit)
+      kappas_fc <- get_kappas_frobcorrected(model_fit)
+      kappa_tc_mat[row_ind, ] <- kappas_tc
+      kappa_fc_mat[row_ind, ] <- kappas_fc
+      
+      
+      # storing other optional parameters, mostly for diagnostics
+      if (want_all_params){
+        # global_dropout_vec[row_ind] <- as_array(model_fit$fc1$get_dropout_rates(type = "global"))
+        # marginal_dropout_mat[row_ind, ] <- as_array(model_fit$fc1$get_dropout_rates(type = "marginal"))
+        # # tau_vec[row_ind] <- as_array(model_fit$fc1$tau)
+        w_mu_arr[, , row_ind] <- as_array(model_fit$fc1$weight_mu)
+        w_lvar_arr[, , row_ind] <- as_array(model_fit$fc1$weight_logvar)
+        
+        atilde_mu_mat[row_ind, ] <- as_array(model_fit$fc1$atilde_mu)
+        btilde_mu_mat[row_ind, ] <- as_array(model_fit$fc1$btilde_mu)
+        atilde_logvar_mat[row_ind, ] <- as_array(model_fit$fc1$atilde_logvar)
+        btilde_logvar_mat[row_ind, ] <- as_array(model_fit$fc1$btilde_logvar)
+        if (!local_only){
+          sa_mu_vec[row_ind] <- as_array(model_fit$fc1$sa_mu)
+          sa_logvar_vec[row_ind] <- as_array(model_fit$fc1$sa_logvar)
+          sb_mu_vec[row_ind] <- as_array(model_fit$fc1$sb_mu)
+          sb_logvar_vec[row_ind] <- as_array(model_fit$fc1$sb_logvar)
+        }
+      }
+    } # end result storing and updating
+    
+    
+    ### in-console and graphical training updates ----
+    # visual updating on epochs
+    # cat("\r", "Progress:", i, "%")
+    if (!time_to_report & verbose & (epoch %% sim_params$report_every == 1)){cat("Training till next report:")}
+    if (!time_to_report & verbose & (epoch %% round(sim_params$report_every/100) == 1)){cat("#")}
+    
+    # report
+    if (time_to_report & verbose){
+      cat(
+        "\n Epoch:", epoch,
+        "MSE + KL/n =", round(mse$item(), 5), "+", round(kl$item(), 5),
+        "=", round(loss$item(), 4),
+        "\n",
+        "train mse:", round(mse$item(), 4), 
+        "; test_mse:", round(mse_test$item(), 4),
+        sep = " "
+      )
+      
+      # report global shrinkage params (s^2 or tau^2)
+      s_sq1 <- get_s_sq(model_fit$fc1)
+      s_sq2 <- get_s_sq(model_fit$fc2)
+      s_sq3 <- get_s_sq(model_fit$fc3)
+      
+      cat(
+        "\n s_sq1 = ", round(s_sq1, 5),
+        "; s_sq2 = ", round(s_sq2, 5),
+        "; s_sq3 = ", round(s_sq3, 5),
+        sep = ""
+      )
+      # cat("\n alphas: ", round(as_array(dropout_alphas), 2), "\n")
+      # display_alphas <- ifelse(
+      #   as_array(dropout_alphas) <= sim_params$alpha_thresh,
+      #   round(as_array(dropout_alphas), 3),
+      #   "."
+      # )
+      # cat("alphas below 0.82: ")
+      # cat(display_alphas, sep = " ")
+      
+      cat("\n global kappas: ", round(kappas, 2), "\n")
+      cat("\n tau-corrected kappas: ", round(kappas_tc, 2), "\n")
+      cat("\n frob-corrected kappas: ", round(kappas_fc, 2), "\n")
+      # display_kappas <- ifelse(
+      #   kappas <= 0.9,
+      #   round(kappas, 3),
+      #   "."
+      # )
+      # cat("global kappas below 0.9: ")
+      # cat(display_kappas, sep = " ")
+      
+      # cat("\n local kappas: ", round(kappas_local, 2), "\n")
+      
+      
+      # if (length(stop_epochs > 0)){
+      #   stop_msg <- paste0(
+      #     "\n ********************************************* \n",
+      #     "test_mse STOP CONDITION reached ", 
+      #     length(stop_epochs), " times; ", 
+      #     "min / max: ", min(stop_epochs), " / ", max(stop_epochs),
+      #     "\n ********************************************* \n"
+      #   )
+      #   cat_color(stop_msg)
+      # }
+      cat(" \n \n")
+      
+      
+      # graphical training updates
+      if (want_plots & row_ind > 5){
+        
+        # only show most recent (for scale of plot)
+        start_plot_row_ind <- 1
+        if (row_ind >= 20){
+          start_plot_row_ind <- row_ind - 10
+        } else if (row_ind >= 60){
+          start_plot_row_ind <- row_ind - 30
+        } else if (row_ind >= 100){
+          start_plot_row_ind <- row_ind - 50
+        }
+        # set up plotting df
+        temp_lmat <- cbind(
+          loss_mat[start_plot_row_ind:row_ind,],
+          "epoch" = report_epochs[start_plot_row_ind:row_ind]
+        )
+        
+        mse_plotdf <- temp_lmat %>% 
+          data.frame() %>% 
+          pivot_longer(
+            cols = -epoch,
+            names_to = "metric"
+          )
+        
+        # plot MSE vs epochs
+        mse_plt <- mse_plotdf %>% 
+          filter(metric != "kl") %>% 
+          ggplot(aes(y = value, x = epoch, color = metric)) + 
+          geom_line() + 
+          labs(
+            subtitle = paste0("MSE for epochs ", 
+                              report_epochs[start_plot_row_ind],
+                              " through ",
+                              report_epochs[row_ind])
+          )
+        
+        # plot KL vs epochs
+        kl_plt <- mse_plotdf %>%
+          filter(metric == "kl") %>%
+          ggplot(aes(y = value, x = epoch, color = metric)) +
+          geom_line() +
+          labs(
+            subtitle = paste0("KL for epochs ",
+                              report_epochs[start_plot_row_ind],
+                              " through ",
+                              report_epochs[row_ind])
+          )
+        grid_plt <- gridExtra::grid.arrange(
+          grobs = list(mse_plt, kl_plt),
+          nrow = 2
+        )
+        print(grid_plt)
+      } # end graphical training updates (want_plots = TRUE)
+    } # end training updates (verbose = TRUE)
+    
+    # function plots
+    if (time_to_report & want_fcn_plots){
+      plotdf$y <- as_array(model_fit(x_plot))
+      
+      plt <- plotdf %>% 
+        pivot_longer(cols = -y, values_to = "x", names_to = "fcn") %>%
+        ggplot(aes(y = y, x = x, color = fcn)) + 
+        geom_line() + 
+        geom_line(
+          data = orig_func_df,
+          linetype = "dotted",
+          aes(y = value, x = x, color = fcn)
+        ) + 
+        labs(
+          title = "predicted (solid) and original (dotted) functions",
+          subtitle = paste0("epoch: ", epoch)
+        )
+      
+      if (save_fcn_plots){
+        save_plt_path <- paste0(save_mod_path_stem, "_e", epoch, ".png")
+        ggsave(filename = save_plt_path, plot = plt, height = 4, width = 6)
+      } else {
+        print(plt)
+      }
+    } # end function update plots (want_fcn_plots = TRUE)
+    
+    
+    # increment epoch counter
+    epoch <- epoch + 1
+    stop_criteria_met <- epoch > sim_params$train_epochs
+  } # end training WHILE loop
+  
+  ### compile results ----
+  sim_res <- list(
+    "sim_ind" = sim_ind,
+    # "stop_epochs" = stop_epochs,
+    "fcn_plt" = plt,
+    "loss_mat" = loss_mat,
+    "alpha_mat" = alpha_mat,
+    "kappa_mat" = kappa_mat,
+    "kappa_tc_mat" = kappa_tc_mat,
+    "kappa_fc_mat" = kappa_fc_mat,
+    "kappa_local_mat" = kappa_local_mat
+    
+  )
+  
+  if (want_all_params){
+    # add optionally stored network params
+    sim_res$w_mu_arr <- w_mu_arr
+    sim_res$w_lvar_arr <- w_lvar_arr
+    # sim_res$global_dropout_vec <- global_dropout_vec
+    # sim_res$marginal_dropout_mat <- marginal_dropout_mat
+    sim_res$atilde_mu_mat <- atilde_mu_mat
+    sim_res$btilde_mu_mat <- btilde_mu_mat
+    sim_res$atilde_logvar_mat <- atilde_logvar_mat
+    sim_res$btilde_logvar_mat <- btilde_logvar_mat
+    if (!local_only){
+      sim_res$sa_mu_vec <- sa_mu_vec
+      sim_res$sb_mu_vec <- sb_mu_vec
+      sim_res$sa_logvar_vec <- sa_logvar_vec
+      sim_res$sb_logvar_vec <- sb_logvar_vec
+    }
+    # sim_res$tau_vec <- tau_vec
+  } 
+  
+  ### notify completed training ----
+  completed_msg <- paste0(
+    "\n \n ******************** \n ******************** \n",
+    "sim #", 
+    sim_ind, 
+    " completed",
+    "\n ******************** \n ******************** \n \n"
+  )
+  cat_color(txt = completed_msg)
+  
+  ### save torch model & sim results ----
+  if (save_mod){
+    if(is.null(save_mod_path_stem)){
+      save_mod_path_stem <- here::here("sims", 
+                                       "results", 
+                                       paste0("fcnl_hshoe_mod_", 
+                                              sim_params$n_obs, "obs_", 
+                                              seed
+                                       ))
+    }
+    save_mod_path <- paste0(save_mod_path_stem, ".pt")
+  }
+  
+  if (save_mod){
+    torch_save(model_fit, path = save_mod_path)
+    cat_color(txt = paste0("model saved: ", save_mod_path))
+    sim_res$mod_path = save_mod_path
+  }
+  
+  if (save_results){
+    sim_res$sim_params <- sim_params
+    save_res_path <- paste0(save_mod_path_stem, ".RData")
+    save(sim_res, file = save_res_path)
+    cat_color(txt = paste0("sim results saved: ", save_res_path))
+  }
+  
+  return(sim_res)
+}
+AI: 
+
+ Thank you for sharing the training code! I found several important issues — including one that is very likely a major contributor to your slow convergence.
+
+---
+
+## 🔴 Critical: KL Scaling with Minibatches
+
+This is probably your **single biggest training issue**, alongside Issue #4 from the previous review.
+
+```r
+kl <- model_fit$get_model_kld() / batch_size
+loss <- mse + kl
+```
+
+`nnf_mse_loss` returns the **mean** over the batch by default, so `mse ≈ (1/B) Σ_batch (y - ŷ)²`. This is an unbiased estimate of the per-observation MSE regardless of batch size. But the KL term is a fixed penalty over the entire parameter space — it doesn't scale with the batch. The correct normalization is to divide by the **total training set size**, not the batch size:
+
+$$\mathcal{L} = \frac{1}{B}\sum_{i \in \text{batch}} \ell(y_i, \hat{y}_i) + \frac{1}{N_{\text{train}}} \text{KL}(q \| p)$$
+
+When `batch_size < N_train`, dividing by `batch_size` **overweights the KL** by a factor of `N_train / batch_size`. For example, with 1000 training observations and batch size 100, the prior penalty is **10× too strong**, which would heavily over-regularize and dramatically slow convergence. Fix:
+
+```r
+kl <- model_fit$get_model_kld() / ttsplit_ind
+loss <- mse + kl
+```
+
+*(When `batch_size` is `NULL`, you set `batch_size <- ttsplit_ind`, so the current code happens to be correct in the full-batch case — but it breaks as soon as minibatching is enabled.)*
+
+---
+
+## 🟠 Convergence / Performance Issues
+
+### 2. No KL Warm-Up / Annealing
+
+From epoch 1, the KL is at full strength. In variational inference, this often causes the model to collapse toward the prior before the weights learn useful representations. A standard remedy is to linearly anneal the KL weight from 0 to 1 over an initial warm-up period:
+
+```r
+kl_weight <- min(1, epoch / kl_warmup_epochs)
+loss <- mse + kl_weight * kl
+```
+
+A typical `kl_warmup_epochs` might be 10–20% of total training epochs.
+
+### 3. Test/Plot Forward Passes Build Unnecessary Computation Graphs
+
+During the reporting phase, the model is called without disabling gradient tracking:
+
+```r
+# Test MSE computation
+yhat_test <- model_fit(x_test)
+mse_test <- nnf_mse_loss(yhat_test, y_test)
+
+# Plot prediction
+plotdf$y <- as_array(model_fit(x_plot))
+```
+
+Each of these builds a full autograd graph (including sampling noise, exponentiation, linear layers, etc.) that is never used for backpropagation. This wastes significant memory — especially if `x_test` or `x_plot` are large — and can trigger unnecessary GPU memory allocation. Wrap these in `with_no_grad()`:
+
+```r
+with_no_grad({
+  yhat_test <- model_fit(x_test)
+  mse_test <- nnf_mse_loss(yhat_test, y_test)
+})
+```
+
+### 4. Test MSE Uses Stochastic Forward Pass
+
+Related to the above: the reporting-phase calls go through the stochastic `forward()`, which samples random weights and z values. This makes your monitored test MSE **noisy**, which can obscure the true convergence trend and make it harder to diagnose problems. Consider using `get_nn_mod_Ey()` (the deterministic point-estimate prediction) for monitoring:
+
+```r
+with_no_grad({
+  yhat_test <- get_nn_mod_Ey(model_fit, x_test)
+  mse_test <- nnf_mse_loss(yhat_test, y_test)
+})
+```
+
+*(Note: `get_nn_mod_Ey` has its own bug — see Issue #8 below.)*
+
+---
+
+## 🟡 Logic Bugs
+
+### 5. Plot Window `if/else` Ordering
+
+```r
+start_plot_row_ind <- 1
+if (row_ind >= 20){
+  start_plot_row_ind <- row_ind - 10
+} else if (row_ind >= 60){      # ← never reached
+  start_plot_row_ind <- row_ind - 30
+} else if (row_ind >= 100){     # ← never reached
+  start_plot_row_ind <- row_ind - 50
+}
+```
+
+Because `if/else if` short-circuits, `row_ind >= 60` is only checked when `row_ind < 20` (which is impossible if `row_ind >= 60`). The later branches are dead code. Reverse the order:
+
+```r
+if (row_ind >= 100) {
+  start_plot_row_ind <- row_ind - 50
+} else if (row_ind >= 60) {
+  start_plot_row_ind <- row_ind - 30
+} else if (row_ind >= 20) {
+  start_plot_row_ind <- row_ind - 10
+} else {
+  start_plot_row_ind <- 1
+}
+```
+
+### 6. First Batch Is Skipped on the First Pass
+
+```r
+batch_num <- epoch %% num_batches
+if (batch_num == 0) { batch_inds_vec <- sample(1:ttsplit_ind) }
+batch_inds <- batch_inds_vec[1:batch_size + batch_num * batch_size]
+```
+
+On epoch 1, `batch_num = 1`, so the batch indices start at `(batch_size + 1):(2 * batch_size)`, skipping the first batch entirely. Batch 0 is only reached when `epoch %% num_batches == 0`, i.e., epoch = `num_batches`, at which point the data is also reshuffled. Additionally, `batch_inds_vec` is never shuffled initially, so the first full pass through the data is in sequential order. A cleaner approach:
+
+```r
+# Before the training loop:
+batch_inds_vec <- sample(1:ttsplit_ind)  # shuffle initially
+batch_num <- 0
+
+# Inside the loop:
+if (batch_num >= num_batches) {
+  batch_inds_vec <- sample(1:ttsplit_ind)
+  batch_num <- 0
+}
+batch_inds <- batch_inds_vec[1:batch_size + batch_num * batch_size]
+batch_num <- batch_num + 1
+```
+
+---
+
+## 🔵 Post-Hoc Analysis Bug
+
+### 7. `get_nn_mod_Ey` Has the Variance Product-vs-Sum Bug
+
+```r
+ztilde <- ln_fcn(
+  mu  = as_array(nn_mod$children[[nn_layer]]$atilde_mu +
+                 nn_mod$children[[nn_layer]]$btilde_mu) / 2,
+  var = exp(as_array(nn_mod$children[[nn_layer]]$atilde_logvar +
+                     nn_mod$children[[nn_layer]]$btilde_logvar)) / 4
+)
+```
+
+Adding logvars before exponentiating gives `exp(log σ²_a + log σ²_b) = σ²_a × σ²_b`, the **product** of variances. The correct variance of `(log ã + log b̃)/2` is `(σ²_a + σ²_b)/4`:
+
+```r
+ztilde <- ln_fcn(
+  mu  = as_array(nn_mod$children[[nn_layer]]$atilde_mu +
+                 nn_mod$children[[nn_layer]]$btilde_mu) / 2,
+  var = (exp(as_array(nn_mod$children[[nn_layer]]$atilde_logvar)) +
+         exp(as_array(nn_mod$children[[nn_layer]]$btilde_logvar))) / 4
+)
+```
+
+Same fix needed for the `s` computation in the same function.
+
+---
+
+## Summary
+
+| # | Issue | Impact | Category |
+|---|-------|--------|----------|
+| 1 | KL divided by `batch_size` instead of `N_train` | KL overweighted by `N/B` — **major** convergence slowdown | 🔴 Correctness |
+| 2 | No KL warm-up / annealing | Prior collapse in early epochs | 🟠 Convergence |
+| 3 | Test/plot passes build autograd graph | Wasted memory and compute every report | 🟠 Performance |
+| 4 | Stochastic test MSE | Noisy convergence monitoring | 🟠 Monitoring |
+| 5 | Plot window `if/else` ordering | Later branches are dead code | 🟡 Logic |
+| 6 | First batch skipped; no initial shuffle | Minor data ordering bias | 🟡 Logic |
+| 7 | Variance product-vs-sum in `get_nn_mod_Ey` | Wrong deterministic predictions | 🔵 Post-hoc |
+
+Combined with Issue #4 from the previous review (sampling 4 auxiliary variables → high gradient variance), fixing the KL scaling (#1 here) and switching to single-sample z should yield a substantial improvement in convergence speed. KL annealing (#2) would be the natural next step if you still see early-training instability after those fixes.
+
+Would you like to share the parent model definition (the one that calls `torch_hs` layers and defines `get_model_kld()`)? That would let me verify the full ELBO computation end-to-end.
+You: yes, thank you --- the parent model definition is in the following:  
+
+##################################################
+## Project:   Kaiming init, smoother functions
+## Date:      Dec 9, 2025
+## Author:    Arnie Seong
+##################################################
+
+# Kaiming initialization used
+# normalize train data
+
+#### setup ----
+library(here)
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(gridExtra)
+
+library(torch)
+source(here("Rcode", "torch_horseshoe_klcorrected.R"))
+source(here("Rcode", "sim_functions.R"))
+source(here("Rcode", "analysis_fcns.R"))
+# source(here("Rcode", "sim_hshoe_normedresponse.R"))
+
+if (torch::cuda_is_available()){
+  use_cuda <- TRUE
+  message("Default tensor device set to GPU (CUDA).")
+} else {
+  use_cuda <- FALSE
+  message("Default tensor device remains CPU.")
+}
+
+# fcn1 <- function(x) exp(x/2)
+# fcn2 <- function(x) cos(pi*x) + sin(pi/1.2*x)
+# fcn3 <- function(x) abs(x)^(1.5)
+# fcn4 <- function(x) - (abs(x))
+# flist = list(fcn1, fcn2, fcn3, fcn4)
+
+# original function set
+# fcn1 <- function(x) exp(x/2)
+# fcn2 <- function(x) cos(pi*x) + sin(pi/1.2*x) - x
+# fcn3 <- function(x) abs(x)^(1.5)
+# fcn4 <- function(x) - log(abs(x) + 1e-3)
+
+# "smoother" functions.  
+fcn1 <- function(x) -cos(pi/1.5*x)
+fcn2 <- function(x) cos(pi*x) + sin(pi/1.2*x)
+fcn3 <- function(x) abs(x)^(.75)
+fcn4 <- function(x) -x^2 / 4
+flist = list(fcn1, fcn2, fcn3, fcn4)
+plot_datagen_fcns(flist)
+
+# 
+# xshow <- seq(-3, 3, length.out = 100)
+# yshow <- sapply(flist, function(fcn) fcn(xshow))
+# df <- data.frame(
+#   "f1" = yshow[, 1],
+#   "f2" = yshow[, 2],
+#   "f3" = yshow[, 3],
+#   "f4" = yshow[, 4],
+#   "x"  = xshow
+# )
+# df %>% 
+#   pivot_longer(cols = -x, names_to = "fcn") %>% 
+#   ggplot(aes(y = value, x = x, color = fcn)) +
+#   geom_line() + 
+#   labs(title = "functions used to create data")
+
+## sim_params
+#    check whenever changing setting (testing / single vs parallel, etc) ##
+#           n_sims, verbose, want_plots, train_epochs
+
+
+save_mod_path_prestem <- here::here(
+  "sims", 
+  "results", 
+  "hshoe_opus_3232_"
+)
+
+sim_params <- list(
+  "sim_name" = "corrected code 3/11; 32-32; 1k obs; optimistic (p_0 = 10 of 104)",
+  "seed" = 3232,
+  "n_sims" = 5, 
+  "train_epochs" = 3E5,
+  "report_every" = 1E4,
+  "use_cuda" = use_cuda,
+  "d_in" = 104,
+  "d_hidden1" = 32,
+  "d_hidden2" = 32,
+  # "d_hidden3" = 16,
+  # "d_hidden4" = 16,
+  # "d_hidden5" = 16,
+  "d_out" = 1,
+  "n_obs" = 1250,
+  "true_coefs" = c(-0.5, 1, -2, 4, rep(0, times = 100)),
+  "alpha_thresh" = 1 / qchisq(1 - (0.05 / 104), df = 1),
+  "flist" = flist,
+  "lr" = 0.001,  # sim_hshoe learning rate arg.  If not specified, uses optim_adam default (0.001)
+  "err_sig" = 1,
+  "xdist" = "norm",
+  "convergence_crit" = 1e-7,
+  "ttsplit" = 4/5,
+  "batch_size" = NULL,
+  "stop_k" = 100,
+  "stop_streak" = 25,
+  "burn_in" = 25e4 # 5E5,
+)
+set.seed(sim_params$seed)
+sim_params$sim_seeds <- floor(runif(n = sim_params$n_sims, 0, 1000000))
+
+
+# calibrate tau
+# Piironen & Vehtari 2017 suggest tau_0 = p_0 / (d - p_0) * sig / sqrt(n)
+# where p_0 = prior estimate of number of nonzero betas, d = total number of covs
+
+# scaled optimistic tau (expecting 10 true of 104)
+dim_vec <- do.call(c, sim_params[grep(pattern = "d_", names(sim_params))])
+# param_scaling <- round(sim_params$n_obs * sim_params$ttsplit) / param_counts_from_dims(dim_vec)[4]
+
+sim_params$prior_tau <- tau0_PV(
+  p_0 = 10, d = 104, sig = 1, 
+  n = round(sim_params$n_obs * sim_params$ttsplit)
+)
+# ) * 
+#   param_scaling
+
+agnostic_tau <- tau0_PV(
+  p_0 = 1, d = 2, sig = 1, 
+  n = round(sim_params$n_obs * sim_params$ttsplit)
+)
+
+## define model
+MLHS <- nn_module(
+  "MLHS",
+  initialize = function() {
+    self$fc1 = torch_hs(    
+      in_features = sim_params$d_in, 
+      out_features = sim_params$d_hidden1,
+      use_cuda = sim_params$use_cuda,
+      tau_0 = sim_params$prior_tau,
+      init_weight = NULL,
+      init_bias = NULL,
+      init_alpha = 0.9,
+      clip_var = TRUE
+    )
+    
+    self$fc2 = torch_hs(
+      in_features = sim_params$d_hidden1,
+      out_features = sim_params$d_hidden2,
+      use_cuda = sim_params$use_cuda,
+      tau_0 = agnostic_tau,
+      init_weight = NULL,
+      init_bias = NULL,
+      init_alpha = 0.9,
+      clip_var = TRUE
+    )
+    
+    self$fc3 = torch_hs(
+      in_features = sim_params$d_hidden2,
+      #   out_features = sim_params$d_hidden3,
+      #   use_cuda = sim_params$use_cuda,
+      #   tau = agnostic_tau,
+      #   init_weight = NULL,
+      #   init_bias = NULL,
+      #   init_alpha = 0.9,
+      #   clip_var = TRUE
+      # )
+      # 
+      # self$fc4 = torch_hs(
+      #   in_features = sim_params$d_hidden3,
+      #   out_features = sim_params$d_hidden4,
+      #   use_cuda = sim_params$use_cuda,
+      #   tau = agnostic_tau,
+      #   init_weight = NULL,
+      #   init_bias = NULL,
+      #   init_alpha = 0.9,
+      #   clip_var = TRUE
+      # )
+      # 
+      # self$fc5 = torch_hs(
+      #   in_features = sim_params$d_hidden4,
+      out_features = sim_params$d_out,
+      use_cuda = sim_params$use_cuda,
+      tau_0 = agnostic_tau,
+      init_weight = NULL,
+      init_bias = NULL,
+      init_alpha = 0.9,
+      clip_var = TRUE
+    )
+    
+  },
+  
+  forward = function(x) {
+    x %>%
+      self$fc1() %>%
+      nnf_relu() %>%
+      self$fc2() %>%
+      nnf_relu() %>%
+      self$fc3() # %>%
+      # nnf_relu() %>%
+      # self$fc4() %>%
+      # nnf_relu() %>%
+      # self$fc5()
+  },
+  
+  
+  
+  get_model_kld = function(){
+    kl1 = self$fc1$get_kl()
+    kl2 = self$fc2$get_kl()
+    kl3 = self$fc3$get_kl()
+    # kl4 = self$fc3$get_kl()
+    # kl5 = self$fc3$get_kl()
+    kld = kl1 + kl2 + kl3 #+ kl4 + kl5
+    return(kld)
+  }
+)
+# 
+# sim_params$model <- MLHS
+# mod <- MLHS()
+# mod$fc1$parameters
+# ztil <- get_ztil_sq(mod$fc1)
+# s <- get_s_sq(mod$fc1)
+# Wz_params <- get_Wz_params(mod$fc1)
+# Wz_mu <- Wz_params$Wz_mu
+# W_mu <- as_array(mod$fc1$weight_mu)
+# mean(diag(cov(W_mu)))
+# 
+# 
+# nn_init_kaiming_normal_(mod$fc1$weight_mu)
+# W_mu_k <- as_array(mod$fc1$weight_mu)
+# sum(diag(cov(W_mu_k)))
+# sum(diag(cov(W_mu)))
+# mean(diag(cov(W_mu_k)))
+# mean(W_mu_k)
+# mean(W_mu)
+
+# verbose = TRUE
+# want_plots = TRUE
+# want_fcn_plots = TRUE
+# save_fcn_plots = FALSE
+# want_all_params = FALSE
+# save_mod = TRUE
+# save_mod_path_stem = NULL
+# nn_model <- MLHS
+
+res <- lapply(
+  1:sim_params$n_sims,
+  function(X) {
+    save_mod_path_stem <- paste0(
+      save_mod_path_prestem,
+      sim_params$n_obs, "obs_", 
+      sim_params$sim_seeds[X]
+    )
+    
+    sim_hshoe(
+      sim_ind = X,
+      sim_params = sim_params,     # same as before, but need to include flist
+      # learning_rate = sim_params$lr,
+      nn_model = MLHS,   # torch nn_module,
+      verbose = TRUE,      # provide updates in console
+      want_plots = FALSE,   # provide graphical updates of KL, MSE
+      want_fcn_plots = TRUE, # display predicted functions
+      save_fcn_plots = TRUE,
+      want_all_params = TRUE,
+      save_mod = TRUE,
+      save_mod_path_stem = save_mod_path_stem
+    )
+  }
+)
+AI: 
+
+ Thank you — now I can trace the full pipeline end-to-end. Here's what I found in this file, beyond what was covered in the previous two reviews.
+
+---
+
+## 🔴 Correctness Issues
+
+### 1. `clip_var = TRUE` — Type Error Waiting to Fire
+
+Every layer is initialized with:
+
+```r
+clip_var = TRUE
+```
+
+Inside `torch_hs`, the guard is `!is.null(self$clip_var)`, and the clamping uses `log(self$clip_var)`. In R, `log(TRUE) = log(1) = 0`, so if `clip_variances()` is ever called, **all log-variances get clamped to ≤ 0** (i.e., σ² ≤ 1). This is almost certainly not the intent.
+
+Currently `clip_variances()` doesn't appear to be called anywhere in your training loop or forward pass, so this is dormant. But if you ever wire it in (as is common in Bayesian compression workflows), it will silently cap all weight variances at 1. Fix by passing a numeric threshold or `NULL`:
+
+```r
+clip_var = 10   # σ² ≤ 10, for example
+# or
+clip_var = NULL  # disable clamping
+```
+
+### 2. Copy-Paste Bug in `get_model_kld`
+
+```r
+get_model_kld = function(){
+    kl1 = self$fc1$get_kl()
+    kl2 = self$fc2$get_kl()
+    kl3 = self$fc3$get_kl()
+    # kl4 = self$fc3$get_kl()   # ← should be self$fc4
+    # kl5 = self$fc3$get_kl()   # ← should be self$fc5
+    kld = kl1 + kl2 + kl3 #+ kl4 + kl5
+    return(kld)
+}
+```
+
+Both `kl4` and `kl5` reference `self$fc3` instead of `self$fc4` and `self$fc5`. Currently harmless since those lines are commented out, but if you ever restore the 5-layer architecture, layers 4 and 5 would contribute fc3's KL instead of their own.
+
+---
+
+## 🟠 Convergence / Performance Issues
+
+### 3. Implicit Noise Variance Mismatch
+
+Your loss is:
+
+```r
+loss <- mse + kl   # where kl = KL / N_train
+```
+
+`nnf_mse_loss` computes `mean((y - ŷ)²)`. For a Gaussian likelihood with variance σ², the per-observation negative log-likelihood (up to a constant) is `(y - ŷ)² / (2σ²)`. So your loss implicitly assumes **σ² = 0.5**, but your data is generated with `err_sigma = 1` (σ² = 1). This over-weights the likelihood relative to the KL by a factor of 2, which means the posterior will be tighter (less regularized) than the true Bayesian posterior.
+
+For a properly calibrated ELBO:
+
+```r
+sigma_sq <- 1  # match your data-generating process
+loss <- mse / (2 * sigma_sq) + kl
+```
+
+Or equivalently, scale the KL:
+
+```r
+loss <- mse + 2 * kl   # since mse already divides by N
+```
+
+This is a common modeling choice that many practitioners leave as-is, but it matters for your horseshoe prior since the balance between likelihood and KL directly controls how aggressively the shrinkage operates.
+
+### 4. Full-Batch Training at Scale
+
+With `batch_size = NULL`, every gradient step processes all 1000 training observations. Combined with 300K epochs, that's 300 million observation-level forward/backward computations. Minibatching (e.g., batch size 100–200) would:
+
+- Reduce wall-clock time per epoch
+- Add beneficial stochastic noise that helps escape local optima in the ELBO landscape
+- Allow more frequent parameter updates per pass through the data
+
+Just remember to apply the KL scaling fix from the previous review (`kl / N_train` not `kl / batch_size`) when enabling minibatching.
+
+### 5. Fixed Learning Rate for 300K Epochs
+
+A constant `lr = 0.001` for the full run means the step size that works well early on (when gradients are large) may be too large late in training, causing oscillation around the optimum. Consider a scheduler:
+
+```r
+scheduler <- lr_step(optim_model_fit, step_size = 100000, gamma = 0.5)
+
+# Inside training loop, after optim_model_fit$step():
+scheduler$step()
+```
+
+This halves the learning rate every 100K epochs, allowing finer convergence in later stages.
+
+---
+
+## 🟡 Design Observations
+
+### 6. Horseshoe Prior on the Output Layer
+
+Your final layer `fc3` (32 → 1) uses the full horseshoe machinery. This means:
+
+- A **single scalar output** goes through stochastic z-sampling, local reparameterization, and horseshoe shrinkage
+- The grouped horseshoe on fc3's 32 inputs is performing **neuron pruning on the second hidden layer**, which is meaningful
+- But it also adds an additional noise source to every prediction, increasing ELBO gradient variance
+
+Consider whether the output layer needs the full horseshoe treatment, or if a simpler layer (e.g., standard Bayesian linear with a broad Gaussian prior, or even deterministic) would suffice. The sparsity-inducing work is primarily needed on fc1 (input feature selection) and fc2 (hidden unit pruning).
+
+### 7. τ₀ Calibration for Hidden Layers
+
+You're using the Piironen & Vehtari formula with `p_0 = 1, d = 2` for hidden layers:
+
+```r
+agnostic_tau <- tau0_PV(p_0 = 1, d = 2, sig = 1, n = 1000)
+# ≈ 0.032
+```
+
+This was derived for linear regression and says *"I expect about half the covariates to be relevant."* For hidden layers, what constitutes a "covariate" is less clear. More importantly, recall from the first review that the effective prior scale is √τ₀ ≈ 0.18 rather than τ₀ ≈ 0.032 due to the `b` vs `b²` parameterization issue. This may or may not be appropriate — just be aware of the interaction.
+
+---
+
+## Summary of All Issues Across All Three Reviews
+
+| # | Issue | File | Severity |
+|---|-------|------|----------|
+| 1 | `$exp_()` in-place in `reparameterize` | `torch_horseshoe` | 🔴 |
+| 2 | `clip_variances` orphans parameters | `torch_horseshoe` | 🔴 |
+| 3 | `clip_var = TRUE` → `log(TRUE) = 0` | `MLHS` definition | 🔴 |
+| 4 | Copy-paste bug in `get_model_kld` (kl4/kl5 → fc3) | `MLHS` definition | 🔴 |
+| 5 | τ₀ vs τ₀² scale parameterization | `torch_horseshoe` | 🔴 |
+| 6 | 4 separate noise samples → high gradient variance | `torch_horseshoe` | 🟠 |
+| 7 | KL scales by `batch_size` not `N_train` | `sim_hshoe` | 🟠 |
+| 8 | No KL warm-up / annealing | `sim_hshoe` | 🟠 |
+| 9 | Implicit σ² = 0.5 vs true σ² = 1 | `sim_hshoe` + `MLHS` | 🟠 |
+| 10 | Test/plot passes build autograd graph | `sim_hshoe` | 🟠 |
+| 11 | Fixed LR for 300K epochs | `sim_hshoe` | 🟠 |
+| 12 | `requires_grad=TRUE` on eps | `torch_horseshoe` | 🟡 |
+| 13 | N(0,1) bias prior | `torch_horseshoe` | 🟡 |
+| 14 | No overflow guard on `z$exp()` | `torch_horseshoe` | 🟡 |
+| 15 | No floor before `var$log()` | `torch_horseshoe` | 🟡 |
+| 16 | Plot `if/else` ordering | `sim_hshoe` | 🟡 |
+| 17 | First batch skipped / no initial shuffle | `sim_hshoe` | 🟡 |
+| 18 | Variance product-vs-sum bug (post-hoc functions) | `torch_horseshoe` + `sim_functions` | 🔵 |
+
+If I had to rank the **top 3 changes most likely to improve convergence speed**, they would be:
+
+1. **Single-sample z** (Issue #6) — reduces gradient variance by ~4×
+2. **KL warm-up** (Issue #8) — prevents prior collapse in early training
+3. **Likelihood/KL balance** (Issue #9) — ensures the horseshoe shrinkage operates at the correct strength
+
+Would you like help implementing any of these, or would you like to discuss the mathematical details behind any of the fixes?
+You: Would a cyclical learning rate scheduler work better than halving it every X epochs?
+AI: 
+
+ Great question. The short answer is: **for variational inference with a horseshoe prior, cyclical LR is riskier than it would be in standard DNN training**, but a carefully designed variant could work. Here's the reasoning:
+
+---
+
+## Why Cyclical LR Is Attractive
+
+The theoretical appeal is real. Your ELBO landscape is **multimodal** — the horseshoe prior creates two attracting regions for each input feature (shrink toward zero vs. remain large), and a cyclical schedule can help the optimizer explore these modes rather than committing too early. Standard step decay is purely exploitative: once the LR drops, you're locked into whatever basin you're in.
+
+## Why It's Risky for This Model
+
+Your model has **qualitatively different parameter types** that respond very differently to LR spikes:
+
+| Parameter | Behavior under high LR |
+|-----------|----------------------|
+| `weight_mu` | Relatively robust — similar to standard DNN weights |
+| `weight_logvar` | Sensitive — overshooting can cause variance to explode (`exp(logvar)`), creating NaN cascades |
+| `sa_mu`, `sb_mu`, `atilde_mu`, `btilde_mu` | Very sensitive — these control `z = exp(...)`, so small perturbations get exponentiated |
+| `sa_logvar`, etc. | Doubly sensitive — perturbations are exponentiated *twice* (once for variance, once for z) |
+
+When a cyclical schedule pushes the LR back up, the shrinkage parameters can get kicked far from their current values. Because these pass through `exp()` in the forward pass, even modest overshooting in log-space translates to **huge** changes in the effective scale of z. This can undo epochs of progress in a single high-LR phase, and in the worst case, produce `Inf`/`NaN` values.
+
+Additionally, if you combine cyclical LR with the KL warm-up I suggested earlier, the interaction becomes complex — the model would be simultaneously ramping up the KL penalty while the LR is cycling, which can create chaotic training dynamics.
+
+## What I'd Recommend Instead
+
+**Cosine annealing without restarts** gives you the best of both worlds — a smooth, gradual decay that spends more time at intermediate learning rates than step decay does, without the destabilizing upswings:
+
+```r
+# In R torch:
+scheduler <- lr_cosine_annealing(optim_model_fit, T_max = sim_params$train_epochs)
+
+# Inside training loop, after optim_model_fit$step():
+scheduler$step()
+```
+
+This follows the schedule: $\eta_t = \eta_{\min} + \frac{1}{2}(\eta_{\max} - \eta_{\min})\left(1 + \cos\left(\frac{t}{T_{\max}} \pi\right)\right)$
+
+which decays smoothly from your initial LR to near zero, spending proportionally more time at moderate rates than a step schedule would.
+
+## If You Still Want to Try Cyclical
+
+If you want the exploration benefits, there are two safer approaches:
+
+### Option A: Cosine Annealing with Warm Restarts + Decaying Amplitude
+
+Use cycles, but **shrink the amplitude** each cycle so late-training cycles are gentle:
+
+```r
+# Cosine annealing with warm restarts
+scheduler <- lr_cosine_annealing(optim_model_fit, T_max = 50000)
+# Call scheduler$step() each epoch; LR resets every 50K epochs
+# Manually decay the base LR after each restart
+```
+
+### Option B: Differential Learning Rates
+
+Use **parameter groups** with different LR schedules — stable (or lower) LR for the shrinkage and variance parameters, with a cyclical or higher LR only for the weight means:
+
+```r
+optim_model_fit <- optim_adam(
+  list(
+    list(params = weight_mu_params,    lr = 0.001),  # can cycle this
+    list(params = logvar_params,       lr = 0.0005), # keep this stable
+    list(params = shrinkage_params,    lr = 0.0005)  # keep this stable
+  )
+)
+```
+
+This lets the weight means explore freely while keeping the sensitive variational parameters on a monotonic decay. It does require extracting the parameters into separate groups, which is a bit more bookkeeping in R torch, but is probably the most principled approach.
+
+---
+
+## Summary
+
+| Schedule | Exploration | Stability | Complexity | Recommendation |
+|----------|:---------:|:---------:|:----------:|:--------------:|
+| Step decay | Low | High | Low | Baseline |
+| **Cosine annealing (no restarts)** | **Medium** | **High** | **Low** | **Best default** |
+| Cyclical (fixed amplitude) | High | Low | Low | Avoid |
+| Cyclical (decaying amplitude) | High | Medium | Medium | Viable |
+| Differential LR groups | High | High | High | Best if feasible |
+
+I'd start with plain cosine annealing — it's a one-line change, it's safe, and it almost always outperforms step decay for long training runs like yours. If convergence is still unsatisfactory after the other fixes, differential LR groups would be the next step.
+You: Thanks.  Can you also provide some code to implement KL annealing?
+AI: 
+
+ Of course! Here are a few schedule options, followed by how to wire them into your `sim_hshoe` training loop.
+
+---
+
+## Schedule Options
+
+```r
+# 1. Linear ramp: simplest, most common
+kl_weight_linear <- function(epoch, warmup_epochs) {
+  min(1, epoch / warmup_epochs)
+}
+
+# 2. Sigmoid ramp: smoother transition near 0 and 1,
+#    avoids the abrupt corner at the end of linear warm-up.
+#    Reaches ~0.95 at warmup_epochs; ~1.0 shortly after.
+kl_weight_sigmoid <- function(epoch, warmup_epochs) {
+  midpoint <- warmup_epochs / 2
+  steepness <- 10 / warmup_epochs   # controls how sharp the transition is
+  1 / (1 + exp(-steepness * (epoch - midpoint)))
+}
+
+# 3. Cosine ramp: spends more time near 0 early on,
+#    then accelerates toward 1. Reaches exactly 1 at warmup_epochs.
+kl_weight_cosine <- function(epoch, warmup_epochs) {
+  if (epoch >= warmup_epochs) return(1)
+  0.5 * (1 - cos(pi * epoch / warmup_epochs))
+}
+```
+
+I'd recommend **starting with linear** — it's the easiest to reason about and debug. Once everything else is working, you can experiment with the others.
+
+---
+
+## Changes to `sim_params`
+
+```r
+sim_params$kl_warmup_epochs <- 30000   # 10% of 300K total
+# or, to express it as a fraction:
+# sim_params$kl_warmup_frac <- 0.10
+# sim_params$kl_warmup_epochs <- sim_params$train_epochs * sim_params$kl_warmup_frac
+```
+
+A reasonable starting range is **5–20%** of total training epochs. Too short and you lose the benefit; too long and the model spends excessive time fitting without regularization, making the KL "shock" at full strength harder to absorb.
+
+---
+
+## Changes to `sim_hshoe`
+
+Only three locations need modification:
+
+### 1. Loss computation (inside the training loop)
+
+Replace:
+
+```r
+kl <- model_fit$get_model_kld() / batch_size
+loss <- mse + kl
+```
+
+With:
+
+```r
+kl_raw <- model_fit$get_model_kld() / ttsplit_ind   # fix: scale by N_train, not batch_size
+kl_weight <- kl_weight_linear(epoch, sim_params$kl_warmup_epochs)
+kl <- kl_weight * kl_raw
+loss <- mse + kl
+```
+
+### 2. Reporting (inside the `time_to_report` block)
+
+Add `kl_weight` to your console output so you can confirm it's behaving as expected:
+
+```r
+cat(
+  "\n Epoch:", epoch,
+  "MSE + KL/n =", round(mse$item(), 5), "+", round(kl$item(), 5),
+  "=", round(loss$item(), 4),
+  " (kl_weight:", round(kl_weight, 4), ")",   # ← add this
+  "\n",
+  "train mse:", round(mse$item(), 4),
+  "; test_mse:", round(mse_test$item(), 4),
+  sep = " "
+)
+```
+
+### 3. Loss matrix storage (optional but recommended)
+
+Expand `loss_mat` to also track the KL weight and the unweighted KL, which will help with diagnostics:
+
+```r
+# In setup (before training loop):
+loss_mat <- matrix(NA, nrow = length(report_epochs), ncol = 5)
+colnames(loss_mat) <- c("kl_weighted", "kl_raw", "kl_weight", "mse_train", "mse_test")
+rownames(loss_mat) <- report_epochs
+
+# In reporting block:
+loss_mat[row_ind, ] <- c(kl$item(), kl_raw$item(), kl_weight, mse$item(), mse_test$item())
+```
+
+---
+
+## Visualizing the Schedules
+
+If you'd like to compare the three schedules before committing, here's a quick way to plot them:
+
+```r
+warmup <- 30000
+epochs <- 1:50000
+
+schedule_df <- data.frame(
+  epoch   = rep(epochs, 3),
+  weight  = c(
+    sapply(epochs, kl_weight_linear,  warmup),
+    sapply(epochs, kl_weight_sigmoid, warmup),
+    sapply(epochs, kl_weight_cosine,  warmup)
+  ),
+  schedule = rep(c("linear", "sigmoid", "cosine"), each = length(epochs))
+)
+
+ggplot(schedule_df, aes(x = epoch, y = weight, color = schedule)) +
+  geom_line() +
+  labs(title = "KL Annealing Schedules", y = "KL weight", x = "Epoch") +
+  geom_vline(xintercept = warmup, linetype = "dashed", alpha = 0.4)
+```
+
+---
+
+## One Caveat
+
+KL annealing interacts with any learning rate schedule you adopt. During the warm-up phase, the optimizer sees a "flatter" loss landscape (since the KL penalty is suppressed), which means the effective gradient magnitude changes as `kl_weight` ramps up. If you combine this with cosine annealing on the LR, you'll want the KL warm-up to finish **well before** the LR has decayed significantly — otherwise the model never experiences the full KL penalty at a learning rate high enough to respond to it. With your current settings (30K warm-up out of 300K total), this shouldn't be a problem.
