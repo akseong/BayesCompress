@@ -72,19 +72,19 @@ plot_datagen_fcns(flist)
 save_mod_path_prestem <- here::here(
   "sims", 
   "results", 
-  "hshoe_pvtau10scaled_816_"
+  "hshoe_opus_3232_"
 )
 
 sim_params <- list(
-  "sim_name" = "1k obs; optimistic (p_0 = 10 of 104), scaled tau",
-  "seed" = 21632,
+  "sim_name" = "corrected code 3/11; 32-32; 1k obs; optimistic (p_0 = 10 of 104)",
+  "seed" = 3232,
   "n_sims" = 5, 
-  "train_epochs" = 5E5,
+  "train_epochs" = 3E5,
   "report_every" = 1E4,
   "use_cuda" = use_cuda,
   "d_in" = 104,
-  "d_hidden1" = 8,
-  "d_hidden2" = 16,
+  "d_hidden1" = 32,
+  "d_hidden2" = 32,
   # "d_hidden3" = 16,
   # "d_hidden4" = 16,
   # "d_hidden5" = 16,
@@ -113,13 +113,14 @@ sim_params$sim_seeds <- floor(runif(n = sim_params$n_sims, 0, 1000000))
 
 # scaled optimistic tau (expecting 10 true of 104)
 dim_vec <- do.call(c, sim_params[grep(pattern = "d_", names(sim_params))])
-param_scaling <- round(sim_params$n_obs * sim_params$ttsplit) / param_counts_from_dims(dim_vec)[4]
+# param_scaling <- round(sim_params$n_obs * sim_params$ttsplit) / param_counts_from_dims(dim_vec)[4]
 
 sim_params$prior_tau <- tau0_PV(
   p_0 = 10, d = 104, sig = 1, 
   n = round(sim_params$n_obs * sim_params$ttsplit)
-) * 
-  param_scaling
+)
+# ) * 
+#   param_scaling
 
 agnostic_tau <- tau0_PV(
   p_0 = 1, d = 2, sig = 1, 
@@ -206,8 +207,8 @@ MLHS <- nn_module(
     kl1 = self$fc1$get_kl()
     kl2 = self$fc2$get_kl()
     kl3 = self$fc3$get_kl()
-    # kl4 = self$fc3$get_kl()
-    # kl5 = self$fc3$get_kl()
+    # kl4 = self$fc4$get_kl()
+    # kl5 = self$fc5$get_kl()
     kld = kl1 + kl2 + kl3 #+ kl4 + kl5
     return(kld)
   }
