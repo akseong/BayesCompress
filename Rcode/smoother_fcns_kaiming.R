@@ -72,7 +72,7 @@ plot_datagen_fcns(flist)
 save_mod_path_prestem <- here::here(
   "sims", 
   "results", 
-  "hshoe_opus_3232_"
+  "hshoe_4sampleZ_3232_"
 )
 
 sim_params <- list(
