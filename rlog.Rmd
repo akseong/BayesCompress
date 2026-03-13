@@ -175,6 +175,121 @@ source(here("Rcode", "analysis_fcns.R"))
 
 
 
+# 3/11
+
+Using zotGPT to review code for possible slowdowns.  Among other things, caught an issue in the KL calculation where I was using $\tau_0$ instead of $\tau_0^2$ to obtain `kl_sa` using `KL_lognorm_gamma()`.  Other things working on:
+
+
+- __KL annealing__: downweight KL term in loss in early training (5-20% of total epochs) so network can learn useful representation first via minimizing MSE before encouraging shrinkage.  Seems like it will actually help a lot.
+
+      # 1. Linear ramp: simplest, most common
+      kl_weight_linear <- function(epoch, warmup_epochs) {
+        min(1, epoch / warmup_epochs)
+      }
+      
+      # 2. Sigmoid ramp: smoother transition near 0 and 1,
+      #    avoids the abrupt corner at the end of linear warm-up.
+      #    Reaches ~0.95 at warmup_epochs; ~1.0 shortly after.
+      kl_weight_sigmoid <- function(epoch, warmup_epochs) {
+        midpoint <- warmup_epochs / 2
+        steepness <- 10 / warmup_epochs   # controls how sharp the transition is
+        1 / (1 + exp(-steepness * (epoch - midpoint)))
+      }
+      
+      # 3. Cosine ramp: spends more time near 0 early on,
+      #    then accelerates toward 1. Reaches exactly 1 at warmup_epochs.
+      kl_weight_cosine <- function(epoch, warmup_epochs) {
+        if (epoch >= warmup_epochs) return(1)
+        0.5 * (1 - cos(pi * epoch / warmup_epochs))
+      }
+      
+      sim_params$kl_warmup_frac <- 0.10  # reasonable range is 5-20%
+      # sim_params$kl_warmup_epochs <- sim_params$train_epochs * sim_params$kl_warmup_frac
+
+      # change loss computation:
+      kl_raw <- model_fit$get_model_kld() / ttsplit_ind   # fix: scale by N_train, not batch_size
+      kl_weight <- kl_weight_linear(epoch, sim_params$kl_warmup_epochs)
+      kl <- kl_weight * kl_raw
+      loss <- mse + kl
+
+      # reporting block: add KL weight to track during training
+      cat(
+        "\n Epoch:", epoch,
+        "MSE + KL/n =", round(mse$item(), 5), "+", round(kl$item(), 5),
+        "=", round(loss$item(), 4),
+        " (kl_weight:", round(kl_weight, 4), ")",   # ← add this
+        "\n",
+        "train mse:", round(mse$item(), 4),
+        "; test_mse:", round(mse_test$item(), 4),
+        sep = " "
+      )
+      
+      # store with loss:
+      # In setup (before training loop):
+      loss_mat <- matrix(NA, nrow = length(report_epochs), ncol = 5)
+      colnames(loss_mat) <- c("kl_weighted", "kl_raw", "kl_weight", "mse_train", "mse_test")
+      rownames(loss_mat) <- report_epochs
+      
+      # In reporting block:
+      loss_mat[row_ind, ] <- c(kl$item(), kl_raw$item(), kl_weight, mse$item(), mse_test$item())
+
+
+- __mini-batching__: KL should not be divided by batch size, i.e. should be $\mathcal{L} = \frac{1}{B} \sum_{i \in \text{batch}} l(y_i \hat{y}_i) + \frac{1}{N_{\text{train}}} KL(q||p)$.  Currently not an issue, since just full-batching, but probably explains why minibatching sucked so bad before.
+
+
+
+- __4 samples for $z$ or 1__: checking whether sampling $z = \lambda\tau = \sqrt{\tilde{\alpha} \tilde{\beta}s_a s_b}$ directly (as $z \sim LN( (\mu_{\tilde{\alpha}} + \mu_{\tilde{\beta}} + \mu_{s_a} + \mu_{s_b})/2, (\sigma^2_{\tilde{\alpha}} + \sigma^2_{\tilde{\beta}} + \sigma^2_{s_a} + \sigma^2_{s_b})/4)$ works better than sampling the 4 parameters and multiplying.
+
+
+- __MC param samples__ for ELBO calculation (esp. with mini-batching).  Don't do many Monte Carlo samples --- 5 max (variance reduction is $\mathcal{O}(1/n_{MC})$.  All we need is a better guess at MSE (KL is computed from params directly).
+
+
+
+
+
+
+
+
+- __learning rate scheduling__:  
+
+      # linear scheduler:
+      scheduler <- lr_step(optim_model_fit, step_size = 100000, gamma = 0.5)
+      # Cosine scheduler: 
+      # scheduler <- lr_cosine_annealing(optim_model_fit, T_max = sim_params$train_epochs)
+      # Inside training loop, after optim_model_fit$step():
+      scheduler$step()
+  
+- or __differential learning rates__:
+
+      optim_model_fit <- optim_adam(
+        list(
+          list(params = weight_mu_params,    lr = 0.001),  # can cycle this
+          list(params = logvar_params,       lr = 0.0005), # keep this stable
+          list(params = shrinkage_params,    lr = 0.0005)  # keep this stable
+        )
+      )
+      
+      
+
+- Try without using horseshoe in output layer.
+
+- __bias prior__: says that the N(0, 1) prior may be too restrictive. Suggests using $N(0, \sigma^2 = 100)$.
+
+    # KL(N(mu, sig2) || N(0, prior_var)):
+    prior_var <- 100
+    kl_bias <- torch_sum(0.5 * (
+      log(prior_var) - self$bias_logvar +
+      (self$bias_logvar$exp() + self$bias_mu$pow(2)) / prior_var - 1
+    ))
+
+- use deterministic / no sampling for test_mse calculation.  Also wrap in `with_no_grad({...})`
+
+
+Minor:
+
+
+
+
 
 # 3/4
 
