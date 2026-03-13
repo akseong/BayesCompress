@@ -687,12 +687,12 @@ get_nn_mod_Ey <- function(nn_mod, X, ln_fcn = ln_mode){
     
     ztilde <- ln_fcn(
       mu = as_array(nn_mod$children[[nn_layer]]$atilde_mu + nn_mod$children[[nn_layer]]$btilde_mu)/2,
-      var = exp(as_array(nn_mod$children[[nn_layer]]$atilde_logvar + nn_mod$children[[nn_layer]]$btilde_logvar))/4
+      var = as_array(nn_mod$children[[nn_layer]]$atilde_logvar$exp() + nn_mod$children[[nn_layer]]$btilde_logvar$exp())/4
     )
     
     s <- ln_fcn(
       mu = as_array(nn_mod$children[[nn_layer]]$sa_mu + nn_mod$children[[nn_layer]]$sb_mu)/2,
-      var = exp(as_array(nn_mod$children[[nn_layer]]$sa_logvar + nn_mod$children[[nn_layer]]$sb_logvar))/4
+      var = as_array(nn_mod$children[[nn_layer]]$sa_logvar$exp() + nn_mod$children[[nn_layer]]$sb_logvar$exp())/4
     )
     
     z <- torch_tensor(ztilde*s, device = cuda_or_cpu)
