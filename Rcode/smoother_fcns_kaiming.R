@@ -72,11 +72,11 @@ plot_datagen_fcns(flist)
 save_mod_path_prestem <- here::here(
   "sims", 
   "results", 
-  "hshoe_4sampleZ_3232_"
+  "hshoe_annealing_3232_"
 )
 
 sim_params <- list(
-  "sim_name" = "corrected code 3/11; 32-32; 1k obs; optimistic (p_0 = 10 of 104)",
+  "sim_name" = "lr, kl annealing; 32-32; 1k obs; optimistic (p_0 = 10 of 104)",
   "seed" = 3232,
   "n_sims" = 5, 
   "train_epochs" = 3E5,
@@ -101,7 +101,11 @@ sim_params <- list(
   "batch_size" = NULL,
   "stop_k" = 100,
   "stop_streak" = 25,
-  "burn_in" = 25e4 # 5E5,
+  "burn_in" = 25e4,
+  "anneal_lr" = TRUE,
+  "lr_scheduler" = torch::lr_cosine_annealing,
+  "kl_scheduler" = kl_weight_cosine,
+  "kl_warmup_frac" = 1/5
 )
 set.seed(sim_params$seed)
 sim_params$sim_seeds <- floor(runif(n = sim_params$n_sims, 0, 1000000))
@@ -254,7 +258,6 @@ res <- lapply(
     sim_hshoe(
       sim_ind = X,
       sim_params = sim_params,     # same as before, but need to include flist
-      # learning_rate = sim_params$lr,
       nn_model = MLHS,   # torch nn_module,
       verbose = TRUE,      # provide updates in console
       want_plots = FALSE,   # provide graphical updates of KL, MSE
