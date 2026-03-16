@@ -978,7 +978,7 @@ sim_hshoe <- function(
 
     # fit & metrics
     kl_raw <- model_fit$get_model_kld() / ttsplit_ind
-    kl_weight <- kl_weight_linear(epoch, sim_params$kl_warmup_epochs)
+    kl_weight <- kl_weight_linear(epoch, kl_warmup_epochs)
     kl <- kl_weight * kl_raw
     loss <- mse + kl
     
