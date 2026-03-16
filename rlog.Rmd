@@ -175,6 +175,25 @@ source(here("Rcode", "analysis_fcns.R"))
 
 
 
+# 3/16
+
+- implemented lr, kl annealing; currently testing
+
+  - 32-32, 1k obs (started earliest)
+  - 32-32, 10k obs (second)
+  - 8-16, 10k obs (3rd; for comparisons)
+
+- fixed minibatching
+
+- next, only use hshoe in first 2 layers
+
+  - main idea is that reducing the dimension of the layer we use to conduct inference (1st layer), helps identifiability.
+  
+  - then apply to VC code with hshoe in final layer (but use a deeper network to estimate the beta functions)
+  
+
+  
+  
 # 3/11
 
 Using zotGPT to review code for possible slowdowns.  Among other things, caught an issue in the KL calculation where I was using $\tau_0$ instead of $\tau_0^2$ to obtain `kl_sa` using `KL_lognorm_gamma()`.  Other things working on:
@@ -242,12 +261,6 @@ Using zotGPT to review code for possible slowdowns.  Among other things, caught 
 
 
 - __MC param samples__ for ELBO calculation (esp. with mini-batching).  Don't do many Monte Carlo samples --- 5 max (variance reduction is $\mathcal{O}(1/n_{MC})$.  All we need is a better guess at MSE (KL is computed from params directly).
-
-
-
-
-
-
 
 
 - __learning rate scheduling__:  
