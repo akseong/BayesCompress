@@ -72,7 +72,7 @@ plot_datagen_fcns(flist)
 save_mod_path_prestem <- here::here(
   "sims", 
   "results", 
-  "hshoe_annealing_3232_"
+  "hshoe_annealing_816_"
 )
 
 sim_params <- list(
@@ -83,13 +83,13 @@ sim_params <- list(
   "report_every" = 1E4,
   "use_cuda" = use_cuda,
   "d_in" = 104,
-  "d_hidden1" = 32,
-  "d_hidden2" = 32,
+  "d_hidden1" = 8,
+  "d_hidden2" = 16,
   # "d_hidden3" = 16,
   # "d_hidden4" = 16,
   # "d_hidden5" = 16,
   "d_out" = 1,
-  "n_obs" = 1250,
+  "n_obs" = 12500,
   "true_coefs" = c(-0.5, 1, -2, 4, rep(0, times = 100)),
   "alpha_thresh" = 1 / qchisq(1 - (0.05 / 104), df = 1),
   "flist" = flist,
