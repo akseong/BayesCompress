@@ -765,11 +765,51 @@ get_lm_stats <- function(simdat, alpha = 0.05){
 # FOR LASSO ----
 
 
+# ANNEALLING ----
+# gradually upweights KL to allow 
+# NN weights to learn useful representation
+# before applying KL penalty
+
+# Linear ramp
+kl_weight_linear <- function(epoch, warmup_epochs) {
+  min(1, epoch / warmup_epochs)
+}
+
+# Sigmoid ramp
+kl_weight_sigmoid <- function(epoch, warmup_epochs) {
+  midpoint <- warmup_epochs / 2
+  steepness <- 10 / warmup_epochs
+  1 / (1 + exp(-steepness * (epoch - midpoint)))
+}
+
+# Cosine ramp
+kl_weight_cosine <- function(epoch, warmup_epochs) {
+  if (epoch >= warmup_epochs) return(1)
+  0.5 * (1 - cos(pi * epoch / warmup_epochs))
+}
+
+# # plot schedulers
+# schedule_df <- data.frame(
+#   epoch   = rep(epochs, 3),
+#   weight  = c(
+#     sapply(epochs, kl_weight_linear,  warmup),
+#     sapply(epochs, kl_weight_sigmoid, warmup),
+#     sapply(epochs, kl_weight_cosine,  warmup)
+#   ),
+#   schedule = rep(c("linear", "sigmoid", "cosine"), each = length(epochs))
+# )
+# 
+# ggplot(schedule_df, aes(x = epoch, y = weight, color = schedule)) +
+#   geom_line() +
+#   labs(title = "KL Annealing Schedules", y = "KL weight", x = "Epoch") +
+#   geom_vline(xintercept = warmup, linetype = "dashed", alpha = 0.4)
+
+
+
 # SIMULATION FCNS ----
 sim_hshoe <- function(
     sim_ind = NULL,    # to ease parallelization
     seed = NULL,
-    learning_rate = 0.001, # default for torch::optim_adam.  LUW uses 0.08 for NJ model
     sim_params,     # same as before, but need to include flist
     nn_model,   # torch nn_module,
     verbose = TRUE,   # provide updates in console
@@ -804,7 +844,18 @@ sim_hshoe <- function(
   
   ## initialize BNN & optimizer ----
   model_fit <- nn_model()
-  optim_model_fit <- optim_adam(model_fit$parameters, lr = learning_rate)
+  optim_model_fit <- optim_adam(model_fit$parameters, lr = sim_params$lr)
+  
+  # lr annealing
+  if (!is.null(sim_params$lr_scheduler)){
+    scheduler <- sim_params$lr_scheduler(optim_model_fit, T_max = sim_params$train_epochs)
+  }
+  
+  # kl annealing
+  if (!is.null(sim_params$kl_scheduler)){
+    kl_warmup_epochs <- round(sim_params$train_epochs * sim_params$kl_warmup_frac)
+  }
+  
   
   
   ## set up plotting while training: ----
@@ -842,11 +893,10 @@ sim_hshoe <- function(
   loss_mat <- matrix(
     NA, 
     nrow = length(report_epochs),
-    ncol = 3
+    ncol = 5
   )
-  colnames(loss_mat) <- c("kl", "mse_train", "mse_test")
+  colnames(loss_mat) <- c("kl", "mse_train", "mse_test", "kl_raw", "kl_weight")
   rownames(loss_mat) <- report_epochs
-  
   
   # store: alphas, kappas
   alpha_mat <- matrix(
@@ -926,9 +976,10 @@ sim_hshoe <- function(
       mse <- nnf_mse_loss(yhat_train, y_train[batch_inds])
     }
 
-    
     # fit & metrics
-    kl <- model_fit$get_model_kld() / batch_size
+    kl_raw <- model_fit$get_model_kld() / ttsplit_ind
+    kl_weight <- kl_weight_linear(epoch, sim_params$kl_warmup_epochs)
+    kl <- kl_weight * kl_raw
     loss <- mse + kl
     
     
@@ -939,8 +990,10 @@ sim_hshoe <- function(
     loss$backward()
     # update weights
     optim_model_fit$step()
-    
-    
+    # learning rate scheduler step
+    if (!is.null(sim_params$lr_scheduler)) {
+      scheduler$step()
+    }
     # if (epoch > (sim_params$burn_in - 2 * (sim_params$stop_k + sim_params$stop_streak))) {
     #   test_mse_store <- roll_vec(test_mse_store, as_array(mse_test))
     # }
@@ -969,7 +1022,7 @@ sim_hshoe <- function(
       yhat_test <- model_fit(x_test)
       mse_test <- nnf_mse_loss(yhat_test, y_test)
       
-      loss_mat[row_ind, ] <- c(kl$item(), mse$item(), mse_test$item())
+      loss_mat[row_ind, ] <- c(kl$item(), mse$item(), mse_test$item(), kl_raw$item(), kl_weight)
       dropout_alphas <- model_fit$fc1$get_dropout_rates()
       alpha_mat[row_ind, ] <- as_array(dropout_alphas)
       kappas <- get_kappas(model_fit$fc1)
@@ -1019,8 +1072,9 @@ sim_hshoe <- function(
         "\n Epoch:", epoch,
         "MSE + KL/n =", round(mse$item(), 5), "+", round(kl$item(), 5),
         "=", round(loss$item(), 4),
+        " (kl_weight:", round(kl_weight, 2), ")",
         "\n",
-        "train mse:", round(mse$item(), 4), 
+        "train mse:", round(mse$item(), 4),
         "; test_mse:", round(mse_test$item(), 4),
         sep = " "
       )
