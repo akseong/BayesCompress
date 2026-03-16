@@ -72,19 +72,19 @@ plot_datagen_fcns(flist)
 save_mod_path_prestem <- here::here(
   "sims", 
   "results", 
-  "hshoe_annealing_816_"
+  "hshoe_annealing_12864_"
 )
 
 sim_params <- list(
-  "sim_name" = "lr, kl annealing; 32-32; 1k obs; optimistic (p_0 = 10 of 104)",
-  "seed" = 3232,
+  "sim_name" = "lr, kl annealing; 128-64; 10k obs; optimistic (p_0 = 10 of 104)",
+  "seed" = 12864,
   "n_sims" = 5, 
   "train_epochs" = 3E5,
   "report_every" = 1E4,
   "use_cuda" = use_cuda,
   "d_in" = 104,
-  "d_hidden1" = 8,
-  "d_hidden2" = 16,
+  "d_hidden1" = 128,
+  "d_hidden2" = 64,
   # "d_hidden3" = 16,
   # "d_hidden4" = 16,
   # "d_hidden5" = 16,

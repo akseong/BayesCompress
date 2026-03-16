@@ -783,9 +783,13 @@ kl_weight_sigmoid <- function(epoch, warmup_epochs) {
 }
 
 # Cosine ramp
-kl_weight_cosine <- function(epoch, warmup_epochs) {
-  if (epoch >= warmup_epochs) return(1)
-  0.5 * (1 - cos(pi * epoch / warmup_epochs))
+kl_weight_cosine <- function(epoch, warmup_epochs, no_kl_epochs=0) {
+  if (epoch <= no_kl_epochs) {
+    return(0)
+    } else if (epoch >= (warmup_epochs + no_kl_epochs)) {
+    return(1)
+  }
+  0.5 * (1 - cos(pi * epoch / (warmup_epochs + no_kl_epochs)))
 }
 
 # # plot schedulers

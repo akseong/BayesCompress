@@ -178,10 +178,13 @@ source(here("Rcode", "analysis_fcns.R"))
 # 3/16
 
 - implemented lr, kl annealing; currently testing
+  - 8-16, 1k obs (earliest)
+  - 8-16, 10k obs (2nd; for comparisons)
+  - 32-32, 1k obs (3rd)
+  - 32-32, 10k obs (4th)
+  - 128-64, 1k obs
+  - 128-64, 10k obs
 
-  - 32-32, 1k obs (started earliest)
-  - 32-32, 10k obs (second)
-  - 8-16, 10k obs (3rd; for comparisons)
 
 - fixed minibatching
 
