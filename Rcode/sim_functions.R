@@ -997,37 +997,48 @@ sim_hshoe <- function(
   test_mse_store <- rep(0, times = sim_params$stop_k + 1)
   test_mse_streak <- rep(FALSE, times = sim_params$stop_streak)
   
-  
+  n_mc <- ifelse(
+    !is.null(sim_params$n_mc_samples),
+    sim_params$n_mc_samples, 1
+  )
+
   while (!stop_criteria_met){
     
-    # fit model with / without batching
-    if (is.null(sim_params$batch_size)){
-      yhat_train <- model_fit(x_train)
-      mse <- nnf_mse_loss(yhat_train, y_train)
-    } else {
+    if (!is.null(sim_params$batch_size)){
+      # determine batch number
       batch_num <- epoch %% num_batches
       # reshuffle batches if batch_num == 0
       if (batch_num == 0) {batch_inds_vec <- sample(1:ttsplit_ind)}
       batch_inds <- batch_inds_vec[1:sim_params$batch_size + (batch_num)*sim_params$batch_size]
-      
-      yhat_train <- model_fit(x_train[batch_inds, ])
-      mse <- nnf_mse_loss(yhat_train, y_train[batch_inds])
     }
-
+    
+    # zero out previous gradients
+    optim_model_fit$zero_grad()
+    
+    # accumulate mse gradients over s MC samples
+    mse_accum <- torch_tensor(0, device = dev_select(sim_params$use_cuda))
+    for (s in 1:n_mc){
+      # fit model with / without batching
+      if (is.null(sim_params$batch_size)){
+        yhat_train <- model_fit(x_train)
+        mse_s <- nnf_mse_loss(yhat_train, y_train) / n_mc
+      } else {
+        yhat_train <- model_fit(x_train[batch_inds, ])
+        mse_s <- nnf_mse_loss(yhat_train, y_train[batch_inds]) / n_mc
+      }
+      mse_s$backward()
+    }
+    
     # fit & metrics
     kl_raw <- model_fit$get_model_kld() / ttsplit_ind
     kl_weight <- kl_weight_linear(epoch, kl_warmup_epochs)
     kl <- kl_weight * kl_raw
-    loss <- mse + kl
-    
-    
-    # gradient step 
-    # zero out previous gradients
-    optim_model_fit$zero_grad()
-    # backprop
-    loss$backward()
+    kl$backward()
+
     # update weights
     optim_model_fit$step()
+    mse <- mse_s * n_mc # approximate, based only on last sample's mse
+    loss <- mse + kl
     # learning rate scheduler step
     if (!is.null(sim_params$lr_scheduler)) {
       scheduler$step()
