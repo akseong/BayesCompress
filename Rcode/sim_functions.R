@@ -175,6 +175,12 @@ roll_vec <- function(vec, new_vals){
 # >   i = i+1
 # > }
 
+ false_if_null <- function(vec, vec_length = 1){
+  # checks if vec is null; if yes, returns vec
+  # if no, returns rep(FALSE, vec_length)
+  ifelse(!is.null(vec), vec, rep(FALSE, vec_length))
+}
+
 # CUDA ----
 
 dev_select <- function(use_cuda){
@@ -210,7 +216,14 @@ unscale_mat <- function(mat, means, sds){
 }
 
 
-
+simdat <- sim_func_data(
+  n_obs = sim_params$n_obs,
+  d_in = sim_params$d_in,
+  flist = sim_params$flist,
+  err_sigma = sim_params$err_sig,
+  xdist = sim_params$xdist,
+  standardize = TRUE
+)
 
 
 # DATA GENERATION ----
@@ -232,6 +245,7 @@ plot_datagen_fcns <- function(
 
   return(plt)
 }
+
 
 sim_linear_data <- function(
   n_obs = 100,
@@ -294,7 +308,8 @@ sim_func_data <- function(
   flist = list(fcn1, fcn2, fcn3, fcn4),
   err_sigma = 1,
   use_cuda = FALSE,
-  xdist = "norm"
+  xdist = "norm",
+  standardize = FALSE
 ){
   # generate x, y
   if (xdist == "unif"){
@@ -316,15 +331,26 @@ sim_func_data <- function(
     y <- y$to(device = "cuda")
   }
   
-  return(
-    list(
-      "y" = y,
-      "x" = x,
-      "n_obs" = n_obs,
-      "d_in" = d_in,
-      "d_true" = length(flist)
-    )
+  res <- list(
+    "y" = y,
+    "x" = x,
+    "n_obs" = n_obs,
+    "d_in" = d_in,
+    "d_true" = length(flist),
+    "standardized" = standardize
   )
+  
+  if (standardize){
+    res$x_mean <- torch_mean(x, dim = 1, keepdim = TRUE)
+    res$x_sd <- torch_std(x, dim = 1, keepdim = TRUE)
+    res$y_mean <- torch_mean(y, dim = 1, keepdim = TRUE)
+    res$y_sd <- torch_std(y, dim = 1, keepdim = TRUE)
+    
+    res$x <- (x - res$x_mean)/res$x_sd
+    res$y <- (y - res$y_mean)/res$y_sd
+  }
+  
+  return(res)
 }
 
 
@@ -839,7 +865,8 @@ sim_hshoe <- function(
     d_in = sim_params$d_in,
     flist = sim_params$flist,
     err_sigma = sim_params$err_sig,
-    xdist = sim_params$xdist
+    xdist = sim_params$xdist,
+    standardize = false_if_null(sim_params$standardize)
   )
   if (sim_params$use_cuda){
     simdat$x <- simdat$x$to(device = "cuda")
@@ -880,13 +907,20 @@ sim_hshoe <- function(
     curvmat[1:length(xshow) + (i-1) * length(xshow), i] <- xshow
   }
   mat0 <- matrix(0, nrow = nrow(curvmat), ncol = sim_params$d_in - length(sim_params$flist))
-  x_plot <- torch_tensor(cbind(curvmat, mat0), device = ifelse(sim_params$use_cuda, "cuda", "cpu"))
+  x_plot_raw <- cbind(curvmat, mat0)
+  if (false_if_null(sim_params$standardize)){
+    x_plot_raw <- scale_mat(
+      x_plot_raw, 
+      means = as_array(simdat$x_mean),
+      sds = as_array(simdat$x_sd)
+    )$scaled
+  }
+  x_plot <- torch_tensor(x_plot_raw, device = ifelse(sim_params$use_cuda, "cuda", "cpu"))
   y_plot <- model_fit(x_plot)  # need to add deterministic argument
-  plotmat <- cbind(scale(as_array(y_plot)), curvmat)
+  plotmat <- cbind(as_array(y_plot), curvmat)
   colnames(plotmat) <- c("y", paste0("f", 1:length(sim_params$flist)))
   plotdf <- as.data.frame(plotmat)
-  
-  
+
   # store: # train, test mse and kl ----
   report_epochs <- seq(
     sim_params$report_every, 
@@ -1189,6 +1223,14 @@ sim_hshoe <- function(
     # function plots
     if (time_to_report & want_fcn_plots){
       plotdf$y <- as_array(model_fit(x_plot))
+      
+      if (false_if_null(sim_params$standardize)){
+        plotdf$y <- unscale_mat(
+          plotdf$y, 
+          means = c(as_array(simdat$y_mean)),
+          sds = c(as_array(simdat$y_sd))
+        )
+      }
       
       plt <- plotdf %>% 
         pivot_longer(cols = -y, values_to = "x", names_to = "fcn") %>%
