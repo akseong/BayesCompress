@@ -191,11 +191,23 @@ source(here("Rcode", "analysis_fcns.R"))
 
 - fixed minibatching
 
-- next, only use hshoe in first 2 layers
+
+TO DO:
+
+- compare simulation trajectories for 4-param update for z vs 1-param update to see if speeds up
+
+- see if minibatching helps
+
+- code deterministic predictions for test mse - right now my test mse is about 2x what it probably should be.
+
+
+- next to test: only use hshoe in first 2 layers
 
   - main idea is that reducing the dimension of the layer we use to conduct inference (1st layer), helps identifiability.
   
   - then apply to VC code with hshoe in final layer (but use a deeper network to estimate the beta functions)
+
+
   
 ## interim results ~ 160k epochs
 
@@ -207,6 +219,7 @@ source(here("Rcode", "analysis_fcns.R"))
 
 
 - I am thinking that annealing both the LR and the KL at the same time may not be a great idea ---- the KL never then gets the benefits of full learning steps.
+
   
   
 # 3/11
