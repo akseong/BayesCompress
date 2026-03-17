@@ -185,6 +185,9 @@ source(here("Rcode", "analysis_fcns.R"))
   - 128-64, 1k obs
   - 128-64, 10k obs
 
+- more tests: 
+  - 8-16, 10k obs, KL annealing only
+  - 8-16, 10k obs, KL annealing only, tau_0 = 1 everywhere
 
 - fixed minibatching
 

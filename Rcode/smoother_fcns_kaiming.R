@@ -72,24 +72,24 @@ plot_datagen_fcns(flist)
 save_mod_path_prestem <- here::here(
   "sims", 
   "results", 
-  "hshoe_annealing_12864_"
+  "tau1_annealklonly_816_"
 )
 
 sim_params <- list(
-  "sim_name" = "lr, kl annealing; 128-64; 10k obs; optimistic (p_0 = 10 of 104)",
-  "seed" = 12864,
+  "sim_name" = "tau=1, kl annealing only - no lr annealing; 816; 1k obs; optimistic (p_0 = 10 of 104)",
+  "seed" = 816,
   "n_sims" = 5, 
   "train_epochs" = 3E5,
   "report_every" = 1E4,
   "use_cuda" = use_cuda,
   "d_in" = 104,
-  "d_hidden1" = 128,
-  "d_hidden2" = 64,
+  "d_hidden1" = 8,
+  "d_hidden2" = 16,
   # "d_hidden3" = 16,
   # "d_hidden4" = 16,
   # "d_hidden5" = 16,
   "d_out" = 1,
-  "n_obs" = 12500,
+  "n_obs" = 1250,
   "true_coefs" = c(-0.5, 1, -2, 4, rep(0, times = 100)),
   "alpha_thresh" = 1 / qchisq(1 - (0.05 / 104), df = 1),
   "flist" = flist,
@@ -103,7 +103,7 @@ sim_params <- list(
   "stop_streak" = 25,
   "burn_in" = 25e4,
   "anneal_lr" = TRUE,
-  "lr_scheduler" = torch::lr_cosine_annealing,
+  "lr_scheduler" = NULL, # torch::lr_cosine_annealing,
   "kl_scheduler" = kl_weight_cosine,
   "kl_warmup_frac" = 1/5
 )
@@ -119,17 +119,20 @@ sim_params$sim_seeds <- floor(runif(n = sim_params$n_sims, 0, 1000000))
 dim_vec <- do.call(c, sim_params[grep(pattern = "d_", names(sim_params))])
 # param_scaling <- round(sim_params$n_obs * sim_params$ttsplit) / param_counts_from_dims(dim_vec)[4]
 
-sim_params$prior_tau <- tau0_PV(
-  p_0 = 10, d = 104, sig = 1, 
-  n = round(sim_params$n_obs * sim_params$ttsplit)
-)
-# ) * 
-#   param_scaling
+# sim_params$prior_tau <- tau0_PV(
+#   p_0 = 10, d = 104, sig = 1,
+#   n = round(sim_params$n_obs * sim_params$ttsplit)
+# )
+# # ) *
+# #   param_scaling
+# 
+# agnostic_tau <- tau0_PV(
+#   p_0 = 1, d = 2, sig = 1,
+#   n = round(sim_params$n_obs * sim_params$ttsplit)
+# )
 
-agnostic_tau <- tau0_PV(
-  p_0 = 1, d = 2, sig = 1, 
-  n = round(sim_params$n_obs * sim_params$ttsplit)
-)
+sim_params$prior_tau <- agnostic_tau <- 1
+
 
 ## define model
 MLHS <- nn_module(
