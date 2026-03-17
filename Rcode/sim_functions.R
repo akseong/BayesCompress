@@ -216,15 +216,6 @@ unscale_mat <- function(mat, means, sds){
 }
 
 
-simdat <- sim_func_data(
-  n_obs = sim_params$n_obs,
-  d_in = sim_params$d_in,
-  flist = sim_params$flist,
-  err_sigma = sim_params$err_sig,
-  xdist = sim_params$xdist,
-  standardize = TRUE
-)
-
 
 # DATA GENERATION ----
 plot_datagen_fcns <- function(
@@ -872,6 +863,14 @@ sim_hshoe <- function(
     simdat$x <- simdat$x$to(device = "cuda")
     simdat$y <- simdat$y$to(device = "cuda")
   }
+  
+  sim_params$train_sig <- ifelse(
+    simdat$standardized,
+    sim_params$err_sig / simdat$y_sd$item(),
+    sim_params$err_sig
+  )
+  
+  cat_color(paste0("mse target: ", round(sim_params$train_sig, 4), "\n"))
   
   ## initialize BNN & optimizer ----
   model_fit <- nn_model()
