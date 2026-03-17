@@ -1094,12 +1094,12 @@ sim_hshoe <- function(
         "; s_sq3 = ", round(s_sq3, 5),
         sep = ""
       )
-      # cat("\n alphas: ", round(as_array(dropout_alphas), 2), "\n")
-      # display_alphas <- ifelse(
-      #   as_array(dropout_alphas) <= sim_params$alpha_thresh,
-      #   round(as_array(dropout_alphas), 3),
-      #   "."
-      # )
+      cat("\n alphas: ", round(as_array(dropout_alphas), 2), "\n")
+      display_alphas <- ifelse(
+        as_array(dropout_alphas) <= sim_params$alpha_thresh,
+        round(as_array(dropout_alphas), 3),
+        "."
+      )
       # cat("alphas below 0.82: ")
       # cat(display_alphas, sep = " ")
       
