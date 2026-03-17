@@ -197,7 +197,16 @@ source(here("Rcode", "analysis_fcns.R"))
   
   - then apply to VC code with hshoe in final layer (but use a deeper network to estimate the beta functions)
   
+## interim results ~ 160k epochs
 
+- frobenius-corrected kappas are much better than tau-corrected kappas.  Not sure why, though 160k epochs was still early for the previous code.  
+
+- 10k obs frob kappas results tend to be very strong
+
+- all the 1k obs sims are overfitting badly so far (train mse ~ 0.8-0.9, test mse ~ 3.5-4); 10k obs sims tend to have train & test MSE ~ 1.1-1.3
+
+
+- I am thinking that annealing both the LR and the KL at the same time may not be a great idea ---- the KL never then gets the benefits of full learning steps.
   
   
 # 3/11
