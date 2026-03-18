@@ -2932,7 +2932,7 @@ font-size: 0.95em;
 
 <h1 class="title toc-ignore">research log</h1>
 <h4 class="author">Arnie Seong</h4>
-<h4 class="date">Last updated: 16 March 2026</h4>
+<h4 class="date">Last updated: 17 March 2026</h4>
 
 </div>
 
@@ -2970,14 +2970,30 @@ background-color: #d5f2f5;
 <div id="section" class="section level1">
 <h1>3/16</h1>
 <ul>
-<li><p>implemented lr, kl annealing; currently testing</p>
+<li>implemented lr, kl annealing; currently testing
 <ul>
-<li>32-32, 1k obs (started earliest)</li>
-<li>32-32, 10k obs (second)</li>
-<li>8-16, 10k obs (3rd; for comparisons)</li>
+<li>8-16, 1k obs (earliest)</li>
+<li>8-16, 10k obs (2nd; for comparisons)</li>
+<li>32-32, 1k obs (3rd)</li>
+<li>32-32, 10k obs (4th)</li>
+<li>128-64, 1k obs</li>
+<li>128-64, 10k obs</li>
 </ul></li>
-<li><p>fixed minibatching</p></li>
-<li><p>next, only use hshoe in first 2 layers</p>
+<li>more tests:
+<ul>
+<li>8-16, 10k obs, KL annealing only</li>
+<li>8-16, 10k obs, KL annealing only, tau_0 = 1 everywhere</li>
+</ul></li>
+<li>fixed minibatching</li>
+</ul>
+<p>TO DO:</p>
+<ul>
+<li><p>compare simulation trajectories for 4-param update for z vs
+1-param update to see if speeds up</p></li>
+<li><p>see if minibatching helps</p></li>
+<li><p>code deterministic predictions for test mse - right now my test
+mse is about 2x what it probably should be.</p></li>
+<li><p>next to test: only use hshoe in first 2 layers</p>
 <ul>
 <li><p>main idea is that reducing the dimension of the layer we use to
 conduct inference (1st layer), helps identifiability.</p></li>
@@ -2985,6 +3001,21 @@ conduct inference (1st layer), helps identifiability.</p></li>
 network to estimate the beta functions)</p></li>
 </ul></li>
 </ul>
+<div id="interim-results-160k-epochs" class="section level2">
+<h2>interim results ~ 160k epochs</h2>
+<ul>
+<li><p>frobenius-corrected kappas are much better than tau-corrected
+kappas. Not sure why, though 160k epochs was still early for the
+previous code.</p></li>
+<li><p>10k obs frob kappas results tend to be very strong</p></li>
+<li><p>all the 1k obs sims are overfitting badly so far (train mse ~
+0.8-0.9, test mse ~ 3.5-4); 10k obs sims tend to have train &amp; test
+MSE ~ 1.1-1.3</p></li>
+<li><p>I am thinking that annealing both the LR and the KL at the same
+time may not be a great idea —- the KL never then gets the benefits of
+full learning steps.</p></li>
+</ul>
+</div>
 </div>
 <div id="section-1" class="section level1">
 <h1>3/11</h1>

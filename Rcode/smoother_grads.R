@@ -1,11 +1,10 @@
 ##################################################
-## Project:   deeper nn, hshoe first layers only
+## Project:   smoother functions, minibatching, MC sample MSE
 ## Date:      March 17, 2026
 ## Author:    Arnie Seong
 ##################################################
 
-#  deeper nn, hshoe in first 2 layers only
-
+#  minibatching, MC sample MSE
 
 #### setup ----
 library(here)
@@ -72,29 +71,29 @@ plot_datagen_fcns(flist)
 save_mod_path_prestem <- here::here(
   "sims", 
   "results", 
-  "detlayers_532_test"
+  "smoothgrad_12864_test"
 )
-n_obs <- 1250 # includes training and test
+
 sim_desc <- c(
-  "no minibatching, no MC samples for MSE, kl annealing only - no lr annealing",
+  "minibatching 100/1000, 5MC samples for MSE, kl annealing only - no lr annealing",
   "optimistic tau_0 (p_0 = 10 of 104)"
 )
 
 sim_params <- list(
   "sim_name" = sim_desc,
-  "n_obs" = n_obs,
-  "seed" = 532,
-  "n_sims" = 1,
-  "n_mc_samples" = 1,
-  "train_epochs" = 2e3,
-  "report_every" = 1E2,
+  "n_obs" = 1250,
+  "seed" = 12864,
+  "n_sims" = 5,
+  "n_mc_samples" = 5,
+  "train_epochs" = 2E4,
+  "report_every" = 1E3,
   "use_cuda" = use_cuda,
   "d_in" = 104,
-  "d_hidden1" = 32,
-  "d_hidden2" = 32,
-  "d_hidden3" = 32,
-  "d_hidden4" = 32,
-  "d_hidden5" = 32,
+  "d_hidden1" = 128,
+  "d_hidden2" = 64,
+  # "d_hidden3" = 32,
+  # "d_hidden4" = 32,
+  # "d_hidden5" = 32,
   "d_out" = 1,
   "true_coefs" = c(-0.5, 1, -2, 4, rep(0, times = 100)),
   "alpha_thresh" = 1 / qchisq(1 - (0.05 / 104), df = 1),
@@ -104,10 +103,11 @@ sim_params <- list(
   "xdist" = "norm",
   "convergence_crit" = 1e-7,
   "ttsplit" = 4/5,
-  "batch_size" = NULL,
+  "batch_size" = 100,
   "stop_k" = 100,
   "stop_streak" = 25,
   "burn_in" = 25e4,
+  "anneal_lr" = TRUE,
   "lr_scheduler" = NULL, # torch::lr_cosine_annealing,
   "kl_scheduler" = kl_weight_cosine,
   "kl_warmup_frac" = 1/5,
@@ -167,32 +167,39 @@ MLHS <- nn_module(
       clip_var = TRUE
     )
     
-    self$det1 = nn_linear(
-      sim_params$d_hidden2, 
-      sim_params$d_hidden3
+    self$fc3 = torch_hs(
+      in_features = sim_params$d_hidden2,
+      #   out_features = sim_params$d_hidden3,
+      #   use_cuda = sim_params$use_cuda,
+      #   tau = agnostic_tau,
+      #   init_weight = NULL,
+      #   init_bias = NULL,
+      #   init_alpha = 0.9,
+      #   clip_var = TRUE
+      # )
+      # 
+      # self$fc4 = torch_hs(
+      #   in_features = sim_params$d_hidden3,
+      #   out_features = sim_params$d_hidden4,
+      #   use_cuda = sim_params$use_cuda,
+      #   tau = agnostic_tau,
+      #   init_weight = NULL,
+      #   init_bias = NULL,
+      #   init_alpha = 0.9,
+      #   clip_var = TRUE
+      # )
+      # 
+      # self$fc5 = torch_hs(
+      #   in_features = sim_params$d_hidden4,
+      out_features = sim_params$d_out,
+      use_cuda = sim_params$use_cuda,
+      tau_0 = agnostic_tau,
+      init_weight = NULL,
+      init_bias = NULL,
+      init_alpha = 0.9,
+      clip_var = TRUE
     )
     
-    self$det2 = nn_linear(
-      sim_params$d_hidden3, 
-      sim_params$d_hidden4
-    )
-    
-    self$det3 = nn_linear(
-      sim_params$d_hidden4, 
-      sim_params$d_hidden5
-    )
-    
-    self$det4 = nn_linear(
-      sim_params$d_hidden5, 
-      sim_params$d_out
-    )
-    
-    if (sim_params$use_cuda){
-      self$det1$cuda()
-      self$det2$cuda()
-      self$det3$cuda()
-      self$det4$cuda()
-    }
   },
   
   forward = function(x) {
@@ -201,13 +208,11 @@ MLHS <- nn_module(
       nnf_relu() %>%
       self$fc2() %>%
       nnf_relu() %>%
-      self$det1() %>%
-      nnf_relu() %>%
-      self$det2() %>%
-      nnf_relu() %>%
-      self$det3() %>%
-      nnf_relu() %>%
-      self$det4() 
+      self$fc3() # %>%
+      # nnf_relu() %>%
+      # self$fc4() %>%
+      # nnf_relu() %>%
+      # self$fc5()
   },
   
   
@@ -215,16 +220,41 @@ MLHS <- nn_module(
   get_model_kld = function(){
     kl1 = self$fc1$get_kl()
     kl2 = self$fc2$get_kl()
-    # kl3 = self$fc3$get_kl()
+    kl3 = self$fc3$get_kl()
     # kl4 = self$fc4$get_kl()
     # kl5 = self$fc5$get_kl()
-    kld = kl1 + kl2 # + kl3 + kl4 + kl5
+    kld = kl1 + kl2 + kl3 #+ kl4 + kl5
     return(kld)
   }
 )
+# 
+# sim_params$model <- MLHS
+# mod <- MLHS()
+# mod$fc1$parameters
+# ztil <- get_ztil_sq(mod$fc1)
+# s <- get_s_sq(mod$fc1)
+# Wz_params <- get_Wz_params(mod$fc1)
+# Wz_mu <- Wz_params$Wz_mu
+# W_mu <- as_array(mod$fc1$weight_mu)
+# mean(diag(cov(W_mu)))
+# 
+# 
+# nn_init_kaiming_normal_(mod$fc1$weight_mu)
+# W_mu_k <- as_array(mod$fc1$weight_mu)
+# sum(diag(cov(W_mu_k)))
+# sum(diag(cov(W_mu)))
+# mean(diag(cov(W_mu_k)))
+# mean(W_mu_k)
+# mean(W_mu)
 
-
-
+# verbose = TRUE
+# want_plots = TRUE
+# want_fcn_plots = TRUE
+# save_fcn_plots = FALSE
+# want_all_params = FALSE
+# save_mod = TRUE
+# save_mod_path_stem = NULL
+# nn_model <- MLHS
 
 res <- lapply(
   1:sim_params$n_sims,
@@ -235,7 +265,7 @@ res <- lapply(
       sim_params$sim_seeds[X]
     )
     
-    sim_hshoe_det(
+    sim_hshoe(
       sim_ind = X,
       sim_params = sim_params,     # same as before, but need to include flist
       nn_model = MLHS,   # torch nn_module,

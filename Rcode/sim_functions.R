@@ -1486,12 +1486,10 @@ sim_hshoe_det <- function(
       atilde_logvar_mat <-
       btilde_logvar_mat <- alpha_mat
     
-    if (!local_only){
-      sa_mu_vec <-
-        sb_mu_vec <- 
-        sa_logvar_vec <- 
-        sb_logvar_vec <- rep(NA, length(report_epochs))
-    }
+    sa_mu_vec <-
+      sb_mu_vec <- 
+      sa_logvar_vec <- 
+      sb_logvar_vec <- rep(NA, length(report_epochs))
   }
   
   
@@ -1596,7 +1594,7 @@ sim_hshoe_det <- function(
       row_ind <- epoch %/% sim_params$report_every
       
       # compute test loss 
-      yhat_test <- model_fit(x_test)
+      yhat_test <- model_fit$forward_deterministic(x_test, z_type = "mean")
       mse_test <- nnf_mse_loss(yhat_test, y_test)
       
       loss_mat[row_ind, ] <- c(kl$item(), mse$item(), mse_test$item(), kl_raw$item(), kl_weight)
@@ -1761,7 +1759,7 @@ sim_hshoe_det <- function(
     
     # function plots
     if (time_to_report & want_fcn_plots){
-      plotdf$y <- as_array(model_fit(x_plot))
+      plotdf$y <- as_array(yhat_test)
       
       if (false_if_null(sim_params$standardize)){
         plotdf$y <- unscale_mat(

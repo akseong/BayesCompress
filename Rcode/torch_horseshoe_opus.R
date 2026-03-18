@@ -379,6 +379,21 @@ torch_hs <- nn_module(
     )
   },
   
+  get_z_mean = function() {
+    # z = ztilde * s = sqrt(atilde * btilde * s_a * s_b)
+    mu_z  <- (self$atilde_mu + self$btilde_mu + self$sa_mu + self$sb_mu) / 2
+    var_z <- (self$atilde_logvar$exp() + self$btilde_logvar$exp() +
+                self$sa_logvar$exp() + self$sb_logvar$exp())/4
+    torch_exp(mu_z + var_z / 2)
+  },
+  
+  get_z_mode = function() {
+    mu_z  <- (self$atilde_mu + self$btilde_mu + self$sa_mu + self$sb_mu) / 2
+    var_z <- (self$atilde_logvar$exp() + self$btilde_logvar$exp() +
+                self$sa_logvar$exp() + self$sb_logvar$exp())/4
+    torch_exp(mu_z - var_z)
+  },
+  
   compute_posterior_param = function() {
     weight_var <- self$weight_logvar$exp()
     Vz <- V_lognorm(
@@ -424,17 +439,6 @@ torch_hs <- nn_module(
   },
   
   forward = function(x){
-    if (self$deterministic) {
-      cat("argument deterministic = TRUE.  Should not be used for training")
-      return(
-        nnf_linear(
-          input = x, 
-          weight = self$weight_mu, 
-          bias = self$bias_mu
-        )
-      )
-    }
-    
     # generate layer activations from Variational specification
     # log_atilde <- reparameterize(mu = self$atilde_mu, logvar = self$atilde_logvar, use_cuda = self$use_cuda)
     # log_btilde <- reparameterize(mu = self$btilde_mu, logvar = self$btilde_logvar, use_cuda = self$use_cuda)
@@ -474,6 +478,29 @@ torch_hs <- nn_module(
         sampling = !self$deterministic
       )
     )
+  },
+  
+  forward_deterministic = function(x, z_type = "mean"){
+    if (z_type == "none") {
+      cat("completely deterministic (no scale variable impact)")
+      return(
+        nnf_linear(
+          input = x, 
+          weight = self$weight_mu, 
+          bias = self$bias_mu
+        )
+      )
+    } else {
+      if (z_type == "mean") {
+        cat("using scale variable means")
+        z = self$get_z_mean()
+      } else if (z_type == "mode") {
+        cat("using scale variable modes")
+        z = self$get_z_mode()
+      }
+      new_weight <- z * self$weight_mu
+      return(torch_mm(x, new_weight$t()) + self$bias_mu)
+    }
   },
   
   
