@@ -72,7 +72,7 @@ plot_datagen_fcns(flist)
 save_mod_path_prestem <- here::here(
   "sims", 
   "results", 
-  "detlayers_516"
+  "detlayers_516_mc5"
 )
 n_obs <- 1250 # includes training and test
 sim_desc <- c(
@@ -86,7 +86,7 @@ sim_params <- list(
   "seed" = 516,
   "n_sims" = 5,
   "n_mc_samples" = 5,
-  "train_epochs" = 2E4,
+  "train_epochs" = 1e5,
   "report_every" = 1E3,
   "use_cuda" = use_cuda,
   "d_in" = 104,
@@ -171,19 +171,28 @@ MLHS <- nn_module(
       sim_params$d_hidden2, 
       sim_params$d_hidden3
     )
+    
     self$det2 = nn_linear(
       sim_params$d_hidden3, 
       sim_params$d_hidden4
     )
+    
     self$det3 = nn_linear(
       sim_params$d_hidden4, 
       sim_params$d_hidden5
     )
+    
     self$det4 = nn_linear(
       sim_params$d_hidden5, 
       sim_params$d_out
     )
     
+    if (sim_params$use_cuda){
+      self$det1$cuda()
+      self$det2$cuda()
+      self$det3$cuda()
+      self$det4$cuda()
+    }
   },
   
   forward = function(x) {
@@ -213,6 +222,8 @@ MLHS <- nn_module(
     return(kld)
   }
 )
+
+
 
 
 res <- lapply(
