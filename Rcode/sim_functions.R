@@ -117,6 +117,16 @@ geom_mean <- function(vec){
   exp(mean(log(vec)))
 }
 
+
+log_sum_exp <- function(vec){
+  # used to avoid over/underflow when computing log(prod(vec))
+  m <- max(vec)
+  vmm <- vec - m
+  m + log(sum(exp(vmm)))
+}
+
+
+
 vismat <- function(mat, cap = NULL, lims = NULL, leg = TRUE, na0 = TRUE, square){
   # outputs visualization of matrix with few unique values
   # colnames should be strings, values represented as factors
