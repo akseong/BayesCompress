@@ -174,22 +174,44 @@ source(here("Rcode", "analysis_fcns.R"))
 
 
 
+# 3/17
+
+- implemented minibatching, MC sampling MSE, standardizing data / rescaling for plots
+
+  - need to inspect if actually provides speedups
+
+- started deeper networks with only first 2 layers with horseshoe --- seems promising
+
+  - 16-16 hshoe, 16-16-16 deterministic:
+  
+    - no mc samples: `detlayers_516`
+    
+    - 5 mc samples (latest run) `detlayers_516_mc5`
+  
 
 # 3/16
 
 - implemented lr, kl annealing; currently testing
-  - 8-16, 1k obs (earliest)
-  - 8-16, 10k obs (2nd; for comparisons)
-  - 32-32, 1k obs (3rd)
-  - 32-32, 10k obs (4th)
-  - 128-64, 1k obs
-  - 128-64, 10k obs
+
+  - 8-16, 1k obs (earliest): `hshoe_annealing_816_1250obs_613225`; still running
+  
+  - 8-16, 10k obs (2nd; for comparisons): `hshoe_annealing_816_12500obs_613225`; stopped at 3 sims
+  
+  - 32-32, 1k obs (3rd): `hshoe_annealing_3232_1250obs_770283`; stopped at 3 sims
+  
+  - 32-32, 10k obs (4th): `hshoe_annealing_3232_12500obs_770283`; stopped at 3 sims
+  
+  - 128-64, 1k obs: `hshoe_annealing_12864_1250obs_230662`; still running
+  
+  - 128-64, 10k obs: `hshoe_annealing_12864_12500obs_230662`; stopped at 3 sims
+  
 
 - more tests: 
-  - 8-16, 10k obs, KL annealing only
-  - 8-16, 10k obs, KL annealing only, tau_0 = 1 everywhere
 
-- fixed minibatching
+  - 8-16, 10k obs, KL annealing only: `hshoe_annealklonly_816_1250obs_525655`; still running
+  
+  - 8-16, 10k obs, KL annealing only, tau_0 = 1 everywhere: `tau1_annealklonly_816_1250obs_525655`; still running
+  
 
 
 TO DO:
