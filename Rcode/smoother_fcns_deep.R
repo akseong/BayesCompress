@@ -86,8 +86,9 @@ sim_params <- list(
   "seed" = 532,
   "n_sims" = 1,
   "n_mc_samples" = 1,
-  "train_epochs" = 2e3,
-  "report_every" = 1E2,
+  "train_epochs" = 2e5,
+  "report_every" = 1E4,
+  "plot_every_x_reports" = 5,
   "use_cuda" = use_cuda,
   "d_in" = 104,
   "d_hidden1" = 32,
@@ -99,7 +100,7 @@ sim_params <- list(
   "true_coefs" = c(-0.5, 1, -2, 4, rep(0, times = 100)),
   "alpha_thresh" = 1 / qchisq(1 - (0.05 / 104), df = 1),
   "flist" = flist,
-  "lr" = 0.001,  # sim_hshoe learning rate arg.  If not specified, uses optim_adam default (0.001)
+  "lr" = 0.005,  # sim_hshoe learning rate arg.  If not specified, uses optim_adam default (0.001)
   "err_sig" = 1,
   "xdist" = "norm",
   "convergence_crit" = 1e-7,
@@ -209,8 +210,6 @@ MLHS <- nn_module(
       nnf_relu() %>%
       self$det4() 
   },
-  
-  
   
   get_model_kld = function(){
     kl1 = self$fc1$get_kl()

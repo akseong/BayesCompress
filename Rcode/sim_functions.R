@@ -1528,6 +1528,12 @@ sim_hshoe_det <- function(
     sim_params$n_mc_samples, 1
   )
   
+  plot_every_x_reports <- ifelse(
+    !is.null(sim_params$plot_every_x_reports),
+    sim_params$plot_every_x_reports,
+    10
+  )
+  
   while (!stop_criteria_met){
     
     if (!is.null(sim_params$batch_size)){
@@ -1590,12 +1596,22 @@ sim_hshoe_det <- function(
     
     # store results (every `report_every` epochs)
     time_to_report <- epoch!=0 & (epoch %% sim_params$report_every == 0)
+    time_to_plot <- epoch!=0 & 
+      (epoch %% (sim_params$report_every * plot_every_x_reports) == 0)
     if (time_to_report){
       row_ind <- epoch %/% sim_params$report_every
       
       # compute test loss 
-      yhat_test <- model_fit$forward_deterministic(x_test, z_type = "mean")
-      mse_test <- nnf_mse_loss(yhat_test, y_test)
+      model_fit$eval()                    # switches ALL layers to deterministic
+      with_no_grad({
+        yhat_test <- model_fit(x_test)
+        mse_test <- nnf_mse_loss(yhat_test, y_test)
+        
+        if (time_to_plot & want_fcn_plots){
+          yhat_plot <- model_fit(x_plot)
+        }
+      })
+      model_fit$train()
       
       loss_mat[row_ind, ] <- c(kl$item(), mse$item(), mse_test$item(), kl_raw$item(), kl_weight)
       dropout_alphas <- model_fit$fc1$get_dropout_rates()
@@ -1702,7 +1718,7 @@ sim_hshoe_det <- function(
       
       
       # graphical training updates
-      if (want_plots & row_ind > 5){
+      if (time_to_plot & want_plots & row_ind > 5){
         
         # only show most recent (for scale of plot)
         start_plot_row_ind <- 1
@@ -1758,8 +1774,9 @@ sim_hshoe_det <- function(
     } # end training updates (verbose = TRUE)
     
     # function plots
-    if (time_to_report & want_fcn_plots){
-      plotdf$y <- as_array(yhat_test)
+    if (time_to_plot & want_fcn_plots){
+      
+      plotdf$y <- as_array(yhat_plot)
       
       if (false_if_null(sim_params$standardize)){
         plotdf$y <- unscale_mat(

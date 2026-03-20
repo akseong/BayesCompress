@@ -204,7 +204,8 @@ torch_hs <- nn_module(
     init_atilde_logvar = NULL, 
     init_btilde_logvar = NULL, 
     clip_var = NULL, 
-    deterministic = FALSE
+    deterministic = FALSE,
+    z_type = "mean"
   ){
     
     self$use_cuda <- use_cuda
@@ -214,6 +215,7 @@ torch_hs <- nn_module(
     self$clip_var <- clip_var
     self$deterministic <- deterministic
     self$devtype <- ifelse(use_cuda, "cuda", "cpu")
+    self$z_type <- z_type
     
     #### trainable parameters
     # s = global scale param
@@ -439,67 +441,66 @@ torch_hs <- nn_module(
   },
   
   forward = function(x){
-    # generate layer activations from Variational specification
-    # log_atilde <- reparameterize(mu = self$atilde_mu, logvar = self$atilde_logvar, use_cuda = self$use_cuda)
-    # log_btilde <- reparameterize(mu = self$btilde_mu, logvar = self$btilde_logvar, use_cuda = self$use_cuda)
-    # log_sa <- reparameterize(mu = self$sa_mu, logvar = self$sa_logvar, use_cuda = self$use_cuda)
-    # log_sb <- reparameterize(mu = self$sb_mu, logvar = self$sb_logvar, use_cuda = self$use_cuda)
-    # log_s <- 1/2 * (log_sa + log_sb)
-    # log_ztilde <- 1/2 * (log_atilde + log_btilde)
-    # z <- (log_s + log_ztilde)$exp()
-    log_z <- reparameterize(
-      mu = 1/2 * (self$atilde_mu + self$btilde_mu + self$sa_mu + self$sb_mu),
-      logvar = torch_log(
-        self$atilde_logvar$exp() + self$btilde_logvar$exp() + 
-          self$sa_logvar$exp() + self$sb_logvar$exp()
-      ) - log(4),
-      use_cuda = self$use_cuda
-    )
-    z <- log_z$exp()
     
-    xz <- x*z
-    mu_activations <- nnf_linear(
-      input = xz, 
-      weight = self$weight_mu, 
-      bias = self$bias_mu
-    )
-    
-    var_activations <- nnf_linear(
-      input = xz$pow(2), 
-      weight = self$weight_logvar$exp(), 
-      bias = self$bias_logvar$exp()
-    )
-    
-    return(
-      reparameterize(
-        mu = mu_activations, 
-        logvar = var_activations$log(), 
-        use_cuda = self$use_cuda, 
-        sampling = !self$deterministic
+    if (self$training){
+      # generate layer activations from Variational specification
+      # log_atilde <- reparameterize(mu = self$atilde_mu, logvar = self$atilde_logvar, use_cuda = self$use_cuda)
+      # log_btilde <- reparameterize(mu = self$btilde_mu, logvar = self$btilde_logvar, use_cuda = self$use_cuda)
+      # log_sa <- reparameterize(mu = self$sa_mu, logvar = self$sa_logvar, use_cuda = self$use_cuda)
+      # log_sb <- reparameterize(mu = self$sb_mu, logvar = self$sb_logvar, use_cuda = self$use_cuda)
+      # log_s <- 1/2 * (log_sa + log_sb)
+      # log_ztilde <- 1/2 * (log_atilde + log_btilde)
+      # z <- (log_s + log_ztilde)$exp()
+      log_z <- reparameterize(
+        mu = 1/2 * (self$atilde_mu + self$btilde_mu + self$sa_mu + self$sb_mu),
+        logvar = torch_log(
+          self$atilde_logvar$exp() + self$btilde_logvar$exp() + 
+            self$sa_logvar$exp() + self$sb_logvar$exp()
+        ) - log(4),
+        use_cuda = self$use_cuda
       )
-    )
-  },
-  
-  forward_deterministic = function(x, z_type = "mean"){
-    if (z_type == "none") {
-      cat("completely deterministic (no scale variable impact)")
+      z <- log_z$exp()
+      
+      xz <- x*z
+      mu_activations <- nnf_linear(
+        input = xz, 
+        weight = self$weight_mu, 
+        bias = self$bias_mu
+      )
+      
+      var_activations <- nnf_linear(
+        input = xz$pow(2), 
+        weight = self$weight_logvar$exp(), 
+        bias = self$bias_logvar$exp()
+      )
+      
       return(
-        nnf_linear(
-          input = x, 
-          weight = self$weight_mu, 
-          bias = self$bias_mu
+        reparameterize(
+          mu = mu_activations, 
+          logvar = var_activations$log(), 
+          use_cuda = self$use_cuda, 
+          sampling = !self$deterministic
         )
       )
     } else {
-      if (z_type == "mean") {
-        cat("using scale variable means")
-        z = self$get_z_mean()
-      } else if (z_type == "mode") {
-        cat("using scale variable modes")
-        z = self$get_z_mode()
+      #for model eval
+      if (self$z_type == "none") {
+        return(
+          nnf_linear(
+            input = x, 
+            weight = self$weight_mu, 
+            bias = self$bias_mu
+          )
+        )
+      } else {
+        if (self$z_type == "mean") {
+          z = self$get_z_mean()
+        } else if (self$z_type == "mode") {
+          z = self$get_z_mode()
+        }
+        new_weight <- z * self$weight_mu
+        return(torch_mm(x, new_weight$t()) + self$bias_mu)
       }
-      new_weight <- z * self$weight_mu
-      return(torch_mm(x, new_weight$t()) + self$bias_mu)
     }
   },
   
