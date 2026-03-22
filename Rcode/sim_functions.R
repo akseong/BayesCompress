@@ -742,8 +742,59 @@ get_nn_mod_Ey <- function(nn_mod, X, ln_fcn = ln_mode){
 }
 
 
+# generate data from seed, sim_params ----
+
+
 
 # FOR LM() ----
+lm_varsel <- function(simdat, alpha_level = 0.05){
+  # for use with simdat from sim_func_data
+  true_inclusion <- rep(FALSE, simdat$d_in)
+  true_inclusion[1:simdat$d_true] <- TRUE
+  
+  y <- as_array(simdat$y)
+  x <- as_array(simdat$x)
+  
+  if (false_if_null(simdat$standardized)){
+    y <- unscale_mat(
+      y,
+      means = as_array(simdat$y_mean),
+      sds = as_array(simdat$y_sd)
+    )
+    x <- unscale_mat(
+      x,
+      means = as_array(simdat$x_mean),
+      sds = as_array(simdat$x_sd)
+    )
+  }
+  lm_fit <- lm(y~x)
+  pvals <- summary(lm_fit)$coef[-1, 4]
+  bin_err <- binary_err_rate(
+    est = pvals < alpha_level, 
+    tru = true_inclusion != 0)
+  
+  pvals_BH <- p.adjust(pvals, method = "BH")
+  bin_err_BH <- binary_err_rate(
+    est = pvals_BH < alpha_level, 
+    tru = true_inclusion != 0)
+  return(
+    list(
+      "unadjusted" = bin_err,
+      "bh_adjusted" = bin_err_BH
+    )
+  )
+}
+
+
+spikeslab_varsel <- function(simdat, bfdr = 0.05){
+  
+  
+}
+
+
+
+
+
 calc_lm_stats <- function(lm_fit, true_coefs, alpha = 0.05){
   beta_hat <- summary(lm_fit)$coef[-1, 1]
   binary_err <- binary_err_rate(
