@@ -743,8 +743,52 @@ get_nn_mod_Ey <- function(nn_mod, X, ln_fcn = ln_mode){
 
 
 # generate data from seed, sim_params ----
+gen_Eydat_sparseVCBART <- function(
+    n_obs = 1e3,
+    p = 50,
+    R = 20,
+    covar_fcn = corr_fcn,
+    beta_0 = beta_0,
+    beta_1 = beta_1,
+    beta_2 = beta_2,
+    beta_3 = beta_3
+)
+  sim_func_data <- function(
+    n_obs = 1000,
+    d_in = 10,
+    flist = list(fcn1, fcn2, fcn3, fcn4),
+    err_sigma = 1,
+    use_cuda = FALSE,
+    xdist = "norm",
+    standardize = FALSE
+  )
 
-
+recover_func_data <- function(sim_params, seed){
+  ## generate data ----
+  set.seed(seed)
+  torch_manual_seed(seed)
+  
+  simdat <- sim_func_data(
+    n_obs = sim_params$n_obs,
+    d_in = sim_params$d_in,
+    flist = sim_params$flist,
+    err_sigma = sim_params$err_sig,
+    xdist = sim_params$xdist,
+    standardize = false_if_null(sim_params$standardize)
+  )
+  if (sim_params$use_cuda){
+    simdat$x <- simdat$x$to(device = "cuda")
+    simdat$y <- simdat$y$to(device = "cuda")
+  }
+  
+  sim_params$train_sig <- ifelse(
+    simdat$standardized,
+    sim_params$err_sig / simdat$y_sd$item(),
+    sim_params$err_sig
+  )
+}
+    
+    
 
 # FOR LM() ----
 lm_varsel <- function(simdat, alpha_level = 0.05){
