@@ -1,0 +1,350 @@
+---
+title: "Simulation results: annealing learning rate and KL"
+author: "Arnie Seong"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+header-includes:
+  - \usepackage{bm}
+  - \usepackage{xcolor}
+  - \usepackage{amssymb}
+output: 
+  html_document:
+    df_print: paged
+    theme: cerulean
+    highlight: tango
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
+    code_fold: show
+urlcolor: blue
+params:
+  retrain: FALSE
+  seed: 314
+editor_options: 
+  chunk_output_type: console
+---
+<style>
+  .panel-tabs{
+    opacity: 1;
+    background-color: #2fa4e7;
+    color: #ffffff;
+    position: sticky;
+    top: 0
+  }
+</style>
+
+```{r setup, include=FALSE, message=F, echo=F, warning=F}
+# LIBRARIES----
+
+#### plotting:
+library(ggplot2)
+library(gridExtra)
+
+# #### Misc:
+library(here)
+library(tidyr)
+library(knitr)
+library(kableExtra)
+library(dplyr)
+
+# model packages
+library(torch)
+
+# DOCUMENT SETUP ----
+# detect pdf/html output, set chunk options, sci.notation 
+latex_out <- knitr::is_latex_output()
+knitr::opts_chunk$set(
+  cache = FALSE, 
+  message = FALSE, 
+  echo = !knitr::is_latex_output(), 
+  warning = FALSE
+)
+
+
+if (knitr::is_latex_output()) {
+  knitr::opts_chunk$set(fig.height=4, 
+                        fig.width=6)
+} else {
+  knitr::opts_chunk$set(out.width = "100%")
+}
+
+options(scipen=10)
+
+# PANELSET
+xaringanExtra::use_panelset()
+xaringanExtra::style_panelset_tabs(font_family = "inherit")
+
+
+
+# TEXT/TABLE FORMATTING----
+
+custom_purple <- ifelse(
+  knitr::is_latex_output(),
+  "purple",
+  "#b51ced"
+)
+
+custom_blue <- ifelse(
+  knitr::is_latex_output(),
+  "blue",
+  "#11579e"
+)
+
+colorize <- function(x, color=custom_purple) {
+  # text color conditional on latex/html output
+  # from rmarkdown cookbook
+  if (knitr::is_latex_output()) {
+    sprintf("\\textcolor{ %s}{ %s}", color, x)
+  } else if (knitr::is_html_output()) {
+    sprintf("<span style='color: %s;'>%s</span>", color, x)
+  } else x
+}
+
+cat_color <- function(txt, style = 1, color = 36){
+  cat(
+    paste0(
+      "\033[0;",
+      style, ";",
+      color, "m",
+      txt,
+      "\033[0m","\n"
+    )
+  )  
+}
+
+# kable NA handling
+options(knitr.kable.NA = '')
+
+# mykable function
+mykable <- function(tab, cap,
+                    latex_options=c("hold_position", "scale_down", "striped"), 
+                    bootstrap_options=c("striped", "hover", "condensed"), 
+                    full_width=F, position="center", ...){
+  # kable formatting conditional on latex or html output
+  if (is.null(getOption("knitr.in.progress"))){
+    print(tab)
+  } else if (knitr::is_latex_output()){
+    kable(x=tab, caption=cap, ...) %>%
+      kableExtra::kable_styling(latex_options = latex_options)
+  } else if (knitr::is_html_output()){
+    kable(x=tab, caption=cap, ...) %>%
+      kableExtra::kable_styling(bootstrap_options = bootstrap_options, full_width=full_width, position=position)
+  }
+}
+
+# notin
+`%notin%` <- Negate(`%in%`)
+
+source(here("Rcode", "torch_horseshoe_klcorrected.R"))
+source(here("Rcode", "sim_functions.R"))
+source(here("Rcode", "analysis_fcns.R"))
+```
+
+
+
+```{r SETUP_AND_FCNS}
+knitr::opts_chunk$set(echo = FALSE)
+
+sim_characteristics <- function(sim_params, reduced = TRUE) {
+  chars <- list(
+      # sim_desc --- note: not always accurate
+      "description" = sim_params[[1]],
+      # data characteristics
+      "overall_seed" = sim_params$seed,
+      "individual_seeds" = sim_params$sim_seeds,
+      "n_obs" = sim_params$n_obs,
+      "err_sig" = sim_params$err_sig,
+      "xdist" = sim_params$xdist,
+      "fcn_plt" = plot_datagen_fcns(sim_params$flist),
+      
+      # nn characteristics
+      "prior_tau" = sim_params$prior_tau,
+      "nn_layer_dims" = do.call(c, sim_params[grepl("d_", names(sim_params))]),
+      
+      # training characteristics
+      "train_epochs" = sim_params$train_epochs,
+      "lr" = sim_params$lr,
+      "lr_scheduler" = false_if_null(sim_params$lr_scheduler),
+      "kl_scheduler" = false_if_null(sim_params$kl_scheduler)
+    )
+  
+  if (reduced){
+    chars <- chars[c(4, 5, 8:13)]
+  }
+  
+  return(chars)
+}
+
+
+```
+
+
+
+# purpose:
+
+Purpose is to see how recent changes made to the code ($tau_0^2$ in the KL, single update for $z = \lambda \tau$, annealing learning rate and/or KL, minibatching) affect performance.
+
+
+# 1000 obs
+
+## single update for z: 32-32 nn
+
+```{r FNAMES_SETUP}
+stem <- here::here("sims", "results", "hshoe_opus_3232_1250obs_")
+# extract sim information from first in series
+first_sim <- paste0(stem, "506288.RData")
+load(first_sim)
+seeds <- sim_res$sim_params$sim_seeds
+res_fnames <- paste0(stem, seeds, ".RData")
+mod_fnames <- paste0(stem, seeds, ".pt")
+sim_characteristics(sim_res$sim_params)
+```
+
+
+```{r}
+load(res_fnames[1])
+nn_mod <- torch_load(mod_fnames[1])
+plot_datagen_fcns(sim_res$sim_params$flist)
+
+for (sim_num in 1:length(res_fnames)){
+  load(res_fnames[sim_num])
+  loss_df <- loss_pltfcn(sim_res)$long_df
+  loss_df$sim_id <- sim_res$sim_params$sim_seeds[sim_res$sim_ind]
+  
+  if (sim_num == 1){
+    loss_df_all <- loss_df
+  } else {
+    loss_df_all <- rbind(loss_df_all, loss_df)
+  }
+}
+
+loss_df_all %>% 
+  ggplot(
+    aes(
+      y = value,
+      x = epoch,
+      linetype = factor(sim_id),
+      color = loss_type
+    )
+  ) + 
+  geom_line() + 
+  labs(
+    title = paste0(
+      "loss vs epochs, across ",
+      length(res_fnames),
+      " simulations"
+    )
+  )
+
+```
+
+
+```{r}
+gen_header <- function(sim_res, hlevel = 3){
+  cat(
+    "\n\n",  rep("#", hlevel), " sim_id ", 
+    sim_res$sim_params$sim_seeds[sim_res$sim_ind], 
+    sep = ""
+  )
+}
+```
+
+
+## 2 hidden layers, 16-8 {.panelset}
+
+- uncorrected KL, without Kaiming initialization, $\tau_0 = 1$
+
+```{r, results = "asis"}
+load(res_fnames[1])
+nn_mod <- torch_load(mod_fnames[1])
+gen_header(sim_res)
+```
+
+
+
+```{r VIS_CHUNK}
+kmat_global <- kappamat_from_sim_res(sim_res)
+kmat_local <- kappamat_from_sim_res(sim_res, type = "local")
+
+varmat_pltfcn(
+    sim_res$alpha_mat,
+    y_name = "alpha",
+    burn = 0
+  )$all_vars_plt
+
+varmat_pltfcn(
+  kmat_global,
+  y_name = "GLOBAL kappa",
+  burn = 0
+)$all_vars_plt
+
+
+varmat_pltfcn(
+  kmat_local,
+  y_name = "LOCAL kappa",
+  burn = 0
+)$all_vars_plt
+
+
+if (!is.null(sim_res$kappa_tc_mat)){
+  # didn't add tau-corrected kappas to sims until later
+  varmat_pltfcn(
+    sim_res$kappa_tc_mat,
+    y_name = "tau-corrected kappas",
+    burn = 0
+  )$all_vars_plt
+}
+
+if (!is.null(sim_res$kappa_fc_mat)){
+  # didn't add frob-corrected kappas to sims until later
+  varmat_pltfcn(
+    sim_res$kappa_fc_mat,
+    y_name = "frobenius-corrected kappas",
+    burn = 0
+  )$all_vars_plt
+}
+
+err_by_max_bfdr(kmat_local[nrow(kmat_local), ])$plt_fdrs +
+  labs(
+    subtitle = "using local kappas as dropout probabilities"
+  )
+err_by_max_bfdr(kmat_global[nrow(kmat_global), ])$plt_fdrs +
+  labs(
+    subtitle = "using global kappas as dropout probabilities"
+  )
+
+if (!is.null(sim_res$kappa_tc_mat)){
+  err_by_max_bfdr(get_kappas_taucorrected(nn_mod))$plt_fdrs +
+    labs(
+      subtitle = "tau-corrected kappas as dropout probabilities"
+    )
+}
+
+if (!is.null(sim_res$kappa_fc_mat)){
+  err_by_max_bfdr(get_kappas_frobcorrected(nn_mod))$plt_fdrs +
+    labs(
+      subtitle = "tau-corrected kappas as dropout probabilities"
+    )
+}
+
+```
+
+
+```{r, results = "asis"}
+load(res_fnames[2])
+nn_mod <- torch_load(mod_fnames[2])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+
+
+
+
+
+
