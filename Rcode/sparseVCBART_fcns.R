@@ -597,7 +597,7 @@ spVCBART_vanilla_sim <- function(
     kl_warmup_epochs <- round(sim_params$train_epochs * sim_params$kl_warmup_frac)
   }
   
-  ## TRAIN LOOP
+  ## TRAIN LOOP ----
   epoch <- 1
   loss <- torch_tensor(1, device = dev_select(sim_params$use_cuda))
   while (epoch <= sim_params$train_epochs){
@@ -946,6 +946,15 @@ spVCBART_VCmod_sim <- function(
     XZ_te <- XZ_te$to(device = "cuda")
   }
   
+  ## minibatching setup ----
+  if (!is.null(sim_params$batch_size)){
+    num_batches <- sim_params$n_obs %/% sim_params$batch_size
+    batch_inds_vec <- 1:sim_params$n_obs
+    batch_size <- sim_params$batch_size
+  } else {
+    batch_size <- sim_params$n_obs
+  }
+  
   ## when to report / plot ----
   report_epochs <- seq(
     sim_params$report_every, 
@@ -963,9 +972,9 @@ spVCBART_VCmod_sim <- function(
   loss_mat <- matrix(
     NA, 
     nrow = length(report_epochs),
-    ncol = 3
+    ncol = 5
   )
-  colnames(loss_mat) <- c("kl", "mse_train", "mse_test")
+  colnames(loss_mat) <- c("kl", "mse_train", "mse_test", "kl_raw", "kl_weight")
   rownames(loss_mat) <- report_epochs
   
   
@@ -981,8 +990,8 @@ spVCBART_VCmod_sim <- function(
   
   kappa_local_mat <- 
     kappa_mat <- 
-    kappa_tc_mat <- alpha_mat
-  # kappa_fc_mat <- alpha_mat
+    kappa_tc_mat <- 
+    kappa_fc_mat <- alpha_mat
   
   
   # TRAIN ----
@@ -990,29 +999,77 @@ spVCBART_VCmod_sim <- function(
   model_fit <- nn_model()
   optim_model_fit <- optim_adam(model_fit$parameters, lr = sim_params$lr)
   
-  ## TRAIN LOOP
+  
+  # number mc samples used to compute train MSE
+  n_mc <- ifelse(
+    !is.null(sim_params$n_mc_samples),
+    sim_params$n_mc_samples, 1
+  )
+  
+  # lr annealing
+  if (!is.null(sim_params$lr_scheduler)){
+    scheduler <- sim_params$lr_scheduler(optim_model_fit, T_max = sim_params$train_epochs)
+  }
+  
+  # kl annealing
+  if (!is.null(sim_params$kl_scheduler)){
+    kl_warmup_epochs <- round(sim_params$train_epochs * sim_params$kl_warmup_frac)
+  }
+  
+  ## TRAIN LOOP ----
   epoch <- 1
   loss <- torch_tensor(1, device = dev_select(sim_params$use_cuda))
   while (epoch <= sim_params$train_epochs){
     
-    ## fit & metrics ----
-    yhat_tr <- model_fit(
-      zvars = XZ_tr[, 1:sim_params$d_0], 
-      xvars = XZ_tr[, (1 + sim_params$d_0):(sim_params$d_0 + sim_params$d_p1)]
-    )
+    if (!is.null(sim_params$batch_size)){
+      # determine batch number
+      batch_num <- epoch %% num_batches
+      # reshuffle batches if batch_num == 0
+      if (batch_num == 0) {batch_inds_vec <- sample(1:sim_params$n_obs)}
+      batch_inds <- batch_inds_vec[1:sim_params$batch_size + (batch_num)*sim_params$batch_size]
+    }
     
-    mse <- nnf_mse_loss(yhat_tr, y_tr)
-    kl <- model_fit$get_model_kld() / length(y_tr)
-    loss <- mse + kl
-    
-    # gradient step 
     # zero out previous gradients
     optim_model_fit$zero_grad()
-    # backprop
-    loss$backward()
+    
+    # accumulate mse gradients over s MC samples
+    mse_accum <- torch_tensor(0, device = dev_select(sim_params$use_cuda))
+    for (s in 1:n_mc){
+      # fit model with / without batching
+      if (is.null(sim_params$batch_size)){
+        yhat_tr <- model_fit(
+          zvars = XZ_tr[, 1:sim_params$d_0], 
+          xvars = XZ_tr[, (1 + sim_params$d_0):(sim_params$d_0 + sim_params$d_p1)]
+        )
+        mse_s <- nnf_mse_loss(yhat_tr, y_tr) / n_mc
+      } else {
+        yhat_tr <- model_fit(
+          zvars = XZ_tr[batch_inds, 1:sim_params$d_0],
+          xvars = XZ_tr[batch_inds, (1 + sim_params$d_0):(sim_params$d_0 + sim_params$d_p1)]
+        )
+        mse_s <- nnf_mse_loss(yhat_tr, y_tr[batch_inds]) / n_mc
+      }
+      mse_s$backward()
+    }
+    
+    # fit & metrics
+    kl_raw <- model_fit$get_model_kld() / sim_params$n_obs
+    kl_weight <- ifelse(
+      !is.null(sim_params$kl_scheduler),
+      sim_params$kl_scheduler(epoch, kl_warmup_epochs),
+      1
+    )
+    kl <- kl_weight * kl_raw
+    kl$backward()
+    
     # update weights
     optim_model_fit$step()
-    
+    mse <- mse_s * n_mc # approximate, based only on last sample's mse
+    loss <- mse + kl
+    # learning rate scheduler step
+    if (!is.null(sim_params$lr_scheduler)) {
+      scheduler$step()
+    }
     
     ## REPORTING ----
     # track progress
@@ -1036,14 +1093,18 @@ spVCBART_VCmod_sim <- function(
       row_ind <- epoch %/% sim_params$report_every
       
       # compute test loss
-      yhat_te <- model_fit(
-        zvars = XZ_te[, 1:sim_params$d_0], 
-        xvars = XZ_te[, (1 + sim_params$d_0):(sim_params$d_0 + sim_params$d_p1)]
-      )
-      mse_te <- nnf_mse_loss(yhat_te, y_te)
-      loss_mat[row_ind, ] <- c(kl$item(), mse$item(), mse_te$item())
+      model_fit$eval()                    # switches ALL layers to deterministic
+      with_no_grad({
+        yhat_te <- model_fit(
+          zvars = XZ_te[, 1:sim_params$d_0], 
+          xvars = XZ_te[, (1 + sim_params$d_0):(sim_params$d_0 + sim_params$d_p1)]
+        )
+        mse_te <- nnf_mse_loss(yhat_te, y_te)
+      })
+      model_fit$train()
       
       # store params
+      loss_mat[row_ind, ] <- c(kl$item(), mse$item(), mse_te$item(), kl_raw$item(), kl_weight)
       dropout_alphas <- c(
         as_array(model_fit$fc1$get_dropout_rates()),
         as_array(model_fit$vc$get_dropout_rates())
@@ -1061,16 +1122,15 @@ spVCBART_VCmod_sim <- function(
         get_kappas(model_fit$vc)
       )
       
-      # # omitted frobenius-corrected kappas
-      # kappas_fc <- c(
-      #   get_kappas_frobcorrected(model_fit),
-      #   get_kappas(model_fit$vc)
-      # )
+      kappas_fc <- c(
+        get_kappas_frobcorrected(model_fit),
+        get_kappas(model_fit$vc)
+      )
       
       alpha_mat[row_ind, ] <- dropout_alphas
       kappa_mat[row_ind, ] <- kappas
       kappa_local_mat[row_ind, ] <- kappas_local
-      # kappa_fc_mat[row_ind, ] <- kappas_fc
+      kappa_fc_mat[row_ind, ] <- kappas_fc
       kappa_tc_mat[row_ind, ] <- kappas_tc
     }
     
@@ -1080,8 +1140,9 @@ spVCBART_VCmod_sim <- function(
         "\n Epoch:", epoch,
         "MSE + KL/n =", round(mse$item(), 5), "+", round(kl$item(), 5),
         "=", round(loss$item(), 4),
+        " (kl_weight:", round(kl_weight, 2), ")",
         "\n",
-        "train mse:", round(mse$item(), 4), 
+        "train mse:", round(mse$item(), 4),
         "; test_mse:", round(mse_te$item(), 4),
         sep = " "
       )
@@ -1089,13 +1150,13 @@ spVCBART_VCmod_sim <- function(
       # report global shrinkage params (s^2 or tau^2)
       s_sq1 <- get_s_sq(model_fit$fc1)
       s_sq2 <- get_s_sq(model_fit$fc2)
-      s_sq3 <- get_s_sq(model_fit$fc3)
+      # s_sq3 <- get_s_sq(model_fit$fc3)
       s_sqvc <- get_s_sq(model_fit$vc)
       
       cat(
         "\n s_sq1 = ", round(s_sq1, 5),
         "; s_sq2 = ", round(s_sq2, 5),
-        "; s_sq3 = ", round(s_sq3, 5),
+        # "; s_sq3 = ", round(s_sq3, 5),
         "; s_sqvc = ", round(s_sqvc, 5),
         sep = ""
       )
@@ -1111,9 +1172,9 @@ spVCBART_VCmod_sim <- function(
       # cat(display_alphas, sep = " ")
       cat("\n LOCAL kappas: ", round(kappas_local, 2), "\n")
       cat("\n GLOBAL kappas: ", round(kappas, 2), "\n")
-      # cat("\n FROB kappas: ", round(kappas_fc, 2), "\n")
+      cat("\n FROB kappas: ", round(kappas_fc, 2), "\n")
       cat("\n TAU kappas: ", round(kappas_tc, 2), "\n")
-      cat("\n \n")
+      cat("\n")
     }
     
     ## PLOTS ----
@@ -1151,9 +1212,13 @@ spVCBART_VCmod_sim <- function(
         sds = XZ_sds[1:sim_params$d_0]
       )$scaled
       
-      beta_hat <- as_array(
-        model_fit$get_betas(zvars = zgrid)
-      )
+      model_fit$eval()
+      with_no_grad({
+        beta_hat <- as_array(
+          model_fit$get_betas(zvars = zgrid)
+        )
+      })
+      model_fit$train()
       
       colnames(beta_hat) <- paste0(
         colnames(XZ)[sim_params$R + 1:sim_params$d_p1],
@@ -1223,7 +1288,7 @@ spVCBART_VCmod_sim <- function(
     "alpha_mat" = alpha_mat,
     "kappa_mat" = kappa_mat,
     "kappa_tc_mat" = kappa_tc_mat,
-    # "kappa_fc_mat" = kappa_fc_mat,
+    "kappa_fc_mat" = kappa_fc_mat,
     "kappa_local_mat" = kappa_local_mat
   )
   

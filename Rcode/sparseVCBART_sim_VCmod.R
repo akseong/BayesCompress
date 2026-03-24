@@ -13,7 +13,7 @@ library(here)
 library(tidyverse)
 
 library(torch)
-source(here("Rcode", "torch_horseshoe_klcorrected.R"))
+source(here("Rcode", "torch_horseshoe_opus.R"))
 source(here("Rcode", "sim_functions.R"))
 source(here("Rcode", "analysis_fcns.R"))
 source(here("Rcode", "sparseVCBART_fcns.R"))
@@ -49,6 +49,8 @@ p_0 <- p
 R_0 <- R/2
 dont_scale_t0 <- TRUE
 sim_ID <- "VCmod_3L_12864_test0sig"
+n_mc_samps <- 2
+batch_size <- round(n_obs/10)
 
 
 fname_stem <- paste0(
@@ -60,18 +62,19 @@ fname_stem <- paste0(
 )
 
 sim_descr <- c(
+  "deterministic layer augmented, 0 sig, minibatching, 2 mc samples",
   "test run for VC model with selection on X and Z",
-  "sig = 0, n=10k, 128-64, lr = 0.001, agnostic tau's except p_0 = p"
+  "sig = 0, n=10k, 5x32, lr = 0.001, agnostic tau's except p_0 = p"
 )
 
 ## sim_params ** ----
 sim_params <- list(
   "description" = sim_descr,
-  "seed" = 12864,
+  "seed" = 532,
   "sim_ID" = sim_ID,
   "n_sims" = n_sims, 
-  "train_epochs" = 3e5,
-  "report_every" = 1E4,
+  "train_epochs" = 2e3,
+  "report_every" = 1E2,
   "plot_every_x_reports" = 10,
   "verbose" = TRUE,
   "want_metric_plts" = TRUE,
@@ -88,11 +91,11 @@ sim_params <- list(
   "dont_scale_t0" = dont_scale_t0,
   "use_cuda" = use_cuda,
   "d_0" = R,
-  "d_1" = 128,
-  "d_2" = 64,
-  # "d_3" = 16,
-  # "d_4" = 16,
-  # "d_5" = 16,
+  "d_1" = 32,
+  "d_2" = 32,
+  "d_3" = 32,
+  "d_4" = 32,
+  "d_5" = 32,
   "d_p1" = p+1,
   "d_L" = 1,
   "lr" = 0.001,  # sim_hshoe learning rate arg.  If not specified, uses optim_adam default (0.001)
@@ -103,13 +106,22 @@ sim_params <- list(
   "p" = p,
   "R" = R,
   "sig_eps" = sig_eps,
-  "mu_eps" = mu_eps
+  "mu_eps" = mu_eps,
+  
+  # training
+  "n_mc_samples" = n_mc_samps,
+  "batch_size" = batch_size,
+  "lr_scheduler" = NULL, # torch::lr_cosine_annealing,
+  "kl_scheduler" = kl_weight_cosine,
+  "kl_warmup_frac" = 1/5
 )
 set.seed(sim_params$seed)
 sim_params$sim_seeds <- floor(runif(n = sim_params$n_sims, 0, 1000000))
 
 ## param count ----
 dim_vec <- do.call(c, sim_params[grep(pattern = "d_", names(sim_params))])
+# don't count det layers
+dim_vec <- dim_vec[1:3]
 param_count <- param_counts_from_dims(dim_vec)
 cat("\n network parameter count: ") 
 print(param_count)
@@ -175,8 +187,28 @@ VCHS <- nn_module(
       clip_var = TRUE
     )
     
-    self$fc3 = torch_hs(
-      in_features = sim_params$d_2,
+    self$det1 = nn_linear(
+      sim_params$d_2, 
+      sim_params$d_3
+    )
+    
+    self$det2 = nn_linear(
+      sim_params$d_3, 
+      sim_params$d_4
+    )
+    
+    self$det3 = nn_linear(
+      sim_params$d_4, 
+      sim_params$d_5
+    )
+    
+    self$det4 = nn_linear(
+      sim_params$d_5, 
+      sim_params$d_p1
+    )
+    
+    # self$fc3 = torch_hs(
+    #   in_features = sim_params$d_2,
     #   out_features = sim_params$d_3,
     #   use_cuda = sim_params$use_cuda,
     #   tau_0 = 1,
@@ -199,14 +231,14 @@ VCHS <- nn_module(
     # 
     #   self$fc5 = torch_hs(
     #     in_features = sim_params$d_4,
-      out_features = sim_params$d_p1,
-      use_cuda = sim_params$use_cuda,
-      tau_0 = agnostic_tau,
-      init_weight = NULL,
-      init_bias = NULL,
-      init_alpha = 0.9,
-      clip_var = TRUE
-    )
+    #   out_features = sim_params$d_p1,
+    #   use_cuda = sim_params$use_cuda,
+    #   tau_0 = agnostic_tau,
+    #   init_weight = NULL,
+    #   init_bias = NULL,
+    #   init_alpha = 0.9,
+    #   clip_var = TRUE
+    # )
     
     self$vc = torch_hs_VClast(
       in_features = sim_params$d_p1,
@@ -215,6 +247,13 @@ VCHS <- nn_module(
       tau_0 = agnostic_tau,
       init_alpha = 0.9
     )
+    
+    if (sim_params$use_cuda){
+      self$det1$cuda()
+      self$det2$cuda()
+      self$det3$cuda()
+      self$det4$cuda()
+    }
   },
   
   forward = function(zvars, xvars) {
@@ -224,11 +263,18 @@ VCHS <- nn_module(
       nnf_relu() %>%
       self$fc2() %>%
       nnf_relu() %>%
-      self$fc3() # %>% 
+      # self$fc3() # %>% 
       # nnf_relu() %>%
       # self$fc4() %>%
       # nnf_relu() %>%
       # self$fc5()
+      self$det1() %>% 
+      nnf_relu() %>%
+      self$det2() %>% 
+      nnf_relu() %>%
+      self$det3() %>% 
+      nnf_relu() %>%
+      self$det4()
     
     # yhats via hshoe on VCs
     self$vc(vcs=betas, xvars=xvars)
@@ -240,21 +286,28 @@ VCHS <- nn_module(
       nnf_relu() %>%
       self$fc2() %>%
       nnf_relu() %>%
-      self$fc3() %>% 
-      nnf_relu() # %>%
+      # self$fc3() %>% 
+      # nnf_relu() # %>%
       # self$fc4() %>%
       # nnf_relu() %>%
       # self$fc5()
+      self$det1() %>% 
+      nnf_relu() %>%
+      self$det2() %>% 
+      nnf_relu() %>%
+      self$det3() %>% 
+      nnf_relu() %>%
+      self$det4()
   },
   
   get_model_kld = function(){
     kl1 = self$fc1$get_kl()
     kl2 = self$fc2$get_kl()
-    kl3 = self$fc3$get_kl()
+    # kl3 = self$fc3$get_kl()
     klvc = self$vc$get_kl()
     # kl4 = self$fc3$get_kl()
     # kl5 = self$fc3$get_kl()
-    kld = klvc + kl1 + kl2 + kl3 # + kl4 + kl5
+    kld = klvc + kl1 + kl2 #+ kl3 # + kl4 + kl5
     return(kld)
   }
 )
