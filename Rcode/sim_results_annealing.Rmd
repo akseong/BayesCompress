@@ -311,6 +311,35 @@ if (!is.null(sim_res$kappa_fc_mat)){
 
 Purpose is to see how recent changes made to the code ($\tau_0^2$ in the KL, single update for $z = \lambda \tau$, annealing learning rate and/or KL, minibatching) affect performance.
 
+## fnames:
+1k obs
+
+[x] hshoe_opus_3232_1250obs_
+
+[x] hshoe_4sampleZ_3232_1250obs_
+
+[x] hshoe_annealing_3232_1250obs_
+
+[x] hshoe_annealing_816_1250obs_
+
+[x] hshoe_annealklonly_816_1250obs_
+
+[x] tau1_annealklonly_816_1250obs_
+
+[x] hshoe_annealing_12864_1250obs_
+
+
+10k obs
+
+[x] hshoe_annealing_3232_12500obs_
+
+[x] hshoe_annealing_816_12500obs_
+
+[x] hshoe_annealing_12864_12500obs_
+
+
+
+
 
 # 1000 obs
 
