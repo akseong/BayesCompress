@@ -32,7 +32,7 @@ if (torch::cuda_is_available()){
 # data characteristics ----
 n_obs <- 1e4   # try with more obs for now
 ttsplit <- 0.8
-p <- 3  
+p <- 3
 R <- 20
 sig_eps <- 0
 mu_eps <- 0
@@ -46,8 +46,9 @@ true_covs <- c(
 n_sims <- 2
 p_0 <- (p+R)/2
 dont_scale_t0 <- TRUE
-sim_ID <- "VC_vanilla12864_agnostic_test0sig"
-
+sim_ID <- "VCdet_vanilla532_test0sig"
+n_mc_samps <- 2
+batch_size <- round(n_obs/10)
 
 fname_stem <- paste0(
   sim_ID,
@@ -58,20 +59,21 @@ fname_stem <- paste0(
 )
 
 
-sim_desce <- c(
+sim_descr <- c(
+  "deterministic layer augmented",
   "agnostic tau_0 (scaled to 1/2), learning rate 0.001",
-  "larger network 128-64; sparseVCBART experiment 1 setting"
+  "5x32 nn; sparseVCBART experiment 1 setting"
 )
 
 ## sim_params ** ----
 sim_params <- list(
   # sim characteristics
-  "description" = sim_desce,
-  "seed" = 6432,
+  "description" = sim_descr,
+  "seed" = 532,
   "sim_ID" = sim_ID,
   "n_sims" = n_sims,
-  "train_epochs" = 3e5,
-  "report_every" = 1E4,
+  "train_epochs" = 3e4,
+  "report_every" = 1E3,
   "plot_every_x_reports" = 10,
   "verbose" = TRUE,
   "want_metric_plts" = TRUE,
@@ -87,11 +89,11 @@ sim_params <- list(
   "dont_scale_t0" = dont_scale_t0,
   "use_cuda" = use_cuda,
   "d_0" = R+p,
-  "d_1" = 128,
-  "d_2" = 64,
-  # "d_3" = 16,
-  # "d_4" = 16,
-  # "d_5" = 16,
+  "d_1" = 32,
+  "d_2" = 32,
+  "d_3" = 32,
+  "d_4" = 32,
+  "d_5" = 32,
   "d_L" = 1,
   "lr" = .001,  # sim_hshoe learning rate arg.  If not specified, uses optim_adam default (0.001)
   
@@ -101,13 +103,22 @@ sim_params <- list(
   "p" = p,
   "R" = R,
   "sig_eps" = sig_eps,
-  "mu_eps" = mu_eps
+  "mu_eps" = mu_eps,
+  
+  # training
+  "n_mc_samples" = n_mc_samps,
+  "batch_size" = batch_size,
+  "lr_scheduler" = NULL, # torch::lr_cosine_annealing,
+  "kl_scheduler" = kl_weight_cosine,
+  "kl_warmup_frac" = 1/5
 )
 set.seed(sim_params$seed)
 sim_params$sim_seeds <- floor(runif(n = sim_params$n_sims, 0, 1000000))
 
 ## param count ----
 dim_vec <- do.call(c, sim_params[grep(pattern = "d_", names(sim_params))])
+# dont count det layer params
+dim_vec <- dim_vec[1:3]
 param_count <- param_counts_from_dims(dim_vec)
 cat("\n network parameter count: ") 
 print(param_count)
@@ -173,38 +184,65 @@ MLHS <- nn_module(
       clip_var = TRUE
     )
     
-    self$fc3 = torch_hs(
-      in_features = sim_params$d_2,
-      #   out_features = sim_params$d_3,
-      #   use_cuda = sim_params$use_cuda,
-      #   tau = agnostic_tau,
-      #   init_weight = NULL,
-      #   init_bias = NULL,
-      #   init_alpha = 0.9,
-      #   clip_var = TRUE
-      # )
-      # 
-      # self$fc4 = torch_hs(
-      #   in_features = sim_params$d_3,
-      #   out_features = sim_params$d_4,
-      #   use_cuda = sim_params$use_cuda,
-      #   tau = agnostic_tau,
-      #   init_weight = NULL,
-      #   init_bias = NULL,
-      #   init_alpha = 0.9,
-      #   clip_var = TRUE
-      # )
-      # 
-      # self$fc5 = torch_hs(
-      #   in_features = sim_params$d_4,
-      out_features = sim_params$d_L,
-      use_cuda = sim_params$use_cuda,
-      tau_0 = agnostic_tau,
-      init_weight = NULL,
-      init_bias = NULL,
-      init_alpha = 0.9,
-      clip_var = TRUE
+    self$det1 = nn_linear(
+      sim_params$d_2, 
+      sim_params$d_3
     )
+    
+    self$det2 = nn_linear(
+      sim_params$d_3, 
+      sim_params$d_4
+    )
+    
+    self$det3 = nn_linear(
+      sim_params$d_4, 
+      sim_params$d_5
+    )
+    
+    self$det4 = nn_linear(
+      sim_params$d_5, 
+      sim_params$d_L
+    )
+    
+    if (sim_params$use_cuda){
+      self$det1$cuda()
+      self$det2$cuda()
+      self$det3$cuda()
+      self$det4$cuda()
+    }
+    
+    # self$fc3 = torch_hs(
+    #   in_features = sim_params$d_2,
+    #   #   out_features = sim_params$d_3,
+    #   #   use_cuda = sim_params$use_cuda,
+    #   #   tau = agnostic_tau,
+    #   #   init_weight = NULL,
+    #   #   init_bias = NULL,
+    #   #   init_alpha = 0.9,
+    #   #   clip_var = TRUE
+    #   # )
+    #   # 
+    #   # self$fc4 = torch_hs(
+    #   #   in_features = sim_params$d_3,
+    #   #   out_features = sim_params$d_4,
+    #   #   use_cuda = sim_params$use_cuda,
+    #   #   tau = agnostic_tau,
+    #   #   init_weight = NULL,
+    #   #   init_bias = NULL,
+    #   #   init_alpha = 0.9,
+    #   #   clip_var = TRUE
+    #   # )
+    #   # 
+    #   # self$fc5 = torch_hs(
+    #   #   in_features = sim_params$d_4,
+    #   out_features = sim_params$d_L,
+    #   use_cuda = sim_params$use_cuda,
+    #   tau_0 = agnostic_tau,
+    #   init_weight = NULL,
+    #   init_bias = NULL,
+    #   init_alpha = 0.9,
+    #   clip_var = TRUE
+    # )
     
   },
   
@@ -214,20 +252,22 @@ MLHS <- nn_module(
       nnf_relu() %>%
       self$fc2() %>%
       nnf_relu() %>%
-      self$fc3() # %>%
-    # nnf_relu() %>%
-    # self$fc4() %>%
-    # nnf_relu() %>%
-    # self$fc5()
+      self$det1() %>%
+      nnf_relu() %>%
+      self$det2() %>%
+      nnf_relu() %>%
+      self$det3() %>%
+      nnf_relu() %>% 
+      self$det4()
   },
   
   get_model_kld = function(){
     kl1 = self$fc1$get_kl()
     kl2 = self$fc2$get_kl()
-    kl3 = self$fc3$get_kl()
+    # kl3 = self$fc3$get_kl()
     # kl4 = self$fc3$get_kl()
     # kl5 = self$fc3$get_kl()
-    kld = kl1 + kl2 + kl3 #+ kl4 + kl5
+    kld = kl1 + kl2 #+ kl3 + kl4 + kl5
     return(kld)
   }
 )
