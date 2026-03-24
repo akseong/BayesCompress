@@ -730,7 +730,7 @@ spVCBART_vanilla_sim <- function(
       cat("\n GLOBAL kappas: ", round(kappas, 2), "\n")
       cat("\n FROB kappas: ", round(kappas_fc, 2), "\n")
       cat("\n TAU kappas: ", round(kappas_tc, 2), "\n")
-      cat("\n \n")
+      cat("\n")
     }
     
     ## PLOTS ----
@@ -783,12 +783,22 @@ spVCBART_vanilla_sim <- function(
       )
       b0_for_b1_df <- scale_mat(b0_for_b1_raw, XZ_means, XZ_sds)$scaled
     
+      b0_tens <- torch_tensor(as.matrix(b0_df))
+      b0_for_b1_tens <- torch_tensor(as.matrix(b0_for_b1_df))
+      b1_tens <- torch_tensor(as.matrix(b1_df))
+      if (sim_params$use_cuda){
+        # transfer to cuda if model on cuda
+        b0_tens <- b0_tens$cuda()
+        b0_for_b1_tens <- b0_for_b1_tens$cuda()
+        b1_tens <- b1_tens$cuda()
+      }
+      
       # gen preds
       model_fit$eval()
       with_no_grad({
-        b0_yhat <- as_array(model_fit(torch_tensor(as.matrix(b0_df))))
-        b0_hat <- as_array(model_fit(torch_tensor(as.matrix(b0_for_b1_df))))
-        Ey_b1_hat <- as_array(model_fit(torch_tensor(as.matrix(b1_df))))
+        b0_yhat <- as_array(model_fit(b0_tens))
+        b0_hat <- as_array(model_fit(b0_for_b1_tens))
+        Ey_b1_hat <- as_array(model_fit(b1_tens))
       })
       model_fit$train()
       
@@ -1205,17 +1215,21 @@ spVCBART_VCmod_sim <- function(
       
       ## make Z grid
       zgrid_raw <- make_isolated_Zgrids(R = sim_params$d_0, resol = 100)
-      
       zgrid <- scale_mat(
         zgrid_raw, 
         means = XZ_means[1:sim_params$d_0], 
         sds = XZ_sds[1:sim_params$d_0]
       )$scaled
-      
+      zgrid_tens <- torch_tensor(zgrid)
+      if (sim_params$use_cuda) {
+        # move to cuda
+        zgrid_tens <- zgrid_tens$cuda()
+      }
+      # fit
       model_fit$eval()
       with_no_grad({
         beta_hat <- as_array(
-          model_fit$get_betas(zvars = zgrid)
+          model_fit$get_betas(zvars = zgrid_tens)
         )
       })
       model_fit$train()
