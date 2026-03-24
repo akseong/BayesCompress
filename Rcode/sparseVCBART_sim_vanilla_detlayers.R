@@ -46,7 +46,7 @@ true_covs <- c(
 n_sims <- 2
 p_0 <- (p+R)/2
 dont_scale_t0 <- TRUE
-sim_ID <- "VCdet_vanilla532_test0sig"
+sim_ID <- "VCdet_vanilla532_test0sig_tau1"
 n_mc_samps <- 2
 batch_size <- round(n_obs/10)
 
@@ -60,8 +60,8 @@ fname_stem <- paste0(
 
 
 sim_descr <- c(
-  "deterministic layer augmented",
-  "agnostic tau_0 (scaled to 1/2), learning rate 0.001",
+  "deterministic layer augmented, 0 sig, minibatching, 2 mc samples",
+  "tau=1, learning rate 0.001",
   "5x32 nn; sparseVCBART experiment 1 setting"
 )
 
@@ -72,8 +72,8 @@ sim_params <- list(
   "seed" = 532,
   "sim_ID" = sim_ID,
   "n_sims" = n_sims,
-  "train_epochs" = 3e4,
-  "report_every" = 1E3,
+  "train_epochs" = 2e5,
+  "report_every" = 1E4,
   "plot_every_x_reports" = 10,
   "verbose" = TRUE,
   "want_metric_plts" = TRUE,
@@ -137,25 +137,25 @@ print(param_count)
 # If many more network params than obs (e.g. like 2x), 
 # can try scaling the prior tau by n_obs/n_params
 # to induce more shrinkage (put pressure against overfitting)
-obs_to_nnparams <- sim_params$n_obs / last(param_count)
-tau0_scaling <- ifelse(
-  (obs_to_nnparams > .5) | sim_params$dont_scale_t0, 
-  1, 
-  obs_to_nnparams
-)
-
-sim_params$prior_tau <- tau0_scaling * tau0_PV(
-  p_0 = sim_params$p_0, 
-  d = sim_params$p + sim_params$R, 
-  sig = sim_params$sig_est, 
-  n = sim_params$n_obs
-)
-
-agnostic_tau <- tau0_PV(
-  p_0 = 1, d = 2, sig = 1, 
-  n = sim_params$n_obs
-)
-
+# obs_to_nnparams <- sim_params$n_obs / last(param_count)
+# tau0_scaling <- ifelse(
+#   (obs_to_nnparams > .5) | sim_params$dont_scale_t0, 
+#   1, 
+#   obs_to_nnparams
+# )
+# 
+# sim_params$prior_tau <- tau0_scaling * tau0_PV(
+#   p_0 = sim_params$p_0, 
+#   d = sim_params$p + sim_params$R, 
+#   sig = sim_params$sig_est, 
+#   n = sim_params$n_obs
+# )
+# 
+# agnostic_tau <- tau0_PV(
+#   p_0 = 1, d = 2, sig = 1, 
+#   n = sim_params$n_obs
+# )
+sim_params$prior_tau <- agnostic_tau <- 1
 
 # DEFINE MODEL ----
 
@@ -330,6 +330,7 @@ eps_mat <- matrix(
 
 # SIM_LOOP ----
 for (sim_ind in 1:sim_params$n_sims){
+  print(sim_descr)
   ## sim_save_path ----
   sim_save_path <- here::here(
     "sims", 
