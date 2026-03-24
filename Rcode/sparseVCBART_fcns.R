@@ -530,6 +530,15 @@ spVCBART_vanilla_sim <- function(
     XZ_te <- XZ_te$to(device = "cuda")
   }
   
+  ## minibatching setup ----
+  if (!is.null(sim_params$batch_size)){
+    num_batches <- sim_params$n_obs %/% sim_params$batch_size
+    batch_inds_vec <- 1:sim_params$n_obs
+    batch_size <- sim_params$batch_size
+  } else {
+    batch_size <- sim_params$n_obs
+  }
+  
   ## when to report / plot ----
   report_epochs <- seq(
     sim_params$report_every, 
@@ -547,9 +556,9 @@ spVCBART_vanilla_sim <- function(
   loss_mat <- matrix(
     NA, 
     nrow = length(report_epochs),
-    ncol = 3
+    ncol = 5
   )
-  colnames(loss_mat) <- c("kl", "mse_train", "mse_test")
+  colnames(loss_mat) <- c("kl", "mse_train", "mse_test", "kl_raw", "kl_weight")
   rownames(loss_mat) <- report_epochs
   
   
@@ -572,25 +581,70 @@ spVCBART_vanilla_sim <- function(
   model_fit <- nn_model()
   optim_model_fit <- optim_adam(model_fit$parameters, lr = sim_params$lr)
   
+  # number mc samples used to compute train MSE
+  n_mc <- ifelse(
+    !is.null(sim_params$n_mc_samples),
+    sim_params$n_mc_samples, 1
+  )
+  
+  # lr annealing
+  if (!is.null(sim_params$lr_scheduler)){
+    scheduler <- sim_params$lr_scheduler(optim_model_fit, T_max = sim_params$train_epochs)
+  }
+  
+  # kl annealing
+  if (!is.null(sim_params$kl_scheduler)){
+    kl_warmup_epochs <- round(sim_params$train_epochs * sim_params$kl_warmup_frac)
+  }
+  
   ## TRAIN LOOP
   epoch <- 1
   loss <- torch_tensor(1, device = dev_select(sim_params$use_cuda))
   while (epoch <= sim_params$train_epochs){
     
-    ## fit & metrics ----
-    yhat_tr <- model_fit(XZ_tr)
-    mse <- nnf_mse_loss(yhat_tr, y_tr)
-    kl <- model_fit$get_model_kld() / length(y_tr)
-    loss <- mse + kl
+    if (!is.null(sim_params$batch_size)){
+      # determine batch number
+      batch_num <- epoch %% num_batches
+      # reshuffle batches if batch_num == 0
+      if (batch_num == 0) {batch_inds_vec <- sample(1:sim_params$n_obs)}
+      batch_inds <- batch_inds_vec[1:sim_params$batch_size + (batch_num)*sim_params$batch_size]
+    }
     
-    # gradient step 
     # zero out previous gradients
     optim_model_fit$zero_grad()
-    # backprop
-    loss$backward()
+    
+    # accumulate mse gradients over s MC samples
+    mse_accum <- torch_tensor(0, device = dev_select(sim_params$use_cuda))
+    for (s in 1:n_mc){
+      # fit model with / without batching
+      if (is.null(sim_params$batch_size)){
+        yhat_tr <- model_fit(XZ_tr)
+        mse_s <- nnf_mse_loss(yhat_tr, y_tr) / n_mc
+      } else {
+        yhat_tr <- model_fit(XZ_tr[batch_inds, ])
+        mse_s <- nnf_mse_loss(yhat_tr, y_tr[batch_inds]) / n_mc
+      }
+      mse_s$backward()
+    }
+    
+    # fit & metrics
+    kl_raw <- model_fit$get_model_kld() / sim_params$n_obs
+    kl_weight <- ifelse(
+      !is.null(sim_params$kl_scheduler),
+      sim_params$kl_scheduler(epoch, kl_warmup_epochs),
+      1
+    )
+    kl <- kl_weight * kl_raw
+    kl$backward()
+    
     # update weights
     optim_model_fit$step()
-    
+    mse <- mse_s * n_mc # approximate, based only on last sample's mse
+    loss <- mse + kl
+    # learning rate scheduler step
+    if (!is.null(sim_params$lr_scheduler)) {
+      scheduler$step()
+    }
     
     ## REPORTING ----
     # track progress
@@ -613,12 +667,16 @@ spVCBART_vanilla_sim <- function(
     if (time_to_report){
       row_ind <- epoch %/% sim_params$report_every
       
-      # compute test loss
-      yhat_te <- model_fit(XZ_te)
-      mse_te <- nnf_mse_loss(yhat_te, y_te)
+      # compute test loss 
+      model_fit$eval()                    # switches ALL layers to deterministic
+      with_no_grad({
+        yhat_te <- model_fit(XZ_te)
+        mse_te <- nnf_mse_loss(yhat_te, y_te)
+      })
+      model_fit$train()
       
       # store params
-      loss_mat[row_ind, ] <- c(kl$item(), mse$item(), mse_te$item())
+      loss_mat[row_ind, ] <- c(kl$item(), mse$item(), mse_te$item(), kl_raw$item(), kl_weight)
       dropout_alphas <- model_fit$fc1$get_dropout_rates()
       alpha_mat[row_ind, ] <- as_array(dropout_alphas)
       kappas <- get_kappas(model_fit$fc1)
@@ -640,8 +698,9 @@ spVCBART_vanilla_sim <- function(
         "\n Epoch:", epoch,
         "MSE + KL/n =", round(mse$item(), 5), "+", round(kl$item(), 5),
         "=", round(loss$item(), 4),
+        " (kl_weight:", round(kl_weight, 2), ")",
         "\n",
-        "train mse:", round(mse$item(), 4), 
+        "train mse:", round(mse$item(), 4),
         "; test_mse:", round(mse_te$item(), 4),
         sep = " "
       )
@@ -649,12 +708,12 @@ spVCBART_vanilla_sim <- function(
       # report global shrinkage params (s^2 or tau^2)
       s_sq1 <- get_s_sq(model_fit$fc1)
       s_sq2 <- get_s_sq(model_fit$fc2)
-      s_sq3 <- get_s_sq(model_fit$fc3)
+      # s_sq3 <- get_s_sq(model_fit$fc3)
       
       cat(
         "\n s_sq1 = ", round(s_sq1, 5),
         "; s_sq2 = ", round(s_sq2, 5),
-        "; s_sq3 = ", round(s_sq3, 5),
+        # "; s_sq3 = ", round(s_sq3, 5),
         sep = ""
       )
       
@@ -700,19 +759,40 @@ spVCBART_vanilla_sim <- function(
       
       subtitle_str <- paste0("epoch :", epoch)
       
-      ## plot beta_0 
+      ## beta_0 mats 
       b0_df_raw <- make_b0_pred_df(
         p = sim_params$p, 
         R = sim_params$R,
         z2_vals = c(0,1)
       )
       b0_df <- scale_mat(b0_df_raw, means = XZ_means, sds = XZ_sds)$scaled
-      b0_yhat <- as_array(
-        get_nn_mod_Ey(
-          nn_mod = model_fit, 
-          X = torch_tensor(as.matrix(b0_df))
-        )
+      
+      ## beta_1 mats
+      b1_df_raw <- make_b1_pred_df(
+        resol = 100,
+        x1_vals = 1,
+        p = sim_params$p,
+        R = sim_params$R
       )
+      b1_df <- scale_mat(b1_df_raw, XZ_means, XZ_sds)$scaled
+      b0_for_b1_raw <- make_b0_pred_df(
+        resol = 100,
+        p = sim_params$p,
+        R = sim_params$R,
+        z2_vals = 0
+      )
+      b0_for_b1_df <- scale_mat(b0_for_b1_raw, XZ_means, XZ_sds)$scaled
+    
+      # gen preds
+      model_fit$eval()
+      with_no_grad({
+        b0_yhat <- as_array(model_fit(torch_tensor(as.matrix(b0_df))))
+        b0_hat <- as_array(model_fit(torch_tensor(as.matrix(b0_for_b1_df))))
+        Ey_b1_hat <- as_array(model_fit(torch_tensor(as.matrix(b1_df))))
+      })
+      model_fit$train()
+      
+      # transformations to plot
       b0_yhat_raw <- b0_yhat * y_sd + y_mean
       
       b0_plt <- data.frame(
@@ -728,37 +808,6 @@ spVCBART_vanilla_sim <- function(
           title = TeX("estimated $\\beta_0$ ~ $z_1$"),
           subtitle = subtitle_str
         )
-      
-      
-      ## plot beta_1
-      b1_df_raw <- make_b1_pred_df(
-        resol = 100,
-        x1_vals = 1,
-        p = sim_params$p,
-        R = sim_params$R
-      )
-      b1_df <- scale_mat(b1_df_raw, XZ_means, XZ_sds)$scaled
-      b0_for_b1_raw <- make_b0_pred_df(
-        resol = 100,
-        p = sim_params$p,
-        R = sim_params$R,
-        z2_vals = 0
-      )
-      b0_for_b1_df <- scale_mat(b0_for_b1_raw, XZ_means, XZ_sds)$scaled
-      
-      # gen scaled Eys
-      Ey_b1_hat <- as_array(
-        get_nn_mod_Ey(
-          nn_mod = model_fit, 
-          X = torch_tensor(as.matrix(b1_df))
-        )
-      )
-      b0_hat <- as_array(
-        get_nn_mod_Ey(
-          nn_mod = model_fit, 
-          X = torch_tensor(as.matrix(b0_for_b1_df))
-        )
-      )
       
       # indirectly get b1:
       b1_hat <- Ey_b1_hat/b1_df$x1 - b0_hat
