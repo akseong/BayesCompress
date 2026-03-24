@@ -622,17 +622,25 @@ get_kappas_taucorrected <- function(nn_mod, ln_fcn = ln_mode){
 
 ## get_kappas_frobcorrected ----
 get_kappas_frobcorrected <- function(nn_mod, ln_fcn = ln_mode){
-  
   z1_c <- sqrt(get_zsq(nn_mod$fc1))
+  
   for (l in 2:length(nn_mod$children)){
-    z_l <- sqrt(get_zsq(nn_mod$children[[l]]))
-    w_l_mu <- get_wtil_params(nn_mod$children[[l]])$wtil_mu
-    z1_c <- z1_c * frob(diag(z_l) %*% t(w_l_mu))
+    # determine if hshoe or determ layer
+  
+    if (!is.null(nn_mod$children[[l]]$atilde_mu)) {
+      # hshoe layer
+      z_l <- sqrt(get_zsq(nn_mod$children[[l]]))
+      w_l_mu <- get_wtil_params(nn_mod$children[[l]])$wtil_mu
+      z1_c <- z1_c * frob(diag(z_l) %*% t(w_l_mu))
+    } else {
+      # det layer
+      z1_c <- z1_c * frob(as_array(nn_mod$children[[l]]$weight))
+    }
+    
   }
   
   return((1 + z1_c^2)^(-1))
 }
-
 
 
 
@@ -1131,7 +1139,11 @@ sim_hshoe <- function(
     
     # fit & metrics
     kl_raw <- model_fit$get_model_kld() / ttsplit_ind
-    kl_weight <- kl_weight_linear(epoch, kl_warmup_epochs)
+    kl_weight <- ifelse(
+      !is.null(sim_params$kl_scheduler),
+      sim_params$kl_scheduler(epoch, kl_warmup_epochs),
+      1
+    )
     kl <- kl_weight * kl_raw
     kl$backward()
 
@@ -1168,8 +1180,16 @@ sim_hshoe <- function(
       row_ind <- epoch %/% sim_params$report_every
       
       # compute test loss 
-      yhat_test <- model_fit(x_test)
-      mse_test <- nnf_mse_loss(yhat_test, y_test)
+      model_fit$eval()                    # switches ALL layers to deterministic
+      with_no_grad({
+        yhat_test <- model_fit(x_test)
+        mse_test <- nnf_mse_loss(yhat_test, y_test)
+        
+        if (time_to_plot & want_fcn_plots){
+          yhat_plot <- model_fit(x_plot)
+        }
+      })
+      model_fit$train()
       
       loss_mat[row_ind, ] <- c(kl$item(), mse$item(), mse_test$item(), kl_raw$item(), kl_weight)
       dropout_alphas <- model_fit$fc1$get_dropout_rates()
@@ -1715,9 +1735,9 @@ sim_hshoe_det <- function(
       
       # corrected param kappas
       kappas_tc <- get_kappas_taucorrected(model_fit)
-      # kappas_fc <- get_kappas_frobcorrected(model_fit)
+      kappas_fc <- get_kappas_frobcorrected(model_fit)
       kappa_tc_mat[row_ind, ] <- kappas_tc
-      # kappa_fc_mat[row_ind, ] <- kappas_fc
+      kappa_fc_mat[row_ind, ] <- kappas_fc
       
       
       # storing other optional parameters, mostly for diagnostics
@@ -1783,7 +1803,7 @@ sim_hshoe_det <- function(
       
       cat("\n global kappas: ", round(kappas, 2), "\n")
       cat("\n tau-corrected kappas: ", round(kappas_tc, 2), "\n")
-      # cat("\n frob-corrected kappas: ", round(kappas_fc, 2), "\n")
+      cat("\n frob-corrected kappas: ", round(kappas_fc, 2), "\n")
       # display_kappas <- ifelse(
       #   kappas <= 0.9,
       #   round(kappas, 3),
@@ -1914,7 +1934,7 @@ sim_hshoe_det <- function(
     "alpha_mat" = alpha_mat,
     "kappa_mat" = kappa_mat,
     "kappa_tc_mat" = kappa_tc_mat,
-    # "kappa_fc_mat" = kappa_fc_mat,
+    "kappa_fc_mat" = kappa_fc_mat,
     "kappa_local_mat" = kappa_local_mat
     
   )
