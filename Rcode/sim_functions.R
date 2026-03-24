@@ -630,7 +630,13 @@ get_kappas_frobcorrected <- function(nn_mod, ln_fcn = ln_mode){
     if (!is.null(nn_mod$children[[l]]$atilde_mu)) {
       # hshoe layer
       z_l <- sqrt(get_zsq(nn_mod$children[[l]]))
-      w_l_mu <- get_wtil_params(nn_mod$children[[l]])$wtil_mu
+      if (!is.null(nn_mod$children[[l]]$weight_mu)){
+        # regular hshoe layer with weights
+        w_l_mu <- get_wtil_params(nn_mod$children[[l]])$wtil_mu
+      } else {
+        # last VC model layer (no weights)
+        w_l_mu <- diag(1, length(z_l))
+      }
       z1_c <- z1_c * frob(diag(z_l) %*% t(w_l_mu))
     } else {
       # det layer
