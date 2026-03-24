@@ -776,16 +776,12 @@ recover_func_data <- function(sim_params, seed){
     xdist = sim_params$xdist,
     standardize = false_if_null(sim_params$standardize)
   )
-  if (sim_params$use_cuda){
-    simdat$x <- simdat$x$to(device = "cuda")
-    simdat$y <- simdat$y$to(device = "cuda")
+
+  if (false_if_null(simdat$standardized)){
+    simdat$data_err_sig <- sim_params$err_sig / simdat$y_sd$item()
+    cat("y's standardized; resulting err_sig = ", simdat$data_err_sig)
   }
-  
-  sim_params$train_sig <- ifelse(
-    simdat$standardized,
-    sim_params$err_sig / simdat$y_sd$item(),
-    sim_params$err_sig
-  )
+  return(simdat)
 }
     
     
