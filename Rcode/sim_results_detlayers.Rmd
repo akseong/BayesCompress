@@ -302,8 +302,9 @@ if (!is.null(sim_res$kappa_tc_mat)){
 err_by_max_bfdr(get_kappas_frobcorrected(nn_mod))$plt_fdrs +
     labs(
       subtitle = "frob-corrected kappas as dropout probabilities"
+    )
 
-}
+
 
 ```
 
