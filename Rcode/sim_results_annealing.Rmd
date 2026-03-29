@@ -299,7 +299,7 @@ if (!is.null(sim_res$kappa_tc_mat)){
 if (!is.null(sim_res$kappa_fc_mat)){
   err_by_max_bfdr(get_kappas_frobcorrected(nn_mod))$plt_fdrs +
     labs(
-      subtitle = "tau-corrected kappas as dropout probabilities"
+      subtitle = "Frobenius-corrected kappas as dropout probabilities"
     )
 }
 
@@ -356,7 +356,10 @@ Purpose is to see how recent changes made to the code ($\tau_0^2$ in the KL, sin
 
 __Comments:__
 
-- 
+- even at 300k epochs, none of the predicted fits are great; all have test MSE ~ 4
+
+- frobenius-corrected kappas best, but still not very good
+
 
 
 ```{r singlez3232}
@@ -470,7 +473,12 @@ gen_header(sim_res)
 
 __Comments:__
 
-- 
+- prediction plots slightly better than 1-sample z.  
+
+- test MSE between 3-4
+
+- bfdrs are anti-conservative for Frobenius correction and local kappas, but not for tau kappas.  Tau kappas perform very badly, however.
+
 
 
 ```{r 4paramz3232}
@@ -585,7 +593,11 @@ gen_header(sim_res)
 
 __Comments:__
 
-- 
+- prediction plots again better than 1-sample Z, but still not great.
+
+- test MSE between 4-5
+
+- poor performance across the board; FPs creep up quickly.  Even local alphas are bad
 
 
 ```{r lrkl_3232}
@@ -674,12 +686,14 @@ gen_header(sim_res)
 
 - no minibatching 
 
-- no annealing
+- lr and kl annealing
 
 
 __Comments:__
 
-- 
+- preds not good; test MSE between 4-5
+
+- performance poor across the board
 
 
 ```{r lrkl_816}
@@ -793,7 +807,9 @@ gen_header(sim_res)
 
 __Comments:__
 
-- 
+- same as lr, kl annealing: preds not good; test MSE between 4-5
+
+- performance poor across the board
 
 
 ```{r klonly_816}
@@ -903,12 +919,14 @@ gen_header(sim_res)
 
 - no minibatching 
 
-- no annealing
+- KL annealing only
 
 
 __Comments:__
 
-- 
+- preds are best so far; still not amazing.  test MSE 4-5
+
+- performance still not great.  Shapes are better, but BFDR anti-conservative for all but global kappas
 
 
 ```{r tau1klonly_816}
@@ -1017,12 +1035,16 @@ gen_header(sim_res)
 
 - no minibatching 
 
-- no annealing
+- lr, kl annealing
 
 
 __Comments:__
 
-- 
+- preds not very good
+
+- test MSE 4-5
+
+- BFDR performance still not great.
 
 
 ```{r lrkl_12864}
@@ -1156,12 +1178,14 @@ gen_header(sim_res)
 
 - no minibatching 
 
-- no annealing
+- lr, kl annealing
 
 
 __Comments:__
 
-- 
+- pred plots good, test mse ~ 1.3-1.5
+
+- Frobenius correction does well, but FPs still appear much earlier on than before KL correction early on.
 
 
 ```{r lrkl_3232_10k}
@@ -1246,13 +1270,14 @@ gen_header(sim_res)
 
 - no minibatching 
 
-- no annealing
+- lr, kl annealing
 
 
 __Comments:__
 
-- 
+- preds good; test mse close to mse train (maybe max .25 apart)
 
+- Frobenius-corrected kappas do passably well, BFDR and FDR matching well, no early FPs
 
 ```{r lrkl_816_10k}
 stem <- here::here("sims", "results", "hshoe_annealing_816_12500obs_")
@@ -1339,7 +1364,9 @@ gen_header(sim_res)
 
 __Comments:__
 
-- 
+- preds good; test and train mse about .2-.5 apart
+
+- frobenius-corrected do OK, but early FPs
 
 
 ```{r lrkl_12864_10k}
