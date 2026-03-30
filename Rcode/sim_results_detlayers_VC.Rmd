@@ -1,0 +1,837 @@
+---
+title: "Simulation results: deterministic layers in VC model"
+author: "Arnie Seong"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+header-includes:
+  - \usepackage{bm}
+  - \usepackage{xcolor}
+  - \usepackage{amssymb}
+output: 
+  html_document:
+    df_print: paged
+    theme: cerulean
+    highlight: tango
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
+    code_fold: show
+urlcolor: blue
+params:
+  retrain: FALSE
+  seed: 314
+editor_options: 
+  chunk_output_type: console
+---
+<style>
+  .panel-tabs{
+    opacity: 1;
+    background-color: #2fa4e7;
+    color: #ffffff;
+    position: sticky;
+    top: 0
+  }
+</style>
+
+```{r setup, include=FALSE, message=F, echo=F, warning=F}
+# LIBRARIES----
+
+#### plotting:
+library(ggplot2)
+library(gridExtra)
+
+# #### Misc:
+library(here)
+library(tidyr)
+library(knitr)
+library(kableExtra)
+library(dplyr)
+
+# model packages
+library(torch)
+
+# DOCUMENT SETUP ----
+# detect pdf/html output, set chunk options, sci.notation 
+latex_out <- knitr::is_latex_output()
+knitr::opts_chunk$set(
+  cache = FALSE, 
+  message = FALSE, 
+  echo = !knitr::is_latex_output(), 
+  warning = FALSE
+)
+
+
+if (knitr::is_latex_output()) {
+  knitr::opts_chunk$set(fig.height=4, 
+                        fig.width=6)
+} else {
+  knitr::opts_chunk$set(out.width = "100%")
+}
+
+options(scipen=10)
+
+# PANELSET
+xaringanExtra::use_panelset()
+xaringanExtra::style_panelset_tabs(font_family = "inherit")
+
+
+
+# TEXT/TABLE FORMATTING----
+
+custom_purple <- ifelse(
+  knitr::is_latex_output(),
+  "purple",
+  "#b51ced"
+)
+
+custom_blue <- ifelse(
+  knitr::is_latex_output(),
+  "blue",
+  "#11579e"
+)
+
+colorize <- function(x, color=custom_purple) {
+  # text color conditional on latex/html output
+  # from rmarkdown cookbook
+  if (knitr::is_latex_output()) {
+    sprintf("\\textcolor{ %s}{ %s}", color, x)
+  } else if (knitr::is_html_output()) {
+    sprintf("<span style='color: %s;'>%s</span>", color, x)
+  } else x
+}
+
+cat_color <- function(txt, style = 1, color = 36){
+  cat(
+    paste0(
+      "\033[0;",
+      style, ";",
+      color, "m",
+      txt,
+      "\033[0m","\n"
+    )
+  )  
+}
+
+# kable NA handling
+options(knitr.kable.NA = '')
+
+# mykable function
+mykable <- function(tab, cap,
+                    latex_options=c("hold_position", "scale_down", "striped"), 
+                    bootstrap_options=c("striped", "hover", "condensed"), 
+                    full_width=F, position="center", ...){
+  # kable formatting conditional on latex or html output
+  if (is.null(getOption("knitr.in.progress"))){
+    print(tab)
+  } else if (knitr::is_latex_output()){
+    kable(x=tab, caption=cap, ...) %>%
+      kableExtra::kable_styling(latex_options = latex_options)
+  } else if (knitr::is_html_output()){
+    kable(x=tab, caption=cap, ...) %>%
+      kableExtra::kable_styling(bootstrap_options = bootstrap_options, full_width=full_width, position=position)
+  }
+}
+
+# notin
+`%notin%` <- Negate(`%in%`)
+
+source(here("Rcode", "torch_horseshoe_opus.R"))
+source(here("Rcode", "sim_functions.R"))
+source(here("Rcode", "analysis_fcns.R"))
+```
+
+
+
+```{r SETUP_AND_FCNS}
+knitr::opts_chunk$set(echo = FALSE)
+
+gen_header <- function(sim_res, hlevel = 4){
+  cat(
+    "\n\n",  rep("#", hlevel), " sim_id ", 
+    sim_res$sim_params$sim_seeds[sim_res$sim_ind], 
+    sep = ""
+  )
+}
+sim_characteristics <- function(sim_params, reduced = TRUE) {
+  chars <- list(
+      # sim_desc --- note: not always accurate
+      "description" = sim_params[[1]],
+      # data characteristics
+      "overall_seed" = sim_params$seed,
+      "individual_seeds" = sim_params$sim_seeds,
+      "n_obs" = sim_params$n_obs,
+      "err_sig" = sim_params$sig_eps,
+      "beta_functions" = sim_params$bfcns_list,
+      "p" = sim_params$p,
+      "p_0" = sim_params$p_0,
+      "R" = sim_params$R,
+      "R_0" = sim_params$R_0,
+      
+      # nn characteristics
+      "prior_tau" = sim_params$prior_tau,
+      "nn_layer_dims" = do.call(c, sim_params[grepl("d_", names(sim_params))]),
+      
+      # training characteristics
+      "n_mc_samples" = sim_params$n_mc_samples,
+      "batch_size" = sim_params$batch_size,
+      "train_epochs" = sim_params$train_epochs,
+      "lr" = sim_params$lr,
+      "lr_scheduler" = !is.null(sim_params$lr_scheduler),
+      "kl_scheduler" = !is.null(sim_params$kl_scheduler)
+    )
+  
+  if (reduced){
+    chars <- chars[c(4, 5, 7:18)]
+  }
+  
+  return(chars)
+}
+
+plot_losses <- function(fnames){
+  for (sim_num in 1:length(fnames)){
+    load(fnames[sim_num])
+    loss_df <- loss_pltfcn(sim_res)$long_df
+    loss_df$sim_id <- sim_res$sim_params$sim_seeds[sim_res$sim_ind]
+    
+    if (sim_num == 1){
+      loss_df_all <- loss_df
+    } else {
+      loss_df_all <- rbind(loss_df_all, loss_df)
+    }
+  }
+  
+  plt <- loss_df_all %>% 
+    ggplot(
+      aes(
+        y = value,
+        x = epoch,
+        linetype = factor(sim_id),
+        color = loss_type
+      )
+    ) + 
+    geom_line() + 
+    labs(
+      title = paste0(
+        "loss vs epochs, across ",
+        length(fnames),
+        " simulations"
+      )
+    )
+  return(plt)
+}
+```
+
+
+```{r, VIS_CHUNK, eval = FALSE}
+# knitr::include_graphics(png_fnames[sim_ind])
+
+alpha_mat <- sim_res$alpha_mat
+kmat_global <- sim_res$kappa_mat
+kmat_local <- sim_res$kappa_local_mat
+kmat_fc <- sim_res$kappa_fc_mat
+kmat_tc <- sim_res$kappa_tc_mat
+
+
+colnames(alpha_mat) <-
+  colnames(kmat_global) <- 
+  colnames(kmat_local) <- 
+  colnames(kmat_fc) <- 
+  colnames(kmat_tc) <- varnames
+
+
+loss_pltfcn(sim_res, burn = 0)$long_df %>% 
+  ggplot(
+    aes(
+      y = value,
+      x = epoch,
+      color = loss_type
+    )
+  ) + 
+  geom_line() + 
+  labs(
+    title = paste0(
+      "loss vs epochs"
+    )
+  )
+
+loss_pltfcn(sim_res, burn = 1e4)$mse_plt
+loss_pltfcn(sim_res, burn = 1e4)$kl_plt
+
+
+varmat_pltfcn(
+  alpha_mat,
+  y_name = "alpha",
+  burn = 0,
+  show_vars = show_vars
+)$all_vars_plt
+
+
+varmat_pltfcn(
+  kmat_global,
+  y_name = "GLOBAL kappa",
+  burn = 0,
+  show_vars = show_vars
+)$all_vars_plt
+
+
+varmat_pltfcn(
+  kmat_local,
+  y_name = "LOCAL kappa",
+  burn = 0,
+  show_vars = show_vars
+)$all_vars_plt
+
+
+varmat_pltfcn(
+  kmat_tc,
+  y_name = "tau-corrected kappas",
+  burn = 0,
+  show_vars = show_vars
+)$all_vars_plt
+
+varmat_pltfcn(
+  kmat_fc,
+  y_name = "frobenius-corrected kappas",
+  burn = 0,
+  show_vars = show_vars
+)$all_vars_plt
+
+err_by_max_bfdr(
+  alpha_mat[nrow(alpha_mat), ],
+  true_vec = true_vars
+)$plt_fdrs +
+  labs(
+    subtitle = "using alphas as dropout probabilities"
+  )
+
+err_by_max_bfdr(
+  kmat_local[nrow(kmat_local), ],
+  true_vec = true_vars
+)$plt_fdrs +
+  labs(
+    subtitle = "using local kappas as dropout probabilities"
+  )
+err_by_max_bfdr(
+  kmat_global[nrow(kmat_global), ],
+  true_vec = true_vars
+)$plt_fdrs +
+  labs(
+    subtitle = "using global kappas as dropout probabilities"
+  )
+
+err_by_max_bfdr(
+  get_kappas_taucorrected(nn_mod),
+  true_vec = true_vars
+)$plt_fdrs +
+  labs(
+    subtitle = "tau-corrected kappas as dropout probabilities"
+  )
+
+
+get_kappas_frobcorrected <- function(nn_mod, ln_fcn = ln_mode, ignore_detlayers = TRUE){
+  z1_c <- sqrt(get_zsq(nn_mod$fc1))
+  
+  for (l in 2:length(nn_mod$children)){
+    # determine if hshoe or determ layer
+  
+    if (!is.null(nn_mod$children[[l]]$atilde_mu)) {
+      # hshoe layer
+      z_l <- sqrt(get_zsq(nn_mod$children[[l]]))
+      if (!is.null(nn_mod$children[[l]]$weight_mu)){
+        # regular hshoe layer with weights
+        w_l_mu <- get_wtil_params(nn_mod$children[[l]])$wtil_mu
+      } else {
+        # last VC model layer (no weights)
+        w_l_mu <- diag(1, length(z_l))
+      }
+      z1_c <- z1_c * frob(diag(z_l) %*% t(w_l_mu))
+    } else {
+      if (!ignore_detlayers){
+      # det layer
+      z1_c <- z1_c * frob(as_array(nn_mod$children[[l]]$weight))
+      }
+    }
+    
+  }
+  
+  return((1 + z1_c^2)^(-1))
+}
+
+
+err_by_max_bfdr(
+  get_kappas_frobcorrected(nn_mod, ignore_detlayers = FALSE),
+  true_vec = true_vars
+)$plt_fdrs +
+  labs(
+    subtitle = "frob-corrected kappas as dropout probabilities"
+  )
+
+
+```
+
+
+
+# purpose
+
+Purpose is to see how using deterministic layers helps / hurts in VC models.  
+
+## fnames
+
+10k obs
+
+[x] VCdet_vanilla532_test0sig_p3_n10k_453284
+
+[x] VCdet_vanilla532_test0sig_tau1_p3_n10k_453284
+
+[x] VCmod_det532_test0sig_pvtau_p3_n10k_453284
+
+[x] VCmod_det532_test0sig_tau1_p3_n10k_453284
+
+[x] VCbetas2_det532_sig0_p3_n10k_453284
+
+
+# 10k obs
+
+## Vanilla model, 5x32, 2 mc, minibatching
+
+- first 2 layers hshoe, rest deterministic
+
+- single update $z$
+
+- PV tau with $p_0 = 10$
+
+- no minibatching 
+
+- kl annealing only
+
+
+__Comments:__
+
+- 
+
+
+```{r vanilla_pvtau}
+stem <- here::here("sims", "results", "VCdet_vanilla532_test0sig_p3_n10k_")
+b0_suffix <- c("b0_e200k")
+b1_suffix <- c("b1_e200k")
+# extract sim information from first in series
+first_sim <- paste0(stem, "453284.RData")
+load(first_sim)
+seeds <- sim_res$sim_params$sim_seeds
+res_fnames <- paste0(stem, seeds, ".RData")
+b0_fnames <- paste0(stem, seeds, b0_suffix, ".png")
+b1_fnames <- paste0(stem, seeds, b1_suffix, ".png")
+mod_fnames <- paste0(stem, seeds, ".pt")
+sim_characteristics(sim_res$sim_params)
+
+sim_ind <- 0
+
+# check prior tau calculation
+# dim_vec <- do.call(c, sim_params[grep(pattern = "d_", names(sim_params))])
+# param_scaling <- round(sim_params$n_obs * sim_params$ttsplit) / param_counts_from_dims(dim_vec)[4]
+# tau0_PV(
+#   p_0 = 10, d = 104, sig = 1,
+#   n = round(sim_params$n_obs * sim_params$ttsplit)
+# )
+
+```
+
+
+```{r}
+varnames <- c(
+  paste0("z_", 1:sim_res$sim_params$R),
+  paste0("x_", 1:sim_res$sim_params$p)
+)
+
+show_vars <- c(
+  paste0("z_", 1:5),
+  paste0("x_", 1:3)
+)
+
+true_vars <- c(
+  rep(1, 5),
+  rep(0, sim_res$sim_params$R-5),
+  rep(1, 3),
+  rep(0, sim_res$sim_params$p-3)
+)
+```
+
+
+### sims {.panelset}
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+
+
+
+## Vanilla model, tau = 1, 5x32, 2 mc, minibatching
+
+- first 2 layers hshoe, rest deterministic
+
+- single update $z$
+
+- PV tau with $p_0 = 10$
+
+- no minibatching 
+
+- kl annealing only
+
+
+__Comments:__
+
+- 
+
+
+```{r vanilla_tau1}
+stem <- here::here("sims", "results", "VCdet_vanilla532_test0sig_tau1_p3_n10k_")
+b0_suffix <- c("b0_e200k")
+b1_suffix <- c("b1_e200k")
+# extract sim information from first in series
+first_sim <- paste0(stem, "453284.RData")
+load(first_sim)
+seeds <- sim_res$sim_params$sim_seeds
+res_fnames <- paste0(stem, seeds, ".RData")
+b0_fnames <- paste0(stem, seeds, b0_suffix, ".png")
+b1_fnames <- paste0(stem, seeds, b1_suffix, ".png")
+mod_fnames <- paste0(stem, seeds, ".pt")
+sim_characteristics(sim_res$sim_params)
+
+sim_ind <- 0
+
+# check prior tau calculation
+# dim_vec <- do.call(c, sim_params[grep(pattern = "d_", names(sim_params))])
+# param_scaling <- round(sim_params$n_obs * sim_params$ttsplit) / param_counts_from_dims(dim_vec)[4]
+# tau0_PV(
+#   p_0 = 10, d = 104, sig = 1,
+#   n = round(sim_params$n_obs * sim_params$ttsplit)
+# )
+
+```
+
+
+```{r}
+varnames <- c(
+  paste0("z_", 1:sim_res$sim_params$R),
+  paste0("x_", 1:sim_res$sim_params$p)
+)
+
+show_vars <- c(
+  paste0("z_", 1:5),
+  paste0("x_", 1:3)
+)
+
+true_vars <- c(
+  rep(1, 5),
+  rep(0, sim_res$sim_params$R-5),
+  rep(1, 3),
+  rep(0, sim_res$sim_params$p-3)
+)
+```
+
+
+### sims {.panelset}
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+
+
+
+
+
+# VC model
+
+
+
+## VC mod + det layers
+
+- first 2 layers hshoe, rest deterministic
+
+- single update $z$
+
+- PV tau with $p_0 = 10$
+
+- no minibatching 
+
+- kl annealing only
+
+
+__Comments:__
+
+- 
+
+
+```{r vcmod_det}
+stem <- here::here("sims", "results", "VCmod_det532_test0sig_pvtau_p3_n10k_")
+b0_suffix <- c("b0_e200k")
+b1_suffix <- c("b1_e200k")
+# extract sim information from first in series
+first_sim <- paste0(stem, "453284.RData")
+load(first_sim)
+seeds <- sim_res$sim_params$sim_seeds
+res_fnames <- paste0(stem, seeds, ".RData")
+b0_fnames <- paste0(stem, seeds, b0_suffix, ".png")
+b1_fnames <- paste0(stem, seeds, b1_suffix, ".png")
+mod_fnames <- paste0(stem, seeds, ".pt")
+sim_characteristics(sim_res$sim_params)
+
+sim_ind <- 0
+
+# check prior tau calculation
+# dim_vec <- do.call(c, sim_params[grep(pattern = "d_", names(sim_params))])
+# param_scaling <- round(sim_params$n_obs * sim_params$ttsplit) / param_counts_from_dims(dim_vec)[4]
+# tau0_PV(
+#   p_0 = 10, d = 104, sig = 1,
+#   n = round(sim_params$n_obs * sim_params$ttsplit)
+# )
+
+```
+
+
+```{r}
+varnames <- colnames(sim_res$alpha_mat)
+show_vars <- c(
+  paste0("z", 1:5),
+  "b_int", "b1", "b2", "b3"
+)
+true_vars <- varnames %in% show_vars
+```
+
+
+### sims {.panelset}
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+
+
+
+
+## VC mod + det layers, tau = 1
+
+- first 2 layers hshoe, rest deterministic
+
+- single update $z$
+
+- PV tau with $p_0 = 10$
+
+- no minibatching 
+
+- kl annealing only
+
+
+__Comments:__
+
+- 
+
+
+```{r vcmod_det_tau1}
+stem <- here::here("sims", "results", "VCmod_det532_test0sig_tau1_p3_n10k_")
+b0_suffix <- c("b0_e200k")
+b1_suffix <- c("b1_e200k")
+# extract sim information from first in series
+first_sim <- paste0(stem, "453284.RData")
+load(first_sim)
+seeds <- sim_res$sim_params$sim_seeds
+res_fnames <- paste0(stem, seeds, ".RData")
+b0_fnames <- paste0(stem, seeds, b0_suffix, ".png")
+b1_fnames <- paste0(stem, seeds, b1_suffix, ".png")
+mod_fnames <- paste0(stem, seeds, ".pt")
+sim_characteristics(sim_res$sim_params)
+
+sim_ind <- 0
+
+# check prior tau calculation
+# dim_vec <- do.call(c, sim_params[grep(pattern = "d_", names(sim_params))])
+# param_scaling <- round(sim_params$n_obs * sim_params$ttsplit) / param_counts_from_dims(dim_vec)[4]
+# tau0_PV(
+#   p_0 = 10, d = 104, sig = 1,
+#   n = round(sim_params$n_obs * sim_params$ttsplit)
+# )
+
+```
+
+
+```{r}
+varnames <- colnames(sim_res$alpha_mat)
+show_vars <- c(
+  paste0("z", 1:5),
+  "b_int", "b1", "b2", "b3"
+)
+true_vars <- varnames %in% show_vars
+```
+
+
+### sims {.panelset}
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+
+
+
+
+## VC betas + det layers
+
+- first 2 layers hshoe, rest deterministic
+
+- single update $z$
+
+- PV tau with $p_0 = 10$
+
+- no minibatching 
+
+- kl annealing only
+
+
+__Comments:__
+
+- 
+
+
+```{r vcbetas}
+stem <- here::here("sims", "results", "VCbetas2_det532_sig0_p3_n10k_")
+b0_suffix <- c("b0_e200k")
+b1_suffix <- c("b1_e200k")
+# extract sim information from first in series
+first_sim <- paste0(stem, "453284.RData")
+load(first_sim)
+seeds <- sim_res$sim_params$sim_seeds
+res_fnames <- paste0(stem, seeds, ".RData")
+b0_fnames <- paste0(stem, seeds, b0_suffix, ".png")
+b1_fnames <- paste0(stem, seeds, b1_suffix, ".png")
+mod_fnames <- paste0(stem, seeds, ".pt")
+sim_characteristics(sim_res$sim_params)
+
+sim_ind <- 0
+
+# check prior tau calculation
+# dim_vec <- do.call(c, sim_params[grep(pattern = "d_", names(sim_params))])
+# param_scaling <- round(sim_params$n_obs * sim_params$ttsplit) / param_counts_from_dims(dim_vec)[4]
+# tau0_PV(
+#   p_0 = 10, d = 104, sig = 1,
+#   n = round(sim_params$n_obs * sim_params$ttsplit)
+# )
+
+```
+
+
+```{r}
+varnames <- colnames(sim_res$alpha_mat)
+show_vars <- paste0("z", 1:5)
+true_vars <- varnames %in% show_vars
+```
+
+
+### sims {.panelset}
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
