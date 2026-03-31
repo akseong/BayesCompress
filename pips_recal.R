@@ -85,14 +85,35 @@ get_kappas_composed <- function(nn_mod, ln_fcn = ln_mean) {
   
   # Compose downstream matrix: M = W_L diag(z_L) ... W_2 diag(z_2)
   # Start from the output layer and work backward to layer 2
-  M <- diag(sqrt(get_zsq(nn_mod$children[[num_layers]], ln_fcn)))
-  M <- as.matrix(nn_mod$children[[num_layers]]$weight_mu) %*% M
+  if (!is.null(nn_mod$children[[num_layers]]$weight)){
+    # if layer is a deterministic layer
+    M <- as.matrix(nn_mod$children[[num_layers]]$weight)
+  } else if (names(nn_mod$children[num_layers]) == "vc"){
+    # if layer is a vc output layer
+    M <- diag(sqrt(get_zsq(nn_mod$children[[num_layers]], ln_fcn)))
+  } else {
+    # if layer is a horseshoe layer
+    M <- diag(sqrt(get_zsq(nn_mod$children[[num_layers]], ln_fcn)))
+    M <- as.matrix(nn_mod$children[[num_layers]]$weight_mu) %*% M
+  }
   
   if (num_layers > 2) {
     for (l in (num_layers - 1):2) {
-      z_l <- sqrt(get_zsq(nn_mod$children[[l]], ln_fcn))
-      W_l <- as.matrix(nn_mod$children[[l]]$weight_mu)
-      M <- M %*% W_l %*% diag(z_l)
+      if (!is.null(nn_mod$children[[l]]$weight)){
+        # if layer is a deterministic layer
+        W_l <- as.matrix(nn_mod$children[[l]]$weight)
+        M <- M %*% W_l
+      } else if (names(nn_mod$children[l]) == "vc"){
+        # if layer is a vc output layer
+        z_l <- diag(sqrt(get_zsq(nn_mod$children[[l]], ln_fcn)))
+        M <- M %*% z_l
+      } else {
+        # if layer is a horseshoe layer
+        z_l <- diag(sqrt(get_zsq(nn_mod$children[[l]], ln_fcn)))
+        W_l <- as.matrix(nn_mod$children[[l]]$weight_mu)
+        M <- M %*% W_l %*% z_l
+      }
+    print(l)
     }
   }
   
@@ -112,7 +133,8 @@ get_kappas_composed <- function(nn_mod, ln_fcn = ln_mean) {
   return(list(
     "kappas" = kappas,
     "beta_eff" = beta_eff,
-    "M" = M
+    "M" = M,
+    "col_norms" = col_norms
   ))
 }
 
@@ -159,6 +181,7 @@ get_beta_eff <- function(nn_mod, ln_fcn = ln_mean) {
         W_l <- as_array(nn_mod$children[[l]]$weight)
         M   <- M %*% W_l
       }
+      print(l)
     }
   }
   # M is now (d_out x d_hidden1)
@@ -447,7 +470,6 @@ ztil_params <- get_ztil_params(nn_mod$fc1)
 ztil_mu <- (ztil_params$at + ztil_params$bt)/2
 ztil_var <- (exp(ztil_params$at_lvar) + exp(ztil_params$bt_lvar))/4
 
-
 s_params <- get_s_params(nn_mod$fc1)
 s_mu <- (s_params$sa + s_params$sb)/2
 s_var <- (exp(s_params$sa_lvar) + exp(s_params$sb_lvar))/4
@@ -455,17 +477,66 @@ s_var <- (exp(s_params$sa_lvar) + exp(s_params$sb_lvar))/4
 ztil_mu/sqrt(ztil_var)
 
 
+kappas_local <- get_kappas(nn_mod$fc1, type = "local")
+alphas <- as_array(nn_mod$fc1$get_dropout_rates())
+sqrt(alphas)
+
+# tau correction from layer 2
+m2 <- m_eff(nn_mod$fc2)
+d1 <- sim_res$sim_params$d_hidden1
+
+
+
+
+pnorm(sqrt(alphas))
+pnorm((ztil_mu + s_mu) / sqrt(log(1 + alphas)))
+
+tfcn <- function(thresh)(log((1-thresh)/thresh))
+pnorm((ztil_mu + s_mu + log(d1/m2)/2 - 0.5*tfcn(0.05)) / sqrt(log(1 + alphas)))
+
+pnorm((ztil_mu + s_mu + log(spectral_norm) - 0.5*tfcn(0.05)) / sqrt(log(1 + alphas)))
+
+
+
+get_pips <- function(nn_mod, thresh = 0.05, correction_type = "m_eff"){
+  # calculates posterior probability that kappas < thresh
+  ztil_params <- get_ztil_params(nn_mod$fc1)
+  ztil_mu <- (ztil_params$at + ztil_params$bt)/2
+  ztil_var <- (exp(ztil_params$at_lvar) + exp(ztil_params$bt_lvar))/4
+  
+  s_params <- get_s_params(nn_mod$fc1)
+  s_mu <- (s_params$sa + s_params$sb)/2
+  s_var <- (exp(s_params$sa_lvar) + exp(s_params$sb_lvar))/4
+  z_var <- ztil_var + s_var
+  
+  correction = 0
+  if (correction_type == "m_eff"){
+    # tau correction from layer 2
+    correction = log(tau_correction(nn_mod))
+  }
+  
+  alphas <- as_array(nn_mod$fc1$get_dropout_rates(type = "marginal"))
+  
+  pnorm((ztil_mu + s_mu + correction - log((1-thresh)/thresh)/2)/ sqrt(z_var))
+}
+
+# calibrate bfdr based on kappa threshold
+kappa_thresh <- 0.05
 get_kappas(nn_mod$fc1, type = "local")
+get_kappas_taucorrected(nn_mod)
+dropout_probs <- 1 - get_pips(nn_mod, thresh = kappa_thresh, correction = "m_eff")
+true_gam <- c(rep(1, 4), rep(0, 100))
+
+BFDR_eta_search(dropout_probs, max_rate = 0.05)
+BFDR(dropout_probs, BFDR_eta_search(dropout_probs, max_rate = 0.05))
+
+kappas_tau <- get_kappas_taucorrected(nn_mod)
+kappas_composed <- get_kappas_composed(nn_mod)
+BFDR(kappas_tau, BFDR_eta_search(kappas_tau, max_rate = 0.05))
+round(kappas_tau, 2)
 
 
-
-
-tfcn <- function(t)(log(1-t)-log(t))
-pnorm(exp(ztil_mu+s_mu) / sqrt(log(1 + alphas)) - 0.5*tfcn(0.05))
-
-
-
-
+sim_res$sim_params$n_obs
 
 
 
