@@ -136,16 +136,29 @@ get_beta_eff <- function(nn_mod, ln_fcn = ln_mean) {
   
   # Compose downstream: M = (W_L diag(z_L)) ... (W_2 diag(z_2))
   # Start from the output layer
-  z_L <- sqrt(get_zsq(nn_mod$children[[num_layers]], ln_fcn))
-  W_L <- as_array(nn_mod$children[[num_layers]]$weight_mu)
-  M   <- W_L %*% diag(z_L)
+  if (!is.null(nn_mod$children[[num_layers]]$atilde_mu)){
+    z_L <- sqrt(get_zsq(nn_mod$children[[num_layers]], ln_fcn))
+    if (names(nn_mod$children[num_layers]) != "vc"){
+      W_L <- as_array(nn_mod$children[[num_layers]]$weight_mu)  
+    } else {
+      W_L = diag(1, length(z_L))
+    }
+    M <- W_L %*% diag(z_L)
+  } else {
+    M <- as_array(nn_mod$children[[num_layers]]$weight)
+  }
   
   # Compose intermediate layers backward (L-1 down to 2)
   if (num_layers > 2) {
     for (l in (num_layers - 1):2) {
-      z_l <- sqrt(get_zsq(nn_mod$children[[l]], ln_fcn))
-      W_l <- as_array(nn_mod$children[[l]]$weight_mu)
-      M   <- M %*% W_l %*% diag(z_l)
+      if (!is.null(nn_mod$children[[l]]$weight_mu)){
+        z_l <- sqrt(get_zsq(nn_mod$children[[l]], ln_fcn))
+        W_l <- as_array(nn_mod$children[[l]]$weight_mu)
+        M   <- M %*% W_l %*% diag(z_l)
+      } else {
+        W_l <- as_array(nn_mod$children[[l]]$weight)
+        M   <- M %*% W_l
+      }
     }
   }
   # M is now (d_out x d_hidden1)
@@ -254,12 +267,22 @@ get_posterior_inclusion_prob <- function(
 # effective betas code ----
 
 ## --- Composed matrix approach ---
-beff <- get_beta_eff(model_fit, ln_fcn = ln_mean)
+model_fit <- nn_mod
+beff <- get_beta_eff(model_fit, ln_fcn = ln_mode)
+round(beff$beta_eff, 3)
+kappas_local <- get_kappas(model_fit$fc1, type = "local")
+alphas <- as_array(model_fit$fc1$get_dropout_rates())
+
+
+
+
+
 
 # Feed into recalibrate_tau as pseudo-linear coefficients
+
 sigma_hat <- get_sigma_hat(model_fit, x_train, y_train, ln_fcn = ln_mean)
 lambda_eff <- beff$beta_eff / median(beff$beta_eff)  # normalize to relative scales
-rc <- recalibrate_tau(lambda_eff, sigma_hat, n = ttsplit_ind, p = sim_params$d_in)
+rc <- recalibrate_tau(lambda_eff, sigma_hat, n = ttsplit_ind, p = sim_res$sim_params$d_in)
 
 # Or feed c_j into posterior inclusion probability
 pip <- get_posterior_inclusion_prob(
@@ -323,6 +346,7 @@ plot_beta_comparison(beff$beta_eff, beff_grad, d_true = 4)
 
 # recalibrations for tau ----
 # 1. Compute per-feature effective coefficients
+model_fit <- nn_mod
 result <- get_kappas_composed(model_fit, ln_fcn = ln_mean)
 beta_eff <- result$beta_eff
 
@@ -333,7 +357,8 @@ sigma_hat <- sd(as_array(y_train) - as_array(y_pred))
 # 3. Recalibrate: treat beta_eff as pseudo-linear coefficients,
 #    find self-consistent tau* using the P&V framework
 lambda_eff <- beta_eff / median(beta_eff)  # normalize to get relative scales
-tau_star <- recalibrate_tau(lambda_eff, sigma_hat, n, p)
+tau_star <- recalibrate_tau(lambda_eff, sigma_hat, sim_res$sim_params$n_obs, p = 104)$tau_star
+
 
 # 4. Compute corrected kappas
 kappa_star <- 1 / (1 + tau_star^2 * lambda_eff^2)
@@ -354,3 +379,101 @@ err_from_dropout(
   max_bfdr = 0.05,
   true_gam = c(rep(1, 4), rep(0, 100))
 )
+
+
+get_posterior_inclusion_prob(model_fit$fc1, threshold = 0.75)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# my code ----
+
+n = 1e4
+sig_hat <- 1.2
+recalibrate_tau <- function(nn_mod, n, sig_hat){
+  # just wants to set tau at 0.
+  p <- length(nn_mod$fc1$atilde_mu)
+  lambdas <- sqrt(get_ztil_sq(nn_mod$fc1))
+  
+  m_eff_to_opt <- function(tau){
+    numerator <- (tau^2 * lambdas^2)
+    sum( numerator / (1 + numerator))
+  }
+  
+  exp_m_to_opt <- function(tau){
+    p*tau*sqrt(n) / (sig_hat + tau*sqrt(n))
+  }
+  
+  opt_fcn <- function(tau){
+    abs(exp_m_to_opt(tau) - m_eff_to_opt(tau))
+  }
+  
+  t1 <- optim(
+    par = sim_res$sim_params$prior_tau,
+    fn = opt_fcn,
+    method = "Brent",
+    lower = 0,
+    upper = .01
+  )$par
+  
+}
+
+
+kappas_local
+
+
+# my code for pips ----
+ztil_params <- get_ztil_params(nn_mod$fc1)
+ztil_mu <- (ztil_params$at + ztil_params$bt)/2
+ztil_var <- (exp(ztil_params$at_lvar) + exp(ztil_params$bt_lvar))/4
+
+
+s_params <- get_s_params(nn_mod$fc1)
+s_mu <- (s_params$sa + s_params$sb)/2
+s_var <- (exp(s_params$sa_lvar) + exp(s_params$sb_lvar))/4
+
+ztil_mu/sqrt(ztil_var)
+
+
+get_kappas(nn_mod$fc1, type = "local")
+
+
+
+
+tfcn <- function(t)(log(1-t)-log(t))
+pnorm(exp(ztil_mu+s_mu) / sqrt(log(1 + alphas)) - 0.5*tfcn(0.05))
+
+
+
+
+
+
+
+ztil_mu + s_mu + log(m2)
+
+
+
+m2 <- m_eff(nn_mod$fc2)
+
+
+
