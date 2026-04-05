@@ -1,0 +1,37 @@
+
+
+Claude prompt for dissertation 0 draft
+
+
+
+
+I need help putting together a first draft of my dissertation on Bayesian Variable Selection in semi-parametric settings.
+
+- use the UCI dissertation LaTeX template, found here on Overleaf: https://www.overleaf.com/latex/templates/university-of-california-irvine-thesis/bzsqmxszcpny
+
+- I will have three chapters: an introduction, a first chapter which will be composed of previous work (paper can be found here: https://academic.oup.com/biomet/article/112/2/asae068/7930674#523622109), and a 2nd chapter on my in-progress / unpublished work on Bayesian variable selection in neural networks (modified from the horseshoe model proposed by Louizos, Welling, Ullrich 2017 https://arxiv.org/abs/1705.08665).
+
+For now I would like you to help me 1) write the introductory chapter, and 2) help me set up using the template (in particular, I have never used a bibliography LaTeX file and referred to it within a separate main article document, so some examples in the code of how to do this would be helpful).
+
+The introductory chapter is meant to provide background and context for the methods and data that I will discuss in Chapters 1 and 2.  The intro should go over some background on:
+
+- why variable selection is important.
+
+- Bayesian variable selection, how it differs (goals, methods, interpretability) from Frequentist approaches, as well as BVS's advantages over Frequentist methods.  
+
+- Data: characteristics of the salary data and Electrocorticography data used in my paper with David Rossell.
+
+Remember that the intro needs to SET UP the discussion of (but not go too far into) the methods that I have worked on, which I will cover in the chapters after the introduction.  These two methods are: 
+
+  1) Bayesian model selection with a model complexity prior (first paper with David Rossell); The major contribution of this paper is a method to test for LOCALIZED effects in functional data (current approaches based on basis projections do not yield asymptotically consistent estimators).
+  2) Horseshoe prior in a Bayesian neural network: the second method attempts to combine the expressive capacity of a deep neural network with principled Bayesian variable selection via the Horseshoe prior.  
+
+Please provide this as a set of different documents which I can put into the UCI dissertation Overleaf template mentioned before and continue to work on myself.
+
+
+
+
+
+
+
+
