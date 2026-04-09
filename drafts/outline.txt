@@ -1,0 +1,39 @@
+
+
+
+
+# INTRO
+
+
+## THE PROBLEM OF VARIABLE SELECTION IN MODERN DATA SETTINGS
+
+- high-dimensional data regime requires filtering features for any useful / practicable interpretability
+
+- we also want to go beyond assuming linear relationships between covariates and response.  Among the methods we examine are GAMs, VC model, neural network to parameterize functional relationships between covariates and response.
+
+- We are interested in the theta-hat problem --- understanding the relationship between covariate and response --- not just the y-hat problem (prediction).  Motivates application in particular to deep neural networks, typically considered a "black box" method in which the path from input to output / the contribution of an input to the output is obscured.  
+
+
+
+## VAR SEL APPROACHES
+
+### FREQUENTIST
+
+  - Modern frequentist variable selection methods involve shrinkage / regularization: ridge, LASSO and derivatives.  
+
+  - downsides: Uncertainty quantification not straightforward, sensitive to penalization weight parameter, less conservative in comparison to Bayesian methods particularly in high-dim settings.
+
+  - upside: takes less time?  Not sure there's anything else.
+
+https://stats.stackexchange.com/questions/646260/variable-selection-strategies
+
+### BAYESIAN
+
+  - 
+
+  - model prior corrects for multiplicity
+
+  - horseshoe (Carvalho Polson Scott 2009 handling sparsity via the HS) yields BMA-like predictions
+
+
+
