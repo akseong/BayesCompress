@@ -9,6 +9,29 @@ I need help putting together a first draft of my dissertation on Bayesian Variab
 
 - use the UCI dissertation LaTeX template, found here on Overleaf: https://www.overleaf.com/latex/templates/university-of-california-irvine-thesis/bzsqmxszcpny
 
+
+
+
+My dissertation is on Bayesian Variable Selection in semi-parametric settings.
+
+Personal & Committee info:
+- my name is Arnold Seong
+
+- my advisor's name is Veronica Berrocal
+
+- I am in the Statistics program, in the school of ICS
+
+- degree sought is a PhD
+
+- graduation to be Spring quarter, 2026
+
+Dissertation Content:
+
+- don't have a title yet
+- educational background: BA in English literature from Cornell University in 2004, MFA in poetry from University of Washington in 2007, MS in Statistics from UCI in 2019, advanced to PhD candidacy in Spring 2025
+- publications: 
+
+
 - I will have three chapters: an introduction, a first chapter which will be composed of previous work (paper can be found here: https://academic.oup.com/biomet/article/112/2/asae068/7930674#523622109), and a 2nd chapter on my in-progress / unpublished work on Bayesian variable selection in neural networks (modified from the horseshoe model proposed by Louizos, Welling, Ullrich 2017 https://arxiv.org/abs/1705.08665).
 
 For now I would like you to help me 1) write the introductory chapter, and 2) help me set up using the template (in particular, I have never used a bibliography LaTeX file and referred to it within a separate main article document, so some examples in the code of how to do this would be helpful).
