@@ -174,6 +174,29 @@ source(here("Rcode", "analysis_fcns.R"))
 
 
 
+# 4/13
+
+TO DO this week:
+
+- brush up intro.  Navneet's thesis, Draw inspiration from David's intro on var sel, Biometrika paper (var sel, wage and ECoG data), Michele's paper with Maria Vannuci on Bayesian knockoffs.  Send to Michele on Tues.
+
+- go over past simulations, choose, work on competitors --- OLS, LASSO, spike-and-slab, spikeslabgam, BART.  Knockoffs?
+
+- under mild X-correlation?
+
+- salary data sim
+
+- get upstairs computer working (do this in the evenings)
+
+4-ish weeks to go:
+
+- 4/13 - 4/17  finish intro draft, start final sims
+- 4/20 - 4/24  draft BNN paper, salary sim
+- 4/27 - 5/1  draft BNN paper
+- 5/4 - 5/8  presentation, draft tweaks
+- 5/11 - 5/15  presentation
+- 5/18 - 5/20 WED DEFENSE
+
 # 3/17
 
 - implemented minibatching, MC sampling MSE, standardizing data / rescaling for plots
