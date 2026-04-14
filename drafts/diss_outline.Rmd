@@ -1,0 +1,210 @@
+---
+title: "research log"
+author: "Arnie Seong"
+date: "Last updated: `r format(Sys.time(), '%d %B %Y')`"
+header-includes:
+  - \usepackage{bm}
+  - \usepackage{xcolor}
+  - \usepackage{amssymb}
+output: 
+  html_document:
+    df_print: paged
+    theme: cerulean
+    highlight: tango
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
+    code_fold: show
+urlcolor: blue
+params:
+  retrain: FALSE
+  seed: 314
+editor_options: 
+  chunk_output_type: console
+---
+
+
+<style type="text/css">
+
+  #TOC>ul>li, h1, h2{
+    font-weight: bold;
+  }
+  
+  blockquote{
+    background-color: #d5f2f5;
+    font-size: small;
+  }
+  
+  b, strong {
+   color: #11579e;
+  }
+  
+  caption {
+    color: #11579e;
+    font-weight: bold;
+    font-size: 1.0em;
+  }
+  
+  h1 { font-size: 2em }
+  h2 { font-size: 1.6em  }
+  h3 { font-size: 1.25em }
+  h4 { font-size: 1.10em }
+  h5, h6 { font-size: 1em    }
+  
+  h1, h2, h3 {font-weight: bold;}
+  
+  a {font-weight: bold; text-decoration: underline}
+  
+  .nav-pills>li>a:hover, 
+  .nav-pills>li>a:focus, 
+  .nav-pills>li.active>a,     
+  .nav-pills>li.active>a:hover, 
+  .nav-pills>li.active>a:focus{
+     background-color: #11579e;
+  }
+  
+  .nav-pills{
+     background-color: #d5f2f5;
+  }
+</style>
+
+```{r setup, include=FALSE, message=F, echo=F, warning=F}
+# LIBRARIES----
+
+### plotting:
+library(ggplot2)
+library(gridExtra)
+
+# ### Misc:
+library(here)
+library(tidyr)
+library(knitr)
+library(kableExtra)
+library(dplyr)
+
+# model packages
+library(torch)
+
+# DOCUMENT SETUP ----
+# detect pdf/html output, set chunk options, sci.notation 
+latex_out <- knitr::is_latex_output()
+knitr::opts_chunk$set(
+  cache = FALSE, 
+  message = FALSE, 
+  echo = !knitr::is_latex_output(), 
+  warning = FALSE
+)
+
+
+if (knitr::is_latex_output()) {
+  knitr::opts_chunk$set(fig.height=4, 
+                        fig.width=6)
+} else {
+  knitr::opts_chunk$set(out.width = "100%")
+}
+
+options(scipen=10)
+
+
+# TEXT/TABLE FORMATTING----
+
+custom_purple <- ifelse(
+  knitr::is_latex_output(),
+  "purple",
+  "#b51ced"
+)
+
+custom_blue <- ifelse(
+  knitr::is_latex_output(),
+  "blue",
+  "#11579e"
+)
+
+colorize <- function(x, color=custom_purple) {
+  # text color conditional on latex/html output
+  # from rmarkdown cookbook
+  if (knitr::is_latex_output()) {
+    sprintf("\\textcolor{ %s}{ %s}", color, x)
+  } else if (knitr::is_html_output()) {
+    sprintf("<span style='color: %s;'>%s</span>", color, x)
+  } else x
+}
+
+cat_color <- function(txt, style = 1, color = 36){
+  cat(
+    paste0(
+      "\033[0;",
+      style, ";",
+      color, "m",
+      txt,
+      "\033[0m","\n"
+    )
+  )  
+}
+
+# kable NA handling
+options(knitr.kable.NA = '')
+
+# mykable function
+mykable <- function(tab, cap,
+                    latex_options=c("hold_position", "scale_down", "striped"), 
+                    bootstrap_options=c("striped", "hover", "condensed"), 
+                    full_width=F, position="center", ...){
+  # kable formatting conditional on latex or html output
+  if (is.null(getOption("knitr.in.progress"))){
+    print(tab)
+  } else if (knitr::is_latex_output()){
+    kable(x=tab, caption=cap, ...) %>%
+      kableExtra::kable_styling(latex_options = latex_options)
+  } else if (knitr::is_html_output()){
+    kable(x=tab, caption=cap, ...) %>%
+      kableExtra::kable_styling(bootstrap_options = bootstrap_options, full_width=full_width, position=position)
+  }
+}
+
+# notin
+`%notin%` <- Negate(`%in%`)
+
+source(here("Rcode", "torch_horseshoe_klcorrected.R"))
+source(here("Rcode", "sim_functions.R"))
+source(here("Rcode", "analysis_fcns.R"))
+```
+
+
+
+
+# INTRO
+
+
+## THE PROBLEM OF VARIABLE SELECTION IN MODERN DATA SETTINGS
+
+- high-dimensional data regime requires filtering features for any useful / practicable interpretability
+
+- we also want to go beyond assuming linear relationships between covariates and response.  Among the methods we examine are GAMs, VC model, neural network to parameterize functional relationships between covariates and response.
+
+- We are interested in the theta-hat problem --- understanding the relationship between covariate and response --- not just the y-hat problem (prediction).  Motivates application in particular to deep neural networks, typically considered a "black box" method in which the path from input to output / the contribution of an input to the output is obscured.  
+
+
+
+## VAR SEL APPROACHES
+
+### FREQUENTIST
+
+  - Modern frequentist variable selection methods involve shrinkage / regularization: ridge, LASSO and derivatives.  
+
+  - downsides: Uncertainty quantification not straightforward, sensitive to penalization weight parameter, less conservative in comparison to Bayesian methods particularly in high-dim settings.
+
+  - upside: takes less time?  Not sure there's anything else.
+
+https://stats.stackexchange.com/questions/646260/variable-selection-strategies
+
+### BAYESIAN
+
+  - 
+
+  - model prior corrects for multiplicity
+
+  - horseshoe (Carvalho Polson Scott 2009 handling sparsity via the HS) yields BMA-like predictions
+

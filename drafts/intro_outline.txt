@@ -1,0 +1,115 @@
+Navneet's thesis:
+
+# Introduction
+
+## Overview
+- Medical interventions, steps to ID target population, definitions
+
+## Enrichment
+
+## Adaptive randomization
+
+## Dissertation aims
+
+
+
+
+# Background
+
+## Pre-Post designed randomized trials
+
+## Right-censored time-to-event outcomes
+
+## Group sequential designs
+
+
+
+Jaylen's thesis intro:
+
+# Brain imaging and dynamic functional connectivity
+
+## functional brain imaging
+### fMRI
+### general linear model in brain imaging
+
+## Functional Connetivity
+### Linear correlation based metrics
+### decomposition based metrics
+### clustering based metrics
+### graph based FC summaries
+
+## Dynamic functional connectivity
+### sliding window analysis
+### Change point detection
+### hidden markov model
+
+
+
+
+
+
+My intro:
+
+# Variable Selection 
+
+## Variable Selection approaches
+
+### classical approach: constrained optimization of likelihood (e.g. LASSO and variants; Tibshirani 1996, Fan and Li 2001, Zou and Hastie 2005)
+- convex optimization problem, solved efficiently for large $p$ via corrdinate descent (Friedman 2010)
+- however, unstable in presence of correlated predictors --> high FDR, particularly in high-dimensional settings
+- sensitive to tuning parameter lambda, 
+- variants, e.g. adaptive LASSO, address some of these concerns, but these still suffer from a main problem: uncertainty quantification not straightforward (FDR control difficult)
+
+
+### more recent: knockoffs and knockoff filter
+ - description
+ - strengths:
+    - quite general framework, extensible to non-linear settings
+ - primary drawback: requires accurately estimating joint covariate distribution to maintain power, which can be computationally intractable in high-dimensional settings and difficult with time-varying covariates. 
+ - work is only now emerging on Bayesian frameworks for knockoffs (Gu and Yin 2023 preprint; Guindani Vannucci 2025 preprint)
+
+
+
+### Bayesian approach to variable selection: 
+  - complement the usual probability model (which describes the response y given some set of parameters theta) by setting a probability distribution on theta, i.e. a prior on theta, that encapsulates what is known about theta before observing y.  Then update our knowledge about theta after observing y.
+
+ - prior distributions:
+	 - spike and slab (Mitchell and Beauchamp 1988; George and McCulloch 1997, Brown et al 1988) impose mixture distributions on regression coefficients, with latent binary indicators that identify relevant predictors
+	 - shrinkage priors to adaptively shrink coefficients towards zero (Park and Casella 2008, Carvalho 2010)
+		 - focus: horseshoe prior background; emphasize Bayesian model Averaging-like estimation and use of $\kappa$ as "pseudo"-dropout probabilities (Carvalho 2010); mimics spike-and-slab (considered the gold stnadard for Bayesian variable selection) without requiring binary indicators, a computational advantage that is particularly useful when applied to deep neural networks (allows estimation of posterior via variational inference).
+
+  - note: model selection vs variable selection
+    - sometimes used nearly interchangeably, but variable selection may be more usefully understood as a subset or step within model selection.  For example, in the chapter on local variable selection, we describe how the choice of knots in an additive model determines the number of basis projections and the regions they cover; the set of knots chosen (among other things, such as the type of basis projection) specifies a model.  Within a chosen model, selecting which coefficients and thus regions are active amounts to variable selection.
+
+
+
+## FDR and Bayesian FDR
+
+- False Discovery Rate (FDR) definition
+- FDR control procedures: 
+  - most widely used to preserve statistical power Benjamini and Hochberg 1995; also Benjamini and Yekutieli 2001 & 2005, but rely on computing p-values
+  - more recent: knockoff (Barber & Candes 2015) procedure and variants (e.g. model-X knockoff, Candes 2018)
+
+- Bayesian FDR (BFDR)
+  - definition - expected number of false discoveries conditional upon the data, i.e. computed with respect to the posterior distribution of the sets of active/inactive variables given the observed data (Muller 2006, Whittemore 2007)
+  - one large advantage is that Bayesian methods offer control over multiplicity via a valid prior over the model space (Muller Parmigiani Rice 2006)
+  - outline of procedure: Muller 2006 and Guindani 2009 prove control of BFDR by characterizing the FDR as a decision problem where the optimal decision rule is based on thresholding the marginal posterior probabilities
+
+## parametric, semi-parametric, non-parametric models
+- our focus is on semi-parametric models, in which the model combines a parametric component (e.g. variable selection via priors) with a non-parametric component (e.g. the functional relationship between inputs and response).
+
+## Additive models
+- description (Hastie Tibshirani 1996)
+- for us in chapter on local variable selection, provides a natural semiparametric framework for analyzing local covariate effects
+
+## Neural networks
+- description of a (regular) deep neural network; network is parameterized by point estimates
+- in a Bayesian deep neural network (basically, network parameters are not the network weights but the parameters governing the distributions of the weights)
+- most work in model selection for neural networks does not actually focus on input variable selection, but on estimating network structure - how many layers, how many units in each layer (Ulrich 2017, Ghosh and Doshi-Velez 2017)
+- we focus on obtaining input variable selection with FDR control via equipping a Bayesian neural network with a structured horseshoe prior over "coefficient" groups in the first layers.  
+
+
+
+
+
+

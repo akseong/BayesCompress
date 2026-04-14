@@ -2,6 +2,8 @@
 
 
 
+
+
 # INTRO
 
 
@@ -36,4 +38,20 @@ https://stats.stackexchange.com/questions/646260/variable-selection-strategies
   - horseshoe (Carvalho Polson Scott 2009 handling sparsity via the HS) yields BMA-like predictions
 
 
+
+Modern approaches
+
+- knockoffs (Candes), challenging in higher dimensions --- requires nontrivial knowledge of the distribution of X.  Active area of research.
+    - relies on knowing or accurately estimating true distribution of covariates
+    - limited applicability to complex data: clustered / longitudinal data difficult b/c maintaining exchangeability properties not straightforward
+- knockoff-ML - published 2025
+
+- projection predictive variable selection - Akhi Vehtari
+
+
+
+
+
+
+future directions:
 
