@@ -925,7 +925,7 @@ gen_header(sim_res)
 
 # 10k obs
 
-## 5x16, mc + minibatching
+## 5x32, mc + minibatching
 
 - first 2 layers hshoe, rest deterministic
 

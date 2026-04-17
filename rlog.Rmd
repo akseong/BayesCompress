@@ -339,7 +339,7 @@ Det layers:
   
 - next: 
   - apply spectral norm to annealing sims
-  - why are the results for the det layer sims good for 1k obs, but so bad for 100k obs?
+  - why are the results for the det layer sims good for 1k obs, but so bad for 100k obs?456
     - check how the det layers do for 100 obs
 
 
