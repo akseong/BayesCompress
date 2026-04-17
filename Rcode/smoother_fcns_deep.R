@@ -72,35 +72,35 @@ plot_datagen_fcns(flist)
 save_mod_path_prestem <- here::here(
   "sims", 
   "results", 
-  "detlayers_5816_"
+  "detlayers_516_"
 )
-n_obs <- 1250 # includes training and test
+n_obs <- 12500 # includes training and test
 sim_desc <- c(
-  "no minibatching, 1 MC samples for MSE, kl annealing only - no lr annealing",
+  "no minibatching, 5 MC samples for MSE, kl annealing only - no lr annealing",
   "optimistic tau_0 (p_0 = 10 of 104)"
 )
 
 sim_params <- list(
   "sim_name" = sim_desc,
   "n_obs" = n_obs,
-  "seed" = 5322,
+  "seed" = 516,
   "n_sims" = 5,
-  "n_mc_samples" = 1,
+  "n_mc_samples" = 5,
   "train_epochs" = 2e5,
   "report_every" = 1E3,
   "plot_every_x_reports" = 10,
   "use_cuda" = use_cuda,
   "d_in" = 104,
-  "d_hidden1" = 8,
+  "d_hidden1" = 16,
   "d_hidden2" = 16,
-  "d_hidden3" = 32,
-  "d_hidden4" = 64,
-  "d_hidden5" = 32,
+  "d_hidden3" = 16,
+  "d_hidden4" = 16,
+  "d_hidden5" = 16,
   "d_out" = 1,
   "true_coefs" = c(-0.5, 1, -2, 4, rep(0, times = 100)),
   "alpha_thresh" = 1 / qchisq(1 - (0.05 / 104), df = 1),
   "flist" = flist,
-  "lr" = 0.005,  # sim_hshoe learning rate arg.  If not specified, uses optim_adam default (0.001)
+  "lr" = 0.001,  # sim_hshoe learning rate arg.  If not specified, uses optim_adam default (0.001)
   "err_sig" = 1,
   "xdist" = "norm",
   "convergence_crit" = 1e-7,
@@ -111,7 +111,7 @@ sim_params <- list(
   "burn_in" = 25e4,
   "lr_scheduler" = NULL, # torch::lr_cosine_annealing,
   "kl_scheduler" = kl_weight_cosine,
-  "kl_warmup_frac" = 1/5,
+  "kl_warmup_frac" = 0.2,
   "standardize" = TRUE
 )
 set.seed(sim_params$seed)
