@@ -197,6 +197,155 @@ TO DO this week:
 - 5/11 - 5/15  presentation
 - 5/18 - 5/20 WED DEFENSE
 
+
+## results annealing, detlayers
+
+- 1000 obs:
+
+  - all horseshoe layers - not good:  
+
+    - 32-32, single update $z$, $tau_0$ scaled to $p_0$ = 10, no minibatching, no annealing  
+      - test MSE gap large ~3  
+      - alphas don't show much separation  
+      - bfdr: frob-corrected $\kappa$'s are best but not great.  
+      
+    - 32-32, 4-sample $z$, otherwise same: minor improvement  
+      - test MSE gap a little smaller (2-3); a bit better predictions  
+      - slightly better separation in alphas, local kappas  
+      - bfdr: frob-corrected best, but early FPs, FDR >> BFDR  
+
+    - 32-32, 4-samp $z$, $p_0$ = 10, no minibatching, LR & KL annealing  
+      - test MSE gap largest ~3.5; pred plots not great  
+      - worst results  
+      
+    - 8-16, 4-samp z, $p_0$ = 10, no minibatching, KL annealing only  
+      - preds not good, MSE gap ~ 4  
+      - local kappas have earl false positives  
+      - KL ~ 1.25-1.4; weirdly, when KL scheduler kicks in, kappas jump  
+    
+    - 8-16, 4-samp z, $\tau_0 = 1$, no minibatching, KL annealing only  
+      - MSE gap 3-3.5; preds look best so far  
+      - BFDRs still not great  
+      
+    - 128-64, 4-samp z, $p_0 = 10$, LR and KL annealing  
+      - preds not good, MSE gap ~ 3  
+      - not as drastic of KL annealing jump  
+      - BFDR: 230662, 198967 do OK-ish  
+
+  - DET layers:  
+  
+    - 5 $\times$ 16, $p_0 = 10$, no mc, no batching, KL annealing only  
+      - preds not bad, MSE gap small (0.1-0.2)  
+      - has trouble getting $f_2$, $f_4$  
+      - KL trajectory smooth  
+      - BFDRs:  
+        - local kappas aren't bad; a couple sims have 1 or 2 early FPs  
+        - weird: tau kappas delay FPs, whereas frob kappas make it worse  
+    
+    - __pretty good__: 5 $\times$ 16, $p_0 = 10$, 5 mc, no batching, KL annealing only  
+      - preds maybe a bit worse; MSE gap still small   
+      - trouble with $f_2$, a little with $f_4$  
+      - KL trajectory smooth  
+      - BFDRs:  
+        - local kappas not bad; early FPs but BFDR/FDR similar  
+        - global kappas avoid FPs, but low power (doesn't get TPs until high bfdr)  
+        - tau kappas best - v. few early FPs  
+        - frob kappas have early FPs, are most chaotic in how BFDR/FDR diverge  
+
+    - 5 $\times$ 32, $p_0 = 10$, 2 mc, no batching, KL annealing only  
+      - preds tend to be good,
+      - MSE train noisy for some reason, but gap generally small (largest in 3, 1, 5)
+        - tightest is sim 2, also has perfect separation in alphas, local kappas
+      - still trouble capturing $f_2$
+      - BFDRS:
+        - local kappas as good as can be hoped, really.
+        - tau kappas almost as good
+        - frob kappas bad
+      
+    - 5 $\times$ 32, $p_0 = 10$, no mc, no batching, KL annealing only  
+      - preds function shapes are wild, esp 2nd and 3rd sims;  
+      - 4 don't get $f_2$, the remaining doesn't get $f_4$ (2nd sim)  
+      - mse gap in sims 2&4 widens at end of training, and KL rises;  
+      - BFDRS:  
+        - local kappas are pretty good, BFDR/FDR nearly identical, start off with most TPs, no early FPs  
+        - tau kappas almost as good.  not good in sim 2  
+        - frob kappas totally weird, seems to just select everything at v. low bfdr  
+
+    - 8-16-32-64-32, no mc, no batching
+      - preds totally wild, largest MSE gaps, wild KL trajectories
+      - totally unpredictable.  However, comparisons of BFDR plots seems to indicate the tau correction moderates the weirdness a bit.
+
+    
+- 10K obs:  
+
+  - horseshoe layers:
+  
+    - 32-32, 4-samp z, $p_0 = 10$, no batching, LR & KL annealing  
+      - preds good, MSE gap ~ 0.5
+      - good separation in alphas, local kappas, frob kappas
+      - frob kappa BFDR plots: BFDR never gets to 1; levels off btwn .5-.7, suggesting frob scaling is off. 
+      
+    - BEST: 8-16, 4-samp z, $p_0 = 10$, no batching, LR & KL annealing
+      - preds v. good, MSE gap < 0.25
+      - alphas, local kappas, frob kappas show good separation
+      - BFDRs: frob kappas v. good.  525655, 613225 perfect
+    
+    - 128-64, 4-samp $z$, $p_0 = 10$, no batching; LR and KL annealing
+      - preds v. good, MSE gap < 0.5
+      - local, frob kappas have good separation; hard to tell with alphas but prob good
+      - BFDRs 
+
+  - DET layers - seems to overfit a bit
+
+    - 5 $\times$ 32, single update z, 2 MC, minibatching (batch size 1k)
+      - preds fairly wild, MSE gap somewhat large
+      - alphas have perfect separation, even global kappas separate well
+      - BFDRS:
+        - local kappas almost perfect; only 4th (584610) has 1 early FP
+        - global kappas suck; totally overestimates BFDR
+        - tau correction also seems to overestimate, though not nearly as badly
+        - frob kappas useless, just choose everything
+      
+    - 5 $\times$ 32, single update z, NO mc, no minibatching
+      - preds fairly wild, MSE gap somewhat large    
+      - 1st sim worst, largest MSE gap, alphas trajectories worst of all det layer sims
+      - alphas still separate fairly well, except 1st sim
+      - BFDR: 
+        - local kappas OK, except first sim
+        - global kappas don't ID anything until v. high BFDR (> .8)
+        - tau kappas also badly overestimates.
+        - frob kappas useless, just choose everything
+    
+    
+    
+  
+### result interpretations:
+
+horseshoe models:
+
+  - comparison of BFDRs for frob kappas in 10k obs, 8-16 (BFDR and FDR nearly identical) to 32-32 and 128-64 (BFDR and FDR v. different) indicates frob correction is miscalibrated, possibly since frob norm will in general grow with matrix size.  Using spectral norm probably makes more sense.
+  
+  - 10k obs: $f_3$ not always caught; $f_4$ tends to have highest kappas
+
+Det layers:
+  
+  - all det layers use single sample z update
+  - at least 2 mc samples appears to stabilize a lot
+  - local and tau kappas perform fairly similarly; frob kappas worst
+  
+  - tau correction keeps BFDR slightly conservative compared to FDR
+  - alpha trajectories show no separation until KL annealing kicks in, but then separate extremely well.  Full horseshoe models's alpha trajectories can be pretty wild.
+  
+  
+- next: 
+  - apply spectral norm to annealing sims
+  - why are the results for the det layer sims good for 1k obs, but so bad for 100k obs?
+    - check how the det layers do for 100 obs
+
+
+  
+
+
 # 3/17
 
 - implemented minibatching, MC sampling MSE, standardizing data / rescaling for plots

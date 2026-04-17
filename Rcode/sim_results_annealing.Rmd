@@ -588,7 +588,7 @@ gen_header(sim_res)
 
 - no minibatching 
 
-- no annealing
+- yes annealing
 
 
 __Comments:__

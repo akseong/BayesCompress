@@ -1,3 +1,6 @@
+
+
+
 Navneet's thesis:
 
 # Introduction
@@ -52,6 +55,7 @@ My intro:
 
 # Variable Selection 
 
+
 ## Variable Selection approaches
 
 ### classical approach: constrained optimization of likelihood (e.g. LASSO and variants; Tibshirani 1996, Fan and Li 2001, Zou and Hastie 2005)
@@ -74,12 +78,12 @@ My intro:
   - complement the usual probability model (which describes the response y given some set of parameters theta) by setting a probability distribution on theta, i.e. a prior on theta, that encapsulates what is known about theta before observing y.  Then update our knowledge about theta after observing y.
 
  - prior distributions:
-	 - spike and slab (Mitchell and Beauchamp 1988; George and McCulloch 1997, Brown et al 1988) impose mixture distributions on regression coefficients, with latent binary indicators that identify relevant predictors
+	 - spike and slab (Mitchell and Beauchamp 1988; George and McCulloch 1997) impose mixture distributions on regression coefficients, with latent binary indicators that identify relevant predictors
 	 - shrinkage priors to adaptively shrink coefficients towards zero (Park and Casella 2008, Carvalho 2010)
-		 - focus: horseshoe prior background; emphasize Bayesian model Averaging-like estimation and use of $\kappa$ as "pseudo"-dropout probabilities (Carvalho 2010); mimics spike-and-slab (considered the gold stnadard for Bayesian variable selection) without requiring binary indicators, a computational advantage that is particularly useful when applied to deep neural networks (allows estimation of posterior via variational inference).
+		 - focus: horseshoe prior background; emphasize Bayesian model Averaging-like estimation and use of $\kappa$ as "pseudo"-dropout probabilities (Carvalho 2009); mimics spike-and-slab (considered the gold stnadard for Bayesian variable selection) without requiring binary indicators, a computational advantage that is particularly useful when applied to deep neural networks (allows estimation of posterior via variational inference).
 
   - note: model selection vs variable selection
-    - sometimes used nearly interchangeably, but variable selection may be more usefully understood as a subset or step within model selection.  For example, in the chapter on local variable selection, we describe how the choice of knots in an additive model determines the number of basis projections and the regions they cover; the set of knots chosen (among other things, such as the type of basis projection) specifies a model.  Within a chosen model, selecting which coefficients and thus regions are active amounts to variable selection.
+    - sometimes used nearly interchangeably, but when a distinction is made, variable selection is more usefully understood as a subset or step within model selection.  For example, in the chapter on local variable selection, we describe how the choice of knots in an additive model determines the number of basis projections and the regions they cover; the choice of knots (among other things, such as the type of basis projection), or even whether to represent a covariate's effect via basis expansion, specifies a model.  Within a chosen model, selecting which coefficients (and thus regions) are active amounts to variable selection.  Ideally - and to avoid issues such as post-selection bias - these are not separate processes, but unified by the prior specified over the model space.
 
 
 
