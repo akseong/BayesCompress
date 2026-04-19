@@ -649,6 +649,65 @@ get_kappas_frobcorrected <- function(nn_mod, ln_fcn = ln_mode){
 }
 
 
+get_spectral_norms <- function(nn_mod, verbose = FALSE){
+  l_names <- names(nn_mod$children)
+  L <- length(nn_mod$children)
+  spec_norms <- rep(1, length(l_names))
+  names(spec_norms) <- l_names
+  for (l in 1:L){
+    if (grepl("fc", l_names[l])){
+      if (verbose) {cat("hshoe layer ", l_names[l])}
+      # get spectral norm of ZW
+      W <- as_array(nn_mod$children[[l]]$weight_mu)
+      Z <- diag(sqrt(get_zsq(nn_mod$children[[l]])))
+      ZW <- Z%*%t(W)
+      spec_norms[l] <- max(svd(ZW)$d[1])
+    } else {
+      if (verbose) {cat("det layer ", l_names[l])}
+      w <- as_array(nn_mod$children[[l]]$weight)
+      spec_norms[l] <- max(svd(w)$d[1])
+      # get spectral norm of W
+    }
+  }
+  return(spec_norms)
+}
+
+get_specnorm_correction <- function(nn_mod, prod_fcn = prod){
+  sn_vec <- get_spectral_norms(nn_mod)
+  prod_fcn(sn_vec[2:length(sn_vec)])
+}
+get_kappas_specnormcorrected <- function(nn_mod, prod_fcn = prod){
+  zsq_1 <- get_zsq(nn_mod$fc1)
+  sn_correction <- get_specnorm_correction(nn_mod, prod_fcn)
+  return((1 + zsq_1*sn_correction^2)^(-1))
+}
+
+get_composite_specnorm <- function(nn_mod){
+  l_names <- names(nn_mod$children)
+  L <- length(nn_mod$children)
+  for (l in 2:L){
+    if (grepl("fc", l_names[l])){
+      W <- as_array(nn_mod$children[[l]]$weight_mu)
+      Z <- diag(sqrt(get_zsq(nn_mod$children[[l]])))
+      current_W <- Z%*%t(W)
+    } else {
+      current_W <- as_array(nn_mod$children[[l]]$weight)
+    }
+    
+    if (l==2){
+      prev_W <- current_W
+    } else {
+      prev_W <- prev_W %*% t(current_W)
+    }
+  }
+  return(svd(prev_W)$d[1])
+}
+
+get_kappas_compositespecnorm <- function(nn_mod){
+  zsq_1 <- get_zsq(nn_mod$fc1)
+  sn_correction <- get_composite_specnorm(nn_mod)
+  return((1 + zsq_1*sn_correction^2)^(-1)) 
+}
 
 
 ## plotting predicted functions ----
