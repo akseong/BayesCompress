@@ -72,9 +72,9 @@ plot_datagen_fcns(flist)
 save_mod_path_prestem <- here::here(
   "sims", 
   "results", 
-  "detlayers_516_"
+  "detlayers_2x8_3x4_"
 )
-n_obs <- 12500 # includes training and test
+n_obs <- 125 # includes training and test
 sim_desc <- c(
   "no minibatching, 5 MC samples for MSE, kl annealing only - no lr annealing",
   "optimistic tau_0 (p_0 = 10 of 104)"
@@ -91,11 +91,11 @@ sim_params <- list(
   "plot_every_x_reports" = 10,
   "use_cuda" = use_cuda,
   "d_in" = 104,
-  "d_hidden1" = 16,
-  "d_hidden2" = 16,
-  "d_hidden3" = 16,
-  "d_hidden4" = 16,
-  "d_hidden5" = 16,
+  "d_hidden1" = 8,
+  "d_hidden2" = 8,
+  "d_hidden3" = 4,
+  "d_hidden4" = 4,
+  "d_hidden5" = 4,
   "d_out" = 1,
   "true_coefs" = c(-0.5, 1, -2, 4, rep(0, times = 100)),
   "alpha_thresh" = 1 / qchisq(1 - (0.05 / 104), df = 1),
