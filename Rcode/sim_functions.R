@@ -230,13 +230,43 @@ unscale_mat <- function(mat, means, sds){
 # DATA GENERATION ----
 plot_datagen_fcns <- function(
     flist, 
+    xlist = NULL,
     min_x = -3, 
     max_x = 3, 
     x_length = 100
   ){
+  
   xshow <- seq(min_x, max_x, length.out = x_length)
-  yshow <- sapply(flist, function(fcn) fcn(xshow))
-  colnames(yshow) <- paste0("f", 1:length(flist))
+  if (is.null(xlist)){
+    yshow <- sapply(flist, function(fcn) fcn(xshow))
+    colnames(yshow) <- paste0("f", 1:length(flist))
+  } else {
+    yshow <- c()
+    cnames <- c()
+    for(j in 1:length(flist)){
+      xvars <- xlist[[j]]
+      if (length(xvars)==1){
+        yshow <- cbind(yshow, flist[[j]](xshow))
+        cnames <- c(cnames, paste0("f", j))
+      } else {
+        x2_neg <- rep(-0.5, x_length)
+        x2_pos <- rep(0.5, x_length)
+        yshow <- cbind(
+          yshow, 
+          flist[[j]](cbind(xshow, x2_neg)),
+          flist[[j]](cbind(xshow, x2_pos))
+        )
+        cnames <- c(
+          cnames, 
+          paste0("f", j, "_x", xvars[2], "-0.5"),
+          paste0("f", j, "_x", xvars[2], "+0.5")
+        )
+      }
+      
+    }
+    colnames(yshow) <- cnames
+  }
+  
   df <- data.frame(cbind(yshow, "x" = xshow))
   plt <- df %>% 
     pivot_longer(cols = -x, names_to = "fcn") %>%
@@ -307,6 +337,7 @@ sim_func_data <- function(
   n_obs = 1000,
   d_in = 10,
   flist = list(fcn1, fcn2, fcn3, fcn4),
+  xlist = NULL,
   err_sigma = 1,
   use_cuda = FALSE,
   xdist = "norm",
@@ -314,16 +345,21 @@ sim_func_data <- function(
 ){
   # generate x, y
   if (xdist == "unif"){
-    x <- torch_rand(n_obs, d_in)
-    x$add_(-0.5)
-    x$mul_(sqrt(12))
+    x <- (torch_rand(n_obs, d_in)-.5)*4 # ~Uniform(-2,2)
   } else {
     x <- torch_randn(n_obs, d_in)
   }
   
   y <- rep(0, n_obs)
-  for(j in 1:length(flist)){
-    y <- y + flist[[j]](x[,j])
+  if (is.null(xlist)){
+    for(j in 1:length(flist)){
+      y <- y + flist[[j]](x[,j])
+    }
+  } else {
+    for(j in 1:length(flist)){
+      xvars <- xlist[[j]]
+      y <- y + flist[[j]](x[,xvars])
+    }
   }
   y <- y$unsqueeze(2) + torch_normal(mean = 0, std = err_sigma, size = c(n_obs, 1))
   
