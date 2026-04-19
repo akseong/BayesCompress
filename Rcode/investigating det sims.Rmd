@@ -377,12 +377,15 @@ nn_mod <- torch_load(mod_fnames[sim_ind])
 
 ```{r}
 
-tau_correction(nn_mod)
-get_kappas_taucorrected # already uses nonsquarerooted correction
+tau_correction_factor <- tau_correction(nn_mod)  # square-rooted tau correction factor
+get_kappas_taucorrected # uses squarerooted correction
 
 ztilsq_1 <- get_ztil_sq(nn_mod$fc1)
 zsq_1 <- get_zsq(nn_mod$fc1)
 ztilsq_1 / zsq_1
+
+kt_1 <- (1 + zsq_1 * tau_correction_factor^4)^(-1)
+
 
 
 get_spectral_norms <- function(nn_mod, verbose = FALSE){
@@ -408,6 +411,16 @@ get_spectral_norms <- function(nn_mod, verbose = FALSE){
   return(spec_norms)
 }
 
+get_specnorm_correction <- function(nn_mod, prod_fcn = prod){
+  sn_vec <- get_spectral_norms(nn_mod)
+  prod_fcn(sn_vec[2:length(sn_vec)])
+}
+get_kappas_specnormcorrected <- function(nn_mod, prod_fcn = prod){
+  zsq_1 <- get_zsq(nn_mod$fc1)
+  sn_correction <- get_specnorm_correction(nn_mod, prod_fcn)
+  return((1 + zsq_1*sn_correction^2)^(-1))
+}
+
 get_composite_specnorm <- function(nn_mod){
   l_names <- names(nn_mod$children)
   L <- length(nn_mod$children)
@@ -429,32 +442,12 @@ get_composite_specnorm <- function(nn_mod){
   return(svd(prev_W)$d[1])
 }
 
-get_composite_specnorm(nn_mod)
 get_kappas_compositespecnorm <- function(nn_mod){
   zsq_1 <- get_zsq(nn_mod$fc1)
   sn_correction <- get_composite_specnorm(nn_mod)
   return((1 + zsq_1*sn_correction^2)^(-1)) 
 }
 
-
-
-
-get_spectral_norms(nn_mod)
-get_specnorm_correction <- function(nn_mod, prod_fcn = prod){
-  sn_vec <- get_spectral_norms(nn_mod)
-  prod_fcn(sn_vec[2:length(sn_vec)])
-}
-get_kappas_specnormcorrected <- function(nn_mod, prod_fcn = prod){
-  zsq_1 <- get_zsq(nn_mod$fc1)
-  sn_correction <- get_specnorm_correction(nn_mod, prod_fcn)
-  return((1 + zsq_1*sn_correction^2)^(-1))
-}
-
-
-
-spec_correction <- get_specnorm_correction(nn_mod)
-1/get_s_sq(nn_mod$fc1)
-spec_correction
 
 kl_1 <- get_kappas(nn_mod$fc1, type = "local")
 ksn_1 <- get_kappas_specnormcorrected(nn_mod, prod_fcn = prod)
