@@ -333,6 +333,18 @@ sim_linear_data <- function(
 # fcn4 <- function(x) - (abs(x))
 # flist = list(fcn1, fcn2, fcn3, fcn4)
 
+corr_fcn <- function(i, j) {0.5^(abs(i-j))}
+
+make_Covmat <- function(p, covar_fcn){
+  Sigma <- matrix(NA, nrow = p, ncol = p)
+  for (i in 1:p){
+    for (j in 1:p){
+      Sigma[i, j] <- covar_fcn(i, j)
+    }
+  }
+  return(Sigma)
+}
+
 sim_func_data <- function(
   n_obs = 1000,
   d_in = 10,
@@ -341,13 +353,23 @@ sim_func_data <- function(
   err_sigma = 1,
   use_cuda = FALSE,
   xdist = "norm",
+  xcov = NULL,
   standardize = FALSE
 ){
   # generate x, y
   if (xdist == "unif"){
     x <- (torch_rand(n_obs, d_in)-.5)*4 # ~Uniform(-2,2)
   } else {
-    x <- torch_randn(n_obs, d_in)
+    if (is.null(xcov)){
+      x <- torch_randn(n_obs, d_in)      
+    } else {
+      x <- MASS::mvrnorm(
+        n = n_obs, 
+        mu = rep(0, d_in), 
+        Sigma = xcov
+      )
+      x <- torch_tensor(x)
+    }
   }
   
   y <- rep(0, n_obs)
@@ -1598,6 +1620,7 @@ sim_hshoe_det <- function(
     flist = sim_params$flist,
     err_sigma = sim_params$err_sig,
     xdist = sim_params$xdist,
+    xcov = sim_params$xcov,
     standardize = false_if_null(sim_params$standardize)
   )
   if (sim_params$use_cuda){

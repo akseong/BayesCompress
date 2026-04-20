@@ -41,22 +41,22 @@ if (torch::cuda_is_available()){
 # fcn4 <- function(x) - log(abs(x) + 1e-3)
 
 # "smoother" functions.  
-# fcn1 <- function(x) -cos(pi/1.5*x)
-# fcn2 <- function(x) cos(pi*x) + sin(pi/1.2*x)
-# fcn3 <- function(x) abs(x)^(.75)
-# fcn4 <- function(x) -x^2 / 4
+fcn1 <- function(x) -cos(pi/1.5*x)
+fcn2 <- function(x) cos(pi*x) + sin(pi/1.2*x)
+fcn3 <- function(x) abs(x)^(.75)
+fcn4 <- function(x) -x^2 / 4
 
 # for new datagen:
-fcn1 <- function(x) -cos(pi/1.5*x)
-fcn2 <- function(x) sin(pi/1.5*x) + 1.5*cos(pi/1.2*(x-.5))
-fcn3 <- function(x) {
-  if (typeof(x)=="externalptr"){
-    (torch_round(x)%%2)*2 - 0.5
-  } else {
-    (round(x)%%2)*2 - 0.5  
-  }
-}
-fcn4 <- function(x) -x^2/4 + 2
+# fcn1 <- function(x) -cos(pi/1.5*x)
+# fcn2 <- function(x) sin(pi/1.5*x) + 1.5*cos(pi/1.2*(x-.5))
+# fcn3 <- function(x) {
+#   if (typeof(x)=="externalptr"){
+#     (torch_round(x)%%2)*2 - 0.5
+#   } else {
+#     (round(x)%%2)*2 - 0.5  
+#   }
+# }
+# fcn4 <- function(x) -x^2/4 + 2
 
 # binary fcn
 # fcn5 <- function(x) (x[, 1]^2)/4 - 2 + (x[, 2]<0)*3*cos(pi/2*x[, 1])
@@ -66,6 +66,13 @@ fcn4 <- function(x) -x^2/4 + 2
 # x2 <- 0
 # y <- fcn5(cbind(x1, x2))
 # plot(y~x1)
+
+# "smoother" functions, decentered
+fcn1 <- function(x) -sin(pi/1.5*x)
+fcn2 <- function(x) cos(pi*x) + sin(pi/1.2*x)
+fcn3 <- function(x) abs(x)^(.75)
+fcn4 <- function(x) -x^2 / 4
+
 flist = list(fcn1, fcn2, fcn3, fcn4)
 # xlist <- list(1, 2, 3, 4, c(5, 6))
 plot_datagen_fcns(flist)
@@ -90,13 +97,12 @@ plot_datagen_fcns(flist)
 #    check whenever changing setting (testing / single vs parallel, etc) ##
 #           n_sims, verbose, want_plots, train_epochs
 
-
 save_mod_path_prestem <- here::here(
   "sims", 
   "results", 
-  "detnewfcns_5x4_tau1"
+  "detlayers_corr_5x16"
 )
-n_obs <- 125*10 # includes training and test
+n_obs <- 125*100 # includes training and test
 sim_desc <- c(
   "newfcns, no minibatching, 5 MC samples for MSE, kl annealing only - no lr annealing",
   "optimistic tau_0 (p_0 = 10 of 104)"
@@ -113,11 +119,11 @@ sim_params <- list(
   "plot_every_x_reports" = 10,
   "use_cuda" = use_cuda,
   "d_in" = 104,
-  "d_hidden1" = 4,
-  "d_hidden2" = 4,
-  "d_hidden3" = 4,
-  "d_hidden4" = 4,
-  "d_hidden5" = 4,
+  "d_hidden1" = 16,
+  "d_hidden2" = 16,
+  "d_hidden3" = 16,
+  "d_hidden4" = 16,
+  "d_hidden5" = 16,
   "d_out" = 1,
   "true_coefs" = c(-0.5, 1, -2, 4, rep(0, times = 100)),
   "alpha_thresh" = 1 / qchisq(1 - (0.05 / 104), df = 1),
@@ -125,6 +131,7 @@ sim_params <- list(
   "lr" = 0.001,  # sim_hshoe learning rate arg.  If not specified, uses optim_adam default (0.001)
   "err_sig" = 1,
   "xdist" = "unif",
+  "xcorr" = 0.25,
   "convergence_crit" = 1e-7,
   "ttsplit" = 4/5,
   "batch_size" = NULL,
@@ -138,6 +145,10 @@ sim_params <- list(
 )
 set.seed(sim_params$seed)
 sim_params$sim_seeds <- floor(runif(n = sim_params$n_sims, 0, 1000000))
+
+corr_fcn <- function(i, j) {0.5^(abs(i-j))}
+sim_params$xcov <- make_Covmat(sim_params$d_in, corr_fcn)
+
 
 
 # calibrate tau
@@ -161,7 +172,7 @@ agnostic_tau <- tau0_PV(
   n = round(sim_params$n_obs * sim_params$ttsplit)
 )
 
-sim_params$prior_tau <- agnostic_tau <- 1
+# sim_params$prior_tau <- agnostic_tau <- 1
 
 
 ## define model
