@@ -130,7 +130,7 @@ sim_params <- list(
   "flist" = flist,
   "lr" = 0.001,  # sim_hshoe learning rate arg.  If not specified, uses optim_adam default (0.001)
   "err_sig" = 1,
-  "xdist" = "unif",
+  "xdist" = "norm",
   "xcorr" = 0.25,
   "convergence_crit" = 1e-7,
   "ttsplit" = 4/5,
