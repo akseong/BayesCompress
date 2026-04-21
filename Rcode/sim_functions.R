@@ -1089,6 +1089,7 @@ sim_hshoe <- function(
     flist = sim_params$flist,
     err_sigma = sim_params$err_sig,
     xdist = sim_params$xdist,
+    xcov = sim_params$xcov,
     standardize = false_if_null(sim_params$standardize)
   )
   if (sim_params$use_cuda){
