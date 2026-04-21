@@ -15,7 +15,7 @@ library(ggplot2)
 library(gridExtra)
 
 library(torch)
-source(here("Rcode", "torch_horseshoe_opus.R"))
+source(here("Rcode", "torch_horseshoe_smallbias.R"))
 source(here("Rcode", "sim_functions.R"))
 source(here("Rcode", "analysis_fcns.R"))
 # source(here("Rcode", "sim_hshoe_normedresponse.R"))
@@ -100,17 +100,21 @@ plot_datagen_fcns(flist)
 save_mod_path_prestem <- here::here(
   "sims", 
   "results", 
-  "detlayers_corr.9_5x16"
+  "detlayers_smallbias_corr.3_5x16"
 )
 n_obs <- 125*100 # includes training and test
+xcorr = 0.3
 sim_desc <- c(
-  "newfcns, no minibatching, 5 MC samples for MSE, kl annealing only - no lr annealing",
+  "oldfcns, no minibatching, 5 MC samples for MSE, kl annealing only - no lr annealing",
   "optimistic tau_0 (p_0 = 10 of 104)"
 )
 
 sim_params <- list(
   "sim_name" = sim_desc,
   "n_obs" = n_obs,
+  "err_sig" = 1,
+  "xdist" = "norm",
+  "xcorr" = xcorr,
   "seed" = 516,
   "n_sims" = 5,
   "n_mc_samples" = 5,
@@ -129,9 +133,6 @@ sim_params <- list(
   "alpha_thresh" = 1 / qchisq(1 - (0.05 / 104), df = 1),
   "flist" = flist,
   "lr" = 0.001,  # sim_hshoe learning rate arg.  If not specified, uses optim_adam default (0.001)
-  "err_sig" = 1,
-  "xdist" = "norm",
-  "xcorr" = 0.25,
   "convergence_crit" = 1e-7,
   "ttsplit" = 4/5,
   "batch_size" = NULL,
@@ -146,7 +147,7 @@ sim_params <- list(
 set.seed(sim_params$seed)
 sim_params$sim_seeds <- floor(runif(n = sim_params$n_sims, 0, 1000000))
 
-corr_fcn <- function(i, j) {0.9^(abs(i-j))}
+corr_fcn <- function(i, j) {sim_params$xcorr^(abs(i-j))}
 sim_params$xcov <- make_Covmat(sim_params$d_in, corr_fcn)
 
 
