@@ -100,7 +100,7 @@ plot_datagen_fcns(flist)
 save_mod_path_prestem <- here::here(
   "sims", 
   "results", 
-  "detlayers_corr_5x16"
+  "detlayers_corr.9_5x16"
 )
 n_obs <- 125*100 # includes training and test
 sim_desc <- c(
@@ -146,7 +146,7 @@ sim_params <- list(
 set.seed(sim_params$seed)
 sim_params$sim_seeds <- floor(runif(n = sim_params$n_sims, 0, 1000000))
 
-corr_fcn <- function(i, j) {0.5^(abs(i-j))}
+corr_fcn <- function(i, j) {0.9^(abs(i-j))}
 sim_params$xcov <- make_Covmat(sim_params$d_in, corr_fcn)
 
 
