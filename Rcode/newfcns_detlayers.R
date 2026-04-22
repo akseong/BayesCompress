@@ -100,9 +100,9 @@ plot_datagen_fcns(flist)
 save_mod_path_prestem <- here::here(
   "sims", 
   "results", 
-  "detlayers_smallbias_corr.3_5x16"
+  "detlayers_smallbias_jitter_corr.3_5x16"
 )
-n_obs <- 125*100 # includes training and test
+n_obs <- 125*10 # includes training and test
 xcorr = 0.3
 sim_desc <- c(
   "oldfcns, no minibatching, 5 MC samples for MSE, kl annealing only - no lr annealing",
@@ -115,6 +115,8 @@ sim_params <- list(
   "err_sig" = 1,
   "xdist" = "norm",
   "xcorr" = xcorr,
+  "xjitter" = TRUE,
+  "xshift" = NULL,
   "seed" = 516,
   "n_sims" = 5,
   "n_mc_samples" = 5,

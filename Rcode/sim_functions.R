@@ -1629,6 +1629,15 @@ sim_hshoe_det <- function(
     simdat$y <- simdat$y$to(device = "cuda")
   }
   
+  if (!is.null(sim_params$xjitter) & sim_params$xjitter){
+    simdat$x <- simdat$x + torch_randn_like(simdat$x)*1e-3
+  }
+  
+  if (!is.null(sim_params$xshift) & is.numeric(sim_params$xshift)){
+    simdat$x = simdat$x + sim_params$xshift
+    if (simdat$standardized) {simdat$x_mean <- simdat$x_mean + sim_params$xshift}
+  }
+  
   sim_params$train_sig <- ifelse(
     simdat$standardized,
     sim_params$err_sig / simdat$y_sd$item(),
@@ -1710,6 +1719,7 @@ sim_hshoe_det <- function(
   kappa_local_mat <- 
     kappa_mat <- 
     kappa_tc_mat <- 
+    kappa_sn_mat <-
     kappa_fc_mat <- alpha_mat
   
   # store: weight params
@@ -1861,6 +1871,8 @@ sim_hshoe_det <- function(
       # corrected param kappas
       kappas_tc <- get_kappas_taucorrected(model_fit)
       kappas_fc <- get_kappas_frobcorrected(model_fit)
+      kappas_sn <- get_kappas_compositespecnorm(model_fit)
+      kappa_sn_mat[row_ind, ] <- kappas_sn
       kappa_tc_mat[row_ind, ] <- kappas_tc
       kappa_fc_mat[row_ind, ] <- kappas_fc
       
@@ -1928,7 +1940,9 @@ sim_hshoe_det <- function(
       
       cat("\n global kappas: ", round(kappas, 2), "\n")
       cat("\n tau-corrected kappas: ", round(kappas_tc, 2), "\n")
-      cat("\n frob-corrected kappas: ", round(kappas_fc, 2), "\n")
+      cat("\n specnorm(composite) kappas: ", round(kappas_sn, 2), "\n")
+
+      # cat("\n frob-corrected kappas: ", round(kappas_fc, 2), "\n")
       # display_kappas <- ifelse(
       #   kappas <= 0.9,
       #   round(kappas, 3),
@@ -2060,6 +2074,7 @@ sim_hshoe_det <- function(
     "kappa_mat" = kappa_mat,
     "kappa_tc_mat" = kappa_tc_mat,
     "kappa_fc_mat" = kappa_fc_mat,
+    "kappa_sn_mat" = kappa_sn_mat,
     "kappa_local_mat" = kappa_local_mat
     
   )
