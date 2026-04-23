@@ -1,0 +1,78 @@
+
+
+
+
+
+
+# Intro:
+
+- Neural networks as powerful prediction systems, and Bayesian networks for stochastic functions.  
+  - Bayesian networks difference from regular (learn distribution of weights, allow for uncertainty quantification)
+  - Ghosh & Doshi-Velez 2017/2019 paper on model selection - "By treating the weights in a neural network as random varialbes and performing posterior inference on these weights, BNNs can avoid overfitting in the regime of small data, provide well-calibrated posterior uncertainty estimates, and model a large class of stochastic functions with heteroskedastic and multimodal noise."
+
+- combine with some remarks on dataset used
+
+# Previous work:
+
+## Selection in NNs:
+Almost all literature on selection in neural networks focuses only on sparsifying the neural network architecture itself, without much if any regard to input feature selection.
+  
+  - Different variations of dropout (randomly pruning inputs and layer units during training) has long been used to prevent overfitting in deterministic NNs; Gal & Gahramani 2016 - Dropout as a Bayesian Approximation - show that dropout corresponds to an approximate variational distribution.
+
+  - Louizos, Ullrich, Welling 2017 "Bayesian Compression" - which we draw most heavily from.  Their focus is on a grouped scale mixture prior, providing code for a Normal Jeffrey's prior (which was later shown to have pathologies related to the VI approximation).  Their method was motivated by the desire to compress neural network sizes, so focuses on pruning hidden units and using shorter bit-length representations of weights ("quantization") while preserving predictive accuracy.
+
+  - Rockova & Polson 2017 provide theory on posterior selection consistency of _model architectures_ in Bayesian spike-and-slab NNs with RELU activations.  
+
+  - Ghosh & Doshi-velez 2017/2019 model selection - prune _units_ with horseshoe, i.e. selection of number of neurons in each layer, not on input variables.
+    - selection based on thresholding
+
+  - Skaaret-Lund, Storvik, Hubin 2023 (related work from Hubin Storvik in 2019, 2023)- propose latent binary bayesian neural network (LBBNN) - use spike-and-slab with latent variables to model dependencies between weights; variational inference procedure enhanced with inverse autoregressive flow (type of normalizing flow)
+
+  - Theory on posterior consistency for model selection from Rockova and polson, Wang and Rockova, but again the focus is on selecting the number of units in NN layers  
+
+When variable selection is the actual focus, input sparsity / variable selection is still typically treated heuristically.  Of the very small handful of works that focus specifically on input feature selection:
+
+    1. an ArXiv paper Overweg Popkes 2019 "Interpretable outcome prediction with sparse bayesian neural networks in intensive care" - similar approach, but variable selection is still largely heuristic, based on thresholding
+
+    2. Liu 2021: Variable Selection with Rigorous Uncertainty Quantification using Deep Bayesian Neural Networks: Posterior Concentration and Bernstein-von Mises Phenomenon - variable selection performed by checking if credible interval for variable importance measure (L2 norm of gradient function, i.e. partial derivative signifying change in f(\vec{x}_i) over change in x_p) contains 0, justified by developing BvM theorem regarding variable importance measure (posterior of VIM converges to Gaussian, 1 - alpha credible interval has 1-alpha coverage).  Does not use priors specifically developed for sparsity (uses standard iid Gaussian priors for model weights)
+
+    3. Liang et al 2018 Bayesian Neural Networks for Selection of Drug Sensitive Genes - 
+      - 1 hidden layer, relatively small dimension (i.e. all results are from NNs with 3, 5, 7 units in hidden layer, chosen empirically after short MC run to minimize an information criterion - they use EBIC, but suggest BIC and AIC also work)
+      - selection performed over every single network connection --- authors assert that this offers some interpretability --- though perhaps only in a single hidden layer network.
+      - population stochastic approximation monte carlo sampling - run short stochastic approximation MC chains in parallel by sharing information on a working parameter that penalizes over-visited regions and rewards under-visited regions to help system escape local extrema
+
+
+My methods contributions:
+- modify LUW 2017's procedure for application to input variable selection / feature selection, combining several desirable characteristics: statistically principled variable selection, higher interpretability, while maintaining predictive accuracy.
+- procedure for BFDR control in a horseshoe NN, show empirically that it approaches nominal FDR (future work needed on theory)
+- possible path for mitigating identifiability issues for parameters in Bayesian neural networks which arise from the composition of affine functions via composite spectral norm (future work needed on theory)
+
+
+# Variational Inference
+
+## KL divergence and ELBO
+
+## Training
+
+
+
+# Methods
+
+## Bayesian formulation of model
+
+## Variational distributions 
+### KLs (or in appendix)
+
+## Correction to global scale parameter
+- composite spectral norm as (an approximate) solution to identifiability of global scale param across layers
+- approximate because of RELU activations, effect of bias parameters
+- why not just use hshoe only in first layer, since inference basically depends on first layer?  Because hshoe in 2nd layer provides sparsity in 1st layer --- indicates which units from the first layer are unimportant.  During training, actually shrinks these weights.  Provides "representation" sparsity in first layer.  
+
+
+# Simulations
+
+## function recovery sims
+
+## competitors based on Liangm Li 2018 synthetic simulations
+
+## salary data
