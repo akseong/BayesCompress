@@ -38,6 +38,7 @@ n_obs <- 500 # includes training and test
 d_in <- 100
 sim_desc <- c(
   "Liang nonlin regression example, 
+  P=100, train obs = 400,
   5 MC samples for MSE, 
   kl annealing only - no lr annealing",
   "optimistic tau_0 (p_0 = 50 of 500)"
