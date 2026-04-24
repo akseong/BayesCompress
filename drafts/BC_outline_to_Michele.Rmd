@@ -1,3 +1,77 @@
+---
+title: "BNN paper outline"
+author: "Arnie Seong"
+date: "Last updated: `r format(Sys.time(), '%d %B %Y')`"
+header-includes:
+  - \usepackage{bm}
+  - \usepackage{xcolor}
+  - \usepackage{amssymb}
+output: 
+  html_document:
+    df_print: paged
+    theme: cerulean
+    highlight: tango
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
+    code_fold: show
+urlcolor: blue
+params:
+  retrain: FALSE
+  seed: 314
+editor_options: 
+  chunk_output_type: console
+---
+
+
+<style type="text/css">
+
+  #TOC>ul>li, h1, h2{
+    font-weight: bold;
+  }
+  
+  blockquote{
+    background-color: #d5f2f5;
+    font-size: small;
+  }
+  
+  b, strong {
+   color: #11579e;
+  }
+  
+  caption {
+    color: #11579e;
+    font-weight: bold;
+    font-size: 1.0em;
+  }
+  
+  h1 { font-size: 2em }
+  h2 { font-size: 1.6em  }
+  h3 { font-size: 1.25em }
+  h4 { font-size: 1.10em }
+  h5, h6 { font-size: 1em    }
+  
+  h1, h2, h3 {font-weight: bold;}
+  
+  a {font-weight: bold; text-decoration: underline}
+  
+  .nav-pills>li>a:hover, 
+  .nav-pills>li>a:focus, 
+  .nav-pills>li.active>a,     
+  .nav-pills>li.active>a:hover, 
+  .nav-pills>li.active>a:focus{
+     background-color: #11579e;
+  }
+  
+  .nav-pills{
+     background-color: #d5f2f5;
+  }
+</style>
+
+
+
 
 
 
@@ -42,18 +116,18 @@
 
 - When variable selection is the actual focus, input sparsity / variable selection is still typically treated heuristically.  Of the very small handful of works that focus specifically on input feature selection:
 
-    1. an ArXiv paper Overweg Popkes 2019 "Interpretable outcome prediction with sparse bayesian neural networks in intensive care" - similar approach, but variable selection is still largely heuristic, based on thresholding
+  1. an ArXiv paper Overweg Popkes 2019 "Interpretable outcome prediction with sparse bayesian neural networks in intensive care" - similar approach, but variable selection is still largely heuristic, based on thresholding
 
-    2. Liu 2021: Variable Selection with Rigorous Uncertainty Quantification using Deep Bayesian Neural Networks: Posterior Concentration and Bernstein-von Mises Phenomenon - variable selection performed by checking if credible interval for variable importance measure (L2 norm of gradient function, i.e. partial derivative signifying change in f(\vec{x}_i) over change in x_p) contains 0, justified by developing BvM theorem regarding variable importance measure (posterior of VIM converges to Gaussian, 1 - alpha credible interval has 1-alpha coverage).  Does not use priors specifically developed for sparsity (uses standard iid Gaussian priors for model weights).
+  2. Liu 2021: Variable Selection with Rigorous Uncertainty Quantification using Deep Bayesian Neural Networks: Posterior Concentration and Bernstein-von Mises Phenomenon - variable selection performed by checking if credible interval for variable importance measure (L2 norm of gradient function, i.e. partial derivative signifying change in f(\vec{x}_i) over change in x_p) contains 0, justified by developing BvM theorem regarding variable importance measure (posterior of VIM converges to Gaussian, 1 - alpha credible interval has 1-alpha coverage).  Does not use priors specifically developed for sparsity (uses standard iid Gaussian priors for model weights).
 
 
-    3. Liang et al 2018 Bayesian Neural Networks for Selection of Drug Sensitive Genes - 
+  3. Liang et al 2018 Bayesian Neural Networks for Selection of Drug Sensitive Genes - 
 
-      - 1 hidden layer, relatively small dimension (i.e. all results are from NNs with 3, 5, 7 units in hidden layer, chosen empirically after short MC run to minimize an information criterion - they use EBIC, but suggest BIC and AIC also work)  
+    - 1 hidden layer, relatively small dimension (i.e. all results are from NNs with 3, 5, 7 units in hidden layer, chosen empirically after short MC run to minimize an information criterion - they use EBIC, but suggest BIC and AIC also work)  
 
-      - selection performed over every single network connection --- authors assert that this offers some interpretability; Sure, but probably only in a single hidden layer network, or v. small / v. sparse architectures.  
+    - selection performed over every single network connection --- authors assert that this offers some interpretability; Sure, but probably only in a single hidden layer network, or v. small / v. sparse architectures.  
 
-      - population stochastic approximation monte carlo sampling - run short stochastic approximation MC chains in parallel by sharing information on a working parameter that penalizes over-visited regions and rewards under-visited regions to help system escape local extrema
+    - population stochastic approximation monte carlo sampling - run short stochastic approximation MC chains in parallel by sharing information on a working parameter that penalizes over-visited regions and rewards under-visited regions to help system escape local extrema
 
 
 # Spike-and-slab & scale mixtures
@@ -111,6 +185,9 @@
 
 
 
+
+
+
 # Experiments
 
 ## nonlinear function recovery
@@ -127,60 +204,5 @@
 
 
 ## salary data
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-LUW 2017 structure
-1 Intro
-2 Variational Bayes (& MDL)
-3 Related Work
-4 Bayesian Compression with scale mixtures of normals
-  - 4.1 Reparametrizing variational dropout for group sparsity
-  - 4.2 Group horseshoe with Half-Cauchy scale priors
-5 Experiments
-  - 5.1 Architecture learning & bit precisions
-  - 5.2 Compression Rates
-  - 5.3 Speed and Energy consumption
-6 Conclusion
-App A: Detailed experimental setup
-App B: Standards for floating-point arithmetic
-App C: Shrinkage properties of normal-Jeffrey's and HShoe
-App D: KLs for log-normal approximating posteriors
-App E: Visualization (distribution of "thresholds"?)
-App F: Algorithms for forward pass
-
-
-Ghosh & Doshi-Velez 2017 structure
-1 Intro
-2 Bayesian NNs
-3 Automatic Model Selection through HShoe priors
-  - Parameterizing for more robust inference: Decomposing the Cauchy Distribution
-  - Parameterizing for more robust inference: Non-Centered Parameterization
-4 Learning Bayesian NNs with HShoe priors (discusses VI)
-  - Approximating Family
-  - ELBO
-  4.1 Black Box Variational Inference (techniques for VI, i.e. factorizations, MC)
-    - Variational distribution on pre-activations
-    - Algorithm
-5 Related Work
-  - early work on BNNs relying on Laplace approximation or MCMC, but do not scale well
-  - advances in stochastic VI methods (Blundell Cornebise 2015 Weight Uncertainty in NNs --- spikeslab gaussian mixture on weights, turn off edges / individual weights; Rezende Mohamed 2014 Stochastic backprop and approximate inference in deep generative models)
-  - uses Piironen Vehtari to suggest that can do even better if tune scale params better
-  - "Others have noticed" that dropout can be seen as approximate VI; Molchanov Ashukha Vetrov 2017 "Variational Dropout sparsifies DNNs" show that Gaussian dropout can be seen as performing variational inference with log-uniform priors over the weights
-  - earlier work in pruning - LeCun, Denker, Solla 1990 "Optimal brain damage", Hassibi Stork Wolff 1993 "Optimal brain surgeon and general network pruning"
-  - Optimizing filters and computation time: Wen, Wu, Wang, Li 2016 "Learned structured sparsity in DNNs"
-  - using group sparsity to prune nodes, but don't model uncertainty in weights and provide uniform shrinkage: Ochai Matsuda 2016 "Automatic node selection for DNNs using group lasso reg", Scardapne Comminiello 2017 "Group sparse regularization for DNNs", Murray and Chiang 2015 "Auto-sizing NNs: with applications to n-gram language models" (ArXiv)
-
 
 
