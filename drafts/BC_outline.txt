@@ -15,7 +15,8 @@
 # Previous work:
 
 ## Selection in NNs:
-Almost all literature on selection in neural networks focuses only on sparsifying the neural network architecture itself, without much if any regard to input feature selection.
+
+- Almost all literature on selection in neural networks focuses only on sparsifying the neural network architecture itself, without much if any regard to input feature selection.
   
   - Different variations of dropout (randomly pruning inputs and layer units during training) has long been used to prevent overfitting in deterministic NNs; Gal & Gahramani 2016 - Dropout as a Bayesian Approximation - show that dropout corresponds to an approximate variational distribution.
 
@@ -30,22 +31,30 @@ Almost all literature on selection in neural networks focuses only on sparsifyin
 
   - Theory on posterior consistency for model selection from Rockova and polson, Wang and Rockova, but again the focus is on selecting the number of units in NN layers  
 
-When variable selection is the actual focus, input sparsity / variable selection is still typically treated heuristically.  Of the very small handful of works that focus specifically on input feature selection:
+- When variable selection is the actual focus, input sparsity / variable selection is still typically treated heuristically.  Of the very small handful of works that focus specifically on input feature selection:
 
     1. an ArXiv paper Overweg Popkes 2019 "Interpretable outcome prediction with sparse bayesian neural networks in intensive care" - similar approach, but variable selection is still largely heuristic, based on thresholding
 
-    2. Liu 2021: Variable Selection with Rigorous Uncertainty Quantification using Deep Bayesian Neural Networks: Posterior Concentration and Bernstein-von Mises Phenomenon - variable selection performed by checking if credible interval for variable importance measure (L2 norm of gradient function, i.e. partial derivative signifying change in f(\vec{x}_i) over change in x_p) contains 0, justified by developing BvM theorem regarding variable importance measure (posterior of VIM converges to Gaussian, 1 - alpha credible interval has 1-alpha coverage).  Does not use priors specifically developed for sparsity (uses standard iid Gaussian priors for model weights)
+    2. Liu 2021: Variable Selection with Rigorous Uncertainty Quantification using Deep Bayesian Neural Networks: Posterior Concentration and Bernstein-von Mises Phenomenon - variable selection performed by checking if credible interval for variable importance measure (L2 norm of gradient function, i.e. partial derivative signifying change in f(\vec{x}_i) over change in x_p) contains 0, justified by developing BvM theorem regarding variable importance measure (posterior of VIM converges to Gaussian, 1 - alpha credible interval has 1-alpha coverage).  Does not use priors specifically developed for sparsity (uses standard iid Gaussian priors for model weights).
 
     3. Liang et al 2018 Bayesian Neural Networks for Selection of Drug Sensitive Genes - 
-      - 1 hidden layer, relatively small dimension (i.e. all results are from NNs with 3, 5, 7 units in hidden layer, chosen empirically after short MC run to minimize an information criterion - they use EBIC, but suggest BIC and AIC also work)
-      - selection performed over every single network connection --- authors assert that this offers some interpretability --- though perhaps only in a single hidden layer network.
+
+      - 1 hidden layer, relatively small dimension (i.e. all results are from NNs with 3, 5, 7 units in hidden layer, chosen empirically after short MC run to minimize an information criterion - they use EBIC, but suggest BIC and AIC also work)  
+
+      - selection performed over every single network connection --- authors assert that this offers some interpretability; Sure, but probably only in a single hidden layer network, or v. small / v. sparse architectures.  
+
       - population stochastic approximation monte carlo sampling - run short stochastic approximation MC chains in parallel by sharing information on a working parameter that penalizes over-visited regions and rewards under-visited regions to help system escape local extrema
 
 
-My methods contributions:
-- modify LUW 2017's procedure for application to input variable selection / feature selection, combining several desirable characteristics: statistically principled variable selection, higher interpretability, while maintaining predictive accuracy.
-- procedure for BFDR control in a horseshoe NN, show empirically that it approaches nominal FDR (future work needed on theory)
-- possible path for mitigating identifiability issues for parameters in Bayesian neural networks which arise from the composition of affine functions via composite spectral norm (future work needed on theory)
+- My method's contributions:
+
+  - modify LUW 2017's procedure for application to input variable selection / feature selection, combining several desirable characteristics: statistically principled variable selection, higher interpretability, while maintaining predictive accuracy.
+
+  - procedure for BFDR control in a horseshoe NN, show empirically that it approaches nominal FDR (future work needed on theory)
+
+  - possible path for mitigating identifiability issues for parameters in Bayesian neural networks which arise from the composition of affine functions via composite spectral norm (future work needed on theory)
+
+
 
 
 # Variational Inference
