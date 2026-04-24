@@ -443,6 +443,69 @@ sim_func_data_unifx <- function(
   )
 }
 
+# genX_mutualcorr
+genX_mutualcorr <- function(n_obs = 100, p = 5, round_dig = NULL){
+  # generates p covariates with mutual correlation = 0.5
+  basez <- rnorm(n_obs, mean = 0, sd = 1)
+  zvars <- matrix(
+    rnorm(n_obs*p, mean = 0, sd = 1),
+    ncol = p
+  )
+  X <- (basez + zvars)/2
+  if (!is.null(round_dig)) {X <- round(X, round_dig)}
+  return(X)
+}
+
+
+meanfcn_Liang1 <- function(X, round_dig = NULL){
+  Ey <- 10*X[, 2] / (1 + X[, 1]^2) + 5*sin(X[, 3]*X[, 4]) + 2*X[, 5]
+  if (!is.null(round_dig)) {Ey <- round(Ey, round_dig)}
+  return(Ey)
+}
+
+
+sim_meanfcn_data <- function(
+    n_obs = 1000,
+    d_in = 10,
+    genXfcn = genX_mutualcorr,
+    meanfcn = meanfcn_Liang1,
+    err_sigma = 1,
+    round_dig = NULL,
+    standardize = FALSE
+){
+  require(torch)
+  # generate x, y
+  x <- genXfcn(n_obs, p = d_in, round_dig)
+  Ey <- meanfcn(x, round_dig)
+  y <- Ey + rnorm(n_obs, mean = 0, sd = err_sigma)
+  
+  x <- torch_tensor(x)
+  Ey <- torch_tensor(Ey)
+  y <- torch_tensor(y)$unsqueeze(2)
+  
+  res <- list(
+    "y" = y,
+    "x" = x,
+    "Ey" = Ey,
+    "n_obs" = n_obs,
+    "d_in" = d_in,
+    "standardized" = standardize
+  )
+  
+  if (standardize){
+    res$x_mean <- torch_mean(x, dim = 1, keepdim = TRUE)
+    res$x_sd <- torch_std(x, dim = 1, keepdim = TRUE)
+    res$y_mean <- torch_mean(y, dim = 1, keepdim = TRUE)
+    res$y_sd <- torch_std(y, dim = 1, keepdim = TRUE)
+    
+    res$x <- (x - res$x_mean)/res$x_sd
+    res$y <- (y - res$y_mean)/res$y_sd
+  }
+  
+  return(res)
+}
+
+
 
 
 # ASSESSMENT FUNCS ----
@@ -1591,7 +1654,7 @@ sim_hshoe <- function(
 
 
 
-# SIMULATION FCNS ----
+# DETLAYERS ----
 sim_hshoe_det <- function(
     sim_ind = NULL,    # to ease parallelization
     seed = NULL,
@@ -2137,3 +2200,494 @@ sim_hshoe_det <- function(
   return(sim_res)
 }
 
+
+
+# SIM FROM MEAN FCN ----
+sim_hshoe_meanfcn <- function(
+    sim_ind = NULL,    # to ease parallelization
+    seed = NULL,
+    sim_params,     # same as before, but need to include flist
+    nn_model,   # torch nn_module,
+    verbose = TRUE,   # provide updates in console
+    want_plots = TRUE,   # provide graphical updates of KL, MSE
+    want_fcn_plots = TRUE,   # display predicted functions
+    save_fcn_plots = FALSE,
+    want_all_params = FALSE,
+    local_only = FALSE,
+    save_mod = TRUE,
+    save_results = TRUE,
+    save_mod_path_stem = NULL
+){
+  if (is.null(seed)){
+    seed <- sim_params$sim_seeds[sim_ind]
+  }
+  
+  ## generate data ----
+  set.seed(seed)
+  torch_manual_seed(seed)
+  
+  simdat <- sim_meanfcn_data(
+    n_obs = sim_params$n_obs, 
+    d_in = sim_params$d_in, 
+    genXfcn = sim_params$genXfcn,
+    meanfcn = sim_params$meanfcn,
+    err_sigma = sim_params$err_sig, 
+    round_dig = sim_params$round_dig, 
+    standardize = FALSE
+  )
+  
+  if (sim_params$use_cuda){
+    simdat$x <- simdat$x$to(device = "cuda")
+    simdat$y <- simdat$y$to(device = "cuda")
+  }
+
+  
+  # ttsplit, minibatching ----
+  ttsplit_ind <- floor(sim_params$n_obs * sim_params$ttsplit)
+  x_train_raw <- simdat$x[1:ttsplit_ind, ] 
+  y_train_raw <- simdat$y[1:ttsplit_ind, ]
+  x_test_raw <- simdat$x[(ttsplit_ind+1):sim_params$n_obs, ] 
+  y_test_raw <- simdat$y[(ttsplit_ind+1):sim_params$n_obs, ]
+  
+  # minibatching
+  if (!is.null(sim_params$batch_size)){
+    num_batches <- ttsplit_ind %/% sim_params$batch_size
+    batch_inds_vec <- 1:ttsplit_ind
+    batch_size <- sim_params$batch_size
+  } else {
+    batch_size <- ttsplit_ind
+  }
+  
+  # standardizing train data 
+  x_mean <- torch_mean(x_train_raw, dim = 1, keepdim = TRUE)
+  x_sd <- torch_std(x_train_raw, dim = 1, keepdim = TRUE)
+  y_mean <- torch_mean(y_train_raw, dim = 1, keepdim = TRUE)
+  y_sd <- torch_std(y_train_raw, dim = 1, keepdim = TRUE)
+    
+  x_train <- (x_train_raw - x_mean)/x_sd
+  y_train <- (y_train_raw - y_mean)/y_sd
+  x_test <- (x_test_raw - x_mean)/x_sd
+  y_test <- (y_test_raw - y_mean)/y_sd
+  
+  sim_params$x_mean <- x_mean
+  sim_params$x_sd <- x_sd
+  sim_params$y_mean <- y_mean
+  sim_params$y_sd <- y_sd
+  
+  # for tracking train progress
+  sim_params$train_sig <- sim_params$err_sig / y_sd$item()
+  cat_color(paste0("mse target: ", round(sim_params$train_sig, 4), "\n"))
+  
+  ## initialize BNN & optimizer ----
+  model_fit <- nn_model()
+  optim_model_fit <- optim_adam(model_fit$parameters, lr = sim_params$lr)
+  
+  # lr annealing
+  if (!is.null(sim_params$lr_scheduler)){
+    scheduler <- sim_params$lr_scheduler(optim_model_fit, T_max = sim_params$train_epochs)
+  }
+  
+  # kl annealing
+  if (!is.null(sim_params$kl_scheduler)){
+    kl_warmup_epochs <- round(sim_params$train_epochs * sim_params$kl_warmup_frac)
+  }
+  
+  # store: # train, test mse and kl ----
+  report_epochs <- seq(
+    sim_params$report_every, 
+    sim_params$train_epochs, 
+    by = sim_params$report_every
+  )
+  
+  loss_mat <- matrix(
+    NA, 
+    nrow = length(report_epochs),
+    ncol = 5
+  )
+  colnames(loss_mat) <- c("kl", "mse_train", "mse_test", "kl_raw", "kl_weight")
+  rownames(loss_mat) <- report_epochs
+  
+  # store: alphas, kappas
+  alpha_mat <- matrix(
+    NA, 
+    nrow = length(report_epochs),
+    ncol = sim_params$d_in
+  )
+  rownames(alpha_mat) <- report_epochs
+  kappa_local_mat <- 
+    kappa_mat <- 
+    kappa_tc_mat <- 
+    kappa_sn_mat <-
+    kappa_fc_mat <- alpha_mat
+  
+  # store: weight params
+  if (want_all_params){
+    w_mu_arr <-
+      w_lvar_arr <- array(NA, dim = c(sim_params$d_1, sim_params$d_in, length(report_epochs)))
+    
+    atilde_mu_mat <- 
+      btilde_mu_mat <-
+      atilde_logvar_mat <-
+      btilde_logvar_mat <- alpha_mat
+    
+    sa_mu_vec <-
+      sb_mu_vec <- 
+      sa_logvar_vec <- 
+      sb_logvar_vec <- rep(NA, length(report_epochs))
+  }
+  
+  
+  ## TRAINING LOOP ----
+  ## initialize training params
+  epoch <- 1
+  loss <- torch_tensor(1, device = dev_select(sim_params$use_cuda))
+  stop_criteria_met <- FALSE
+  
+  n_mc <- ifelse(
+    !is.null(sim_params$n_mc_samples),
+    sim_params$n_mc_samples, 1
+  )
+  
+  plot_every_x_reports <- ifelse(
+    !is.null(sim_params$plot_every_x_reports),
+    sim_params$plot_every_x_reports,
+    10
+  )
+  
+  while (!stop_criteria_met){
+    
+    if (!is.null(sim_params$batch_size)){
+      # determine batch number
+      batch_num <- epoch %% num_batches
+      # reshuffle batches if batch_num == 0
+      if (batch_num == 0) {batch_inds_vec <- sample(1:ttsplit_ind)}
+      batch_inds <- batch_inds_vec[1:sim_params$batch_size + (batch_num)*sim_params$batch_size]
+    }
+    
+    # zero out previous gradients
+    optim_model_fit$zero_grad()
+    
+    # accumulate mse gradients over s MC samples
+    mse_accum <- torch_tensor(0, device = dev_select(sim_params$use_cuda))
+    for (s in 1:n_mc){
+      # fit model with / without batching
+      if (is.null(sim_params$batch_size)){
+        yhat_train <- model_fit(x_train)
+        mse_s <- nnf_mse_loss(yhat_train, y_train) / n_mc
+      } else {
+        yhat_train <- model_fit(x_train[batch_inds, ])
+        mse_s <- nnf_mse_loss(yhat_train, y_train[batch_inds]) / n_mc
+      }
+      mse_s$backward()
+    }
+    
+    # fit & metrics
+    kl_raw <- model_fit$get_model_kld() / ttsplit_ind
+    kl_weight <- kl_weight_linear(epoch, kl_warmup_epochs)
+    kl <- kl_weight * kl_raw
+    kl$backward()
+    
+    # update weights
+    optim_model_fit$step()
+    mse <- mse_s * n_mc # approximate, based only on last sample's mse
+    loss <- mse + kl
+    # learning rate scheduler step
+    if (!is.null(sim_params$lr_scheduler)) {
+      scheduler$step()
+    }
+    
+    # store results (every `report_every` epochs)
+    time_to_report <- epoch!=0 & (epoch %% sim_params$report_every == 0)
+    time_to_plot <- epoch!=0 & (epoch %% (sim_params$report_every * plot_every_x_reports) == 0)
+    if (time_to_report){
+      row_ind <- epoch %/% sim_params$report_every
+      
+      # compute test loss 
+      model_fit$eval()                    # switches ALL layers to deterministic
+      with_no_grad({
+        yhat_test <- model_fit(x_test)
+        mse_test <- nnf_mse_loss(yhat_test, y_test)
+        
+        if (time_to_plot & want_fcn_plots){
+          yhat_plot <- model_fit(x_plot)
+        }
+      })
+      model_fit$train()
+      
+      loss_mat[row_ind, ] <- c(kl$item(), mse$item(), mse_test$item(), kl_raw$item(), kl_weight)
+      dropout_alphas <- model_fit$fc1$get_dropout_rates()
+      alpha_mat[row_ind, ] <- as_array(dropout_alphas)
+      kappas <- get_kappas(model_fit$fc1)
+      kappa_mat[row_ind, ] <- kappas
+      
+      kappas_local <- get_kappas(model_fit$fc1, type = "local")
+      kappa_local_mat[row_ind, ] <- kappas_local
+      
+      # corrected param kappas
+      kappas_tc <- get_kappas_taucorrected(model_fit)
+      kappas_fc <- get_kappas_frobcorrected(model_fit)
+      kappas_sn <- get_kappas_compositespecnorm(model_fit)
+      kappa_sn_mat[row_ind, ] <- kappas_sn
+      kappa_tc_mat[row_ind, ] <- kappas_tc
+      kappa_fc_mat[row_ind, ] <- kappas_fc
+      
+      
+      # storing other optional parameters, mostly for diagnostics
+      if (want_all_params){
+        # global_dropout_vec[row_ind] <- as_array(model_fit$fc1$get_dropout_rates(type = "global"))
+        # marginal_dropout_mat[row_ind, ] <- as_array(model_fit$fc1$get_dropout_rates(type = "marginal"))
+        # # tau_vec[row_ind] <- as_array(model_fit$fc1$tau)
+        w_mu_arr[, , row_ind] <- as_array(model_fit$fc1$weight_mu)
+        w_lvar_arr[, , row_ind] <- as_array(model_fit$fc1$weight_logvar)
+        
+        atilde_mu_mat[row_ind, ] <- as_array(model_fit$fc1$atilde_mu)
+        btilde_mu_mat[row_ind, ] <- as_array(model_fit$fc1$btilde_mu)
+        atilde_logvar_mat[row_ind, ] <- as_array(model_fit$fc1$atilde_logvar)
+        btilde_logvar_mat[row_ind, ] <- as_array(model_fit$fc1$btilde_logvar)
+        if (!local_only){
+          sa_mu_vec[row_ind] <- as_array(model_fit$fc1$sa_mu)
+          sa_logvar_vec[row_ind] <- as_array(model_fit$fc1$sa_logvar)
+          sb_mu_vec[row_ind] <- as_array(model_fit$fc1$sb_mu)
+          sb_logvar_vec[row_ind] <- as_array(model_fit$fc1$sb_logvar)
+        }
+      }
+    } # end result storing and updating
+    
+    
+    ### in-console and graphical training updates ----
+    # visual updating on epochs
+    # cat("\r", "Progress:", i, "%")
+    if (!time_to_report & verbose & (epoch %% sim_params$report_every == 1)){cat("Training till next report:")}
+    if (!time_to_report & verbose & (epoch %% round(sim_params$report_every/100) == 1)){cat("#")}
+    
+    # report
+    if (time_to_report & verbose){
+      cat(
+        "\n Epoch:", epoch,
+        "MSE + KL/n =", round(mse$item(), 5), "+", round(kl$item(), 5),
+        "=", round(loss$item(), 4),
+        " (kl_weight:", round(kl_weight, 2), ")",
+        "\n",
+        "train mse:", round(mse$item(), 4),
+        "; test_mse:", round(mse_test$item(), 4),
+        sep = " "
+      )
+      
+      # report global shrinkage params (s^2 or tau^2)
+      s_sq1 <- get_s_sq(model_fit$fc1)
+      s_sq2 <- get_s_sq(model_fit$fc2)
+      # s_sq3 <- get_s_sq(model_fit$fc3)
+      
+      cat(
+        "\n s_sq1 = ", round(s_sq1, 5),
+        "; s_sq2 = ", round(s_sq2, 5),
+        # "; s_sq3 = ", round(s_sq3, 5),
+        sep = ""
+      )
+      cat("\n alphas: ", round(as_array(dropout_alphas), 2), "\n")
+      display_alphas <- ifelse(
+        as_array(dropout_alphas) <= sim_params$alpha_thresh,
+        round(as_array(dropout_alphas), 3),
+        "."
+      )
+      # cat("alphas below 0.82: ")
+      # cat(display_alphas, sep = " ")
+      
+      cat("\n global kappas: ", round(kappas, 2), "\n")
+      cat("\n tau-corrected kappas: ", round(kappas_tc, 2), "\n")
+      cat("\n specnorm(composite) kappas: ", round(kappas_sn, 2), "\n")
+      
+      # cat("\n frob-corrected kappas: ", round(kappas_fc, 2), "\n")
+      # display_kappas <- ifelse(
+      #   kappas <= 0.9,
+      #   round(kappas, 3),
+      #   "."
+      # )
+      # cat("global kappas below 0.9: ")
+      # cat(display_kappas, sep = " ")
+      
+      # cat("\n local kappas: ", round(kappas_local, 2), "\n")
+      
+      
+      # if (length(stop_epochs > 0)){
+      #   stop_msg <- paste0(
+      #     "\n ********************************************* \n",
+      #     "test_mse STOP CONDITION reached ", 
+      #     length(stop_epochs), " times; ", 
+      #     "min / max: ", min(stop_epochs), " / ", max(stop_epochs),
+      #     "\n ********************************************* \n"
+      #   )
+      #   cat_color(stop_msg)
+      # }
+      cat(" \n \n")
+      
+      
+      # graphical training updates
+      if (time_to_plot & want_plots & row_ind > 5){
+        
+        # only show most recent (for scale of plot)
+        start_plot_row_ind <- 1
+        if (row_ind >= 20){
+          start_plot_row_ind <- row_ind - 10
+        } else if (row_ind >= 60){
+          start_plot_row_ind <- row_ind - 30
+        } else if (row_ind >= 100){
+          start_plot_row_ind <- row_ind - 50
+        }
+        # set up plotting df
+        temp_lmat <- cbind(
+          loss_mat[start_plot_row_ind:row_ind,],
+          "epoch" = report_epochs[start_plot_row_ind:row_ind]
+        )
+        
+        mse_plotdf <- temp_lmat %>% 
+          data.frame() %>% 
+          pivot_longer(
+            cols = -epoch,
+            names_to = "metric"
+          )
+        
+        # plot MSE vs epochs
+        mse_plt <- mse_plotdf %>% 
+          filter(metric != "kl") %>% 
+          ggplot(aes(y = value, x = epoch, color = metric)) + 
+          geom_line() + 
+          labs(
+            subtitle = paste0("MSE for epochs ", 
+                              report_epochs[start_plot_row_ind],
+                              " through ",
+                              report_epochs[row_ind])
+          )
+        
+        # plot KL vs epochs
+        kl_plt <- mse_plotdf %>%
+          filter(metric == "kl") %>%
+          ggplot(aes(y = value, x = epoch, color = metric)) +
+          geom_line() +
+          labs(
+            subtitle = paste0("KL for epochs ",
+                              report_epochs[start_plot_row_ind],
+                              " through ",
+                              report_epochs[row_ind])
+          )
+        grid_plt <- gridExtra::grid.arrange(
+          grobs = list(mse_plt, kl_plt),
+          nrow = 2
+        )
+        print(grid_plt)
+      } # end graphical training updates (want_plots = TRUE)
+    } # end training updates (verbose = TRUE)
+    
+    # # function plots
+    # if (time_to_plot & want_fcn_plots){
+    #   
+    #   plotdf$y <- as_array(yhat_plot)
+    #   
+    #   if (false_if_null(sim_params$standardize)){
+    #     plotdf$y <- unscale_mat(
+    #       plotdf$y, 
+    #       means = c(as_array(simdat$y_mean)),
+    #       sds = c(as_array(simdat$y_sd))
+    #     )
+    #   }
+    #   
+    #   plt <- plotdf %>% 
+    #     pivot_longer(cols = -y, values_to = "x", names_to = "fcn") %>%
+    #     ggplot(aes(y = y, x = x, color = fcn)) + 
+    #     geom_line() + 
+    #     geom_line(
+    #       data = orig_func_df,
+    #       linetype = "dotted",
+    #       aes(y = value, x = x, color = fcn)
+    #     ) + 
+    #     labs(
+    #       title = "predicted (solid) and original (dotted) functions",
+    #       subtitle = paste0("epoch: ", epoch)
+    #     )
+    #   
+    #   if (save_fcn_plots){
+    #     save_plt_path <- paste0(save_mod_path_stem, "_e", epoch, ".png")
+    #     ggsave(filename = save_plt_path, plot = plt, height = 4, width = 6)
+    #   } else {
+    #     print(plt)
+    #   }
+    # } # end function update plots (want_fcn_plots = TRUE)
+    
+    
+    # increment epoch counter
+    epoch <- epoch + 1
+    stop_criteria_met <- epoch > sim_params$train_epochs
+  } # end training WHILE loop
+  
+  ### compile results ----
+  sim_res <- list(
+    "sim_ind" = sim_ind,
+    # "stop_epochs" = stop_epochs,
+    "fcn_plt" = plt,
+    "loss_mat" = loss_mat,
+    "alpha_mat" = alpha_mat,
+    "kappa_mat" = kappa_mat,
+    "kappa_tc_mat" = kappa_tc_mat,
+    "kappa_fc_mat" = kappa_fc_mat,
+    "kappa_sn_mat" = kappa_sn_mat,
+    "kappa_local_mat" = kappa_local_mat
+    
+  )
+  
+  if (want_all_params){
+    # add optionally stored network params
+    sim_res$w_mu_arr <- w_mu_arr
+    sim_res$w_lvar_arr <- w_lvar_arr
+    # sim_res$global_dropout_vec <- global_dropout_vec
+    # sim_res$marginal_dropout_mat <- marginal_dropout_mat
+    sim_res$atilde_mu_mat <- atilde_mu_mat
+    sim_res$btilde_mu_mat <- btilde_mu_mat
+    sim_res$atilde_logvar_mat <- atilde_logvar_mat
+    sim_res$btilde_logvar_mat <- btilde_logvar_mat
+    if (!local_only){
+      sim_res$sa_mu_vec <- sa_mu_vec
+      sim_res$sb_mu_vec <- sb_mu_vec
+      sim_res$sa_logvar_vec <- sa_logvar_vec
+      sim_res$sb_logvar_vec <- sb_logvar_vec
+    }
+    # sim_res$tau_vec <- tau_vec
+  } 
+  
+  ### notify completed training ----
+  completed_msg <- paste0(
+    "\n \n ******************** \n ******************** \n",
+    "sim #", 
+    sim_ind, 
+    " completed",
+    "\n ******************** \n ******************** \n \n"
+  )
+  cat_color(txt = completed_msg)
+  
+  ### save torch model & sim results ----
+  if (save_mod){
+    if(is.null(save_mod_path_stem)){
+      save_mod_path_stem <- here::here("sims", 
+                                       "results", 
+                                       paste0("fcnl_hshoe_mod_", 
+                                              sim_params$n_obs, "obs_", 
+                                              seed
+                                       ))
+    }
+    save_mod_path <- paste0(save_mod_path_stem, ".pt")
+  }
+  
+  if (save_mod){
+    torch_save(model_fit, path = save_mod_path)
+    cat_color(txt = paste0("model saved: ", save_mod_path))
+    sim_res$mod_path = save_mod_path
+  }
+  
+  if (save_results){
+    sim_res$sim_params <- sim_params
+    save_res_path <- paste0(save_mod_path_stem, ".RData")
+    save(sim_res, file = save_res_path)
+    cat_color(txt = paste0("sim results saved: ", save_res_path))
+  }
+  
+  return(sim_res)
+}
