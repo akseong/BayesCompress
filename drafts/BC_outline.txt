@@ -15,6 +15,7 @@
 # Previous work:
 
 ## Selection in NNs:
+
 Almost all literature on selection in neural networks focuses only on sparsifying the neural network architecture itself, without much if any regard to input feature selection.
   
   - Different variations of dropout (randomly pruning inputs and layer units during training) has long been used to prevent overfitting in deterministic NNs; Gal & Gahramani 2016 - Dropout as a Bayesian Approximation - show that dropout corresponds to an approximate variational distribution.
@@ -36,7 +37,7 @@ When variable selection is the actual focus, input sparsity / variable selection
 
     2. Liu 2021: Variable Selection with Rigorous Uncertainty Quantification using Deep Bayesian Neural Networks: Posterior Concentration and Bernstein-von Mises Phenomenon - variable selection performed by checking if credible interval for variable importance measure (L2 norm of gradient function, i.e. partial derivative signifying change in f(\vec{x}_i) over change in x_p) contains 0, justified by developing BvM theorem regarding variable importance measure (posterior of VIM converges to Gaussian, 1 - alpha credible interval has 1-alpha coverage).  Does not use priors specifically developed for sparsity (uses standard iid Gaussian priors for model weights)
 
-    3. Liang et al 2018 Bayesian Neural Networks for Selection of Drug Sensitive Genes - 
+    3. Liang & Li 2018 Bayesian Neural Networks for Selection of Drug Sensitive Genes - 
       - 1 hidden layer, relatively small dimension (i.e. all results are from NNs with 3, 5, 7 units in hidden layer, chosen empirically after short MC run to minimize an information criterion - they use EBIC, but suggest BIC and AIC also work)
       - selection performed over every single network connection --- authors assert that this offers some interpretability --- though perhaps only in a single hidden layer network.
       - population stochastic approximation monte carlo sampling - run short stochastic approximation MC chains in parallel by sharing information on a working parameter that penalizes over-visited regions and rewards under-visited regions to help system escape local extrema
@@ -50,6 +51,18 @@ My methods contributions:
 
 # Variational Inference
 
+
+- uncentered 
+- Rezende local reparametrization trick
+
+- Mean Field VI - 
+  - fast, easy to compute if VI distributions are fully factorized / independent
+  - some evidence that network depth can overcome the independence in the VI formulation (Farquhar Smith Gal 2020 Try Depth instead of weight correlations....)
+  - limitations:
+    - approximation is limited by variational distributions.  Log-Normal dist'n probably not the best; could possibly be improved by using normalizing flows as in Skaaret-lund & Storvik
+    - Ghosh and Doshi-Velez 2019 address some of these by placing a MVN prior on weights, but not implemented here
+
+
 ## KL divergence and ELBO
 
 ## Training
@@ -61,18 +74,18 @@ My methods contributions:
 ## Bayesian formulation of model
 
 ## Variational distributions 
+
 ### KLs (or in appendix)
 
 ## Correction to global scale parameter
 - composite spectral norm as (an approximate) solution to identifiability of global scale param across layers
 - approximate because of RELU activations, effect of bias parameters
-- why not just use hshoe only in first layer, since inference basically depends on first layer?  Because hshoe in 2nd layer provides sparsity in 1st layer --- indicates which units from the first layer are unimportant.  During training, actually shrinks these weights.  Provides "representation" sparsity in first layer.  
-
+- why not just use hshoe only in first layer, since inference basically depends on first layer?  Because hshoe in 2nd layer provides sparsity in 1st layer --- indicates which units from the first layer are unimportant thus providing "representation" sparsity in first layer and mitigating identifiability issues between first hidden layer units.
 
 # Simulations
 
 ## function recovery sims
 
-## competitors based on Liangm Li 2018 synthetic simulations
+## competitors based on Liang & Li 2018 synthetic simulations
 
 ## salary data
