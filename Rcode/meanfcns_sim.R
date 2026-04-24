@@ -32,7 +32,7 @@ if (torch::cuda_is_available()){
 save_mod_path_prestem <- here::here(
   "sims", 
   "results", 
-  "det1_smallbias_liangfcn1_"
+  "det1_liangfcn1p100_"
 )
 n_obs <- 500 # includes training and test
 d_in <- 100
