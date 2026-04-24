@@ -12,16 +12,21 @@
 
 - combine with some remarks on dataset used
 
-# Previous work:
+- My method's contributions:
+
+  - modify LUW 2017's procedure for application to input variable selection / feature selection, combining several desirable characteristics: statistically principled variable selection, higher interpretability, while maintaining predictive accuracy.
+
+  - procedure for BFDR control in a horseshoe NN, show empirically that it approaches nominal FDR (future work needed on theory)
+
+  - possible path for mitigating identifiability issues for parameters in Bayesian neural networks which arise from the composition of affine functions via composite spectral norm (future work needed on theory)
+
+
+# Related work:
 
 ## Selection in NNs:
 
-<<<<<<< HEAD
 - Almost all literature on selection in neural networks focuses only on sparsifying the neural network architecture itself, without much if any regard to input feature selection.
-=======
-Almost all literature on selection in neural networks focuses only on sparsifying the neural network architecture itself, without much if any regard to input feature selection.
->>>>>>> 6c5ca16ac01db9cb5ef05c384414a74019b246b2
-  
+
   - Different variations of dropout (randomly pruning inputs and layer units during training) has long been used to prevent overfitting in deterministic NNs; Gal & Gahramani 2016 - Dropout as a Bayesian Approximation - show that dropout corresponds to an approximate variational distribution.
 
   - Louizos, Ullrich, Welling 2017 "Bayesian Compression" - which we draw most heavily from.  Their focus is on a grouped scale mixture prior, providing code for a Normal Jeffrey's prior (which was later shown to have pathologies related to the VI approximation).  Their method was motivated by the desire to compress neural network sizes, so focuses on pruning hidden units and using shorter bit-length representations of weights ("quantization") while preserving predictive accuracy.
@@ -50,22 +55,11 @@ Almost all literature on selection in neural networks focuses only on sparsifyin
 
       - population stochastic approximation monte carlo sampling - run short stochastic approximation MC chains in parallel by sharing information on a working parameter that penalizes over-visited regions and rewards under-visited regions to help system escape local extrema
 
-
-- My method's contributions:
-
-  - modify LUW 2017's procedure for application to input variable selection / feature selection, combining several desirable characteristics: statistically principled variable selection, higher interpretability, while maintaining predictive accuracy.
-
-  - procedure for BFDR control in a horseshoe NN, show empirically that it approaches nominal FDR (future work needed on theory)
-
-  - possible path for mitigating identifiability issues for parameters in Bayesian neural networks which arise from the composition of affine functions via composite spectral norm (future work needed on theory)
-
-
-
+# Spike-and-slab & scale mixtures
 
 # Variational Inference
 
-
-- uncentered 
+- uncentered parameterization in the vein of (LUW 2017, Ghosh & Doshi-Velez)
 - Rezende local reparametrization trick
 
 - Mean Field VI - 
@@ -91,14 +85,85 @@ Almost all literature on selection in neural networks focuses only on sparsifyin
 ### KLs (or in appendix)
 
 ## Correction to global scale parameter
+
 - composite spectral norm as (an approximate) solution to identifiability of global scale param across layers
+
 - approximate because of RELU activations, effect of bias parameters
+
 - why not just use hshoe only in first layer, since inference basically depends on first layer?  Because hshoe in 2nd layer provides sparsity in 1st layer --- indicates which units from the first layer are unimportant thus providing "representation" sparsity in first layer and mitigating identifiability issues between first hidden layer units.
 
-# Simulations
 
-## function recovery sims
 
-## competitors based on Liang & Li 2018 synthetic simulations
+# Experiments
+
+## nonlinear function recovery
+
+- in general, when the number of observations is near to or exceeds the number of network parameters, nonlinear function recovery is good
+
+- individual functions are not centered --- each of the f_j's ends up with its own intercept and thus are unidentifiable.  There are some additional ways to combat this (running tests)
+
+
+## variable selection & competitors based on Liang & Li 2018 synthetic simulations
+
+- use BART, spikeslab gam (specifying needed interactions and not), add softbart
+- could include lm, LASSO, regular spike-slab (linear) but these are straw men (do incredibly poorly)
+
 
 ## salary data
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+LUW 2017 structure
+1 Intro
+2 Variational Bayes (& MDL)
+3 Related Work
+4 Bayesian Compression with scale mixtures of normals
+  - 4.1 Reparametrizing variational dropout for group sparsity
+  - 4.2 Group horseshoe with Half-Cauchy scale priors
+5 Experiments
+  - 5.1 Architecture learning & bit precisions
+  - 5.2 Compression Rates
+  - 5.3 Speed and Energy consumption
+6 Conclusion
+App A: Detailed experimental setup
+App B: Standards for floating-point arithmetic
+App C: Shrinkage properties of normal-Jeffrey's and HShoe
+App D: KLs for log-normal approximating posteriors
+App E: Visualization (distribution of "thresholds"?)
+App F: Algorithms for forward pass
+
+
+Ghosh & Doshi-Velez 2017 structure
+1 Intro
+2 Bayesian NNs
+3 Automatic Model Selection through HShoe priors
+  - Parameterizing for more robust inference: Decomposing the Cauchy Distribution
+  - Parameterizing for more robust inference: Non-Centered Parameterization
+4 Learning Bayesian NNs with HShoe priors (discusses VI)
+  - Approximating Family
+  - ELBO
+  4.1 Black Box Variational Inference (techniques for VI, i.e. factorizations, MC)
+    - Variational distribution on pre-activations
+    - Algorithm
+5 Related Work
+  - early work on BNNs relying on Laplace approximation or MCMC, but do not scale well
+  - advances in stochastic VI methods (Blundell Cornebise 2015 Weight Uncertainty in NNs --- spikeslab gaussian mixture on weights, turn off edges / individual weights; Rezende Mohamed 2014 Stochastic backprop and approximate inference in deep generative models)
+  - uses Piironen Vehtari to suggest that can do even better if tune scale params better
+  - "Others have noticed" that dropout can be seen as approximate VI; Molchanov Ashukha Vetrov 2017 "Variational Dropout sparsifies DNNs" show that Gaussian dropout can be seen as performing variational inference with log-uniform priors over the weights
+  - earlier work in pruning - LeCun, Denker, Solla 1990 "Optimal brain damage", Hassibi Stork Wolff 1993 "Optimal brain surgeon and general network pruning"
+  - Optimizing filters and computation time: Wen, Wu, Wang, Li 2016 "Learned structured sparsity in DNNs"
+  - using group sparsity to prune nodes, but don't model uncertainty in weights and provide uniform shrinkage: Ochai Matsuda 2016 "Automatic node selection for DNNs using group lasso reg", Scardapne Comminiello 2017 "Group sparse regularization for DNNs", Murray and Chiang 2015 "Auto-sizing NNs: with applications to n-gram language models" (ArXiv)
+
+
+
