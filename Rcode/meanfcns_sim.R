@@ -32,16 +32,16 @@ if (torch::cuda_is_available()){
 save_mod_path_prestem <- here::here(
   "sims", 
   "results", 
-  "det1_liangfcn1p100_"
+  "det1_5x8_liangfcn1p50_"
 )
-n_obs <- 500 # includes training and test
-d_in <- 100
+n_obs <- 1000 # includes training and test
+d_in <- 50
 sim_desc <- c(
   "Liang nonlin regression example, 
-  P=100, train obs = 400,
+  P=50, train obs = 800,
   5 MC samples for MSE, 
   kl annealing only - no lr annealing",
-  "optimistic tau_0 (p_0 = 50 of 500)"
+  "optimistic tau_0 set so p_0 = p/10"
 )
 
 sim_params <- list(
@@ -55,15 +55,15 @@ sim_params <- list(
   "meanfcn" = meanfcn_Liang1,
   "standardize" = TRUE,
   # sim params
-  "seed" = 316,           ##
+  "seed" = 58,           ##
   "n_sims" = 2,           ##
   # network params / architecture
   "p_0frac" = 0.1,  ## expect about 1/10 covs to be included
-  "d_1" = 16,
-  "d_2" = 16,
-  "d_3" = 16,
-  "d_4" = 16,
-  "d_5" = 16,
+  "d_1" = 8,
+  "d_2" = 8,
+  "d_3" = 8,
+  "d_4" = 8,
+  "d_5" = 8,
   "d_out" = 1,
   # training params
   "train_epochs" = 2e5,   
@@ -127,29 +127,29 @@ MLHS <- nn_module(
     
     self$det1 = nn_linear(
       sim_params$d_2, 
-    #   sim_params$d_3
-    # )
-    # 
-    # self$det2 = nn_linear(
-    #   sim_params$d_3, 
-    #   sim_params$d_4
-    # )
-    # 
-    # self$det3 = nn_linear(
-    #   sim_params$d_4, 
-    #   sim_params$d_5
-    # )
-    # 
-    # self$det4 = nn_linear(
-    #   sim_params$d_5, 
+      sim_params$d_3
+    )
+
+    self$det2 = nn_linear(
+      sim_params$d_3,
+      sim_params$d_4
+    )
+
+    self$det3 = nn_linear(
+      sim_params$d_4,
+      sim_params$d_5
+    )
+
+    self$det4 = nn_linear(
+      sim_params$d_5,
       sim_params$d_out
     )
     
     if (sim_params$use_cuda){
       self$det1$cuda()
-      # self$det2$cuda()
-      # self$det3$cuda()
-      # self$det4$cuda()
+      self$det2$cuda()
+      self$det3$cuda()
+      self$det4$cuda()
     }
   },
   
@@ -159,13 +159,13 @@ MLHS <- nn_module(
       nnf_relu() %>%
       self$fc2() %>%
       nnf_relu() %>%
-      self$det1() # %>%
-      # nnf_relu() %>%
-      # self$det2() %>%
-      # nnf_relu() %>%
-      # self$det3() %>%
-      # nnf_relu() %>%
-      # self$det4() 
+      self$det1() %>%
+      nnf_relu() %>%
+      self$det2() %>%
+      nnf_relu() %>%
+      self$det3() %>%
+      nnf_relu() %>%
+      self$det4()
   },
   
   get_model_kld = function(){
