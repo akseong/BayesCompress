@@ -2623,7 +2623,7 @@ sim_hshoe_meanfcn <- function(
   sim_res <- list(
     "sim_ind" = sim_ind,
     # "stop_epochs" = stop_epochs,
-    "fcn_plt" = plt,
+    # "fcn_plt" = plt,
     "loss_mat" = loss_mat,
     "alpha_mat" = alpha_mat,
     "kappa_mat" = kappa_mat,
