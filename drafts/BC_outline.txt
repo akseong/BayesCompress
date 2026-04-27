@@ -1,24 +1,45 @@
 
+###########################
+4.27 NOTES ON DRAFT:
+###########################
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+###########################
+0 DRAFT OUTLINE:
+###########################
+
+
+Please write a first draft of my chapter 3, based on the discussion that we have already had, and formatted for the same group of LaTeX files.  In particular, please include citations, and if there are any missing references in the .bib file, just write the citation in red font.  Use a serious, scientific tone, suitable for a journal such as JASA (the journal of the American statistical society).   The outline follows:
 
 
 # Intro:
 
-- Neural networks as powerful prediction systems, and Bayesian networks for stochastic functions.  
-  - Bayesian networks difference from regular (learn distribution of weights, allow for uncertainty quantification)
-  - Ghosh & Doshi-Velez 2017/2019 paper on model selection - "By treating the weights in a neural network as random varialbes and performing posterior inference on these weights, BNNs can avoid overfitting in the regime of small data, provide well-calibrated posterior uncertainty estimates, and model a large class of stochastic functions with heteroskedastic and multimodal noise."
+- Despite remarkable progress in research on deep neural networks, interpretability remains one of the main obstacles in application to scientific inquiry.  (expand on this --- NNs as  powerful prediction machines; BNN as additionally allowing for uncertainty quantification, which is important for scientific inference)
+- Bayesian networks difference from regular NNs (learn distribution of weights, allow for uncertainty quantification)
+- incorporate this idea from Ghosh & Doshi-Velez 2017/2019 paper on model selection - "By treating the weights in a neural network as random variables and performing posterior inference on these weights, BNNs can avoid overfitting in the regime of small data, provide well-calibrated posterior uncertainty estimates, and model a large class of stochastic functions with heteroskedastic and multimodal noise."
 
-- combine with some remarks on dataset used
+- (note for me: combine with some remarks on dataset used)
 
 - My method's contributions:
 
-  - modify LUW 2017's procedure for application to input variable selection / feature selection, combining several desirable characteristics: statistically principled variable selection, higher interpretability, while maintaining predictive accuracy.
+  - modify LUW 2017's procedure for application to input variable selection / feature selection, combining several desirable characteristics: statistically principled variable selection and higher interpretability while maintaining predictive accuracy.
 
   - procedure for BFDR control in a horseshoe NN, show empirically that it approaches nominal FDR (future work needed on theory)
 
-  - possible path for mitigating identifiability issues for parameters in Bayesian neural networks which arise from the composition of affine functions via composite spectral norm (future work needed on theory)
+  - possible path for mitigating identifiability issues for parameters in Bayesian neural networks which arise from the composition of multiple nodes and layers via composite spectral norm (future work needed on theory)
 
 
 # Related work:
@@ -27,27 +48,19 @@
 
 - Almost all literature on selection in neural networks focuses only on sparsifying the neural network architecture itself, without much if any regard to input feature selection.
 
-  - Different variations of dropout (randomly pruning inputs and layer units during training) has long been used to prevent overfitting in deterministic NNs; Gal & Gahramani 2016 - Dropout as a Bayesian Approximation - show that dropout corresponds to an approximate variational distribution.
+  - Different variations of dropout (pruning inputs and layer units during training) have long been used to prevent overfitting in deterministic NNs; Gal & Gahramani 2016 - Dropout as a Bayesian Approximation - show that dropout corresponds to an approximate variational distribution.
 
   - Louizos, Ullrich, Welling 2017 "Bayesian Compression" - which we draw most heavily from.  Their focus is on a grouped scale mixture prior, providing code for a Normal Jeffrey's prior.  Their method was motivated by the desire to compress neural network sizes, so focuses on pruning hidden units and using shorter bit-length representations of weights ("quantization") while preserving predictive accuracy.
-
-  - Rockova & Polson 2017 provide theory on posterior selection consistency of _model architectures_ in Bayesian spike-and-slab NNs with RELU activations.  
 
   - Ghosh & Doshi-velez 2017/2019 model selection - prune _units_ with horseshoe, i.e. selection of number of neurons in each layer, not on input variables.
     - selection based on thresholding
 
   - Skaaret-Lund, Storvik, Hubin 2023 (related work from Hubin Storvik in 2019, 2023)- propose latent binary bayesian neural network (LBBNN) - use spike-and-slab with latent variables to model dependencies between weights; variational inference procedure enhanced with inverse autoregressive flow (type of normalizing flow)
 
-  - Theory on posterior consistency for model selection from Rockova and polson, Wang and Rockova, but again the focus is on selecting the number of units in NN layers  
 
 - When variable selection is the actual focus, input sparsity / variable selection is still typically treated heuristically.  Of the very small handful of works that focus specifically on input feature selection:
 
-    1. an ArXiv paper Overweg Popkes 2019 "Interpretable outcome prediction with sparse bayesian neural networks in intensive care" - similar approach, but variable selection is still largely heuristic, based on thresholding
-
-    2. Liu 2021: Variable Selection with Rigorous Uncertainty Quantification using Deep Bayesian Neural Networks: Posterior Concentration and Bernstein-von Mises Phenomenon - variable selection performed by checking if credible interval for variable importance measure (L2 norm of gradient function, i.e. partial derivative signifying change in f(\vec{x}_i) over change in x_p) contains 0, justified by developing BvM theorem regarding variable importance measure (posterior of VIM converges to Gaussian, 1 - alpha credible interval has 1-alpha coverage).  Does not use priors specifically developed for sparsity (uses standard iid Gaussian priors for model weights).
-
-
-    3. Liang et al 2018 Bayesian Neural Networks for Selection of Drug Sensitive Genes - 
+    1. Liang et al 2018 Bayesian Neural Networks for Selection of Drug Sensitive Genes - 
 
       - 1 hidden layer, relatively small dimension (i.e. all results are from NNs with 3, 5, 7 units in hidden layer, chosen empirically after short MC run to minimize an information criterion - they use EBIC, but suggest BIC and AIC also work)  
 
@@ -55,10 +68,18 @@
 
       - population stochastic approximation monte carlo sampling - run short stochastic approximation MC chains in parallel by sharing information on a working parameter that penalizes over-visited regions and rewards under-visited regions to help system escape local extrema
 
+    2. an ArXiv paper Overweg Popkes 2019 "Interpretable outcome prediction with sparse bayesian neural networks in intensive care" - similar approach to ours, but variable selection is still heuristic and based on defining thresholds after inspection of posterior distributions.
+
+    3. Song and Li 2021 developed SurvNet, a non-Bayesian procedure employing synthetic input variables and backward elimination to control the FDR in deep NNs.
+
+    4. Liu 2021: Variable Selection with Rigorous Uncertainty Quantification using Deep Bayesian Neural Networks: Posterior Concentration and Bernstein-von Mises Phenomenon - Uses standard iid Gaussian priors for model weights rather than priors specifically developed for sparsity, instead developing a BvM theorem for a measure of variable importance, the L2 norm of the graient function partial derivative signifying change in f(\vec{x}_i) over change in x_p, and performing variable selection by checking credible intervals for this variable importance measure.
+
+- Last, some theory has been developed showing posterior consistency for model selection and asymptotic normality for NN's, though it is still relatively sparse.  Rockova & Polson 2018 show near-minimax-rate optimal posterior concentration over model architectures in Bayesian spike-and-slab deep NNs with RELU activations; Chrief-Abdellatif 2020 shows that the variational posterior learned through optimization of the ELBO shares these properties. Wang Rockova 2020 develop Bernstein von Mises theorems for linear and quadratic functionals in the same network types; Liu 2021 obtains further BvM theorems indicating nominal coverage of credible intervals from Bayesian NNs with simple Gaussian priors.
+
 
 # Spike-and-slab & scale mixtures
 
-- Scale mixtures as relaxed version of spike-slab (bernoulli computation explodes dimensionality and is thus costly) 
+- Scale mixtures as relaxed version of spike-slab (bernoulli computation explodes dimensionality and is thus costly).
 
 - LUW 2017 use the Normal-Jeffrey's, but Hron et al 2009(?) show that the improper prior induces pathologies related to the VI approximation
 
@@ -66,8 +87,6 @@
 - posterior consistency, BMA-like properties for prediction, shrinkage factor $\kappa_j = (1 + \lambda_j^2 \tau^2)^{-1}$ and $1 - \kappa_j$ as "pseudo" PIPs (Carvalho 2009?)
 
 - posterior consistency for architecture selection (Rockova Polson 2017?)
-
-
 
 
 # Variational Inference
@@ -84,7 +103,6 @@
 ## KL divergence and ELBO
 
 - pick up on discussion from intro
-
 
 
 # Methods
@@ -110,7 +128,6 @@
   - Liang et al 2018 approach this issue in a different way, by treating the number of nodes in the hidden layer as a parameter which they tune manually (as described above)
 
 
-
 # Experiments
 
 ## nonlinear function recovery
@@ -126,7 +143,7 @@
 - could include lm, LASSO, regular spike-slab (linear) but these are straw men (do incredibly poorly)
 
 
-## salary data
+## application to salary data
 
 
 
@@ -137,9 +154,9 @@
 
 
 
-
-
-
+###############################
+OTHER PAPER STRUCTURES
+###############################
 
 LUW 2017 structure
 1 Intro
