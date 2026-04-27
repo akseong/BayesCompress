@@ -3,16 +3,33 @@
 4.27 NOTES ON DRAFT:
 ###########################
 
+- more discussion of VI?
+- KLs in appendix
+- tau correction -- use both specnorm and meff correction?  
+  - these recalibrations to tau are encapsulated by the network but do now show up directly in tau when we go to calculate kappa
+
+- further work:
+  - use knockoffs to find null distribution for variational dropout parameter alpha (results from simulation suggest this might work well, as alphas tend to cluster near 0 for active vars, and 1 for inactive vars).  
+  -  
+
+
+dropout first used as a form of regularization in deterministic DNNs to address overfitting (DNN's prone to overfitting because can often have more parameters than observations to train on).
+
+
+Concise description of Bayesian inference and VI in Section 3.1 in Variational Dropout Sparsifies DNNs - Molchanove, Ashukha, Vetrov
+- KL divergence in ELBO as a regularization term
 
 
 
 
 
+Horseshoe - shrinkage profiles of kappa, model complexity through tau - Piironen Vehtari pg 13
+- calibration of tau_0 --- PV2017; though not directly applicable since PV2017's result is for linear models, evidence suggests that for a weakly informative prior such as the half-cauchy for tau, rough ballpark will improve over the default C+(0,1)
 
+- doublecheck that tau_0 = (p / (D-p))* (sig / sqrt(n))
 
-
-
-
+- tonight: review regHS results, other sims
+- 
 
 
 
