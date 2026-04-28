@@ -510,6 +510,8 @@ __Comments:__
 
 ```{r nomc_516}
 stem <- here::here("sims", "results", "detlayers_5161250obs_")
+stem <- here::here("sims", "results", "detlayers_smallbias_corr.3_5x1612500obs_")
+
 png_suffix <- c("_e1e+05")
 # extract sim information from first in series
 first_sim <- paste0(stem, "155447.RData")

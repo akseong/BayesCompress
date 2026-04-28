@@ -32,10 +32,10 @@ if (torch::cuda_is_available()){
 save_mod_path_prestem <- here::here(
   "sims", 
   "results", 
-  "det1_5x8_liangfcn1p50_"
+  "det1_5x4_liangfcn1p500_"
 )
-n_obs <- 1000 # includes training and test
-d_in <- 50
+n_obs <- 500 # includes training and test
+d_in <- 500
 sim_desc <- c(
   "Liang nonlin regression example, 
   P=50, train obs = 800,
@@ -59,11 +59,11 @@ sim_params <- list(
   "n_sims" = 2,           ##
   # network params / architecture
   "p_0frac" = 0.1,  ## expect about 1/10 covs to be included
-  "d_1" = 8,
-  "d_2" = 8,
-  "d_3" = 8,
-  "d_4" = 8,
-  "d_5" = 8,
+  "d_1" = 4,
+  "d_2" = 4,
+  "d_3" = 4,
+  "d_4" = 4,
+  "d_5" = 4,
   "d_out" = 1,
   # training params
   "train_epochs" = 2e5,   
