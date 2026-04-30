@@ -286,10 +286,16 @@ err_by_max_bfdr(kmat_local[nrow(kmat_local), ])$plt_fdrs +
   labs(
     subtitle = "using local kappas as dropout probabilities"
   )
-err_by_max_bfdr(kmat_global[nrow(kmat_global), ])$plt_fdrs +
-  labs(
-    subtitle = "using global kappas as dropout probabilities"
-  )
+
+err_by_max_bfdr(get_kappas_sntau(nn_mod, print_vals = TRUE))$plt_fdrs +
+    labs(
+      subtitle = "FC2 & composite-corrected kappas as dropout probabilities"
+    )
+
+err_by_max_bfdr(get_kappas_sntau(nn_mod, sn_type = "regular", print_vals = TRUE))$plt_fdrs +
+    labs(
+      subtitle = "FC2 & specnorm-corrected kappas as dropout probabilities"
+    )
 
 if (!is.null(sim_res$kappa_tc_mat)){
   err_by_max_bfdr(get_kappas_taucorrected(nn_mod))$plt_fdrs +
