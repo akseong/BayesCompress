@@ -3,12 +3,9 @@
 %                              via the Horseshoe Prior
 % Arnold K. Seong, UCI Ph.D. Dissertation, 2026
 %
-% NOTE: Add \usepackage{xcolor} to thesis.tex if not already present.
 % References absent from thesis.bib are rendered in red via \missingcite.
 % =============================================================================
 
-% Convenience macro for missing citations
-\newcommand{\missingcite}[1]{\textcolor{red}{#1}}
 
 \chapter{Bayesian Variable Selection in Neural Networks via the Horseshoe Prior}
 \label{chap:horseshoe}
@@ -17,44 +14,62 @@
 % 1. INTRODUCTION
 % -----------------------------------------------------------------------------
 
-Deep neural networks (DNNs) have achieved remarkable predictive accuracy across
-a wide range of scientific and applied domains, from genomics and
-neuroimaging to econometrics and clinical decision-making
-\missingcite{(Goodfellow, Bengio, and Courville, 2016)}.  The 
-composition of often numerous nonlinear transformations allows DNNs 
-to approximate complex, high-dimensional response surfaces that resist 
-lower-dimensional parametric description.  However, this same mechanism
-responsible for a network's expressive capacity also renders persistent
-obstacles to scientific application: DNNs, often with more parameters
-than observations to learn from, tend to overfit the training data and 
-thus generalize poorly; network parameters are not readily interpretable 
-in the way that, for example, regression model coefficients are, making 
-the object of inference difficult, if even possible, to specify.
 
-Bayesian neural networks
+Deep neural networks have been remarkably successful as prediction engines in 
+a wide variety of applications (SUCH AS ...) 
+owing to their ability to model complex functions.  Economic incentives
+have driven research into reducing the size of neural networks, whether 
+through quantization (using lower bit representations for network parameters) or 
+model selection (reducing the number of layers and/or hidden units),
+but research on the related question of input feature selection remains limited.
+The difficulty in using DNNs to identify which variables are genuinely relevant to the response,
+a standard primary aim of research in most disciplines, limits their utility
+in scientific research.  
+Furthermore, the already sparse literature on input feature selection tends to treat
+variable selection largely heuristically, typically based on ex post facto thresholding,
+rather than considering statistical properties such as the false discovery rate,
+again hampering the application of DNNs to scientific research.
+
+The aim of the method described in this paper is to combine 
+the expressive capacity of neural networks with the operating characteristics
+of Bayesian variable selection.  We follow previous work 
+by Louizos, Ullrich, Welling 2017 and equip a neural network with a canonical 
+Bayesian sparsity prior, structured to select network weights 
+corresponding to inputs rather than nodes.  While LUW 2017's focus is
+on pruning and quantizing layers and nodes (representation sparsity) to reduce the network's 
+computational and memory requirements, our focus is on adapting the Horseshoe prior
+from its well-studied application in linear models to DNNs.  As such, we propose 
+corrections to mitigate some of the issues arising from applying a method
+originally developed for linear models to a neural network setting.
+
+
+
+
+tau has two issues: unidentifiability of the global scale parameter across layers, overestimation of global sparsity arising from layer width.
+
+
+
+Input sparsity vs representation sparsity
+
+
+
+
+background on scale mixtures, mention LUW 2017 uses NJ prior and horseshoe prior
+
+
+
+horseshoe prior as a canonical Bayesian sparsity prior, 
+
+
+Furthermore, because individual DNN parameters defy interpretability, 
+uncertainty quantification in networks tends to center on prediction error
+LUW 2017
 
 
 
 
 
 
-
-Move this to intro:
-
-The parameters 
-of trained networks are not interpretable in the way that regression 
-coefficients or smooth additive effects are.  In particular, 
-identifying which input variables are genuinely relevant to the outcome 
-as opposed to being merely predictive within the observed sample 
-is not straightforwardly addressed by standard deep-learning methodology.
-
-Uncertainty quantification compounds this difficulty.  A point-estimate
-network, trained by minimizing a loss function via stochastic gradient
-descent, provides no measure of the confidence with which any prediction
-or selection is made.  For scientific inference, this is a serious
-deficiency: one needs to know not only \emph{what} the network predicts,
-but \emph{how certain} that prediction is, and which predictors are
-driving it in a statistically meaningful sense.
 
 Regularization techniques such as dropout or LASSO-equipped networks (CITATION)
 were early proposals to the problem of overfitting; work by Gal and Gahramani (OTHERS)
