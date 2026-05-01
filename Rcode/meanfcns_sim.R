@@ -32,16 +32,16 @@ if (torch::cuda_is_available()){
 save_mod_path_prestem <- here::here(
   "sims", 
   "results", 
-  "det3_5x32_origmodfcn_p20_"
+  "det3_5x16_orig_p50_"
 )
-n_obs <- 1000 # includes training and test
-d_in <- 20
+n_obs <- 5000 # includes training and test
+d_in <- 50
 sim_desc <- c(
   "harder meanfcn nonlin regression example, 
   P=50, train obs = 400,
   5 MC samples for MSE, 
   kl annealing only - no lr annealing",
-  "optimistic tau_0 set so p_0 = p/10"
+  "optimistic tau_0 set so p_0 = p/20"
 )
 
 meanfcn <- function(x, round_dig = NULL){
@@ -69,6 +69,17 @@ meanfcn_origmod <- function(x, round_dig = NULL){
   - x[, 3]/(1 + x[,4]^2) + 1 / (1 + 2*x[,5]*(x[,5]>0))
 }
 
+meanfcn_Liang1.5 <- function(X, round_dig = NULL){
+  Ey <- 10*X[, 2] / (1 + X[, 1]^2) + 5*sin(X[, 3]*X[, 4]) + 2*X[, 5]
+  if (!is.null(round_dig)) {Ey <- round(Ey, round_dig)}
+  return(Ey)
+}
+
+orig_fcns <- function(x, round_dig = NULL){
+  -cos(pi/1.5*x[,1]) + cos(pi*x[,2]) + sin(pi/1.2*x[,2])
+  + abs(x[,3])^(.75) - x[,4]^2/4
+}
+
 
 sim_params <- list(
   "sim_name" = sim_desc,
@@ -79,18 +90,18 @@ sim_params <- list(
   "mut_corr" = 0.5,
   "ttsplit" = 4/5,        # Liang use 200 train, 300 test
   "genXfcn" = genX_mutualcorr,
-  "meanfcn" = meanfcn_origmod,
+  "meanfcn" = orig_fcns,
   "standardize" = TRUE,
   # sim params
   "seed" = 58,           ##
   "n_sims" = 2,           ##
   # network params / architecture
-  "p_0frac" = 0.1,  ## expect about 1/10 covs to be included
-  "d_1" = 32,
-  "d_2" = 32,
-  "d_3" = 32,
-  "d_4" = 32,
-  "d_5" = 32,
+  "p_0frac" = 0.2,  ## expect about 1/10 covs to be included
+  "d_1" = 16,
+  "d_2" = 16,
+  "d_3" = 16,
+  "d_4" = 16,
+  "d_5" = 16,
   "d_out" = 1,
   # training params
   "train_epochs" = 2e5,   
@@ -124,7 +135,7 @@ agnostic_tau <- tau0_PV(
   p_0 = 1, d = 2, sig = 1,
   n = round(sim_params$n_obs * sim_params$ttsplit)
 )
-agnostic_tau <- 1
+
 
 ## define model
 MLHS <- nn_module(

@@ -75,6 +75,15 @@ meanfcn_origmod <- function(x, round_dig = NULL){
   - x[, 3]/(1 + x[,4]^2) + 1 / (1 + 2*x[,5]*(x[,5]>0))
 }
 
+
+meanfcn_Liang1.5 <- function(X, round_dig = NULL){
+  Ey <- X[, 2] / (1 + X[, 1]^2) + sin(X[, 3]*X[, 4]) + X[, 5]*(2*(X[,5]>0) - 1*(X[,5]<0))
+  if (!is.null(round_dig)) {Ey <- round(Ey, round_dig)}
+  return(Ey)
+}
+
+
+
 sim_params$n_obs <- 2000
 sim_params$d_in <- 20
 n_sims = 3
@@ -86,7 +95,7 @@ res <- list(
 lm_errs <- matrix(NA, ncol = n_sims, nrow = 4)
 rownames(lm_errs) <- c("FP", "TP", "FN", "TN")
 ss_sums <- sb_posts <- matrix(NA, ncol = n_sims, nrow = sim_params$d_in)
-sim_params$meanfcn <- meanfcn_origmod
+sim_params$meanfcn <- meanfcn_Liang1.5
 
 for (s_i in 1:n_sims){
 print(s_i)
