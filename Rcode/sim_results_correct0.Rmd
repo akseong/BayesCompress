@@ -1,0 +1,1473 @@
+---
+title: "Simulation results: correcting (0, 0) spike"
+author: "Arnie Seong"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+header-includes:
+  - \usepackage{bm}
+  - \usepackage{xcolor}
+  - \usepackage{amssymb}
+output: 
+  html_document:
+    df_print: paged
+    theme: cerulean
+    highlight: tango
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
+    code_fold: show
+urlcolor: blue
+params:
+  retrain: FALSE
+  seed: 314
+editor_options: 
+  chunk_output_type: console
+---
+<style>
+  .panel-tabs{
+    opacity: 1;
+    background-color: #2fa4e7;
+    color: #ffffff;
+    position: sticky;
+    top: 0
+  }
+</style>
+
+```{r setup, include=FALSE, message=F, echo=F, warning=F}
+# LIBRARIES----
+
+#### plotting:
+library(ggplot2)
+library(gridExtra)
+
+# #### Misc:
+library(here)
+library(tidyr)
+library(knitr)
+library(kableExtra)
+library(dplyr)
+
+# model packages
+library(torch)
+
+# DOCUMENT SETUP ----
+# detect pdf/html output, set chunk options, sci.notation 
+latex_out <- knitr::is_latex_output()
+knitr::opts_chunk$set(
+  cache = FALSE, 
+  message = FALSE, 
+  echo = !knitr::is_latex_output(), 
+  warning = FALSE
+)
+
+
+if (knitr::is_latex_output()) {
+  knitr::opts_chunk$set(fig.height=4, 
+                        fig.width=6)
+} else {
+  knitr::opts_chunk$set(out.width = "100%")
+}
+
+options(scipen=10)
+
+# PANELSET
+xaringanExtra::use_panelset()
+xaringanExtra::style_panelset_tabs(font_family = "inherit")
+
+
+
+# TEXT/TABLE FORMATTING----
+
+custom_purple <- ifelse(
+  knitr::is_latex_output(),
+  "purple",
+  "#b51ced"
+)
+
+custom_blue <- ifelse(
+  knitr::is_latex_output(),
+  "blue",
+  "#11579e"
+)
+
+colorize <- function(x, color=custom_purple) {
+  # text color conditional on latex/html output
+  # from rmarkdown cookbook
+  if (knitr::is_latex_output()) {
+    sprintf("\\textcolor{ %s}{ %s}", color, x)
+  } else if (knitr::is_html_output()) {
+    sprintf("<span style='color: %s;'>%s</span>", color, x)
+  } else x
+}
+
+cat_color <- function(txt, style = 1, color = 36){
+  cat(
+    paste0(
+      "\033[0;",
+      style, ";",
+      color, "m",
+      txt,
+      "\033[0m","\n"
+    )
+  )  
+}
+
+# kable NA handling
+options(knitr.kable.NA = '')
+
+# mykable function
+mykable <- function(tab, cap,
+                    latex_options=c("hold_position", "scale_down", "striped"), 
+                    bootstrap_options=c("striped", "hover", "condensed"), 
+                    full_width=F, position="center", ...){
+  # kable formatting conditional on latex or html output
+  if (is.null(getOption("knitr.in.progress"))){
+    print(tab)
+  } else if (knitr::is_latex_output()){
+    kable(x=tab, caption=cap, ...) %>%
+      kableExtra::kable_styling(latex_options = latex_options)
+  } else if (knitr::is_html_output()){
+    kable(x=tab, caption=cap, ...) %>%
+      kableExtra::kable_styling(bootstrap_options = bootstrap_options, full_width=full_width, position=position)
+  }
+}
+
+# notin
+`%notin%` <- Negate(`%in%`)
+
+source(here("Rcode", "torch_horseshoe_klcorrected.R"))
+source(here("Rcode", "sim_functions.R"))
+source(here("Rcode", "analysis_fcns.R"))
+```
+
+
+
+```{r SETUP_AND_FCNS}
+knitr::opts_chunk$set(echo = FALSE)
+
+gen_header <- function(sim_res, hlevel = 4){
+  cat(
+    "\n\n",  rep("#", hlevel), " sim_id ", 
+    sim_res$sim_params$sim_seeds[sim_res$sim_ind], 
+    sep = ""
+  )
+}
+
+sim_characteristics <- function(sim_params, reduced = TRUE) {
+  chars <- list(
+      # sim_desc --- note: not always accurate
+      "description" = sim_params[[1]],
+      # data characteristics
+      "overall_seed" = sim_params$seed,
+      "individual_seeds" = sim_params$sim_seeds,
+      "n_obs" = sim_params$n_obs,
+      "err_sig" = sim_params$err_sig,
+      "xdist" = sim_params$xdist,
+      "fcn_plt" = plot_datagen_fcns(sim_params$flist),
+      
+      # nn characteristics
+      "prior_tau" = sim_params$prior_tau,
+      "nn_layer_dims" = do.call(c, sim_params[grepl("d_", names(sim_params))]),
+      
+      # training characteristics
+      "n_mc_samples" = sim_params$n_mc_samples,
+      "batch_size" = sim_params$batch_size,
+      "train_epochs" = sim_params$train_epochs,
+      "lr" = sim_params$lr,
+      "lr_scheduler" = !is.null(sim_params$lr_scheduler),
+      "kl_scheduler" = !is.null(sim_params$kl_scheduler)
+    )
+  
+  if (reduced){
+    chars <- chars[c(4, 5, 8:15)]
+  }
+  
+  return(chars)
+}
+
+plot_losses <- function(fnames){
+  for (sim_num in 1:length(fnames)){
+    load(fnames[sim_num])
+    loss_df <- loss_pltfcn(sim_res)$long_df
+    loss_df$sim_id <- sim_res$sim_params$sim_seeds[sim_res$sim_ind]
+    
+    if (sim_num == 1){
+      loss_df_all <- loss_df
+    } else {
+      loss_df_all <- rbind(loss_df_all, loss_df)
+    }
+  }
+  
+  plt <- loss_df_all %>% 
+    ggplot(
+      aes(
+        y = value,
+        x = epoch,
+        linetype = factor(sim_id),
+        color = loss_type
+      )
+    ) + 
+    geom_line() + 
+    labs(
+      title = paste0(
+        "loss vs epochs, across ",
+        length(fnames),
+        " simulations"
+      )
+    )
+  return(plt)
+}
+```
+
+
+```{r, VIS_CHUNK, eval = FALSE}
+knitr::include_graphics(png_fnames[sim_ind])
+kmat_global <- kappamat_from_sim_res(sim_res)
+kmat_local <- kappamat_from_sim_res(sim_res, type = "local")
+
+loss_pltfcn(sim_res, burn = 0)$long_df %>% 
+  ggplot(
+    aes(
+      y = value,
+      x = epoch,
+      color = loss_type
+    )
+  ) + 
+  geom_line() + 
+  labs(
+    title = paste0(
+      "loss vs epochs"
+    )
+  )
+
+loss_pltfcn(sim_res, burn = 1e4)$mse_plt
+loss_pltfcn(sim_res, burn = 1e4)$kl_plt
+
+varmat_pltfcn(
+    sim_res$alpha_mat,
+    y_name = "alpha",
+    burn = 0
+  )$all_vars_plt
+
+varmat_pltfcn(
+  kmat_global,
+  y_name = "GLOBAL kappa",
+  burn = 0
+)$all_vars_plt
+
+
+varmat_pltfcn(
+  kmat_local,
+  y_name = "LOCAL kappa",
+  burn = 0
+)$all_vars_plt
+
+
+if (!is.null(sim_res$kappa_tc_mat)){
+  # didn't add tau-corrected kappas to sims until later
+  varmat_pltfcn(
+    sim_res$kappa_tc_mat,
+    y_name = "tau-corrected kappas",
+    burn = 0
+  )$all_vars_plt
+}
+
+if (!is.null(sim_res$kappa_fc_mat)){
+  # didn't add frob-corrected kappas to sims until later
+  varmat_pltfcn(
+    sim_res$kappa_fc_mat,
+    y_name = "frobenius-corrected kappas",
+    burn = 0
+  )$all_vars_plt
+}
+
+err_by_max_bfdr(kmat_local[nrow(kmat_local), ])$plt_fdrs +
+  labs(
+    subtitle = "using local kappas as dropout probabilities"
+  )
+
+err_by_max_bfdr(get_kappas_sntau(nn_mod, print_vals = TRUE))$plt_fdrs +
+    labs(
+      subtitle = "FC2 & composite-corrected kappas as dropout probabilities"
+    )
+
+err_by_max_bfdr(get_kappas_sntau(nn_mod, sn_type = "regular", print_vals = TRUE))$plt_fdrs +
+    labs(
+      subtitle = "FC2 & specnorm-corrected kappas as dropout probabilities"
+    )
+
+
+if (!is.null(sim_res$kappa_tc_mat)){
+  err_by_max_bfdr(get_kappas_taucorrected(nn_mod))$plt_fdrs +
+    labs(
+      subtitle = "tau-corrected kappas as dropout probabilities"
+    )
+}
+
+
+err_by_max_bfdr(get_kappas_frobcorrected(nn_mod))$plt_fdrs +
+    labs(
+      subtitle = "frob-corrected kappas as dropout probabilities"
+    )
+
+
+err_by_max_bfdr(get_kappas_specnormcorrected(nn_mod))$plt_fdrs +
+    labs(
+      subtitle = "specnorm-corrected kappas as dropout probabilities"
+    )
+
+err_by_max_bfdr(get_kappas_compositespecnorm(nn_mod))$plt_fdrs +
+    labs(
+      subtitle = "composite specnorm-corrected kappas as dropout probabilities"
+    )
+
+
+
+```
+
+
+
+# purpose
+
+Purpose is to see how using deterministic layers helps / hurts.  
+
+## fnames
+
+1k obs
+
+anchored_smallbias_corr.3_5x161250obs_515157
+anchored_smallbias_corr.3_5x161250obs_155447
+
+
+detlayers_reghs_corr.3_5x161250obs_833667
+detlayers_reghs_corr.3_5x161250obs_155447
+detlayers_reghs_corr.3_5x161250obs_72269
+detlayers_reghs_corr.3_5x161250obs_170480
+detlayers_reghs_corr.3_5x161250obs_515157
+
+detlayers_reghs_corr.3_5x1612500obs_72269
+detlayers_reghs_corr.3_5x1612500obs_833667
+detlayers_reghs_corr.3_5x1612500obs_155447
+detlayers_reghs_corr.3_5x1612500obs_170480
+detlayers_reghs_corr.3_5x1612500obs_515157
+
+
+detlayers_smallbias_corr.3_5x161250obs_72269
+detlayers_smallbias_corr.3_5x161250obs_170480
+detlayers_smallbias_corr.3_5x161250obs_833667
+detlayers_smallbias_corr.3_5x161250obs_515157
+detlayers_smallbias_corr.3_5x161250obs_155447
+
+detlayers_smallbias_corr.3_5x1612500obs_72269
+detlayers_smallbias_corr.3_5x1612500obs_170480
+detlayers_smallbias_corr.3_5x1612500obs_833667
+detlayers_smallbias_corr.3_5x1612500obs_515157
+detlayers_smallbias_corr.3_5x1612500obs_155447
+
+
+detlayers_smallbias_shift1_corr.3_5x161250obs_155447
+detlayers_smallbias_shift1_corr.3_5x161250obs_72269
+detlayers_smallbias_shift1_corr.3_5x161250obs_833667
+detlayers_smallbias_shift1_corr.3_5x161250obs_170480
+detlayers_smallbias_shift1_corr.3_5x161250obs_515157
+
+detlayers_smallbias_jitter_corr.3_5x161250obs_155447
+detlayers_smallbias_jitter_corr.3_5x161250obs_72269
+detlayers_smallbias_jitter_corr.3_5x161250obs_833667
+detlayers_smallbias_jitter_corr.3_5x161250obs_170480
+detlayers_smallbias_jitter_corr.3_5x161250obs_515157
+
+
+
+detlayers_corr.9_5x1612500obs_72269
+detlayers_corr.9_5x161250obs_72269
+
+detlayers_corr.9_5x161250obs_833667
+detlayers_corr.9_5x1612500obs_170480
+detlayers_corr.9_5x161250obs_170480
+detlayers_corr.9_5x161250obs_515157
+detlayers_corr.9_5x1612500obs_515157
+detlayers_corr.9_5x161250obs_155447
+detlayers_corr.9_5x1612500obs_155447
+detlayers_corr_5x1612500obs_833667
+detlayers_corr_5x161250obs_833667
+detlayers_corr_5x1612500obs_170480
+detlayers_corr_5x161250obs_170480
+detlayers_corr_5x1612500obs_515157
+detlayers_corr_5x161250obs_515157
+
+detnewfcns_5x4_tau1125obs_72269
+
+10k obs
+
+[x] detlayers_532_minibatch12500obs_160986
+
+[x] detlayers_532_12500obs_160986
+
+
+# 1000 obs
+
+## 5x16, no mc, no minibatching
+
+- first 2 layers hshoe, rest deterministic
+
+- single update $z$
+
+- PV tau with $p_0 = 10$
+
+- no minibatching 
+
+- kl annealing only
+
+
+__Comments:__
+
+- 
+
+
+```{r nomc_516}
+stem <- here::here("sims", "results", "detlayers_5161250obs_")
+png_suffix <- c("_e1e+05")
+# extract sim information from first in series
+first_sim <- paste0(stem, "155447.RData")
+load(first_sim)
+seeds <- sim_res$sim_params$sim_seeds
+res_fnames <- paste0(stem, seeds, ".RData")
+png_fnames <- paste0(stem, seeds, png_suffix, ".png")
+mod_fnames <- paste0(stem, seeds, ".pt")
+sim_characteristics(sim_res$sim_params)
+
+sim_ind <- 0
+
+# check prior tau calculation
+# dim_vec <- do.call(c, sim_params[grep(pattern = "d_", names(sim_params))])
+# param_scaling <- round(sim_params$n_obs * sim_params$ttsplit) / param_counts_from_dims(dim_vec)[4]
+# tau0_PV(
+#   p_0 = 10, d = 104, sig = 1,
+#   n = round(sim_params$n_obs * sim_params$ttsplit)
+# )
+
+```
+
+
+```{r}
+load(res_fnames[1])
+nn_mod <- torch_load(mod_fnames[1])
+plot_datagen_fcns(sim_res$sim_params$flist)
+
+```
+
+
+### sims {.panelset}
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+
+
+
+
+
+
+
+## 5x16, 5 mc, no minibatching
+
+- first 2 layers hshoe, rest deterministic
+
+- single update $z$
+
+- PV tau with $p_0 = 10$
+
+- no minibatching 
+
+- kl annealing only
+
+
+__Comments:__
+
+- 
+
+
+```{r mc5_516}
+stem <- here::here("sims", "results", "detlayers_516_mc51250obs_")
+png_suffix <- c("_e1e+05")
+# extract sim information from first in series
+first_sim <- paste0(stem, "155447.RData")
+load(first_sim)
+seeds <- sim_res$sim_params$sim_seeds
+res_fnames <- paste0(stem, seeds, ".RData")
+png_fnames <- paste0(stem, seeds, png_suffix, ".png")
+mod_fnames <- paste0(stem, seeds, ".pt")
+sim_characteristics(sim_res$sim_params)
+
+sim_ind <- 0
+
+# check prior tau calculation
+# dim_vec <- do.call(c, sim_params[grep(pattern = "d_", names(sim_params))])
+# param_scaling <- round(sim_params$n_obs * sim_params$ttsplit) / param_counts_from_dims(dim_vec)[4]
+# tau0_PV(
+#   p_0 = 10, d = 104, sig = 1,
+#   n = round(sim_params$n_obs * sim_params$ttsplit)
+# )
+
+```
+
+
+```{r}
+load(res_fnames[1])
+nn_mod <- torch_load(mod_fnames[1])
+plot_datagen_fcns(sim_res$sim_params$flist)
+
+```
+
+
+### sims {.panelset}
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+
+
+
+
+## 5x32, 2 mc samples, minibatching
+
+- first 2 layers hshoe, rest deterministic
+
+- single update $z$
+
+- PV tau with $p_0 = 10$
+
+- minibatching 
+
+- kl annealing only
+
+
+__Comments:__
+
+- 
+
+
+```{r mcmbatch_532}
+stem <- here::here("sims", "results", "detlayers_532_minibatch1250obs_")
+png_suffix <- c("_e2e+05")
+# extract sim information from first in series
+first_sim <- paste0(stem, "453598.RData")
+load(first_sim)
+seeds <- sim_res$sim_params$sim_seeds
+res_fnames <- paste0(stem, seeds, ".RData")
+png_fnames <- paste0(stem, seeds, png_suffix, ".png")
+mod_fnames <- paste0(stem, seeds, ".pt")
+sim_characteristics(sim_res$sim_params)
+
+sim_ind <- 0
+
+# check prior tau calculation
+# dim_vec <- do.call(c, sim_params[grep(pattern = "d_", names(sim_params))])
+# param_scaling <- round(sim_params$n_obs * sim_params$ttsplit) / param_counts_from_dims(dim_vec)[4]
+# tau0_PV(
+#   p_0 = 10, d = 104, sig = 1,
+#   n = round(sim_params$n_obs * sim_params$ttsplit)
+# )
+
+```
+
+
+```{r}
+load(res_fnames[1])
+nn_mod <- torch_load(mod_fnames[1])
+plot_datagen_fcns(sim_res$sim_params$flist)
+
+```
+
+
+### sims {.panelset}
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+
+
+
+
+## 5x32, no mc, no minibatch
+
+- first 2 layers hshoe, rest deterministic
+
+- single update $z$
+
+- PV tau with $p_0 = 10$
+
+- minibatching 
+
+- kl annealing only
+
+
+__Comments:__
+
+- 
+
+
+```{r minibatch_532}
+stem <- here::here("sims", "results", "detlayers_532_test1250obs_")
+png_suffix <- c("_e2e+05")
+# extract sim information from first in series
+first_sim <- paste0(stem, "453598.RData")
+load(first_sim)
+seeds <- sim_res$sim_params$sim_seeds
+res_fnames <- paste0(stem, seeds, ".RData")
+png_fnames <- paste0(stem, seeds, png_suffix, ".png")
+mod_fnames <- paste0(stem, seeds, ".pt")
+sim_characteristics(sim_res$sim_params)
+
+sim_ind <- 0
+
+# check prior tau calculation
+# dim_vec <- do.call(c, sim_params[grep(pattern = "d_", names(sim_params))])
+# param_scaling <- round(sim_params$n_obs * sim_params$ttsplit) / param_counts_from_dims(dim_vec)[4]
+# tau0_PV(
+#   p_0 = 10, d = 104, sig = 1,
+#   n = round(sim_params$n_obs * sim_params$ttsplit)
+# )
+
+```
+
+
+```{r}
+load(res_fnames[1])
+nn_mod <- torch_load(mod_fnames[1])
+plot_datagen_fcns(sim_res$sim_params$flist)
+
+```
+
+
+### sims {.panelset}
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+
+## 8-16-32-64-32, no mc, no minibatch
+
+- first 2 layers hshoe, rest deterministic
+
+- single update $z$
+
+- PV tau with $p_0 = 10$
+
+- minibatching 
+
+- kl annealing only
+
+
+__Comments:__
+
+- 
+
+
+```{r nomc_nobatch_varyingsize}
+stem <- here::here("sims", "results", "detlayers_5816_1250obs_")
+png_suffix <- c("_e2e+05")
+# extract sim information from first in series
+first_sim <- paste0(stem, "160986.RData")
+load(first_sim)
+seeds <- sim_res$sim_params$sim_seeds
+res_fnames <- paste0(stem, seeds, ".RData")
+png_fnames <- paste0(stem, seeds, png_suffix, ".png")
+mod_fnames <- paste0(stem, seeds, ".pt")
+sim_characteristics(sim_res$sim_params)
+
+sim_ind <- 0
+
+# check prior tau calculation
+# dim_vec <- do.call(c, sim_params[grep(pattern = "d_", names(sim_params))])
+# param_scaling <- round(sim_params$n_obs * sim_params$ttsplit) / param_counts_from_dims(dim_vec)[4]
+# tau0_PV(
+#   p_0 = 10, d = 104, sig = 1,
+#   n = round(sim_params$n_obs * sim_params$ttsplit)
+# )
+
+```
+
+
+```{r}
+load(res_fnames[1])
+nn_mod <- torch_load(mod_fnames[1])
+plot_datagen_fcns(sim_res$sim_params$flist)
+
+```
+
+
+### sims {.panelset}
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+
+
+
+
+# 10k obs
+
+## 5x32, mc + minibatching
+
+- first 2 layers hshoe, rest deterministic
+
+- single update $z$
+
+- PV tau with $p_0 = 10$
+
+- no minibatching 
+
+- kl annealing only
+
+
+__Comments:__
+
+-  check tau, lr
+
+
+```{r batch10k}
+stem <- here::here("sims", "results", "detlayers_532_minibatch12500obs_")
+png_suffix <- c("_e2e+05")
+# extract sim information from first in series
+first_sim <- paste0(stem, "160986.RData")
+load(first_sim)
+seeds <- sim_res$sim_params$sim_seeds
+res_fnames <- paste0(stem, seeds, ".RData")
+png_fnames <- paste0(stem, seeds, png_suffix, ".png")
+mod_fnames <- paste0(stem, seeds, ".pt")
+sim_characteristics(sim_res$sim_params)
+
+sim_ind <- 0
+
+# check prior tau calculation
+# dim_vec <- do.call(c, sim_params[grep(pattern = "d_", names(sim_params))])
+# param_scaling <- round(sim_params$n_obs * sim_params$ttsplit) / param_counts_from_dims(dim_vec)[4]
+# tau0_PV(
+#   p_0 = 10, d = 104, sig = 1,
+#   n = round(sim_params$n_obs * sim_params$ttsplit)
+# )
+
+```
+
+
+```{r}
+load(res_fnames[1])
+nn_mod <- torch_load(mod_fnames[1])
+plot_datagen_fcns(sim_res$sim_params$flist)
+
+```
+
+
+### sims {.panelset}
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+
+
+
+
+## 5x32, no mc, no minibatching
+
+- first 2 layers hshoe, rest deterministic
+
+- single update $z$
+
+- PV tau with $p_0 = 10$
+
+- no minibatching 
+
+- kl annealing only
+
+
+__Comments:__
+
+-  check tau, lr
+
+
+```{r nobatch_10k}
+stem <- here::here("sims", "results", "detlayers_532_12500obs_")
+png_suffix <- c("_e2e+05")
+# extract sim information from first in series
+first_sim <- paste0(stem, "160986.RData")
+load(first_sim)
+seeds <- sim_res$sim_params$sim_seeds
+res_fnames <- paste0(stem, seeds, ".RData")
+png_fnames <- paste0(stem, seeds, png_suffix, ".png")
+mod_fnames <- paste0(stem, seeds, ".pt")
+sim_characteristics(sim_res$sim_params)
+
+sim_ind <- 0
+
+# check prior tau calculation
+# dim_vec <- do.call(c, sim_params[grep(pattern = "d_", names(sim_params))])
+# param_scaling <- round(sim_params$n_obs * sim_params$ttsplit) / param_counts_from_dims(dim_vec)[4]
+# tau0_PV(
+#   p_0 = 10, d = 104, sig = 1,
+#   n = round(sim_params$n_obs * sim_params$ttsplit)
+# )
+
+```
+
+
+```{r}
+load(res_fnames[1])
+nn_mod <- torch_load(mod_fnames[1])
+plot_datagen_fcns(sim_res$sim_params$flist)
+
+```
+
+
+### sims {.panelset}
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+
+
+
+
+
+
+
+
+
+
+## 5x16, 5 mc, no minibatching, lr 0.001
+
+- first 2 layers hshoe, rest deterministic
+
+- single update $z$
+
+- PV tau with $p_0 = 10$
+
+- no minibatching 
+
+- kl annealing only
+
+
+__Comments:__
+
+-  check tau, lr
+
+
+```{r 516_5mc_10k}
+stem <- here::here("sims", "results", "detlayers_516_12500obs_")
+png_suffix <- c("_e2e+05")
+# extract sim information from first in series
+first_sim <- paste0(stem, "515157.RData")
+load(first_sim)
+seeds <- sim_res$sim_params$sim_seeds
+res_fnames <- paste0(stem, seeds, ".RData")
+png_fnames <- paste0(stem, seeds, png_suffix, ".png")
+mod_fnames <- paste0(stem, seeds, ".pt")
+sim_characteristics(sim_res$sim_params)
+
+sim_ind <- 0
+
+# check prior tau calculation
+# dim_vec <- do.call(c, sim_params[grep(pattern = "d_", names(sim_params))])
+# param_scaling <- round(sim_params$n_obs * sim_params$ttsplit) / param_counts_from_dims(dim_vec)[4]
+# tau0_PV(
+#   p_0 = 10, d = 104, sig = 1,
+#   n = round(sim_params$n_obs * sim_params$ttsplit)
+# )
+
+```
+
+
+```{r}
+load(res_fnames[1])
+nn_mod <- torch_load(mod_fnames[1])
+plot_datagen_fcns(sim_res$sim_params$flist)
+
+```
+
+
+### sims {.panelset}
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+
+
+
+# 100 obs
+
+
+## 5x16, 5 mc, no minibatching, lr 0.001
+
+- first 2 layers hshoe, rest deterministic
+
+- single update $z$
+
+- PV tau with $p_0 = 10$
+
+- no minibatching 
+
+- kl annealing only
+
+
+__Comments:__
+
+-  check tau, lr
+
+
+```{r 516_5mc_100}
+stem <- here::here("sims", "results", "detlayers_516_125obs_")
+png_suffix <- c("_e2e+05")
+# extract sim information from first in series
+first_sim <- paste0(stem, "515157.RData")
+load(first_sim)
+seeds <- sim_res$sim_params$sim_seeds
+res_fnames <- paste0(stem, seeds, ".RData")
+png_fnames <- paste0(stem, seeds, png_suffix, ".png")
+mod_fnames <- paste0(stem, seeds, ".pt")
+sim_characteristics(sim_res$sim_params)
+
+sim_ind <- 0
+
+# check prior tau calculation
+# dim_vec <- do.call(c, sim_params[grep(pattern = "d_", names(sim_params))])
+# param_scaling <- round(sim_params$n_obs * sim_params$ttsplit) / param_counts_from_dims(dim_vec)[4]
+# tau0_PV(
+#   p_0 = 10, d = 104, sig = 1,
+#   n = round(sim_params$n_obs * sim_params$ttsplit)
+# )
+
+```
+
+
+```{r}
+load(res_fnames[1])
+nn_mod <- torch_load(mod_fnames[1])
+plot_datagen_fcns(sim_res$sim_params$flist)
+
+```
+
+
+### sims {.panelset}
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+
+
+
+
