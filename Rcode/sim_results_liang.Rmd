@@ -1,0 +1,1122 @@
+---
+title: "Simulation results: Liang fcns"
+author: "Arnie Seong"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+header-includes:
+  - \usepackage{bm}
+  - \usepackage{xcolor}
+  - \usepackage{amssymb}
+output: 
+  html_document:
+    df_print: paged
+    theme: cerulean
+    highlight: tango
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
+    code_fold: show
+urlcolor: blue
+params:
+  retrain: FALSE
+  seed: 314
+editor_options: 
+  chunk_output_type: console
+---
+<style>
+  .panel-tabs{
+    opacity: 1;
+    background-color: #2fa4e7;
+    color: #ffffff;
+    position: sticky;
+    top: 0
+  }
+</style>
+
+```{r setup, include=FALSE, message=F, echo=F, warning=F}
+# LIBRARIES----
+
+#### plotting:
+library(ggplot2)
+library(gridExtra)
+
+# #### Misc:
+library(here)
+library(tidyr)
+library(knitr)
+library(kableExtra)
+library(dplyr)
+
+# model packages
+library(torch)
+
+# DOCUMENT SETUP ----
+# detect pdf/html output, set chunk options, sci.notation 
+latex_out <- knitr::is_latex_output()
+knitr::opts_chunk$set(
+  cache = FALSE, 
+  message = FALSE, 
+  echo = !knitr::is_latex_output(), 
+  warning = FALSE
+)
+
+
+if (knitr::is_latex_output()) {
+  knitr::opts_chunk$set(fig.height=4, 
+                        fig.width=6)
+} else {
+  knitr::opts_chunk$set(out.width = "100%")
+}
+
+options(scipen=10)
+
+# PANELSET
+xaringanExtra::use_panelset()
+xaringanExtra::style_panelset_tabs(font_family = "inherit")
+
+
+
+# TEXT/TABLE FORMATTING----
+
+custom_purple <- ifelse(
+  knitr::is_latex_output(),
+  "purple",
+  "#b51ced"
+)
+
+custom_blue <- ifelse(
+  knitr::is_latex_output(),
+  "blue",
+  "#11579e"
+)
+
+colorize <- function(x, color=custom_purple) {
+  # text color conditional on latex/html output
+  # from rmarkdown cookbook
+  if (knitr::is_latex_output()) {
+    sprintf("\\textcolor{ %s}{ %s}", color, x)
+  } else if (knitr::is_html_output()) {
+    sprintf("<span style='color: %s;'>%s</span>", color, x)
+  } else x
+}
+
+cat_color <- function(txt, style = 1, color = 36){
+  cat(
+    paste0(
+      "\033[0;",
+      style, ";",
+      color, "m",
+      txt,
+      "\033[0m","\n"
+    )
+  )  
+}
+
+# kable NA handling
+options(knitr.kable.NA = '')
+
+# mykable function
+mykable <- function(tab, cap,
+                    latex_options=c("hold_position", "scale_down", "striped"), 
+                    bootstrap_options=c("striped", "hover", "condensed"), 
+                    full_width=F, position="center", ...){
+  # kable formatting conditional on latex or html output
+  if (is.null(getOption("knitr.in.progress"))){
+    print(tab)
+  } else if (knitr::is_latex_output()){
+    kable(x=tab, caption=cap, ...) %>%
+      kableExtra::kable_styling(latex_options = latex_options)
+  } else if (knitr::is_html_output()){
+    kable(x=tab, caption=cap, ...) %>%
+      kableExtra::kable_styling(bootstrap_options = bootstrap_options, full_width=full_width, position=position)
+  }
+}
+
+# notin
+`%notin%` <- Negate(`%in%`)
+
+source(here("Rcode", "torch_horseshoe_klcorrected.R"))
+source(here("Rcode", "sim_functions.R"))
+source(here("Rcode", "analysis_fcns.R"))
+```
+
+
+
+```{r SETUP_AND_FCNS}
+knitr::opts_chunk$set(echo = FALSE)
+
+gen_header <- function(sim_res, hlevel = 4){
+  cat(
+    "\n\n",  rep("#", hlevel), " sim_id ", 
+    sim_res$sim_params$sim_seeds[sim_res$sim_ind], 
+    sep = ""
+  )
+}
+
+sim_characteristics <- function(sim_params) {
+  chars <- list(
+      # sim_desc --- note: not always accurate
+      # "description" = sim_params[[1]],
+      # data characteristics
+      # "overall_seed" = sim_params$seed,
+      # "individual_seeds" = sim_params$sim_seeds,
+      "n_obs" = sim_params$n_obs,
+      "err_sig" = sim_params$err_sig,
+      "train_sig" = sim_params$train_sig,
+      "ttsplit" = sim_params$ttsplit,
+      # "xdist" = sim_params$xdist,
+      # "fcn_plt" = plot_datagen_fcns(sim_params$flist),
+      
+      # nn characteristics
+      "prior_tau" = sim_params$prior_tau,
+      "nn_layer_dims" = do.call(c, sim_params[grepl("d_", names(sim_params))]),
+      
+      # training characteristics
+      "n_mc_samples" = sim_params$n_mc_samples,
+      # "batch_size" = sim_params$batch_size,
+      "train_epochs" = sim_params$train_epochs,
+      "lr" = sim_params$lr
+      # "lr_scheduler" = !is.null(sim_params$lr_scheduler),
+      # "kl_scheduler" = !is.null(sim_params$kl_scheduler)
+    )
+    return(chars)
+}
+
+plot_losses <- function(fnames){
+  for (sim_num in 1:length(fnames)){
+    load(fnames[sim_num])
+    loss_df <- loss_pltfcn(sim_res)$long_df
+    loss_df$sim_id <- sim_res$sim_params$sim_seeds[sim_res$sim_ind]
+    
+    if (sim_num == 1){
+      loss_df_all <- loss_df
+    } else {
+      loss_df_all <- rbind(loss_df_all, loss_df)
+    }
+  }
+  
+  plt <- loss_df_all %>% 
+    ggplot(
+      aes(
+        y = value,
+        x = epoch,
+        linetype = factor(sim_id),
+        color = loss_type
+      )
+    ) + 
+    geom_line() + 
+    labs(
+      title = paste0(
+        "loss vs epochs, across ",
+        length(fnames),
+        " simulations"
+      )
+    )
+  return(plt)
+}
+```
+
+
+```{r, VIS_CHUNK, eval = FALSE}
+# knitr::include_graphics(png_fnames[sim_ind])
+kmat_global <- kappamat_from_sim_res(sim_res)
+kmat_local <- kappamat_from_sim_res(sim_res, type = "local")
+
+loss_pltfcn(sim_res, burn = 0)$long_df %>% 
+  ggplot(
+    aes(
+      y = value,
+      x = epoch,
+      color = loss_type
+    )
+  ) + 
+  geom_line() + 
+  labs(
+    title = paste0(
+      "loss vs epochs"
+    )
+  )
+
+loss_pltfcn(sim_res, burn = 1e4)$mse_plt
+loss_pltfcn(sim_res, burn = 1e4)$kl_plt
+
+varmat_pltfcn(
+    sim_res$alpha_mat,
+    y_name = "alpha",
+    burn = 0,
+    show_vars = show_vars
+  )$all_vars_plt
+
+varmat_pltfcn(
+  kmat_global,
+  y_name = "GLOBAL kappa",
+  burn = 0,
+  show_vars = show_vars
+)$all_vars_plt
+
+
+varmat_pltfcn(
+  kmat_local,
+  y_name = "LOCAL kappa",
+  burn = 0,
+  show_vars = show_vars
+)$all_vars_plt
+
+
+if (!is.null(sim_res$kappa_tc_mat)){
+  # didn't add tau-corrected kappas to sims until later
+  varmat_pltfcn(
+    sim_res$kappa_tc_mat,
+    y_name = "tau-corrected kappas",
+    burn = 0,
+    show_vars = show_vars
+  )$all_vars_plt
+}
+
+if (!is.null(sim_res$kappa_fc_mat)){
+  # didn't add frob-corrected kappas to sims until later
+  varmat_pltfcn(
+    sim_res$kappa_fc_mat,
+    y_name = "frobenius-corrected kappas",
+    burn = 0,
+   show_vars = show_vars
+  )$all_vars_plt
+}
+
+err_by_max_bfdr(kmat_local[nrow(kmat_local), ], true_vec)$plt_fdrs +
+  labs(
+    subtitle = "using local kappas as dropout probabilities"
+  )
+
+err_by_max_bfdr(get_kappas_sntau(nn_mod, print_vals = TRUE), true_vec)$plt_fdrs +
+    labs(
+      subtitle = "FC2 & composite specnorm-corrected kappas as dropout probabilities"
+    )
+
+err_by_max_bfdr(get_kappas_sntau(nn_mod, sn_type = "regular", print_vals = TRUE), true_vec)$plt_fdrs +
+    labs(
+      subtitle = "FC2 & reg specnorm-corrected kappas as dropout probabilities"
+    )
+
+
+
+if (!is.null(sim_res$kappa_tc_mat)){
+  err_by_max_bfdr(get_kappas_taucorrected(nn_mod), true_vec)$plt_fdrs +
+    labs(
+      subtitle = "tau-corrected kappas as dropout probabilities"
+    )
+}
+
+err_by_max_bfdr(get_kappas_frobcorrected(nn_mod), true_vec)$plt_fdrs +
+    labs(
+      subtitle = "frob-corrected kappas as dropout probabilities"
+    )
+
+
+err_by_max_bfdr(get_kappas_specnormcorrected(nn_mod), true_vec)$plt_fdrs +
+    labs(
+      subtitle = "specnorm-corrected kappas as dropout probabilities"
+    )
+
+err_by_max_bfdr(get_kappas_compositespecnorm(nn_mod), true_vec)$plt_fdrs +
+    labs(
+      subtitle = "composite specnorm-corrected kappas as dropout probabilities"
+    )
+
+err_by_max_bfdr(prob_kappas_gt_thresh(nn_mod, thresh = 0.1, correction = 1, type = "local")
+  , true_vec)$plt_fdrs +
+    labs(
+      subtitle = "P(kappa>0.25) as dropout probabilities, no correction"
+    )
+
+err_by_max_bfdr(prob_kappas_gt_thresh(nn_mod, thresh = 0.5, correction = 1, type = "local")
+  , true_vec)$plt_fdrs +
+    labs(
+      subtitle = "P(kappa>0.5) as dropout probabilities, no correction"
+    )
+
+err_by_max_bfdr(prob_kappas_gt_thresh(nn_mod, thresh = 0.5, correction = get_composite_specnorm(nn_mod), type = "global")
+  , true_vec)$plt_fdrs +
+    labs(
+      subtitle = "P(kappa>0.5) as dropout probabilities, compositesn correction"
+    )
+
+
+err_by_max_bfdr(prob_kappas_gt_thresh(nn_mod, thresh = 0.9, correction = get_composite_specnorm(nn_mod), type = "global")
+  , true_vec)$plt_fdrs +
+    labs(
+      subtitle = "P(kappa>0.9) as dropout probabilities, compositesn correction"
+    )
+
+```
+
+
+
+# purpose
+
+Purpose is to see how using deterministic layers helps / hurts.  
+
+## fnames
+
+p=50
+
+det1_5x8_liangfcn1p50_500obs_144960
+det1_5x8_liangfcn1p50_500obs_326454
+det1_5x8_liangfcn1p50_1000obs_144960
+det1_5x8_liangfcn1p50_1000obs_326454
+det1_5x16_liangfcn1p50_500obs_155447
+det1_5x16_liangfcn1p50_500obs_515157
+det1_5x16_liangfcn1p50_1000obs_155447
+det1_5x16_liangfcn1p50_1000obs_515157
+det1_5x16_liangfcn1p50_2000obs_515157
+det1_5x16_liangfcn1p50_2000obs_155447
+
+
+p=500
+det1_5x4_liangfcn1p500_500obs_144960
+det1_5x4_liangfcn1p500_500obs_326454
+det1_5x8_liangfcn1p500_2000obs_144960
+det1_5x8_liangfcn1p500_2000obs_326454
+det1_5x16_liangfcn1p500_500obs_515157
+det1_5x16_liangfcn1p500_500obs_155447
+det1_5x16_liangfcn1p500_1000obs_515157
+det1_5x16_liangfcn1p500_1000obs_155447
+det1_5x16_liangfcn1p500_5000obs_155447
+det1_5x16_liangfcn1p500_5000obs_515157
+
+
+
+
+all trained with no batching, only KL annealing, 5 MC samples to get expected loglikelihood, p_0 = p/10
+
+
+# p=50
+
+## 5x8, 400 train, 100 test
+
+__Comments:__
+
+- misses: x3, x4, sometimes x1
+
+- MSE: 1.6 vs 2, stays between .6 of each other; train sig ~ 1.6, so good
+
+- KL:
+
+- alphas: strong separation, but misses x3, x4, and sometimes x1
+
+- BFDRs: specnorm, composite specnorm have BFDR and FDR closest; frob OK
+
+- overall:
+
+
+```{r}
+stem <- here::here("sims", "results", "det1_5x8_liangfcn1p50_500obs_")
+png_suffix <- c("_e2e+05")
+# extract sim information from first in series
+first_sim <- paste0(stem, "144960.RData")
+load(first_sim)
+seeds <- sim_res$sim_params$sim_seeds
+res_fnames <- paste0(stem, seeds, ".RData")
+png_fnames <- paste0(stem, seeds, png_suffix, ".png")
+mod_fnames <- paste0(stem, seeds, ".pt")
+sim_characteristics(sim_res$sim_params)
+
+sim_ind <- 0
+show_vars <- paste0("x", 1:5)
+true_vec = c(rep(1, 5), rep(0, 45))
+```
+
+
+```{r}
+load(res_fnames[1])
+nn_mod <- torch_load(mod_fnames[1])
+prob_kappas_gt_thresh(nn_mod, thresh = 0.5, correction = 1, type = "global")
+prob_kappas_gt_thresh(nn_mod, thresh = 0.5, correction = get_composite_specnorm(nn_mod), type = "global")
+```
+
+
+### sims {.panelset}
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+
+## 5x8, 800 train, 200 test
+
+
+__Comments:__
+
+
+
+- misses: no misses in alphas, local
+
+- MSE: training higher than test.  .1-1.25 train; .8-1.1 test, stays between .25 of each other  
+
+- alphas, local kappas: both great
+
+- BFDRs: tau-corrected not great in 1 sim; frobenius fine but slightly anti-conservative; regular specnorm perfect; composite not as good
+
+- overall:
+
+
+
+```{r}
+stem <- here::here("sims", "results", "det1_5x8_liangfcn1p50_1000obs_")
+png_suffix <- c("_e2e+05")
+# extract sim information from first in series
+first_sim <- paste0(stem, "144960.RData")
+load(first_sim)
+seeds <- sim_res$sim_params$sim_seeds
+res_fnames <- paste0(stem, seeds, ".RData")
+png_fnames <- paste0(stem, seeds, png_suffix, ".png")
+mod_fnames <- paste0(stem, seeds, ".pt")
+sim_characteristics(sim_res$sim_params)
+
+sim_ind <- 0
+```
+
+
+```{r}
+load(res_fnames[1])
+nn_mod <- torch_load(mod_fnames[1])
+```
+
+
+### sims {.panelset}
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+
+## 5x16, 400 train, 100 test
+
+
+__Comments:__
+
+
+
+- misses: x1, x3, x4
+
+- MSE: train mse slightly higher, 1.2 and 1.6; test mse .8 and ~1.6
+
+- KL:
+
+- alphas: miss x1, x3, x4
+
+- BFDRs:
+
+- overall:
+
+
+
+```{r}
+stem <- here::here("sims", "results", "det1_5x16_liangfcn1p50_500obs_")
+png_suffix <- c("_e2e+05")
+# extract sim information from first in series
+first_sim <- paste0(stem, "155447.RData")
+load(first_sim)
+seeds <- sim_res$sim_params$sim_seeds
+res_fnames <- paste0(stem, seeds, ".RData")
+png_fnames <- paste0(stem, seeds, png_suffix, ".png")
+mod_fnames <- paste0(stem, seeds, ".pt")
+sim_characteristics(sim_res$sim_params)
+
+sim_ind <- 0
+```
+
+
+```{r}
+load(res_fnames[1])
+nn_mod <- torch_load(mod_fnames[1])
+```
+
+
+### sims {.panelset}
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+
+
+## 5x16, 800 train, 200 test
+
+
+__Comments:__
+
+
+
+- misses: x3, x4
+
+- MSE: 1.6 vs 2, stays between .6 of each other  
+
+- KL:
+
+- alphas:
+
+- BFDRs:
+
+- overall:
+
+
+
+```{r}
+stem <- here::here("sims", "results", "det1_5x16_liangfcn1p50_1000obs_")
+png_suffix <- c("_e2e+05")
+# extract sim information from first in series
+first_sim <- paste0(stem, "155447.RData")
+load(first_sim)
+seeds <- sim_res$sim_params$sim_seeds
+res_fnames <- paste0(stem, seeds, ".RData")
+png_fnames <- paste0(stem, seeds, png_suffix, ".png")
+mod_fnames <- paste0(stem, seeds, ".pt")
+sim_characteristics(sim_res$sim_params)
+
+sim_ind <- 0
+```
+
+
+```{r}
+load(res_fnames[1])
+nn_mod <- torch_load(mod_fnames[1])
+```
+
+
+### sims {.panelset}
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+
+
+
+## 5x16, 1600 train, 400 test
+
+__Comments:__
+
+
+
+- misses: x3, x4
+
+- MSE: 1.6 vs 2, stays between .6 of each other  
+
+- KL:
+
+- alphas:
+
+- BFDRs:
+
+- overall:
+
+
+
+
+```{r}
+stem <- here::here("sims", "results", "det1_5x16_liangfcn1p50_2000obs_")
+png_suffix <- c("_e2e+05")
+# extract sim information from first in series
+first_sim <- paste0(stem, "515157.RData")
+load(first_sim)
+seeds <- sim_res$sim_params$sim_seeds
+res_fnames <- paste0(stem, seeds, ".RData")
+png_fnames <- paste0(stem, seeds, png_suffix, ".png")
+mod_fnames <- paste0(stem, seeds, ".pt")
+sim_characteristics(sim_res$sim_params)
+
+sim_ind <- 0
+```
+
+
+```{r}
+load(res_fnames[1])
+nn_mod <- torch_load(mod_fnames[1])
+```
+
+
+### sims {.panelset}
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+
+
+
+
+
+# p=500
+
+
+
+## 5x4, 400 train, 100 test
+
+__Comments:__
+
+
+
+- misses: x3, x4
+
+- MSE: 1.6 vs 2, stays between .6 of each other  
+
+- KL:
+
+- alphas:
+
+- BFDRs:
+
+- overall:
+
+
+
+
+
+```{r}
+stem <- here::here("sims", "results", "det1_5x4_liangfcn1p500_500obs_")
+png_suffix <- c("_e2e+05")
+# extract sim information from first in series
+first_sim <- paste0(stem, "144960.RData")
+load(first_sim)
+seeds <- sim_res$sim_params$sim_seeds
+res_fnames <- paste0(stem, seeds, ".RData")
+png_fnames <- paste0(stem, seeds, png_suffix, ".png")
+mod_fnames <- paste0(stem, seeds, ".pt")
+sim_characteristics(sim_res$sim_params)
+
+sim_ind <- 0
+
+show_vars <- paste0("x", 1:5)
+true_vec = c(rep(1, 5), rep(0, 495))
+
+```
+
+
+```{r}
+load(res_fnames[1])
+nn_mod <- torch_load(mod_fnames[1])
+```
+
+
+### sims {.panelset}
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+
+
+## 5x8, 1600 train, 400 test
+
+__Comments:__
+
+
+
+- misses: x3, x4
+
+- MSE: 1.6 vs 2, stays between .6 of each other  
+
+- KL:
+
+- alphas:
+
+- BFDRs:
+
+- overall:
+
+
+
+
+
+```{r}
+stem <- here::here("sims", "results", "det1_5x8_liangfcn1p500_2000obs_")
+png_suffix <- c("_e2e+05")
+# extract sim information from first in series
+first_sim <- paste0(stem, "144960.RData")
+load(first_sim)
+seeds <- sim_res$sim_params$sim_seeds
+res_fnames <- paste0(stem, seeds, ".RData")
+png_fnames <- paste0(stem, seeds, png_suffix, ".png")
+mod_fnames <- paste0(stem, seeds, ".pt")
+sim_characteristics(sim_res$sim_params)
+
+sim_ind <- 0
+```
+
+
+```{r}
+load(res_fnames[1])
+nn_mod <- torch_load(mod_fnames[1])
+```
+
+
+### sims {.panelset}
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+
+
+## 5x16, 400 train, 100 test
+
+__Comments:__
+
+
+
+- misses: x3, x4
+
+- MSE: 1.6 vs 2, stays between .6 of each other  
+
+- KL:
+
+- alphas:
+
+- BFDRs:
+
+- overall:
+
+
+
+
+
+```{r}
+stem <- here::here("sims", "results", "det1_5x16_liangfcn1p500_500obs_")
+png_suffix <- c("_e2e+05")
+# extract sim information from first in series
+first_sim <- paste0(stem, "515157.RData")
+load(first_sim)
+seeds <- sim_res$sim_params$sim_seeds
+res_fnames <- paste0(stem, seeds, ".RData")
+png_fnames <- paste0(stem, seeds, png_suffix, ".png")
+mod_fnames <- paste0(stem, seeds, ".pt")
+sim_characteristics(sim_res$sim_params)
+
+sim_ind <- 0
+```
+
+
+```{r}
+load(res_fnames[1])
+nn_mod <- torch_load(mod_fnames[1])
+```
+
+
+### sims {.panelset}
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+
+
+## 5x16, 800 train, 200 test
+
+__Comments:__
+
+
+
+- misses: x3, x4
+
+- MSE: 1.6 vs 2, stays between .6 of each other  
+
+- KL:
+
+- alphas:
+
+- BFDRs:
+
+- overall:
+
+
+
+
+
+```{r}
+stem <- here::here("sims", "results", "det1_5x16_liangfcn1p500_1000obs_")
+png_suffix <- c("_e2e+05")
+# extract sim information from first in series
+first_sim <- paste0(stem, "515157.RData")
+load(first_sim)
+seeds <- sim_res$sim_params$sim_seeds
+res_fnames <- paste0(stem, seeds, ".RData")
+png_fnames <- paste0(stem, seeds, png_suffix, ".png")
+mod_fnames <- paste0(stem, seeds, ".pt")
+sim_characteristics(sim_res$sim_params)
+
+sim_ind <- 0
+```
+
+
+```{r}
+load(res_fnames[1])
+nn_mod <- torch_load(mod_fnames[1])
+```
+
+
+### sims {.panelset}
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+
+## 5x16, 4000 train, 1000 test
+
+__Comments:__
+
+
+
+- misses: x3, x4
+
+- MSE: 1.6 vs 2, stays between .6 of each other  
+
+- KL:
+
+- alphas:
+
+- BFDRs:
+
+- overall:
+
+
+
+
+
+
+```{r}
+stem <- here::here("sims", "results", "det1_5x16_liangfcn1p500_5000obs_")
+png_suffix <- c("_e2e+05")
+# extract sim information from first in series
+first_sim <- paste0(stem, "155447.RData")
+load(first_sim)
+seeds <- sim_res$sim_params$sim_seeds
+res_fnames <- paste0(stem, seeds, ".RData")
+png_fnames <- paste0(stem, seeds, png_suffix, ".png")
+mod_fnames <- paste0(stem, seeds, ".pt")
+sim_characteristics(sim_res$sim_params)
+
+sim_ind <- 0
+```
+
+
+```{r}
+load(res_fnames[1])
+nn_mod <- torch_load(mod_fnames[1])
+```
+
+
+### sims {.panelset}
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+```{r, results = "asis"}
+sim_ind <- sim_ind + 1
+load(res_fnames[sim_ind])
+nn_mod <- torch_load(mod_fnames[sim_ind])
+gen_header(sim_res)
+```
+
+```{r}
+<<VIS_CHUNK>>
+```
+
+
+
+
+
+
+
+
