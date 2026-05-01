@@ -316,6 +316,33 @@ param_counts_from_dims <- function(dim_vec){
   return(res)
 }
 
+# post prob for kappa > t
+
+prob_kappas_gt_thresh <- function(nn_mod, thresh = 0.5, correction = 1, type = "global"){
+  # gives probability that shrinkage is greater than thresh
+  # based on variational distributions
+  # i.e. higher threshold means less dropout
+  ztil_params <- get_ztil_params(nn_mod$fc1)
+  s_params <- get_s_params(nn_mod$fc1)
+  
+  ztil_mu <- (ztil_params$at + ztil_params$bt)/2
+  ztil_var <- (exp(ztil_params$at_lvar) + exp(ztil_params$bt_lvar))/4
+  s_mu <- (s_params$sa + s_params$sb)/2
+  s_var <- (exp(s_params$sa_lvar) + exp(s_params$sb_lvar))/4
+  thresh_logit = log(thresh) - log(1-thresh)
+  
+  if (type == "global"){
+    mu = ztil_mu + s_mu + log(correction)
+    var = ztil_var + s_var
+  } else if (type == "local"){
+    mu = ztil_mu
+    var = ztil_var
+  }
+  
+  pnorm((- thresh_logit/2 - mu) / sqrt(var))
+}
+
+
 
 
 
