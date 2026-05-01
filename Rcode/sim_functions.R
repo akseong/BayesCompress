@@ -444,14 +444,15 @@ sim_func_data_unifx <- function(
 }
 
 # genX_mutualcorr
-genX_mutualcorr <- function(n_obs = 100, p = 5, round_dig = NULL){
+genX_mutualcorr <- function(n_obs = 100, p = 5, mut_corr = NULL, round_dig = NULL){
   # generates p covariates with mutual correlation = 0.5
   basez <- rnorm(n_obs, mean = 0, sd = 1)
   zvars <- matrix(
     rnorm(n_obs*p, mean = 0, sd = 1),
     ncol = p
   )
-  X <- (basez + zvars)/2
+  if (is.null(mut_corr)){mut_corr <- 0.5}
+  X <- mut_corr*basez + (1-mut_corr)*zvars
   if (!is.null(round_dig)) {X <- round(X, round_dig)}
   return(X)
 }
@@ -467,6 +468,7 @@ meanfcn_Liang1 <- function(X, round_dig = NULL){
 sim_meanfcn_data <- function(
     n_obs = 1000,
     d_in = 10,
+    mut_corr = sim_params$mut_corr,
     genXfcn = genX_mutualcorr,
     meanfcn = meanfcn_Liang1,
     err_sigma = 1,
@@ -475,7 +477,7 @@ sim_meanfcn_data <- function(
 ){
   require(torch)
   # generate x, y
-  x <- genXfcn(n_obs, p = d_in, round_dig)
+  x <- genXfcn(n_obs, p = d_in, mut_corr = mut_corr, round_dig = round_dig)
   Ey <- meanfcn(x, round_dig)
   y <- Ey + rnorm(n_obs, mean = 0, sd = err_sigma)
   
@@ -812,13 +814,13 @@ get_composite_specnorm <- function(nn_mod){
       Z <- diag(sqrt(get_zsq(nn_mod$children[[l]])))
       current_W <- Z%*%t(W)
     } else {
-      current_W <- as_array(nn_mod$children[[l]]$weight)
+      current_W <- t(as_array(nn_mod$children[[l]]$weight))
     }
     
     if (l==2){
       prev_W <- current_W
     } else {
-      prev_W <- prev_W %*% t(current_W)
+      prev_W <- prev_W %*% current_W
     }
   }
   return(svd(prev_W)$d[1])
@@ -829,6 +831,28 @@ get_kappas_compositespecnorm <- function(nn_mod){
   sn_correction <- get_composite_specnorm(nn_mod)
   return((1 + zsq_1*sn_correction^2)^(-1)) 
 }
+
+
+get_kappas_sntau <- function(nn_mod, sn_type = "composite", print_vals = FALSE){
+
+  sn <- ifelse(sn_type == "composite", 
+         get_composite_specnorm(nn_mod),
+         get_specnorm_correction(nn_mod)
+  )
+  fc2_corr <- tau_correction(nn_mod)
+  zsq_1 <- get_zsq(nn_mod$fc1)
+  
+  if (print_vals){
+    tau <- sqrt(get_s_sq(nn_mod$fc1))
+    cat("corrected tau = ", tau*fc2_corr*sn, 
+        "; tau = ", tau, "; fc2_corr = ", fc2_corr, "; sn = ", sn)
+  }
+
+  
+  return((1 + zsq_1*sn^2*fc2_corr^2)^(-1)) 
+}
+
+
 
 
 ## plotting predicted functions ----
@@ -1692,7 +1716,7 @@ sim_hshoe_det <- function(
     simdat$y <- simdat$y$to(device = "cuda")
   }
   
-  if (!is.null(sim_params$xjitter) & sim_params$xjitter){
+  if (!is.null(sim_params$xjitter)){
     simdat$x <- simdat$x + torch_randn_like(simdat$x)*1e-3
   }
   
@@ -2225,17 +2249,16 @@ sim_hshoe_meanfcn <- function(
   ## generate data ----
   set.seed(seed)
   torch_manual_seed(seed)
-  
   simdat <- sim_meanfcn_data(
     n_obs = sim_params$n_obs, 
     d_in = sim_params$d_in, 
+    mut_corr = sim_params$mut_corr,
     genXfcn = sim_params$genXfcn,
     meanfcn = sim_params$meanfcn,
     err_sigma = sim_params$err_sig, 
     round_dig = sim_params$round_dig, 
     standardize = FALSE
   )
-  
   if (sim_params$use_cuda){
     simdat$x <- simdat$x$to(device = "cuda")
     simdat$y <- simdat$y$to(device = "cuda")
