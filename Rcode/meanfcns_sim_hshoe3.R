@@ -32,7 +32,7 @@ if (torch::cuda_is_available()){
 save_mod_path_prestem <- here::here(
   "sims", 
   "results", 
-  "det3_5x32_origmodfcn_p20_"
+  "hshoe_3x32_origmodfcn_p20_"
 )
 n_obs <- 1000 # includes training and test
 d_in <- 20
@@ -152,43 +152,43 @@ MLHS <- nn_module(
       clip_var = TRUE
     )
     
-    # self$fc3 = torch_hs(
-    #   in_features = sim_params$d_2,
-    #   out_features = sim_params$d_out,
-    #   use_cuda = sim_params$use_cuda,
-    #   tau_0 = agnostic_tau,
-    #   init_weight = NULL,
-    #   init_bias = NULL,
-    #   init_alpha = 0.9,
-    #   clip_var = TRUE
-    # )
+    self$fc3 = torch_hs(
+      in_features = sim_params$d_2,
+      out_features = sim_params$d_out,
+      use_cuda = sim_params$use_cuda,
+      tau_0 = agnostic_tau,
+      init_weight = NULL,
+      init_bias = NULL,
+      init_alpha = 0.9,
+      clip_var = TRUE
+    )
     
-    self$det1 = nn_linear(
-      sim_params$d_2,
-      sim_params$d_3
-    )
-
-    self$det2 = nn_linear(
-      sim_params$d_3,
-      sim_params$d_4
-    )
-
-    self$det3 = nn_linear(
-      sim_params$d_4,
-      sim_params$d_5
-    )
-
-    self$det4 = nn_linear(
-      sim_params$d_5,
-      sim_params$d_out
-    )
-
-    if (sim_params$use_cuda){
-      self$det1$cuda()
-      self$det2$cuda()
-      self$det3$cuda()
-      self$det4$cuda()
-    }
+    # self$det1 = nn_linear(
+    #   sim_params$d_2, 
+    #   sim_params$d_3
+    # )
+    # 
+    # self$det2 = nn_linear(
+    #   sim_params$d_3,
+    #   sim_params$d_4
+    # )
+    # 
+    # self$det3 = nn_linear(
+    #   sim_params$d_4,
+    #   sim_params$d_5
+    # )
+    # 
+    # self$det4 = nn_linear(
+    #   sim_params$d_5,
+    #   sim_params$d_out
+    # )
+    # 
+    # if (sim_params$use_cuda){
+    #   self$det1$cuda()
+    #   self$det2$cuda()
+    #   self$det3$cuda()
+    #   self$det4$cuda()
+    # }
   },
   
   forward = function(x) {
@@ -197,23 +197,23 @@ MLHS <- nn_module(
       nnf_relu() %>%
       self$fc2() %>%
       nnf_relu() %>%
-      # self$fc3()
-      self$det1() %>%
-      nnf_relu() %>%
-      self$det2() %>%
-      nnf_relu() %>%
-      self$det3() %>%
-      nnf_relu() %>%
-      self$det4()
+      self$fc3()
+      # self$det1() %>%
+      # nnf_relu() %>%
+      # self$det2() %>%
+      # nnf_relu() %>%
+      # self$det3() %>%
+      # nnf_relu() %>%
+      # self$det4()
   },
   
   get_model_kld = function(){
     kl1 = self$fc1$get_kl()
     kl2 = self$fc2$get_kl()
-    # kl3 = self$fc3$get_kl()
+    kl3 = self$fc3$get_kl()
     # kl4 = self$fc4$get_kl()
     # kl5 = self$fc5$get_kl()
-    kld = kl1 + kl2 #+ kl3 # + kl4 + kl5
+    kld = kl1 + kl2 + kl3 # + kl4 + kl5
     return(kld)
   }
 )
