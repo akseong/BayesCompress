@@ -507,7 +507,23 @@ sim_meanfcn_data <- function(
   return(res)
 }
 
-
+# split simdat
+ttsplit_simdat <- function(simdat, ttsplit_ratio){
+  # ttsplit & standardize ----
+  n_obs <- nrow(simdat$x)
+  ttsplit_ind <- floor(n_obs * ttsplit_ratio)
+  x_train <- simdat$x[1:ttsplit_ind, ] 
+  y_train <- simdat$y[1:ttsplit_ind, ]
+  x_test <- simdat$x[(ttsplit_ind+1):n_obs, ] 
+  y_test <- simdat$y[(ttsplit_ind+1):n_obs, ]
+  
+  return(list(
+    "x_train" = x_train,
+    "y_train" = y_train,
+    "x_test" = x_test,
+    "y_test" = y_test
+  ))
+}
 
 
 # ASSESSMENT FUNCS ----
@@ -2711,6 +2727,258 @@ sim_hshoe_meanfcn <- function(
     save(sim_res, file = save_res_path)
     cat_color(txt = paste0("sim results saved: ", save_res_path))
   }
+  
+  return(sim_res)
+}
+
+
+
+
+
+
+# SIM FROM PROVIDED DATA----
+sim_hshoe_simdat <- function(
+    net_ind,
+    sim_params,
+    x_train,
+    x_test,
+    y_train,
+    y_test,
+    nn_model,
+    verbose = TRUE
+){
+  
+  save_net_path <- paste0(save_net_path_stem, net_ind)
+  
+  n_obs <- nrow(x_train)
+  # initialize model
+  torch_manual_seed(sim_params$nn_init_seeds[net_ind])
+  model_fit <- nn_model()
+  
+  optim_model_fit <- optim_adam(model_fit$parameters, lr = sim_params$lr)
+  
+  # lr annealing
+  if (!is.null(sim_params$lr_scheduler)){
+    scheduler <- sim_params$lr_scheduler(optim_model_fit, T_max = sim_params$train_epochs)
+  }
+  
+  # kl annealing
+  if (!is.null(sim_params$kl_scheduler)){
+    kl_warmup_epochs <- round(sim_params$train_epochs * sim_params$kl_warmup_frac)
+  }
+  
+  # number of mc samples to estimate expected log likelihood
+  n_mc <- ifelse(
+    !is.null(sim_params$n_mc_samples),
+    sim_params$n_mc_samples, 1
+  )
+  
+  # store: # train, test mse and kl ----
+  report_epochs <- seq(
+    sim_params$report_every, 
+    sim_params$train_epochs, 
+    by = sim_params$report_every
+  )
+  
+  save_epochs <- seq(
+    sim_params$save_after, 
+    sim_params$train_epochs, 
+    by = sim_params$save_every
+  )
+  
+  cat_color(paste0("model saves at ", paste0(save_epochs, collapse = ", "), " epochs"))
+  
+  loss_mat <- matrix(
+    NA, 
+    nrow = length(report_epochs),
+    ncol = 5
+  )
+  colnames(loss_mat) <- c("kl", "mse_train", "mse_test", "kl_raw", "kl_weight")
+  rownames(loss_mat) <- report_epochs
+  
+  # store: alphas, kappas
+  alpha_mat <- matrix(
+    NA, 
+    nrow = length(report_epochs),
+    ncol = sim_params$d_in
+  )
+  rownames(alpha_mat) <- report_epochs
+  
+  ztilsq_mat <- 
+    kappa_local_mat <- 
+    kappa_mat <- 
+    kappa_tc_mat <- 
+    kappa_sn_mat <-
+    kappa_fc_mat <- alpha_mat
+  
+  corrections_mat <- alpha_mat[, 1:4]
+  colnames(corrections_mat) <- c("ssq", "fc2", "sncomp", "sn")
+  
+  # TRAINING LOOP ----
+  ## initialize training params
+  epoch <- 1
+  loss <- torch_tensor(1, device = dev_select(sim_params$use_cuda))
+  stop_criteria_met <- FALSE
+  
+  while (!stop_criteria_met){
+    
+    # zero out previous gradients
+    optim_model_fit$zero_grad()
+    
+    # accumulate mse gradients over s MC samples
+    mse_accum <- torch_tensor(0, device = dev_select(sim_params$use_cuda))
+    for (s in 1:n_mc){
+      yhat_train <- model_fit(x_train)
+      mse_s <- nnf_mse_loss(yhat_train, y_train) / n_mc
+      mse_s$backward()
+    }
+    
+    # fit & metrics
+    kl_raw <- model_fit$get_model_kld() / n_obs
+    kl_weight <- kl_weight_linear(epoch, kl_warmup_epochs)
+    kl <- kl_weight * kl_raw
+    kl$backward()
+    
+    # update weights
+    optim_model_fit$step()
+    mse <- mse_s * n_mc # approximate, based only on last sample's mse
+    loss <- mse + kl
+    # learning rate scheduler step
+    if (!is.null(sim_params$lr_scheduler)) {
+      scheduler$step()
+    }
+    
+    ## store results (every `report_every` epochs) ----
+    time_to_report <- epoch!=0 & (epoch %% sim_params$report_every == 0)
+    
+    if (time_to_report){
+      row_ind <- epoch %/% sim_params$report_every
+      
+      # compute test loss 
+      model_fit$eval() # switches ALL layers to deterministic
+      with_no_grad({
+        yhat_test <- model_fit(x_test)
+        mse_test <- nnf_mse_loss(yhat_test, y_test)
+      })
+      model_fit$train()
+      
+      loss_mat[row_ind, ] <- c(kl$item(), mse$item(), mse_test$item(), kl_raw$item(), kl_weight)
+      dropout_alphas <- model_fit$fc1$get_dropout_rates()
+      alpha_mat[row_ind, ] <- as_array(dropout_alphas)
+      kappas <- get_kappas(model_fit$fc1)
+      kappa_mat[row_ind, ] <- kappas
+      
+      kappas_local <- get_kappas(model_fit$fc1, type = "local")
+      kappa_local_mat[row_ind, ] <- kappas_local
+      
+      # corrected param kappas
+      kappas_tc <- get_kappas_taucorrected(model_fit)
+      kappas_fc <- get_kappas_frobcorrected(model_fit)
+      kappas_sn <- get_kappas_compositespecnorm(model_fit)
+      kappa_sn_mat[row_ind, ] <- kappas_sn
+      kappa_tc_mat[row_ind, ] <- kappas_tc
+      kappa_fc_mat[row_ind, ] <- kappas_fc
+      
+      ztilsq_mat[row_ind,] <- get_ztil_sq(model_fit$fc1)
+      ssq <- get_s_sq(model_fit$fc1)
+      fc2 <- tau_correction(model_fit)
+      sncomp <- get_composite_specnorm(model_fit)
+      sn <- get_specnorm_correction(model_fit)
+      corrections_mat[row_ind, ] <- c(ssq, fc2, sncomp, sn)
+    } # end storing
+    
+    ### in-console and graphical training updates ----
+    
+    # visual updating on epochs
+    if (!time_to_report & verbose & (epoch %% sim_params$report_every == 1)){cat("Training till next report:")}
+    if (!time_to_report & verbose & (epoch %% round(sim_params$report_every/100) == 1)){cat("#")}
+    
+    # report
+    if (time_to_report & verbose){
+      cat(
+        "\n Epoch:", epoch,
+        "MSE + KL/n =", round(mse$item(), 5), "+", round(kl$item(), 5),
+        "=", round(loss$item(), 4),
+        " (kl_weight:", round(kl_weight, 2), ")",
+        "\n",
+        "train mse:", round(mse$item(), 4),
+        "; test_mse:", round(mse_test$item(), 4),
+        "; mse target: ", round(sim_params$train_sig, 4),
+        sep = " "
+      )
+      
+      # report global shrinkage params (s^2 or tau^2)
+      s_sq1 <- get_s_sq(model_fit$fc1)
+      s_sq2 <- get_s_sq(model_fit$fc2)
+      # s_sq3 <- get_s_sq(model_fit$fc3)
+      
+      cat(
+        "\n s_sq1 = ", round(s_sq1, 5),
+        "; s_sq2 = ", round(s_sq2, 5),
+        # "; s_sq3 = ", round(s_sq3, 5),
+        sep = ""
+      )
+      cat("\n alphas: ", round(as_array(dropout_alphas), 2), "\n")
+      display_alphas <- ifelse(
+        as_array(dropout_alphas) <= sim_params$alpha_thresh,
+        round(as_array(dropout_alphas), 3),
+        "."
+      )
+      cat("\n local kappas: ", round(kappas_local, 2), "\n")
+      cat("\n global kappas: ", round(kappas, 2), "\n")
+      cat("\n tau-corrected kappas: ", round(kappas_tc, 2), "\n")
+      cat("\n specnorm(composite) kappas: ", round(kappas_sn, 2), "\n")
+      cat(" \n \n")
+    } # end in-console reporting
+    
+    
+    # save model while training
+    if (epoch %in% save_epochs){
+      epoch_modsave_path <- paste0(save_net_path, "_e", round(epoch/1000), "k.pt")
+      torch_save(model_fit, path = epoch_modsave_path)
+      cat_color(txt = paste0("model saved: ", epoch_modsave_path))
+    }
+    
+    # increment epoch counter
+    epoch <- epoch + 1
+    stop_criteria_met <- epoch > sim_params$train_epochs
+  } # end training WHILE loop
+  
+  ### compile results ----
+  sim_res <- list(
+    "net_ind" = net_ind,
+    "loss_mat" = loss_mat,
+    "alpha_mat" = alpha_mat,
+    "kappa_mat" = kappa_mat,
+    "kappa_tc_mat" = kappa_tc_mat,
+    "kappa_fc_mat" = kappa_fc_mat,
+    "kappa_sn_mat" = kappa_sn_mat,
+    "kappa_local_mat" = kappa_local_mat,
+    "ztilsq_mat" = ztilsq_mat,
+    "corrections_mat" = corrections_mat
+  )
+  
+  ### notify completed training ----
+  completed_msg <- paste0(
+    "\n \n ******************** \n ******************** \n",
+    "net #", 
+    net_ind, 
+    " completed",
+    "\n ******************** \n ******************** \n \n"
+  )
+  cat_color(txt = completed_msg)
+  
+  # save model
+  save_mod_path <- paste0(save_net_path, ".pt")
+  torch_save(model_fit, path = save_mod_path)
+  cat_color(txt = paste0("model saved: ", save_mod_path))
+  sim_res$save_mod_path = save_mod_path
+  
+  # save results
+  sim_res$sim_params <- sim_params
+  save_res_path <- paste0(save_net_path, ".RData")
+  save(sim_res, file = save_res_path)
+  cat_color(txt = paste0("sim results saved: ", save_res_path))
   
   return(sim_res)
 }
