@@ -15,7 +15,7 @@ library(ggplot2)
 library(gridExtra)
 
 library(torch)
-source(here("Rcode", "torch_horseshoe_smallbias.R"))
+source(here("Rcode", "torch_horseshoe_opus.R"))
 source(here("Rcode", "sim_functions.R"))
 source(here("Rcode", "analysis_fcns.R"))
 
@@ -32,10 +32,10 @@ if (torch::cuda_is_available()){
 save_mod_path_prestem <- here::here(
   "sims", 
   "results", 
-  "det3_5x16_orig_p50_"
+  "opus_5x16_orig_p20_mcor0_"
 )
-n_obs <- 5000 # includes training and test
-d_in <- 50
+n_obs <- 1000 # includes training and test
+d_in <- 20
 sim_desc <- c(
   "harder meanfcn nonlin regression example, 
   P=50, train obs = 400,
@@ -57,11 +57,11 @@ meanfcn2 <- function(x, round_dig = NULL){
 
 
 
-meanfcn_origmod <- function(x, round_dig = NULL){
-  -cos(pi/1.5*x[, 1])*((x[,1]>0) + (x[,2]<0)) 
-  + cos(pi*x[,2]) + sin(pi/1.2*x[,2]*(x[,2]>0)) 
-  - 2*x[, 3]/(1 + x[,4]^2) + 1 / (1 + 2*x[,5]*(x[,5]>0))
-}
+# meanfcn_origmod <- function(x, round_dig = NULL){
+#   -cos(pi/1.5*x[, 1])*((x[,1]>0) + (x[,2]<0)) 
+#   + cos(pi*x[,2]) + sin(pi/1.2*x[,2]*(x[,2]>0)) 
+#   - 2*x[, 3]/(1 + x[,4]^2) + 1 / (1 + 2*x[,5]*(x[,5]>0))
+# }
 
 meanfcn_origmod <- function(x, round_dig = NULL){
   -cos(pi/1.5*x[, 1])*(x[,1]>0) - (x[,1]<0)
@@ -87,7 +87,7 @@ sim_params <- list(
   "n_obs" = n_obs,
   "d_in" = d_in,           ##
   "err_sig" = 1,          ##
-  "mut_corr" = 0.5,
+  "mut_corr" = 0,
   "ttsplit" = 4/5,        # Liang use 200 train, 300 test
   "genXfcn" = genX_mutualcorr,
   "meanfcn" = orig_fcns,

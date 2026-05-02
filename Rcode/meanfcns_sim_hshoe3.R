@@ -15,7 +15,7 @@ library(ggplot2)
 library(gridExtra)
 
 library(torch)
-source(here("Rcode", "torch_horseshoe_smallbias.R"))
+source(here("Rcode", "torch_horseshoe_opus.R"))
 source(here("Rcode", "sim_functions.R"))
 source(here("Rcode", "analysis_fcns.R"))
 

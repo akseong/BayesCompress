@@ -57,7 +57,8 @@ res_fnames <- paste0(stem, sim_seeds, ".RData")
 mod_fnames <- paste0(stem, sim_seeds, ".pt")
 sim_params <- sim_res$sim_params
 
-sim_res$sim_params$meanfcn
+sim_res$sim_params$flist
+
 
 meanfcn <- function(x, round_dig = NULL){
   2*(sin(pi*x[, 1]))*(x[,2]*(x[, 2]>0)) - 2*(x[, 2]<0)
@@ -76,16 +77,30 @@ meanfcn_origmod <- function(x, round_dig = NULL){
 }
 
 
-meanfcn_Liang1.5 <- function(X, round_dig = NULL){
-  Ey <- X[, 2] / (1 + X[, 1]^2) + sin(X[, 3]*X[, 4]) + X[, 5]*(2*(X[,5]>0) - 1*(X[,5]<0))
-  if (!is.null(round_dig)) {Ey <- round(Ey, round_dig)}
-  return(Ey)
+meanfcn_origmod_extra <- function(x, round_dig = NULL){
+  -cos(pi/1.5*x[, 1])*(x[,1]>0) - (x[,1]<0)
+  + cos(pi/2*x[,2])*(x[,2]<0) + sin(pi/1.5*x[,2])*(x[,2]>0)
+  - x[, 3]/(1 + x[,4]^2) + 1 / (1 + 2*x[,5]*(x[,5]>0)) 
+  -x[,6]^2/4 + abs(x[,7])^.75 - sin(pi/1.2*x[,8]) + cos(pi*x[,8]) 
 }
 
+orig_fcns <- function(x, round_dig = NULL){
+  -cos(pi/1.5*x[,1]) + cos(pi*x[,2]) + sin(pi/1.2*x[,2])
+  + abs(x[,3])^(.75) - x[,4]^2/4
+  }
+
+# meanfcn_Liang1.5 <- function(X, round_dig = NULL){
+#   Ey <- X[, 2] / (1 + X[, 1]^2) + sin(X[, 3]*X[, 4]) + X[, 5]*(2*(X[,5]>0) - 1*(X[,5]<0))
+#   if (!is.null(round_dig)) {Ey <- round(Ey, round_dig)}
+#   return(Ey)
+# }
 
 
-sim_params$n_obs <- 2000
+
+sim_params$n_obs <- 5000
 sim_params$d_in <- 20
+sim_params$meanfcn <- orig_fcns
+sim_params$mut_corr <- 0.5
 n_sims = 3
 seeds <- round(runif(n_sims, 0, 10000))
 
@@ -95,7 +110,7 @@ res <- list(
 lm_errs <- matrix(NA, ncol = n_sims, nrow = 4)
 rownames(lm_errs) <- c("FP", "TP", "FN", "TN")
 ss_sums <- sb_posts <- matrix(NA, ncol = n_sims, nrow = sim_params$d_in)
-sim_params$meanfcn <- meanfcn_Liang1.5
+
 
 for (s_i in 1:n_sims){
 print(s_i)
@@ -238,11 +253,71 @@ plot(sbpost_probs$post_probs)
 print(sbpost_probs$median_probability_model)
 
 sb_posts[, s_i] <- sbpost_probs$post_probs
+print(sim_params$n_obs)
+print(sim_params$mut_corr)
 }
 
 lm_errs
 ss_sums
 sb_posts
+print(seeds)
+print(sim_params$n_obs)
+print(sim_params$mut_corr)
+print(sim_params$meanfcn)
+
+# SOFTBART, p = 20
+# orig_fcns <- function(x, round_dig = NULL){
+#   -cos(pi/1.5*x[,1]) + cos(pi*x[,2]) + sin(pi/1.2*x[,2])
+#   + abs(x[,3])^(.75) - x[,4]^2/4
+# }
+# mcor 0:
+# - 1000 obs:
+# - 2000 obs:
+# - 5000 obs: x3, x4, no FPs
+
+# mor 0.25:
+# - 1000 obs: x3, x4, maybe 1 FP (0.81 PIP)
+# - 2000 obs: x3, x4, no FPs
+# - 5000 obs: x3, x4, no FPS
+
+# mcor 0.5
+# - 1000 obs: x3, sometimes x4
+# - 2000 obs: x3, x4, no FPs
+# - 5000 obs: x3, x4, no FPs
+
+
+# function(x, round_dig = NULL){
+#   -cos(pi/1.5*x[, 1])*(x[,1]>0) - (x[,1]<0)
+#   + cos(pi/2*x[,2])*(x[,2]<0) + sin(pi/1.5*x[,2])*(x[,2]>0)
+#   - x[, 3]/(1 + x[,4]^2) + 1 / (1 + 2*x[,5]*(x[,5]>0))
+# }
+# mcor 0:
+# - 1000 obs:
+# - 2000 obs:
+# - 5000 obs:
+
+# mor 0.25:
+# - 1000 obs: x3, x5; x4 around .55 PIP max
+# - 2000 obs:
+# - 5000 obs:
+
+# mcor 0.5
+# - 1000 obs: x3, x5; x4 around .85 PIP
+# - 2000 obs: x3, x5, mostly x4
+# - 5000 obs:
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 # 
