@@ -15,7 +15,7 @@ library(ggplot2)
 library(gridExtra)
 
 library(torch)
-source(here("Rcode", "torch_horseshoe_opus.R"))
+source(here("Rcode", "torch_horseshoe_smallbias.R"))
 source(here("Rcode", "sim_functions.R"))
 source(here("Rcode", "analysis_fcns.R"))
 
@@ -28,45 +28,27 @@ if (torch::cuda_is_available()){
   message("Default tensor device remains CPU.")
 }
 
-# sim params and savepath ----
-save_mod_path_prestem <- here::here(
-  "sims", 
-  "results", 
-  "opus_5x16_orig_p20_mcor0_"
-)
-n_obs <- 1000 # includes training and test
-d_in <- 20
-sim_desc <- c(
-  "harder meanfcn nonlin regression example, 
-  P=50, train obs = 400,
-  5 MC samples for MSE, 
-  kl annealing only - no lr annealing",
-  "optimistic tau_0 set so p_0 = p/20"
-)
-
 meanfcn <- function(x, round_dig = NULL){
-  (sin(pi*x[, 1]))*(0.5*(x[, 2]>0)) - .5*(x[, 2]<0)
-  + x[,3]/(1 + x[,4]*(x[, 5]>0))
+  (sin(pi*x[, 1]))*(0.5*(x[, 2]>0)) - .5*(x[, 2]<0) + 
+    x[,3]/(1 + x[,4]*(x[, 5]>0))
 }
 
 meanfcn2 <- function(x, round_dig = NULL){
-  (sin(pi*x[, 1]/2))*(x[, 2]>0) - (x[, 2]<0) + x[,1]/2*(x[,1] < 0)
-  + x[,3]/(1 + x[,4] + x[, 5]*(x[, 5]>0))
+  (sin(pi*x[, 1]/2))*(x[, 2]>0) - 
+    (x[, 2]<0) + x[,1]/2*(x[,1] < 0) + 
+    x[,3]/(1 + x[,4] + x[, 5]*(x[, 5]>0))
 }
 
-
-
-
-# meanfcn_origmod <- function(x, round_dig = NULL){
-#   -cos(pi/1.5*x[, 1])*((x[,1]>0) + (x[,2]<0)) 
-#   + cos(pi*x[,2]) + sin(pi/1.2*x[,2]*(x[,2]>0)) 
-#   - 2*x[, 3]/(1 + x[,4]^2) + 1 / (1 + 2*x[,5]*(x[,5]>0))
-# }
+meanfcn_orig_modsup <- function(x, round_dig = NULL){
+  -cos(pi/1.5*x[, 1])*((x[,1]>0) + (x[,2]<0)) + 
+    cos(pi*x[,2]) + sin(pi/1.2*x[,2]*(x[,2]>0)) - 
+    2*x[, 3]/(1 + x[,4]^2) + 1 / (1 + 2*x[,5]*(x[,5]>0))
+}
 
 meanfcn_origmod <- function(x, round_dig = NULL){
-  -cos(pi/1.5*x[, 1])*(x[,1]>0) - (x[,1]<0)
-  + cos(pi/2*x[,2])*(x[,2]<0) + sin(pi/1.5*x[,2])*(x[,2]>0)
-  - x[, 3]/(1 + x[,4]^2) + 1 / (1 + 2*x[,5]*(x[,5]>0))
+  -cos(pi/1.5*x[, 1])*(x[,1]>0) - (x[,1]<0) + 
+    cos(pi/2*x[,2])*(x[,2]<0) + sin(pi/1.5*x[,2])*(x[,2]>0) - 
+    x[, 3]/(1 + x[,4]^2) + 1 / (1 + 2*x[,5]*(x[,5]>0))
 }
 
 meanfcn_Liang1.5 <- function(X, round_dig = NULL){
@@ -76,9 +58,28 @@ meanfcn_Liang1.5 <- function(X, round_dig = NULL){
 }
 
 orig_fcns <- function(x, round_dig = NULL){
-  -cos(pi/1.5*x[,1]) + cos(pi*x[,2]) + sin(pi/1.2*x[,2])
-  + abs(x[,3])^(.75) - x[,4]^2/4
+  -cos(pi/1.5*x[,1]) + 
+    cos(pi*x[,2]) + sin(pi/1.2*x[,2]) +
+    abs(x[,3])^(.75) - 
+    x[,4]^2/4
 }
+
+
+# sim params and savepath ----
+save_mod_path_prestem <- here::here(
+  "sims", 
+  "results", 
+  "klc_5x16_orig_p100_mcor.25_"
+)
+n_obs <- 1000 # includes training and test
+d_in <- 100
+sim_desc <- c(
+  "harder meanfcn nonlin regression example, 
+  P=50, train obs = 400,
+  5 MC samples for MSE, 
+  kl annealing only - no lr annealing",
+  "optimistic tau_0 set so p_0 = p/20"
+)
 
 
 sim_params <- list(
@@ -87,7 +88,7 @@ sim_params <- list(
   "n_obs" = n_obs,
   "d_in" = d_in,           ##
   "err_sig" = 1,          ##
-  "mut_corr" = 0,
+  "mut_corr" = 0.25,
   "ttsplit" = 4/5,        # Liang use 200 train, 300 test
   "genXfcn" = genX_mutualcorr,
   "meanfcn" = orig_fcns,
