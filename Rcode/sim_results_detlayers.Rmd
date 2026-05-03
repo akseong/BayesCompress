@@ -494,7 +494,7 @@ __Comments:__
 
 
 ```{r mc5_516}
-stem <- here::here("sims", "results", "detlayers_516_mc51250obs_")
+stem <- here::here("sims", "results", "detlayers_516_mc51250obs_") # using torch_horseshoe_opus
 png_suffix <- c("_e1e+05")
 # extract sim information from first in series
 first_sim <- paste0(stem, "155447.RData")
