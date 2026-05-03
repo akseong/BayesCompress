@@ -15,32 +15,59 @@
 % -----------------------------------------------------------------------------
 
 
-Deep neural networks have been remarkably successful as prediction engines in 
-a wide variety of applications (SUCH AS ...) 
-owing to their ability to model complex functions.  Economic incentives
-have driven research into reducing the size of neural networks, whether 
-through quantization (using lower bit representations for network parameters) or 
-model selection (reducing the number of layers and/or hidden units),
-but research on the related question of input feature selection remains limited.
-The difficulty in using DNNs to identify which variables are genuinely relevant to the response,
+Deep neural networks (DNNs) have been remarkably successful as prediction engines in 
+a wide variety of applications owing to their ability to model complex functions, but
+the difficulty in using DNNs to identify which variables are genuinely relevant to the response,
 a standard primary aim of research in most disciplines, limits their utility
-in scientific research.  
+in scientific research.  As their use and size has burgeoned, 
+economic incentives have driven research into reducing the size of neural networks, whether 
+through using lower bit representations for network parameters (quantization) or reducing the number of layers and/or hidden units; however,
+research on the related question of variable selection remains limited.
 Furthermore, the already sparse literature on input feature selection tends to treat
 variable selection largely heuristically, typically based on ex post facto thresholding,
 rather than considering statistical properties such as the false discovery rate,
 again hampering the application of DNNs to scientific research.
 
 The aim of the method described in this paper is to combine 
-the expressive capacity of neural networks with the operating characteristics
-of Bayesian variable selection.  We follow previous work 
-by Louizos, Ullrich, Welling 2017 and equip a neural network with a canonical 
+the expressive capacity of neural networks with the known operating characteristics
+of canonical Bayesian variable selection methods.  We follow previous work 
+by \cite{louizos2017bayesian} and equip a neural network with a 
 Bayesian sparsity prior, structured to select network weights 
-corresponding to inputs rather than nodes.  While LUW 2017's focus is
-on pruning and quantizing layers and nodes (representation sparsity) to reduce the network's 
-computational and memory requirements, our focus is on adapting the Horseshoe prior
-from its well-studied application in linear models to DNNs.  As such, we propose 
-corrections to mitigate some of the issues arising from applying a method
-originally developed for linear models to a neural network setting.
+corresponding to inputs rather than nodes.  However, rather than pruning and quantizing to reduce the network's 
+computational and memory requirements, our focus is on adapting the Horseshoe prior \citep{carvalho_handling_2009,
+carvalho_horseshoe_2010}
+from its well-studied application in linear models to the neural network setting.  As such, we propose 
+corrections to inferential parameters to mitigate some of the issues 
+that arise from applying a method originally developed for linear models 
+to a neural network setting, and show in experiments that our method allows for well-calibrated control over the Bayesian False Discovery Rate.
+
+
+
+
+
+
+Related Work:
+
+Early work on network regularization relies on pruning individual weights according to an importance measure, first introduced by (Lecun 1989 "Optimal Brain Damage").  Directly related are dropout procedures, in which weights are randomly masked or set to zero, leading to network regularization and measures of uncertainty; Gal and Gahramani 2016 have shown that dropout can be interpreted as a special case of Bayesian regularization.  Kingma et al 2015 and Molchanov et al 2017 develop explicitly Bayesian variational inference formulations for dropout, with the latter applying structure to the dropout weights to increase sparsity.
+
+Importantly for network compression, pruning individual weights does not reduce the size of the matrices required to represent network layer weights, whereas pruning entire nodes can lead to large reductions, since pruning the $k$'th node is equivalent to removing the $k$'th column of the weight matrix.  Furthermore, in a sequence of dense layers, removing the $k$'th column in layer $l$ then renders the $k$'th row of weights in layer $l+1$ unnecessary as well.  
+
+
+Representing network layer weights as matrices, 
+
+Regarding model selection 
+
+- one paragraph on model selection methods, organized into individual weight/edge pruning, structured pruning (layers, nodes / columns), and specifically pruning weight matrix rows
+
+
+
+Even in modern transformer-based large-language models, compression of dense feed-forward layers remains relevant: the weights in dense feed-forward layers typically comprise approximately two-thirds to three-quarters of the total model parameters (GPT3 paper - "Language Models are Few shot learners", "Large Language Models: A Survey").
+
+
+
+
+
+
 
 
 
@@ -74,6 +101,35 @@ LUW 2017
 Regularization techniques such as dropout or LASSO-equipped networks (CITATION)
 were early proposals to the problem of overfitting; work by Gal and Gahramani (OTHERS)
 formulated dropout as a special case of Bayesian regularization.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+allowing us to take interpret the Horseshoe's posterior shrinkage factors as pseudo-posterior inclusion probabilities, and apply them in a Bayesian false discovery rate (BFDR) control procedure in the spirit
+of \citet{bernardo_fdr_2007} to select variables at a
+user-specified nominal rate.
+
+
 
 
 
