@@ -40,7 +40,7 @@ if (torch::cuda_is_available()){
 # fcn3 <- function(x) abs(x)^(1.5)
 # fcn4 <- function(x) - log(abs(x) + 1e-3)
 
-# "smoother" functions.  
+# "smoother" functions (orig).  
 fcn1 <- function(x) -cos(pi/1.5*x)
 fcn2 <- function(x) cos(pi*x) + sin(pi/1.2*x)
 fcn3 <- function(x) abs(x)^(.75)
@@ -67,11 +67,11 @@ fcn4 <- function(x) -x^2 / 4
 # y <- fcn5(cbind(x1, x2))
 # plot(y~x1)
 
-# "smoother" functions, decentered
-fcn1 <- function(x) -sin(pi/1.5*x)
-fcn2 <- function(x) cos(pi*x) + sin(pi/1.2*x)
-fcn3 <- function(x) abs(x)^(.75)
-fcn4 <- function(x) -x^2 / 4
+# # "smoother" functions, decentered
+# fcn1 <- function(x) -sin(pi/1.5*x)
+# fcn2 <- function(x) cos(pi*x) + sin(pi/1.2*x)
+# fcn3 <- function(x) abs(x)^(.75)
+# fcn4 <- function(x) -x^2 / 4
 
 flist = list(fcn1, fcn2, fcn3, fcn4)
 # xlist <- list(1, 2, 3, 4, c(5, 6))
@@ -98,12 +98,14 @@ plot_datagen_fcns(flist)
 #           n_sims, verbose, want_plots, train_epochs
 
 save_mod_path_prestem <- here::here(
-  "sims", 
+  "final_sims", 
   "results", 
-  "detlayers_smallbias_jitter_corr.3_5x16"
+  "nfdsmallbias_mutcorr0.5_5x16"
 )
-n_obs <- 125*10 # includes training and test
-xcorr = 0.3
+
+# can usually stop by 30k.  run to 50k epochs, anneal KL fract at .4
+n_obs <- 500*10 # includes training and test
+
 sim_desc <- c(
   "oldfcns, no minibatching, 5 MC samples for MSE, kl annealing only - no lr annealing",
   "optimistic tau_0 (p_0 = 10 of 104)"
@@ -114,13 +116,14 @@ sim_params <- list(
   "n_obs" = n_obs,
   "err_sig" = 1,
   "xdist" = "norm",
-  "xcorr" = xcorr,
-  "xjitter" = TRUE,
+  "xcorr" = NULL,
+  "mut_corr" = 0.5,
+  "xjitter" = NULL,
   "xshift" = NULL,
   "seed" = 516,
-  "n_sims" = 5,
+  "n_sims" = 10,
   "n_mc_samples" = 5,
-  "train_epochs" = 2e5,
+  "train_epochs" = 5e4,
   "report_every" = 1E3,
   "plot_every_x_reports" = 10,
   "use_cuda" = use_cuda,
@@ -143,14 +146,14 @@ sim_params <- list(
   "burn_in" = 25e4,
   "lr_scheduler" = NULL, # torch::lr_cosine_annealing,
   "kl_scheduler" = kl_weight_cosine,
-  "kl_warmup_frac" = 0.2,
+  "kl_warmup_frac" = 0.4,
   "standardize" = TRUE
 )
 set.seed(sim_params$seed)
 sim_params$sim_seeds <- floor(runif(n = sim_params$n_sims, 0, 1000000))
 
-corr_fcn <- function(i, j) {sim_params$xcorr^(abs(i-j))}
-sim_params$xcov <- make_Covmat(sim_params$d_in, corr_fcn)
+# corr_fcn <- function(i, j) {sim_params$xcorr^(abs(i-j))}
+# sim_params$xcov <- make_Covmat(sim_params$d_in, corr_fcn)
 
 
 
@@ -276,9 +279,9 @@ res <- lapply(
       nn_model = MLHS,   # torch nn_module,
       verbose = TRUE,      # provide updates in console
       want_plots = FALSE,   # provide graphical updates of KL, MSE
-      want_fcn_plots = TRUE, # display predicted functions
-      save_fcn_plots = TRUE,
-      want_all_params = TRUE,
+      want_fcn_plots = FALSE, # display predicted functions
+      save_fcn_plots = FALSE,
+      want_all_params = FALSE,
       save_mod = TRUE,
       save_mod_path_stem = save_mod_path_stem
     )
