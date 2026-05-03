@@ -10,12 +10,12 @@ library(gridExtra)
 
 library(torch)
 # modified forward portion of torch_horseshoe_klcorrected
-source(here("Rcode", "torch_horseshoe_klcorrected.R")) 
+source(here("Rcode", "torch_horseshoe_smallbias.R")) 
 source(here("Rcode", "sim_functions.R"))
 source(here("Rcode", "analysis_fcns.R"))
 
 # retrieve data fcn----
-reconstruct_simdat <- function(
+reconstruct_meanfcndat <- function(
     sim_seed,
     sim_params
 ){
@@ -40,6 +40,32 @@ reconstruct_simdat <- function(
 
 
 
+reconstruct_flistdat <- function(
+    sim_seed,
+    sim_params
+){
+  # sim_seed <- 515157
+  
+  ## generate data ----
+  set.seed(sim_seed)
+  torch_manual_seed(sim_seed)
+  
+  simdat <- sim_func_data(
+    n_obs = sim_params$n_obs,
+    d_in = sim_params$d_in,
+    flist = sim_params$flist,
+    err_sigma = sim_params$err_sig,
+    xdist = sim_params$xdist,
+    xcov = sim_params$xcov,
+    mut_corr = sim_params$mut_corr,
+    standardize = false_if_null(sim_params$standardize)
+  )
+  
+  return(simdat)
+}
+
+
+
 
 
 
@@ -47,9 +73,9 @@ reconstruct_simdat <- function(
 
 
 ## reconstruct data ----
-stem <- here::here("sims", "results", "det1_5x4_liangfcn1p500_500obs_")
+stem <- here::here("sims", "results", "nfdsmallbias_mutcorr.5_5x162000obs_155447")
 # extract sim information from first in series
-first_sim <- paste0(stem, "144960.RData")
+first_sim <- paste0(stem, ".RData")
 load(first_sim)
 sim_seeds <- sim_res$sim_params$sim_seeds
 res_fnames <- paste0(stem, sim_seeds, ".RData")
@@ -57,48 +83,48 @@ res_fnames <- paste0(stem, sim_seeds, ".RData")
 mod_fnames <- paste0(stem, sim_seeds, ".pt")
 sim_params <- sim_res$sim_params
 
-sim_res$sim_params$flist
-
 
 meanfcn <- function(x, round_dig = NULL){
-  2*(sin(pi*x[, 1]))*(x[,2]*(x[, 2]>0)) - 2*(x[, 2]<0)
-  + x[,3]/(1 + x[,4]*(x[, 5]>0))
+  2*(sin(pi*x[, 1]))*(x[,2]*(x[, 2]>0)) - 2*(x[, 2]<0) + 
+    x[,3]/(1 + x[,4]*(x[, 5]>0))
 }
 
 meanfcn2 <- function(x, round_dig = NULL){
-  (sin(pi*x[, 1]/2))*(x[, 2]>0) - (x[, 2]<0) + x[,1]*(x[,1] < 0)
-  + x[,3]/(1 + x[,4] + x[, 5]*(x[, 5]>0))
+  (sin(pi*x[, 1]/2))*(x[, 2]>0) - (x[, 2]<0) + x[,1]*(x[,1] < 0) + 
+    x[,3]/(1 + x[,4] + x[, 5]*(x[, 5]>0))
 }
 
 meanfcn_origmod <- function(x, round_dig = NULL){
-  -cos(pi/1.5*x[, 1])*(x[,1]>0) - (x[,1]<0)
-  + cos(pi/2*x[,2])*(x[,2]<0) + sin(pi/1.5*x[,2])*(x[,2]>0)
-  - x[, 3]/(1 + x[,4]^2) + 1 / (1 + 2*x[,5]*(x[,5]>0))
+  - cos(pi/1.5*x[, 1])*(x[,1]>0) - (x[,1]<0) + 
+    cos(pi/2*x[,2])*(x[,2]<0) + sin(pi/1.5*x[,2])*(x[,2]>0) - 
+    x[, 3]/(1 + x[,4]^2) + 1 / (1 + 2*x[,5]*(x[,5]>0))
 }
 
 
 meanfcn_origmod_extra <- function(x, round_dig = NULL){
-  -cos(pi/1.5*x[, 1])*(x[,1]>0) - (x[,1]<0)
-  + cos(pi/2*x[,2])*(x[,2]<0) + sin(pi/1.5*x[,2])*(x[,2]>0)
-  - x[, 3]/(1 + x[,4]^2) + 1 / (1 + 2*x[,5]*(x[,5]>0)) 
-  -x[,6]^2/4 + abs(x[,7])^.75 - sin(pi/1.2*x[,8]) + cos(pi*x[,8]) 
+  -cos(pi/1.5*x[, 1])*(x[,1]>0) - (x[,1]<0) + 
+    cos(pi/2*x[,2])*(x[,2]<0) + sin(pi/1.5*x[,2])*(x[,2]>0) - 
+    x[, 3]/(1 + x[,4]^2) + 1 / (1 + 2*x[,5]*(x[,5]>0)) - 
+    x[,6]^2/4 + abs(x[,7])^.75 - sin(pi/1.2*x[,8]) + cos(pi*x[,8])
 }
 
 orig_fcns <- function(x, round_dig = NULL){
-  -cos(pi/1.5*x[,1]) + cos(pi*x[,2]) + sin(pi/1.2*x[,2])
-  + abs(x[,3])^(.75) - x[,4]^2/4
+  -cos(pi/1.5*x[,1]) + cos(pi*x[,2]) + sin(pi/1.2*x[,2]) + 
+    abs(x[,3])^(.75) - x[,4]^2/4
   }
-
 # meanfcn_Liang1.5 <- function(X, round_dig = NULL){
 #   Ey <- X[, 2] / (1 + X[, 1]^2) + sin(X[, 3]*X[, 4]) + X[, 5]*(2*(X[,5]>0) - 1*(X[,5]<0))
 #   if (!is.null(round_dig)) {Ey <- round(Ey, round_dig)}
 #   return(Ey)
 # }
+orig_fcns_limsup <- function(x, round_dig = NULL){
+  -cos(pi/1.5*x[,1])*(x[,1]<0) + cos(pi*x[,2])*(x[,2] > 0) + sin(pi/1.2*x[,2])*(x[,2]<0) + 
+    abs(x[,3])^(.75) - x[,4]^2/4
+}
 
 
-
-sim_params$n_obs <- 5000
-sim_params$d_in <- 20
+sim_params$n_obs <- 2000  # at 500 & 1000, gets x1, x2, x3 typically; at 2000 sometimes gets x4;  at 5000 gets all 4
+sim_params$d_in <- 100
 sim_params$meanfcn <- orig_fcns
 sim_params$mut_corr <- 0.5
 n_sims = 3
@@ -107,22 +133,29 @@ seeds <- round(runif(n_sims, 0, 10000))
 res <- list(
   "seeds" = seeds
 )
+
+# sim_params$mut_corr
+# sim_params$standardize <- FALSE
+# simdat <- reconstruct_flistdat(sim_seed = sim_params$sim_seeds[1], sim_params)
+
+
+
+
 lm_errs <- matrix(NA, ncol = n_sims, nrow = 4)
 rownames(lm_errs) <- c("FP", "TP", "FN", "TN")
 ss_sums <- sb_posts <- matrix(NA, ncol = n_sims, nrow = sim_params$d_in)
-
 
 for (s_i in 1:n_sims){
 print(s_i)
 set.seed(seeds[s_i])
 simdat <- sim_meanfcn_data(
-  n_obs = sim_params$n_obs, 
-  d_in = sim_params$d_in, 
+  n_obs = sim_params$n_obs,
+  d_in = sim_params$d_in,
   mut_corr = sim_params$mut_corr,
   genXfcn = genX_mutualcorr,
   meanfcn = sim_params$meanfcn,
-  err_sigma = sim_params$err_sig, 
-  round_dig = sim_params$round_dig, 
+  err_sigma = sim_params$err_sig,
+  round_dig = sim_params$round_dig,
   standardize = FALSE
 )
 
@@ -141,7 +174,7 @@ simdat_df <- scale_list$scaled
 simdat_df_test <- scale_mat(simdat_test, means = scale_list$means, sds = scale_list$sds)$scaled
 
 true_inclusion = rep(FALSE, simdat$d_in)
-true_inclusion[1:5] <- TRUE
+true_inclusion[1:4] <- TRUE
 
 # LM ----
 lm_fit <- lm(y ~ ., data = simdat_df)
@@ -192,7 +225,7 @@ ss_sums[, s_i]  <- ss_summ_sorted[-1, 5]
 # library(spikeSlabGAM)
 # 
 # f1_string <- paste0("y ~ ", paste0("x.", 1:sim_params$d_in, collapse = " + "))
-# f1 <- as.formula(f1_string) 
+# f1 <- as.formula(f1_string)
 # library(spikeSlabGAM)
 # options(mc.cores = 2)
 # Sys.time()
@@ -206,9 +239,9 @@ ss_sums[, s_i]  <- ss_summ_sorted[-1, 5]
 # ###################################################
 # ### summary1.2
 # ###################################################
-# #this is just ctrl-c-v from summary.spikeSlabGAM s.t. we don't get too much redundant 
-# # info about model formula etc. 
-# # roughly the same as: print(sum, printPGamma=FALSE, printModels=TRUE) 
+# #this is just ctrl-c-v from summary.spikeSlabGAM s.t. we don't get too much redundant
+# # info about model formula etc.
+# # roughly the same as: print(sum, printPGamma=FALSE, printModels=TRUE)
 # cat("\nPosterior model probabilities (inclusion threshold =",sum$thresh,"):\n")
 # modelTable <- {
 #   #make ("x","")-vectors out of model names
@@ -223,10 +256,10 @@ ss_sums[, s_i]  <- ss_summ_sorted[-1, 5]
 #   models <- models[,1:showModels, drop=FALSE]
 #   colnames(models) <- 1:NCOL(models)
 #   models
-# }   
+# }
 # print(modelTable)
 
-# 
+
 
 
 
