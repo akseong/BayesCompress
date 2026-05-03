@@ -772,6 +772,18 @@ get_kappas_taucorrected <- function(nn_mod, ln_fcn = ln_mode){
   return((1 + zsq_1*tau_correction_factor^2)^(-1))
 }
 
+get_tau_corrections_by_layer <- function(nn_mod){
+  hshoe_layers <- grepl("fc", names(nn_mod$children))
+  sqrt_doverm <- c()
+  for (layer in 1:length(hshoe_layers)){
+    if (hshoe_layers[layer]){
+      d_1 <- length(get_kappas(nn_mod$children[[layer]]))
+      m_2 <- m_eff(nn_layer = nn_mod$children[[layer]])
+      sqrt_doverm <- c(sqrt_doverm, sqrt(d_1 / m_2))
+    }
+  }
+  return(sqrt_doverm)
+}
 
 ## get_kappas_frobcorrected ----
 get_kappas_frobcorrected <- function(nn_mod, ln_fcn = ln_mode){
@@ -801,7 +813,7 @@ get_kappas_frobcorrected <- function(nn_mod, ln_fcn = ln_mode){
   return((1 + z1_c^2)^(-1))
 }
 
-
+## spectral norms ----
 get_spectral_norms <- function(nn_mod, verbose = FALSE){
   l_names <- names(nn_mod$children)
   L <- length(nn_mod$children)
@@ -855,6 +867,33 @@ get_composite_specnorm <- function(nn_mod){
   }
   return(svd(prev_W)$d[1])
 }
+
+get_composite_specnorm_by_layer <- function(nn_mod){
+  hshoe_layers <- grepl("fc", names(nn_mod$children))
+  comp_sn_vec <- hshoe_layers
+  names(comp_sn_vec) <-  paste0(paste0("l", 1:length(nn_mod$children)), "_to_l", length(nn_mod$children))
+  
+  for (l_ind in length(hshoe_layers):1){
+    if (hshoe_layers[l_ind]){
+      # hshoe layer
+      W <- as_array(nn_mod$children[[l_ind]]$weight_mu)
+      Z <- diag(sqrt(get_zsq(nn_mod$children[[l_ind]])))
+      current_W <- Z%*%t(W)
+    } else {
+      # det layer
+      current_W <- t(as_array(nn_mod$children[[l_ind]]$weight))
+    }
+    if (l_ind==length(hshoe_layers)){
+      comp_sn_vec[l_ind] <- svd(current_W)$d[1]
+      prev_W <- current_W
+    } else {
+      prev_W <- current_W %*% prev_W
+      comp_sn_vec[l_ind] <- svd(prev_W)$d[1]
+    }
+  }
+  return(comp_sn_vec)
+}
+
 
 get_kappas_compositespecnorm <- function(nn_mod){
   zsq_1 <- get_zsq(nn_mod$fc1)
@@ -1834,12 +1873,21 @@ sim_hshoe_det <- function(
     ncol = sim_params$d_in
   )
   rownames(alpha_mat) <- report_epochs
+
   kappa_local_mat <- 
     kappa_mat <- 
     kappa_tc_mat <- 
     kappa_sn_mat <-
     kappa_sntc_mat <- 
     kappa_fc_mat <- alpha_mat
+  
+  # fc and sn corrections storage
+  hshoe_layers <- grepl("fc", names(model_fit$children))
+  det_layers <- 1-hshoe_layers
+  fc_corrections_mat <- as.matrix(alpha_mat[, 1:sum(hshoe_layers)])
+  colnames(fc_corrections_mat) <- paste0("fc", 1:sum(hshoe_layers))
+  sn_composite_mat <- alpha_mat[, 1:length(model_fit$children)]
+  colnames(sn_composite_mat) <- paste0(paste0("l", 1:length(model_fit$children)), "_to_l", length(model_fit$children))
   
   # store: weight params
   if (want_all_params){
@@ -1996,6 +2044,10 @@ sim_hshoe_det <- function(
       kappa_tc_mat[row_ind, ] <- kappas_tc
       kappa_fc_mat[row_ind, ] <- kappas_fc
       kappa_sntc_mat[row_ind, ] <- kappas_sntc
+      
+      # corrections across all layers
+      fc_corrections_mat[row_ind, ] <- get_tau_corrections_by_layer(model_fit)
+      sn_composite_mat[row_ind, ] <- get_composite_specnorm_by_layer(model_fit)
       
       # storing other optional parameters, mostly for diagnostics
       if (want_all_params){
@@ -2187,6 +2239,7 @@ sim_hshoe_det <- function(
   ### compile results ----
   sim_res <- list(
     "sim_ind" = sim_ind,
+    "simdat" = simdat,
     # "stop_epochs" = stop_epochs,
     # "fcn_plt" = plt,
     "loss_mat" = loss_mat,
@@ -2196,8 +2249,9 @@ sim_hshoe_det <- function(
     "kappa_fc_mat" = kappa_fc_mat,
     "kappa_sn_mat" = kappa_sn_mat,
     "kappa_sntc_mat" = kappa_sntc_mat,
-    "kappa_local_mat" = kappa_local_mat
-    
+    "kappa_local_mat" = kappa_local_mat,
+    "fc_corrections_mat" = fc_corrections_mat,
+    "sn_composite_mat" = sn_composite_mat
   )
   
   if (want_all_params){

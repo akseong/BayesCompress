@@ -112,6 +112,15 @@ kmat_tau <- sim_res$kappa_tc_mat
 kmat_sn <- sim_res$kappa_sn_mat
 loss_mat <- sim_res$loss_mat
 
+# for sim_res$fc_corrections_mat & rim_res$sn_composite_mat
+# particularly for hshoe only models:
+fc_corrections_mat <- sim_res$fc_corrections_mat
+sncomps <- sim_res$sn_composite_mat[, 2]
+lamtausqr <- 1/kmat_local -1
+kappa_allfc <- (1 + lamtausqr * fc_corrections_mat[, 2:(ncol(fc_corrections_mat))]^2)^(-1)
+kappa_sn <- (1 + lamtausqr * sncomps^2)^(-1)
+
+
 which(loss_mat[, 4] == min(loss_mat[, 4]))
 which(abs(loss_mat[, 3] - loss_mat[, 2]) == min(abs(loss_mat[, 3] - loss_mat[, 2])))
 order(loss_mat[, 4]) #min KL
