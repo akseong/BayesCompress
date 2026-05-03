@@ -354,36 +354,48 @@ sim_func_data <- function(
   use_cuda = FALSE,
   xdist = "norm",
   xcov = NULL,
+  mut_corr = NULL,
   standardize = FALSE
 ){
   # generate x, y
   if (xdist == "unif"){
     x <- (torch_rand(n_obs, d_in)-.5)*4 # ~Uniform(-2,2)
   } else {
-    if (is.null(xcov)){
+    if (is.null(xcov) & is.null(mut_corr)){
       x <- torch_randn(n_obs, d_in)      
-    } else {
+    } else if (!is.null(xcov)){
+      cat("X generated using supplied xcov")
       x <- MASS::mvrnorm(
         n = n_obs, 
         mu = rep(0, d_in), 
         Sigma = xcov
       )
       x <- torch_tensor(x)
+    } else if (!is.null(mut_corr)){
+      cat("X generated using mutual corr = ", mut_corr)
+      basez <- rnorm(n_obs, mean = 0, sd = 1)
+      zvars <- matrix(
+        rnorm(n_obs*d_in, mean = 0, sd = 1),
+        ncol = d_in
+      )
+      x <- mut_corr*basez + (1-mut_corr)*zvars
+      x <- torch_tensor(x)
     }
   }
   
-  y <- rep(0, n_obs)
+  Ey <- rep(0, n_obs)
   if (is.null(xlist)){
     for(j in 1:length(flist)){
-      y <- y + flist[[j]](x[,j])
+      Ey <- Ey + flist[[j]](x[,j])
     }
   } else {
     for(j in 1:length(flist)){
       xvars <- xlist[[j]]
-      y <- y + flist[[j]](x[,xvars])
+      Ey <- Ey + flist[[j]](x[,xvars])
     }
   }
-  y <- y$unsqueeze(2) + torch_normal(mean = 0, std = err_sigma, size = c(n_obs, 1))
+  eps <- torch_normal(mean = 0, std = err_sigma, size = c(n_obs, 1))
+  y <- Ey$unsqueeze(2) + eps
   
   if (use_cuda){
     x <- x$to(device = "cuda")
@@ -393,6 +405,8 @@ sim_func_data <- function(
   res <- list(
     "y" = y,
     "x" = x,
+    "Ey" = Ey,
+    "eps" = eps,
     "n_obs" = n_obs,
     "d_in" = d_in,
     "d_true" = length(flist),
@@ -1725,6 +1739,7 @@ sim_hshoe_det <- function(
     err_sigma = sim_params$err_sig,
     xdist = sim_params$xdist,
     xcov = sim_params$xcov,
+    mut_corr = sim_params$mut_corr,
     standardize = false_if_null(sim_params$standardize)
   )
   if (sim_params$use_cuda){
@@ -1823,6 +1838,7 @@ sim_hshoe_det <- function(
     kappa_mat <- 
     kappa_tc_mat <- 
     kappa_sn_mat <-
+    kappa_sntc_mat <- 
     kappa_fc_mat <- alpha_mat
   
   # store: weight params
@@ -1975,10 +1991,11 @@ sim_hshoe_det <- function(
       kappas_tc <- get_kappas_taucorrected(model_fit)
       kappas_fc <- get_kappas_frobcorrected(model_fit)
       kappas_sn <- get_kappas_compositespecnorm(model_fit)
+      kappas_sntc <- get_kappas_sntau(model_fit)
       kappa_sn_mat[row_ind, ] <- kappas_sn
       kappa_tc_mat[row_ind, ] <- kappas_tc
       kappa_fc_mat[row_ind, ] <- kappas_fc
-      
+      kappa_sntc_mat[row_ind, ] <- kappas_sntc
       
       # storing other optional parameters, mostly for diagnostics
       if (want_all_params){
@@ -2044,7 +2061,7 @@ sim_hshoe_det <- function(
       cat("\n global kappas: ", round(kappas, 2), "\n")
       cat("\n tau-corrected kappas: ", round(kappas_tc, 2), "\n")
       cat("\n specnorm(composite) kappas: ", round(kappas_sn, 2), "\n")
-
+      cat("\n fc2&specnorm(composite) kappas: ", round(kappas_sntc, 2), "\n")
       # cat("\n frob-corrected kappas: ", round(kappas_fc, 2), "\n")
       # display_kappas <- ifelse(
       #   kappas <= 0.9,
@@ -2171,13 +2188,14 @@ sim_hshoe_det <- function(
   sim_res <- list(
     "sim_ind" = sim_ind,
     # "stop_epochs" = stop_epochs,
-    "fcn_plt" = plt,
+    # "fcn_plt" = plt,
     "loss_mat" = loss_mat,
     "alpha_mat" = alpha_mat,
     "kappa_mat" = kappa_mat,
     "kappa_tc_mat" = kappa_tc_mat,
     "kappa_fc_mat" = kappa_fc_mat,
     "kappa_sn_mat" = kappa_sn_mat,
+    "kappa_sntc_mat" = kappa_sntc_mat,
     "kappa_local_mat" = kappa_local_mat
     
   )
@@ -2975,6 +2993,7 @@ sim_hshoe_simdat <- function(
   sim_res$save_mod_path = save_mod_path
   
   # save results
+  sim_params$simdat <- simdat
   sim_res$sim_params <- sim_params
   save_res_path <- paste0(save_net_path, ".RData")
   save(sim_res, file = save_res_path)
