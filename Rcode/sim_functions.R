@@ -2429,7 +2429,16 @@ sim_hshoe_meanfcn <- function(
     kappa_mat <- 
     kappa_tc_mat <- 
     kappa_sn_mat <-
+    kappa_sntc_mat <- 
     kappa_fc_mat <- alpha_mat
+  
+  # fc and sn corrections storage
+  hshoe_layers <- grepl("fc", names(model_fit$children))
+  det_layers <- 1-hshoe_layers
+  fc_corrections_mat <- as.matrix(alpha_mat[, 1:sum(hshoe_layers)])
+  colnames(fc_corrections_mat) <- paste0("fc", 1:sum(hshoe_layers))
+  sn_composite_mat <- alpha_mat[, 1:length(model_fit$children)]
+  colnames(sn_composite_mat) <- paste0(paste0("l", 1:length(model_fit$children)), "_to_l", length(model_fit$children))
   
   # store: weight params
   if (want_all_params){
@@ -2538,10 +2547,15 @@ sim_hshoe_meanfcn <- function(
       kappas_tc <- get_kappas_taucorrected(model_fit)
       kappas_fc <- get_kappas_frobcorrected(model_fit)
       kappas_sn <- get_kappas_compositespecnorm(model_fit)
+      kappas_sntc <- get_kappas_sntau(model_fit)
       kappa_sn_mat[row_ind, ] <- kappas_sn
       kappa_tc_mat[row_ind, ] <- kappas_tc
       kappa_fc_mat[row_ind, ] <- kappas_fc
+      kappa_sntc_mat[row_ind, ] <- kappas_sntc
       
+      # corrections across all layers
+      fc_corrections_mat[row_ind, ] <- get_tau_corrections_by_layer(model_fit)
+      sn_composite_mat[row_ind, ] <- get_composite_specnorm_by_layer(model_fit)
       
       # storing other optional parameters, mostly for diagnostics
       if (want_all_params){
@@ -2607,6 +2621,7 @@ sim_hshoe_meanfcn <- function(
       cat("\n global kappas: ", round(kappas, 2), "\n")
       cat("\n tau-corrected kappas: ", round(kappas_tc, 2), "\n")
       cat("\n specnorm(composite) kappas: ", round(kappas_sn, 2), "\n")
+      cat("\n fc2&specnorm(composite) kappas: ", round(kappas_sntc, 2), "\n")
       
       # cat("\n frob-corrected kappas: ", round(kappas_fc, 2), "\n")
       # display_kappas <- ifelse(
@@ -2733,6 +2748,7 @@ sim_hshoe_meanfcn <- function(
   ### compile results ----
   sim_res <- list(
     "sim_ind" = sim_ind,
+    "simdat" = simdat,
     # "stop_epochs" = stop_epochs,
     # "fcn_plt" = plt,
     "loss_mat" = loss_mat,
@@ -2741,7 +2757,10 @@ sim_hshoe_meanfcn <- function(
     "kappa_tc_mat" = kappa_tc_mat,
     "kappa_fc_mat" = kappa_fc_mat,
     "kappa_sn_mat" = kappa_sn_mat,
-    "kappa_local_mat" = kappa_local_mat
+    "kappa_sntc_mat" = kappa_sntc_mat,
+    "kappa_local_mat" = kappa_local_mat,
+    "fc_corrections_mat" = fc_corrections_mat,
+    "sn_composite_mat" = sn_composite_mat
     
   )
   
