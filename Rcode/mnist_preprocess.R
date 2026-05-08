@@ -2,7 +2,7 @@
 ## Project:   mnist preprocessing
 ## Date:      May 02, 2026
 ## Author:    Arnie Seong
-##################################################
+################################################## 
 load(dplyr)
 # mnist dataset downloaded from https://www.kaggle.com/datasets/oddrationale/mnist-in-csv
 

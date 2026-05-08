@@ -100,19 +100,19 @@ plot_datagen_fcns(flist)
 save_mod_path_prestem <- here::here(
   "final_sims", 
   "results", 
-  "nfdsmallbias_mutcorr0.5_5x16"
+  "hshoesmallbias_mutcorr0.5_5x16"
 )
 
 # can usually stop by 30k.  run to 50k epochs, anneal KL fract at .4
-n_obs <- 500*10 # includes training and test
+n_obs <- 100*10 # includes training and test
 
 sim_desc <- c(
-  "oldfcns, no minibatching, 5 MC samples for MSE, kl annealing only - no lr annealing",
+  "hshoe layers all, oldfcns, no minibatching, 5 MC samples for MSE, kl annealing only - no lr annealing",
   "optimistic tau_0 (p_0 = 10 of 104)"
 )
 
 sim_params <- list(
-  "sim_name" = sim_desc, 
+  "sim_name" = sim_desc,
   "n_obs" = n_obs,
   "err_sig" = 1,
   "xdist" = "norm",
@@ -120,7 +120,7 @@ sim_params <- list(
   "mut_corr" = 0.5,
   "xjitter" = NULL,
   "xshift" = NULL,
-  "seed" = 516,
+  "seed" = 5167,   # for 1k, next one to start is 5162
   "n_sims" = 10,
   "n_mc_samples" = 5,
   "train_epochs" = 5e4,
@@ -207,31 +207,59 @@ MLHS <- nn_module(
       clip_var = TRUE
     )
     
+    self$fc3 = torch_hs(
+      in_features = sim_params$d_hidden2,
+      out_features = sim_params$d_hidden3,
+      use_cuda = sim_params$use_cuda,
+      tau_0 = agnostic_tau,
+      init_weight = NULL,
+      init_bias = NULL,
+      init_alpha = 0.9,
+      clip_var = TRUE
+    )
+    
+    self$fc4 = torch_hs(
+      in_features = sim_params$d_hidden3,
+      out_features = sim_params$d_hidden4,
+      use_cuda = sim_params$use_cuda,
+      tau_0 = agnostic_tau,
+      init_weight = NULL,
+      init_bias = NULL,
+      init_alpha = 0.9,
+      clip_var = TRUE
+    )
+    
+    # self$fc4 = torch_hs(
+    #   in_features = sim_params$d_hidden3,
+    #   out_features = sim_params$d_hidden4,
+    #   use_cuda = sim_params$use_cuda,
+    #   tau_0 = agnostic_tau,
+    #   init_weight = NULL,
+    #   init_bias = NULL,
+    #   init_alpha = 0.9,
+    #   clip_var = TRUE
+    # )
+    # 
+    # self$fc5 = torch_hs(
+    #   in_features = sim_params$d_hidden4,
+    #   out_features = sim_params$d_out,
+    #   use_cuda = sim_params$use_cuda,
+    #   tau_0 = agnostic_tau,
+    #   init_weight = NULL,
+    #   init_bias = NULL,
+    #   init_alpha = 0.9,
+    #   clip_var = TRUE
+    # )
+
     self$det1 = nn_linear(
-      sim_params$d_hidden2, 
-      sim_params$d_hidden3
-    )
-    
-    self$det2 = nn_linear(
-      sim_params$d_hidden3, 
-      sim_params$d_hidden4
-    )
-    
-    self$det3 = nn_linear(
       sim_params$d_hidden4, 
-      sim_params$d_hidden5
-    )
-    
-    self$det4 = nn_linear(
-      sim_params$d_hidden5, 
       sim_params$d_out
     )
-    
     if (sim_params$use_cuda){
       self$det1$cuda()
-      self$det2$cuda()
-      self$det3$cuda()
-      self$det4$cuda()
+      # self$det2$cuda()
+      # self$det3$cuda()
+      # self$det4$cuda()
     }
   },
   
@@ -241,22 +269,22 @@ MLHS <- nn_module(
       nnf_relu() %>%
       self$fc2() %>%
       nnf_relu() %>%
-      self$det1() %>%
+      self$fc3() %>%
       nnf_relu() %>%
-      self$det2() %>%
+      self$fc4() %>%
       nnf_relu() %>%
-      self$det3() %>%
-      nnf_relu() %>%
-      self$det4() 
+      self$det1()
+
+      # self$fc5()
   },
   
   get_model_kld = function(){
     kl1 = self$fc1$get_kl()
     kl2 = self$fc2$get_kl()
-    # kl3 = self$fc3$get_kl()
-    # kl4 = self$fc4$get_kl()
+    kl3 = self$fc3$get_kl()
+    kl4 = self$fc4$get_kl()
     # kl5 = self$fc5$get_kl()
-    kld = kl1 + kl2 # + kl3 + kl4 + kl5
+    kld = kl1 + kl2 + kl3 + kl4 #+ kl5
     return(kld)
   }
 )
