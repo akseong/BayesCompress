@@ -39,9 +39,9 @@ meanfcn2 <- function(x, round_dig = NULL){
     x[,3]/(1 + x[,4] + x[, 5]*(x[, 5]>0))
 }
 
-meanfcn_orig_modsup <- function(x, round_dig = NULL){
-  -cos(pi/1.5*x[, 1])*((x[,1]>0) + (x[,2]<0)) + 
-    cos(pi*x[,2]) + sin(pi/1.2*x[,2]*(x[,2]>0)) - 
+meanfcn_orig_modsup_int <- function(x, round_dig = NULL){
+  -cos(pi/1.5*x[, 1])*((x[,6]>0) + (x[,7]<0)) + 
+    cos(pi*x[,2]*(x[,8]>0)) + sin(pi/1.2*x[,2]*(x[,8]>0)) - 
     2*x[, 3]/(1 + x[,4]^2) + 1 / (1 + 2*x[,5]*(x[,5]>0))
 }
 
@@ -67,12 +67,12 @@ orig_fcns <- function(x, round_dig = NULL){
 
 # sim params and savepath ----
 save_mod_path_prestem <- here::here(
-  "sims", 
+  "final_sims", 
   "results", 
-  "klc_5x16_orig_p100_mcor.25_"
+  "meanfssmallbias_5x16_origmodsupint_p100_mcor.5_"
 )
-n_obs <- 1000 # includes training and test
-d_in <- 100
+n_obs <- 5000 # includes training and test
+d_in <- 108
 sim_desc <- c(
   "harder meanfcn nonlin regression example, 
   P=50, train obs = 400,
@@ -91,11 +91,11 @@ sim_params <- list(
   "mut_corr" = 0.25,
   "ttsplit" = 4/5,        # Liang use 200 train, 300 test
   "genXfcn" = genX_mutualcorr,
-  "meanfcn" = orig_fcns,
+  "meanfcn" = meanfcn_orig_modsup_int,
   "standardize" = TRUE,
   # sim params
-  "seed" = 58,           ##
-  "n_sims" = 2,           ##
+  "seed" = 5167,           ## next to run is 5164
+  "n_sims" = 10,           ##
   # network params / architecture
   "p_0frac" = 0.2,  ## expect about 1/10 covs to be included
   "d_1" = 16,
@@ -105,14 +105,14 @@ sim_params <- list(
   "d_5" = 16,
   "d_out" = 1,
   # training params
-  "train_epochs" = 2e5,   
+  "train_epochs" = 5e4,   
   "report_every" = 1E3,   
   "n_mc_samples" = 5,     
   "lr" = 0.001,  # If NULL, uses optim_adam default (0.001)
   "batch_size" = NULL,
   "lr_scheduler" = NULL, # torch::lr_cosine_annealing,
   "kl_scheduler" = kl_weight_cosine,
-  "kl_warmup_frac" = 0.2,
+  "kl_warmup_frac" = 0.4,
   # don't usually modify
   "plot_every_x_reports" = 10,
   "use_cuda" = use_cuda
@@ -249,8 +249,8 @@ res <- lapply(
       verbose = TRUE,      # provide updates in console
       want_plots = FALSE,   # provide graphical updates of KL, MSE
       want_fcn_plots = FALSE, # display predicted functions
-      save_fcn_plots = TRUE,
-      want_all_params = TRUE,
+      save_fcn_plots = FALSE,
+      want_all_params = FALSE,
       save_mod = TRUE,
       save_mod_path_stem = save_mod_path_stem
     )
