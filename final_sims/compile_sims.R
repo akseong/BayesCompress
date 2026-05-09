@@ -79,7 +79,7 @@ stem <- here::here("final_sims", "results", "nfdsmallbias_mutcorr0.5_5x165000obs
 true_vec <- rep(0, 104)
 true_vec[1:4] <- 1
 # started off some with 5, some with 10.  Figure out which ones have 5, vs 10
-overall_seeds <- c(516, as.numeric(paste0(516, 1:13)))
+overall_seeds <- c(516, as.numeric(paste0(516, 0:13)))
 possible_sim_seeds <- c()
 
 for (i in 1:length(overall_seeds)){

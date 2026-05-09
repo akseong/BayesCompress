@@ -104,7 +104,7 @@ save_mod_path_prestem <- here::here(
 )
 
 # can usually stop by 30k.  run to 50k epochs, anneal KL fract at .4
-n_obs <- 500*10 # includes training and test
+n_obs <- 200*10 # includes training and test
 
 sim_desc <- c(
   "oldfcns, no minibatching, 5 MC samples for MSE, kl annealing only - no lr annealing",
@@ -120,7 +120,7 @@ sim_params <- list(
   "mut_corr" = 0.5,
   "xjitter" = NULL,
   "xshift" = NULL,
-  "seed" = 516,
+  "seed" = 51611,
   "n_sims" = 10,
   "n_mc_samples" = 5,
   "train_epochs" = 5e4,
