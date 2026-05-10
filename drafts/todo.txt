@@ -55,12 +55,29 @@ DISCUSSION / future work
 
 
 
+EXPERIMENTS
+	- function recovery:
+   		- need to generate credible intervals for functions.  Just run regular forward pass 1000 times on same model with 0/1 data, then mean center both using obs from -1:1
+  		- MSE use model.eval to measure Eyhat on test data vs true Ey
+  	- simulated data:
+  		- competitor descriptions: SS, ssgam, softbart --- models that generate PIPs and thus generate BFDR
+  		- functions: original, original with modded support/interactions and extra functions, all with 0.5 mutual correlation
+  		- tables evaluating FDR, BFDR, etc.
+  		- 2 models ---- 2 horseshoe layers, 4 horseshoe layers
+  	- wage data - review ecog paper analyses
 
 
 
 
+Simulated data:
+- data generated using $y_i = f_1(x_{i,1}) + f_2(x_{i,2}) + f_3(x_{i,3}) + f_4(x_{i,4}) + \epsilon, \qquad \epsilon ~ N(0, 1)$; X has 4 truly active variables (x_1, x_2, x_3, x_4) and 100 nuisance variables ($p = 104$).  All predictors in X have mutual correlation 0.5.  Each X_j = 1/2 * z_0 + 1/2 * z_j, j \in \{1, ..., p} where z_0 and all z_j ~ iid N(0,1).
 
+- PUT IN: f_j specifications
 
+- tested for n = 1000, 2000, 5000; 80-20 test-train split (i.e. trained on 800, 1600, 4000 obs; test set used to calculate test MSE)
+
+- (NEEDED?) generate picture of function recovery with credible interval, run regular forward pass 1000 times on same model with 0/1 data, then mean center both using obs from -1:1
+- test MSE
 
 
 
@@ -98,13 +115,6 @@ However, the variational approximation to the posterior remains useful.  Though 
 
 Some methods employ variational specifications which specify parameter correlation structures, such as employing multivariate Normals with low-rank estimates of the covariance matrix \note{addref Ghosh and doshi-velez}, but this comes with computational cost.  Time complexity for training a network with $D$ weight parameters under the mean field assumptions is linear ($\mathcal{O}(D)$); for parameters modeled with a covariance matrix with rank $K$, that time complexity is $\mathcal{O}(DK^2)$.  
 Furthermore, in the context of predictive uncertainty, even when the total dimension over layers is the same, deeper neural networks with fully factorized variational distributions have been shown to induce richer marginal distributions with complex covariance structures even than shallow networks with correlated weight posteriors \citep{farquhar_liberty_2021}.
-
-
-
-
-
-
-
 
 
 
