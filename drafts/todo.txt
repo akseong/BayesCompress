@@ -1,0 +1,124 @@
+TO DO:
+
+
+Today:
+- finish up intro.  
+- BNN chapter experiments description.  
+- start competitor sims, extract metrics from completed sims.  Work on salary data analysis.
+
+
+Finish final dissertation draft by Wed.  Some results not ready OK, but should just be plug-in.
+Outline presentation on Wed.  Presentation draft by Sat.  
+
+
+
+
+
+CURRENT DRAFT NOTES:
+- INTRO:
+	- X Mean field section 
+	- Data 
+		- ECoG - look at presentation for 
+		- salary data
+
+
+- BNN CHAPTER:
+	- compress related work, add work on ARD as a precursor to dropout - google link
+	- Proof of equivalence in appendix
+	- KLs in appendix
+
+
+
+EXPERIMENTS
+	- function recovery:
+   		- need to generate credible intervals for functions.  Just run regular forward pass 1000 times on same model with 0/1 data, then mean center both using obs from -1:1
+  		- MSE use model.eval to measure Eyhat on test data vs true Ey
+  	- simulated data:
+  		- competitor descriptions: SS, ssgam, softbart --- models that generate PIPs and thus generate BFDR
+  		- functions: original, original with modded support/interactions and extra functions, all with 0.5 mutual correlation
+  		- tables evaluating FDR, BFDR, etc.
+  		- 2 models ---- 2 horseshoe layers, 4 horseshoe layers
+  	- wage data - review ecog paper analyses
+
+DISCUSSION / future work
+- better posterior estimation --- replace mean-field assumption with structured VI.  Ghosh and doshi-velez do this for the weights using multivariate normal with a low-rank estimate of the covariance matrix; we could similarly tie the scale parameters together via multivariate (log)-Normal.
+- application to other types of settings: varying coef models in which coordinates effect of $X$ is modulated through $Z$ --- essentially, run NN on Z to get vector of f_(Z_i)'s, last layer's output multiplied by X_i using horseshoe.  
+- use with non-local priors and normalizing flow for variational inference
+- detect linear relationships via skip layers
+- theory.  Nalisnick and Padrhaic Smyth's work on variational dropout, Rockova and Polson's work on posterior concentration in Spike-Slab RELU.
+
+
+
+
+
+
+
+
+
+EXPERIMENTS
+	- function recovery:
+   		- need to generate credible intervals for functions.  Just run regular forward pass 1000 times on same model with 0/1 data, then mean center both using obs from -1:1
+  		- MSE use model.eval to measure Eyhat on test data vs true Ey
+  	- simulated data:
+  		- competitor descriptions: SS, ssgam, softbart --- models that generate PIPs and thus generate BFDR
+  		- functions: original, original with modded support/interactions and extra functions, all with 0.5 mutual correlation
+  		- tables evaluating FDR, BFDR, etc.
+  		- 2 models ---- 2 horseshoe layers, 4 horseshoe layers
+  	- wage data - review ecog paper analyses
+
+
+
+
+Simulated data:
+- data generated using $y_i = f_1(x_{i,1}) + f_2(x_{i,2}) + f_3(x_{i,3}) + f_4(x_{i,4}) + \epsilon, \qquad \epsilon ~ N(0, 1)$; X has 4 truly active variables (x_1, x_2, x_3, x_4) and 100 nuisance variables ($p = 104$).  All predictors in X have mutual correlation 0.5.  Each X_j = 1/2 * z_0 + 1/2 * z_j, j \in \{1, ..., p} where z_0 and all z_j ~ iid N(0,1).
+
+- PUT IN: f_j specifications
+
+- tested for n = 1000, 2000, 5000; 80-20 test-train split (i.e. trained on 800, 1600, 4000 obs; test set used to calculate test MSE)
+
+- (NEEDED?) generate picture of function recovery with credible interval, run regular forward pass 1000 times on same model with 0/1 data, then mean center both using obs from -1:1
+- test MSE
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#################################
+MFVI and variational distributions
+
+
+Mean Field Variational Inference (MFVI) refers to variational optimization that adopts the Mean Field (MF) assumption that the joint posterior of the parameters is factorizable along a specified partition (i.e. that some partition of the parameters leads to independence between the partition's subsets), thus leading to simpler posteriors that are much easier to sample from and making computation tractable and highly scalable.  Even though the true joint posterior may be highly dependent, the individual variational posterior distributions remain independent; variational bayes procedures for this reason are known to underestimate variance, essentially approximating a highly correlated posterior with a product of independent "bubbles."
+
+"The variational distribution will typically "under-fit" the true posterior, often becoming overly certain (picking the largest axis-aligned blob it can fit inside the true posterior)"
+Christopher Bishop’s "Pattern Recognition and Machine Learning" (PRML), specifically in Section 10.1.2.
+
+
+However, the variational approximation to the posterior remains useful.  Though the individual variational posteriors do not capture dependence in the joint posterior, the variational distributions' parameters are optimized \textit{jointly} to minimize the KL divergence to the true posterior.  Thus, even though the posteriors for individual network parameters remain \textit{statistically} independent and can be sampled independently, they are \textit{functionally} coupled: if two network parameters must be high together to satisfy the data, optimization will push their means up together.  
+
+Some methods employ variational specifications which specify parameter correlation structures, such as employing multivariate Normals with low-rank estimates of the covariance matrix \note{addref Ghosh and doshi-velez}, but this comes with computational cost.  Time complexity for training a network with $D$ weight parameters under the mean field assumptions is linear ($\mathcal{O}(D)$); for parameters modeled with a covariance matrix with rank $K$, that time complexity is $\mathcal{O}(DK^2)$.  
+Furthermore, in the context of predictive uncertainty, even when the total dimension over layers is the same, deeper neural networks with fully factorized variational distributions have been shown to induce richer marginal distributions with complex covariance structures even than shallow networks with correlated weight posteriors \citep{farquhar_liberty_2021}.
+
+
+
+
+
+
+
