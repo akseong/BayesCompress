@@ -1,0 +1,247 @@
+@article{BergerDelampady1987,
+	author = {Berger, James O. and Delampady, Mohan},
+	journal = {Statistical Science},
+	number = {3},
+	pages = {317--352},
+	title = {Testing Precise Hypotheses},
+	volume = {2},
+	year = {1987}}
+
+@article{besag:1974,
+	author = {Besag, Julian},
+	journal = {Journal of the Royal Statistical Society B},
+	number = {2},
+	pages = {192-225},
+	title = {Spatial interaction and the statistical analysis of lattice systems},
+	volume = {36},
+	year = {1974}}
+
+@article{boehm:2015,
+	author = {Boehm Vock, L.F. and Reich, B.J. and Fuentes, M. and Dominici, F.},
+	journal = {Biometrics},
+	number = {1},
+	pages = {167-177},
+	title = {Spatial variable selection methods for investigating acute health effects of fine particulate matter components},
+	volume = {71},
+	year = {2015}}
+
+@article{castillo:2015,
+	author = {Castillo, I. and Schmidt-Hieber, J. and van der Vaart, A.W.},
+	journal = {The Annals of Statistics},
+	number = 5,
+	pages = {1986-2018},
+	title = {Bayesian linear regression with sparse priors},
+	volume = 43,
+	year = 2015}
+
+@article{chen:2008,
+	author = {Chen, J. and Chen, Z.},
+	journal = {Biometrika},
+	number = 3,
+	pages = {759-771},
+	title = {Extended {B}ayesian information criteria for model selection with large model spaces},
+	volume = 95,
+	year = 2008}
+
+@article{deshpande:2024,
+	author = {Deshpande, Sameer K and Bai, Ray and Balocchi, Cecilia and Starling, Jennifer E and Weiss, Jordan},
+	journal = {Bayesian Analysis},
+	title = {{VC-BART}: {B}ayesian trees for varying coefficients},
+	volume = {(in press)},
+	pages = {1-28},
+	year = {2024}}
+
+@article{flood:2020,
+	author = {Flood, Sarah and King, Miriam and Rodgers, Renae and Ruggles, Steven and Warren, J Robert},
+	doi = {10.18128/D030.V7.0},
+	journal = {Minneapolis, MN: IPUMS},
+	title = {Integrated Public Use Microdata Series, Current Population Survey: Version 7.0 [dataset]},
+	year = {2020},
+	bdsk-url-1 = {https://doi.org/10.18128/D030.V7.0}}
+
+@article{hastie:1993,
+	author = {Hastie, T. and Tibshirani, R.},
+	journal = {Journal of the Royal Statistical Society B},
+	number = 4,
+	pages = {757-796},
+	title = {Varying-coefficient models},
+	volume = 55,
+	year = {1993}}
+
+@article{jhuang:2019,
+	author = {Jhuang, A.-T. and Fuentes, M. and Jones, J.L. and Esteves, G. and Fancher, C.M. and Furman, M. and Reich, B.J.},
+	journal = {Technometrics},
+	number = 4,
+	pages = {494-506},
+	title = {Spatial Signal Detection Using Continuous Shrinkage Priors},
+	volume = 61,
+	year = {2019}}
+
+@article{kang:2018,
+	author = {Kang, J. and Reich, B.J. and Staicu, A.-M.},
+	journal = {Biometrika},
+	number = {1},
+	pages = {165-184},
+	title = {Scalar-on-image regression via the soft-thresholded {G}aussian process},
+	volume = {105},
+	year = {2018}}
+
+@article{morris:2011,
+	author = {Morris, Jeffrey S and Baladandayuthapani, Veerabhadran and Herrick, Richard C and Sanna, Pietro and Gutstein, Howard},
+	journal = {The Annals of Applied Statistics},
+	number = {2A},
+	pages = {894},
+	title = {Automated analysis of quantitative image data using isomorphic functional mixed models, with application to proteomics data},
+	volume = {5},
+	year = {2011}}
+
+@article{mueller:2004,
+	author = {M{\"{u}}ller, P. and Parmigiani, G. and Robert, C. and Rousseau, J.},
+	journal = {Journal of the American Statistical Association},
+	number = 468,
+	pages = {990-1001},
+	title = {Optimal sample size for multiple testing: the case of gene expression microarrays},
+	volume = 99,
+	year = 2004}
+
+@article{narisetty:2014,
+	author = {Narisetty, N.N. and He, X.},
+	journal = {The Annals of Statistics},
+	number = 2,
+	pages = {789-817},
+	title = {Bayesian variable selection with shrinking and diffusing priors},
+	volume = 42,
+	year = 2014}
+
+@article{paulon:2023,
+	author = {Paulon, Giorgio and M{\"u}ller, Peter and Sarkar, Abhra},
+	journal = {Bayesian Analysis},
+	pages = {1-31},
+	title = {Bayesian Semiparametric Hidden Markov Tensor Models for Time Varying Random Partitions with Local Variable Selection},
+	volume = {TBA},
+	year = {2023}}
+
+@article{pini:2016,
+	author = {Pini, Alessia and Vantini, Simone},
+	journal = {Biometrics},
+	number = {3},
+	pages = {835-845},
+	title = {The interval testing procedure: a general framework for inference in functional data analysis},
+	volume = {72},
+	year = {2016}}
+
+@article{rossell:2017,
+	author = {Rossell, D. and Telesca, D.},
+	journal = {Journal of the American Statistical Association},
+	pages = {254-265},
+	title = {Non-local priors for high-dimensional estimation},
+	volume = {112},
+	year = 2017}
+
+@article{rossell:2021,
+	author = {Rossell, D. and Abril, O. and Bhattacharya, A.},
+	journal = {Journal of the Royal Statistical Society B},
+	number = 4,
+	pages = {853-879},
+	title = {Approximate {L}aplace approximations for scalable model selection},
+	volume = 83,
+	year = 2021}
+
+@article{rossell:2022,
+	author = {Rossell, David},
+	journal = {Bayesian Analysis},
+	number = {2},
+	pages = {565-591},
+	title = {Concentration of posterior model probabilities and normalized {L0} criteria},
+	volume = {17},
+	year = {2022}}
+
+@article{saez:2018,
+	author = {Saez, I. and Lin, J. and Stolk, A. and Chang, E. and Parvizi, J. and Schalk, G. and Knight, R.T. and Hsu, M.},
+	journal = {Current Biology},
+	number = {18},
+	pages = {2889-2899},
+	title = {Encoding of multiple reward-related computations in transient and sustained high-frequency activity in human {OFC}},
+	volume = {28},
+	year = {2018}}
+
+@article{scheel:2013,
+	author = {Scheel, Ida and Ferkingstad, Egil and Frigessi, Arnoldo and Haug, Ola and Hinnerichsen, Mikkel and Meze-Hausken, Elisabeth},
+	journal = {Journal of the Royal Statistical Society: Series C (Applied Statistics)},
+	number = {1},
+	pages = {85-100},
+	title = {A {B}ayesian hierarchical model with spatial variable selection: the effect of weather on insurance claims},
+	volume = {62},
+	year = {2013}}
+
+@article{schwarz:1978,
+	author = {Schwarz, G.},
+	journal = {Annals of Statistics},
+	pages = {461-464},
+	title = {Estimating the dimension of a model},
+	volume = 6,
+	year = 1978}
+
+@article{scott:2006,
+	author = {Scott, J.G. and Berger, J.O.},
+	doi = {10.1016/j.jspi.2005.08.031},
+	journal = {Journal of Statistical Planning and Inference},
+	month = jul,
+	number = {7},
+	pages = {2144--2162},
+	title = {{An exploration of aspects of Bayesian multiple testing}},
+	url = {http://dx.doi.org/10.1016/j.jspi.2005.08.031},
+	volume = {136},
+	year = {2006},
+	bdsk-url-1 = {http://dx.doi.org/10.1016/j.jspi.2005.08.031}}
+
+@article{smith_michael:2007,
+	author = {Smith, Michael and Fahrmeir, Ludwig},
+	journal = {Journal of the American Statistical Association},
+	number = {478},
+	pages = {417-431},
+	title = {Spatial {B}ayesian variable selection with application to functional magnetic resonance imaging},
+	volume = {102},
+	year = {2007}}
+
+@article{tibshirani:2005,
+	author = {Tibshirani, Robert and Saunders, Michael and Rosset, Saharon and Zhu, Ji and Knight, Keith},
+	journal = {Journal of the Royal Statistical Society B},
+	number = {1},
+	pages = {91-108},
+	title = {Sparsity and smoothness via the fused {LASSO}},
+	volume = {67},
+	year = {2005}}
+
+@article{varin:2011,
+	author = {Varin, Cristiano and Reid, Nancy and Firth, David},
+	journal = {Statistica Sinica},
+	number = 1,
+	pages = {5-42},
+	title = {An overview of composite likelihood methods},
+	volume = 21,
+	year = {2011}}
+
+@article{warren2012,
+	author = {Warren, Joshua L. and Fuentes, Montserrat and Herring, Amy H. and Langlois, Peter H.},
+	date-added = {2024-07-30 00:54:01 +0800},
+	date-modified = {2024-07-30 00:54:01 +0800},
+	journal = {Biometrics},
+	number = {4},
+	pages = {1157-1167},
+	publisher = {Wiley Online Library},
+	title = {Spatial-temporal modeling of the association between air pollution exposure and preterm birth: identifying critical windows of exposure},
+	volume = {68},
+	year = {2012}}
+
+@article{wilson2017,
+	author = {Wilson, Ander and Chiu, Ya-Han M. and Hsu, Hsiu-Hsiu L. and Wright, Robert O. and Wright, Rosalind J. and Coull, Brent A.},
+	date-added = {2024-07-30 00:54:01 +0800},
+	date-modified = {2024-07-30 00:54:01 +0800},
+	journal = {Biostatistics},
+	number = {3},
+	pages = {537-552},
+	publisher = {Oxford University Press},
+	title = {Bayesian distributed lag interaction models to identify perinatal windows of vulnerability in children's health},
+	volume = {18},
+	year = {2017}}

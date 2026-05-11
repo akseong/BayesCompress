@@ -82,7 +82,7 @@ n_sims = 50
 compiled_stem <- paste0("hshoe4det1_origfns_5k_", n_sims, "sims_compiled.RData")
 compiled_fname <- here::here("final_sims", "results", compiled_stem)
 
-# ORIG FCNS
+# ORIG FCNS:       compiled results                                       sim stem
 # hshoe2det3_origfns_1k_50sims_compiled.RData       100 sims available:   nfdsmallbias_mutcorr0.5_5x161000obs_
 # hshoe2det3_origfns_2k_50sims_compiled.RData       50 sims available:    nfdsmallbias_mutcorr0.5_5x162000obs_
 # hshoe2det3_origfns_5k_50sims_compiled.RData       125 sims available:   nfdsmallbias_mutcorr0.5_5x165000obs_
@@ -111,7 +111,7 @@ for (i in 1:length(overall_seeds)){
   possible_sim_seeds <- c(possible_sim_seeds, floor(runif(n = 10, 0, 1000000)))
 }
 
-# which of these files exist
+# which of these files exist (some simulations stopped b/c of computer issues)
 poss_fnames <- paste0(stem, possible_sim_seeds, ".RData")
 exists_TF <- 
   has_corrections_by_layer <- rep(F, length(poss_fnames))
@@ -137,16 +137,26 @@ ksn50k_mat <-
   ktc50k_mat <- 
   ktc_metrictest_mat <- matrix(NA, nrow = length(sim_fnames), ncol = ncol(sim_res$kappa_mat))
 
+
+
+
+perf_mat <- matrix(NA, nrow = n_sims, ncol = 4)
+colnames(perf_mat) <- c("train_sig", "mse_train", "mse_test", "kl")
+perf_mat_metrictest <- perf_mat
+
 # quick check of sn and sntc corrected kappas at last epoch
 metrictest_rows <- rep(NA, length(sim_fnames))
 for (f_ind in 1:length(sim_fnames)){
   load(sim_fnames[f_ind])
   last_epoch <- nrow(sim_res$kappa_sn_mat)
+  perf_mat[f_ind, ] <- c(sim_res$sim_params$train_sig, sim_res$loss_mat[last_epoch, 2:4])
+  
   ksn50k_mat[f_ind, ] <- sim_res$kappa_sn_mat[last_epoch,]
   ksntc50k_mat[f_ind, ] <- sim_res$kappa_sntc_mat[last_epoch,]
   ktc50k_mat[f_ind, ] <- sim_res$kappa_tc_mat[last_epoch,]
   
   row_ind <- get_smallest_testmse_epoch(sim_res$loss_mat)
+  perf_mat[f_ind, ] <- c(sim_res$sim_params$train_sig, sim_res$loss_mat[row_ind, 2:4])
   metrictest_rows[f_ind] <- row_ind
   ksn_metrictest_mat[f_ind, ] <- sim_res$kappa_sn_mat[row_ind,]
   ksntc_metrictest_mat[f_ind, ] <- sim_res$kappa_sntc_mat[row_ind,]

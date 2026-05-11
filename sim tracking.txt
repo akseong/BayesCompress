@@ -4,10 +4,10 @@
 
 
 currently running (reverse order):
-
+3x hshoe mod fcns, 1k obs
 
 test
-2x hshoe orig mods, 5000 obs
+2x hshoe orig mods, 5000 obs - finished 8:42am
 succeeded 4:37pm
 
 
@@ -40,5 +40,53 @@ orig fcns:
 	- 52 	meanfssmallbias_5x16_origmodsupint_p100_mcor.5_5000obs_976304
 	- 
 	- 64 	meanfssmallbias_5x16_origmodsupint_p100_mcor.5_1000obs_21129
-	- 
+- 4 hshoe, 1 det:
 	- meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_1000obs_         516--5161 in progress
+
+
+
+
+
+
+
+
+
+
+
+
+times for 10 sims (while simultaneously training 7-9 other nns):
+
+orig_fcns:
+2hshoe, 3det:
+1k  nfdsmallbias_mutcorr0.5_5x161000obs  16:34:37, 16:29:48, 16:29:38  				about 1 hr 39 min 
+2k  nfdsmallbias_mutcorr0.5_5x162000obs  16:35:58, 16:41:26, 16:35:44, 16:00:45, 15:57:45, 17:28:34, 18:10:24, 18:10:21, 18:15:26   about 1 hour 40
+5k  nfdsmallbias_mutcorr0.5_5x165000obs  16:40:33, 
+
+4hshoe, 1 det:
+1k  hshoesmallbias_mutcorr0.5_5x161000obs_440298  1:06:10:46, 1:06:02:48, 1:05:58:02, 1:06:16:52, 1:06:08:29    about 3 hours
+2k  hshoesmallbias_mutcorr0.5_5x162000obs_705960  1:02:59:09, 1:02:57:16, 1:03:00:12, 23:56:19, 1:00:07:32      about 2 hours 35 min
+5k  hshoesmallbias_mutcorr0.5_5x165000obs_305826  1:00:00:20, 1:00:04:00, 22:39:33,  22:40:33                                       about 2 hours 24 min
+
+
+mod_fcn:
+2hshoe, 3det:
+1k  meanfssmallbias_5x16_origmodsupint_p100_mcor.5_1000obs_705960  16:42:30, 16:33:54, 16:33:34, 16:42:33, 16:37:46  	about 1 hour 40 min
+2k
+5k  meanfssmallbias_5x16_origmodsupint_p100_mcor.5_5000obs_381488  17:28:33, 17:33:46, 17:32:40  						about 1 hour 45 min
+
+4hshoe, 1 det:
+1k
+2k
+5k
+
+
+
+
+
+
+
+
+
+
+
+

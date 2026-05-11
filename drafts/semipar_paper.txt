@@ -1,0 +1,1353 @@
+\documentclass[lineno]{biometrika}
+
+\usepackage{amsmath}
+%\usepackage{graphics}
+
+%% Please use the following statements for
+%% managing the text and math fonts for your papers:
+%\usepackage{times}
+%\usepackage[cmbold]{mathtime}
+%\usepackage{bm}
+
+\usepackage{newtxtext}
+\usepackage[subscriptcorrection]{newtxmath}
+
+\usepackage[usenames]{color}
+\newcommand{\bch}{\color{blue}\em }
+\newcommand{\ech}{\color{black}\rm} % end change
+%\usepackage{natbib}
+
+\graphicspath{{./art/}}
+
+\usepackage[plain,noend]{algorithm2e}
+
+\makeatletter
+\renewcommand{\algocf@captiontext}[2]{#1\algocf@typo. \AlCapFnt{}#2} % text of caption
+\renewcommand{\AlTitleFnt}[1]{#1\unskip}% default definition
+\def\@algocf@capt@plain{top}
+\renewcommand{\algocf@makecaption}[2]{%
+  \addtolength{\hsize}{\algomargin}%
+  \sbox\@tempboxa{\algocf@captiontext{#1}{#2}}%
+  \ifdim\wd\@tempboxa >\hsize%     % if caption is longer than a line
+    \hskip .5\algomargin%
+    \parbox[t]{\hsize}{\algocf@captiontext{#1}{#2}}% then caption is not centered
+  \else%
+    \global\@minipagefalse%
+    \hbox to\hsize{\box\@tempboxa}% else caption is centered
+  \fi%
+  \addtolength{\hsize}{-\algomargin}%
+}
+\makeatother
+
+%%% User-defined macros should be placed here, but keep them to a minimum.
+\def\Bka{{\it Biometrika}}
+\def\AIC{\textsc{aic}}
+\def\T{{ \mathrm{\scriptscriptstyle T} }}
+\def\v{{\varepsilon}}
+
+%\addtolength\topmargin{35pt}
+\DeclareMathOperator{\Thetabb}{\mathcal{C}}
+
+%ADDED BY DAVID
+\usepackage{enumitem}  %TO BE DELETED LATER, BIOMETRIKA DOESN'T ACCEPT enumerate, itemize etc
+
+\usepackage{xr}
+\externaldocument{supplement}
+
+
+\begin{document}
+
+\jname{Biometrika}
+%% The year, volume, and number are determined on publication
+\jyear{2024}
+\jvol{103}
+\jnum{1}
+\cyear{2024}
+%% The \doi{...} and \accessdate commands are used by the production team
+%\doi{10.1093/biomet/asm023}
+\accessdate{Advance Access publication on 31 July 2023}
+
+%% These dates are usually set by the production team
+\received{2 January 2017}
+\revised{1 August 2023}
+
+%% The left and right page headers are defined here:
+\markboth{D. Rossell et~al.}{Local variable selection}
+
+%% Here are the title, author names and addresses
+\title{Semi-parametric local variable selection under misspecification}
+
+\author{D. ROSSELL}
+\affil{Department of Economics and Business, Pompeu Fabra University,\\ Barcelona, 08005, Spain
+\email{david.rossell@upf.edu}}
+
+\author{A. K. SEUNG}
+\affil{Department of Statistics, University of California at Irvine\\ Irvine, 92697-1250, U.S.A. \email{akseong@uci.edu}}
+
+
+\author{I. SAEZ}
+\affil{Neuroscience labs, Mount Sinai,\\ New York, 10029, U.S.A.
+\email{ignacio.saez@mssm.edu}}
+
+\author{M. GUINDANI}
+\affil{Department of Biostatistics, University of California at Los Angeles,\\ Los Angeles, 90095-1772, U.S.A.
+\email{mguindani@g.ucla.edu}}
+
+
+
+\maketitle
+
+\begin{abstract}
+Local variable selection aims to  test for the effect of covariates on an outcome within specific regions. We outline a challenge that arises in the presence of non-linear effects and model misspecification. Specifically, for common semi-parametric methods even slight model misspecification can result in a high false positive rate, in a manner that is highly sensitive to the chosen basis functions. We propose a methodology based on orthogonal cut splines that avoids false positive inflation for any choice of knots,  and achieves consistent local variable selection. Our approach offers simplicity, handles both continuous and categorical covariates, and provides theory for high-dimensional covariates and model misspecification. We discuss settings with either independent or dependent data. Our proposal allows including adjustment covariates that do not undergo selection, enhancing the model's flexibility. 
+Our examples describe salary gaps associated with various discrimination factors at different ages, and the effects of covariates on functional data measuring brain activation at different times.
+%We illustrate its application in simulation studies with both independent and functional data, and in two real datasets. One dataset evaluates salary gaps associated with discrimination factors at different ages, while the other examines the effects of covariates on brain activation over time.
+\end{abstract}
+
+\begin{keywords}
+Local null testing; Additive regression; Bayesian model selection; Bayesian model averaging; Functional data
+\end{keywords}
+
+\section{Introduction}
+
+Local variable selection, or local null hypothesis testing,  is an important problem in many fields. Given  a set of covariates $x$, the task is testing whether they have an effect on an outcome $y$, at specific values indicated by additional covariates $z$.  For example, we assess whether
+%Local variable selection, or local null hypothesis testing,  is an important problem in many fields. One is given a set of covariates $x$ and is tasked with testing whether they have an effect on an outcome $y$, at specific values indicated by additional covariates $z$.  For example, we assess whether 
+disparities in salary $y$ are associated to covariates such as race and gender $x$ at different ages $z$. Although there may be no evidence for disparities in individuals who recently entered the workforce (e.g., due to newly implemented policies), said disparities may exist at other career stages. 
+%In another application, we test whether experimental covariates ($x$) are associated to brain activity ($y$) at various times ($z$). 
+%For further discussion we refer to  \cite{paulon:2023}. 
+Importantly, the primary objective in these examples is testing multiple scientific hypotheses indexed by $z$, not merely estimating covariate effects.  Our examples illustrate how estimation-focused methods may be prone to false positive inflation.  
+%One may avoid such false positives by requiring the estimated effect to be above some threshold, but then effects below the threshold cannot be detected. 
+
+%Non-linear covariate interactions are a prevalent phenomenon in Statistics. 
+%%In statistical analysis, the non-linear relationship between covariates and outcomes is a prevalent phenomenon, characterized by localized rather than global effects across the entire range of covariate values. 
+%%For instance, in the analysis of salary data, variations in salaries are more pronounced among specific age groups. This non-linearity poses a fundamental challenge when examining non-parametric interactions in regression.  
+%If covariates of interest, denoted as $x$, interact non-linearly with other covariates, say $z$, they may be associated with the outcome variable, $y$, for specific values of $z$. Consequently, it becomes crucial to assess the impact of covariates on outcomes within specific regions defined by $z$. We call this a \emph{local variable selection} problem. 
+%%Essentially, this implies the existence of an interaction effect that is active and apparent only for certain values of coordinates given by $z$. 
+%For example, in our salary application we found evidence for salary gaps associated to race at most career stages, but not upon entering the work force.
+%As another example, in spatio-temporal and functional data one often seeks to evaluate covariate effects at specific (spatial or temporal)  coordinates. Strategies for local variable selection include semi-parametric methods designed to ease interpretation and computation, and non-parametric methods that offer greater flexibility albeit at the cost of more intensive computations and larger sample sizes. 
+%See for example \cite{boehm:2015,kang:2018,jhuang:2019,deshpande:2024,paulon:2023} for some proposals, discussed further below.
+
+%Local variable selection is the problem of assessing whether a set of covariates $x$ have an effect on the mean of an outcome $y$, at various specific coordinates given by a further variable $z$.
+%This is a fundamental problem when considering non-parametric interactions in regression: if covariates $x$ interact with $z$ in a non-linear fashion, they may only be associated with $y$ for certain values of $z$.
+%The problem has also attracted increasing attention in fields with dependent data (e.g. spatio-temporal, functional), where one wishes to assess covariate effects at a given coordinate given by $z$.
+%The analysis strategies for local variable selection range from semi-parametric methods designed for computational tractability and borrowing of information across nearby $z$'s, to non-parametric methods that provide more flexibility but require costlier computation and larger sample sizes.
+
+Additive regression is a natural semi-parametric framework for analyzing local covariate effects, particularly when the sample size $n$ or computational power are not sufficient for fully non-parametric methods, or one wants simpler models to facilitate interpretation. While additive regression models are standard, their application to local variable selection has not been well-studied. We contribute primarily in two ways.
+First, we highlight an important drawback: even under slight model misspecification, most additive regression methods present an inflated type I error for local effects.
+ This issue is sensitive to the chosen basis functions,  and raises a significant concern for local variable selection. 
+%This finding raises a significant concern regarding the reliability of such methods for the purpose of local variable selection. 
+Second, we address this pitfall through a simple modification that preserves the interpretability and computational features of additive regression. We give theoretical and empirical results that our approach achieves consistent local variable selection when the model is misspecified. To our knowledge, ours are the first results for high-dimensional local variable selection under misspecification.
+
+%Our main contributions are two-fold. First, we provide a theoretical analysis that signals an important potential pitfall of semi-parametric methods: when (unavoidably) the model is even mildly misspecified the type I error of most methods to test a precise null hypothesis converges to 1.
+%Second, we propose methodology that avoids said pitfall via a simple modification, and show theoretically and empirically that it attains consistent (local) variable selection in high-dimensional regimes where the model is misspecified. To our knowledge, these are the first theoretical results for high-dimensional local variable selection under misspecification.
+%The methodology is implemented in our R package mombf and illustrated in two examples.
+%The first is an independent errors setting where one wishes to assess salary gaps associated to potential discrimination (e.g. gender, race) at various ages, and the second a functional data setting measuring local covariate effects on brain activation over time.
+
+
+%While there are many approaches available when $z$ is discrete, say a grid of time or spatial locations, the case where $z$ is continuous received relatively little attention. This situation is however increasingly important in applications.
+%This problem occurs naturally when one considers covariate interactions, and also in functional data analysis where one seeks to assess mean differences at specific points in space or time, for example.
+%For example, one may wish to study what covariates are associated to an individual's salary $y$, separately for each age $z$. The reasoning is that some covariates may only be relevant for young or old individuals, e.g. employers may seek specific characteristics for recent graduates or for senior hires.
+%A second example also considered here is a brain activity dataset from \cite{saez:2018}. The experiment collected functional data on brain activity $y$ at high time resolution while patients played decision-making games, and the interest is to study what covariates (e.g. patient or game characteristics) are associated to brain activity at each given time $z$.
+
+%Local null tests are intimately related to non-parametric interactions: if covariates $x$ interact with $z$ in a non-linear fashion, they may only be associated with $y$ for certain values of $z$.
+%When performing local variable selection it is natural to consider flexible models based on splines, wavelets or Fourier bases, for example, and apply standard model selection/testing methods based on $L_0$ penalties (including P-values, as a particular case) or Bayesian model selection.
+%An important observation motivating our work is that models (even flexible ones) are ultimately a simplification of reality, and hence are misspecified to some degree.
+%When said misspecification occurs standard hypothesis tests provably return the wrong answer asymptotically.
+
+Figure \ref{fig:splinefit} offers an illustration with
+% potential issues that arise when the assumed model misspecifies the true mean structure 
+a binary covariate $x$, defining two groups, see Section \ref{sec:simulation_iid}. The true group means are equal for $z \leq 0$ and different for $z>0$. We seek to identify the $z$'s at which the group means differ. We fit cubic B-splines to the combined data from both groups, with $n=1,000$. %, or another suitable basis that allows for conducting local hypothesis tests (see Section \ref{sec:single_covar} for a more precise discussion). 
+The solid black lines in the left panel are the group means projected on the B-spline basis, i.e.  the approximation recovered as $n \rightarrow \infty$. Critically, said projections are no longer equal for $z \leq 0$. 
+Their differences are small, but as $n$ grows significant type I error issues arise. The right panel shows that a near-one posterior probability is assigned to group differences for $z \in (-1,0)$. Similar issues occur when using posterior intervals or P-values. 
+Here we employed moderately many knots, 20 for the baseline mean and 10 for the group differences. 
+ Figure \ref{fig:splinefit_varyingknots}, bottom left panel, shows that type I errors also occur for other knots and sample sizes.
+%Adding knots as $n$ grows is standard in estimation and forecasting problems and could mitigate type I error inflation. 
+Our proposal is more robust in that it prevents type I errors, regardless of the knot placement. 
+It can hence operate with relatively few knots, 
+which simplifies computations since the model space grows exponentially with the knots,
+and one may use Bayesian model averaging to learn how many knots are needed.
+
+
+
+%Before reviewing related literature, we discuss an example to illustrate potential issues when the assumed misspecifies the true mean structure.
+%Figure \ref{fig:splinefit} shows a setting with a single binary covariate $x$ defining two groups, where the true group means are equal for $z \leq 0$ and different for $z>0$.
+%The goal is to determine the set of coordinates $z$ at which the two group means differ, based on $n=100$ observations (see Section \ref{sec:simulation_iid} for details).
+%Suppose one uses a semi-parametric model based on cubic B-splines, or some other suitable basis whose local nature allows conducting local hypothesis tests (see Section \ref{sec:single_covar} for a more precise discussion).
+%The black solid lines depict the projection of the true group means on a cubic B-spline basis, i.e. the best approximation that one can hope to recover as $n \rightarrow \infty$.
+%The issue is that the projected means are no longer equal at $z \leq 0$ (top left panel), hence as $n$ grows one will detect differences between group means at $z \leq 0$, when there are truly none. 
+%In this example, although $n=100$ is moderate and the projected group means are fairly similar for $z<0$, there are serious type I error issues. The right panel shows that, using cubic B-splines, there is near-one posterior probability for group differences at $z \in (-1,0)$.
+%We remark that we used a moderate number of knots, 20 for the baseline mean and 10 for the group differences,
+%and that type I error inflation could be ameliorated by using more knots as $n$ grows (as is standard in estimation and forecasting problems). 
+%Unfortunately, in our model selection setting the size of the model space to be considered increases exponentially with the number of knots, and the power to detect local differences decreases, hence it is desirable to have methods that can work with a few knots.
+
+
+
+\begin{figure}
+\begin{center}
+\begin{tabular}{cc}
+\includegraphics[width=0.48\textwidth, height=0.42\textwidth]{bspline_fit_cubic.pdf} &
+\includegraphics[width=0.48\textwidth, height=0.42\textwidth]{bspline_cubic_pp.pdf} \\
+\end{tabular}
+\end{center}
+\caption{Simulation. Left: true group means and their cubic B-spline projections (left). Right: posterior probability of local group differences, using 9 knots (black dots) for cubic splines and for cut cubic B-splines based on $n=1000$.}
+\label{fig:splinefit}
+\end{figure}
+
+
+
+We consider settings with independent data %, where the goal is to perform local variable selection, 
+and some extensions to dependent data. The latter setting received considerable attention.
+%For instance, \cite{linkletter:2006}, \cite{savitsky:2011} and \cite{reich:2010} employed Gaussian processes for global variable selection with spatial data. \cite{lee_eunryung:2016} studied high-dimensional global variable selection using group LASSO and SCAD penalties.  
+\cite{boehm:2015} addressed local variable selection by combining spike-and-slab priors with latent Gaussian processes, \cite{jhuang:2019} by using horseshoe priors, and \cite{kang:2018} by applying soft-thresholding to a Gaussian process. For functional data on a common grid, e.g. mass spectrometry, images, \cite{morris:2011} %and \cite{zhu_hongxiao:2011} % and \cite{shang_zuofeng:2012} 
+employed basis functions such as wavelets, Fourier transforms, and splines. 
+%These methods induces parsimony and shrinkage in the basis representation; thus they 
+These methods test whether covariate effects are near 0, rather than exactly 0 as is our goal here. There is also abundant research in settings where $z$ is categorical. For example, \cite{smith_michael:2007} proposed a Bayesian framework for regressions on a lattice, whereas \cite{scheel:2013} %and \cite{choi_jungsoon:2018} 
+focused on variable selection over discrete spatial locations.
+%In such settings, a local regression is typically defined at each possible $z$ value, whereas we consider (possibly continuous) domains where parameters are shared across nearby $z$'s.
+ Similar problems have been addressed \citep{warren2012,wilson2017} to estimate pollutant effects during pregnancy. These models focus on estimation, thus lacking a formal testing framework, as we do here. 
+
+%In a different line of research, \cite{wanghansheng:2009,wang_dewei:2012,kong:2015,li_lexin:2017} proposed penalized likelihood and kernel methods for varying-coefficient models that encourage sparsity. However, these methods are not specifically designed for conducting local hypothesis tests. 
+In work related to ours, \cite{deshpande:2024} employed Bayesian additive regression trees for varying-coefficient models, %both with independent and dependent observations, 
+and established near-minimax estimation rates when the number of covariates $p$ grows slower than $n$.
+% \cite{morton2022} employed BART to model a flexible exposure–time–response surface  in an in environmental epidemiology study. 
+ However, their work did not provide theory for local null tests. Furthermore,  \cite{paulon:2023}  considered a non-parametric framework for time-varying variable selection with categorical covariates, to detect high-order covariate interactions. They proved parameter estimation and variable selection consistency for fixed $p$. Here we consider a simpler additive model that is applicable beyond longitudinal data, allows for continuous and  categorical  covariates and multivariate $z$, and provides high-dimensional theory under misspecification.
+
+
+
+
+
+%This paper focuses on studying settings with independent data where one wishes to conduct local variable selection, and on some extensions to dependent data.
+%The latter setting has received greater attention in the literature.
+%For example, \cite{linkletter:2006}, \cite{savitsky:2011} and \cite{reich:2010} used Gaussian processes for global variable selection with spatial data, and \cite{lee_eunryung:2016} studied high-dimensional global variable selection using group LASSO and SCAD penalties.
+%%\cite{linkletter:2006} and \cite{savitsky:2011}, who consider spike-and-slab priors on the GP covariance kernel for linear and generalized linear models (respectively), and \cite{reich:2010} who test if covariate effects are globally zero, constant, or spatially-varying.
+%%\cite{linkletter:2006} consider continuous outcome and spike-and-slab priors on the GP covariance $\cov(z(x),z(x')= \exp\{ -  \rho_j/2^{\alpha_j} (x_j-x_j')^{\alpha_j} \}$.
+%%\cite{savitsky:2011} extend \cite{linkletter:2006} to GLMs, studying more flexible covariance structures (1-term and 2-term exponential) and improved MCMC algorithms.
+%%\cite{reich:2010} test if covariate effects $\beta_j$ are zero, constant, or spatially-varying. They set independent GP priors with Matern covariance on each $\beta_j$. They use standard spike-and-slab to detect constant $\beta_j$'s, and detection of spatially-varying $\beta_j$'s is via dropping its contribution on the GP covariance. Computation is via standard MCMC.
+%%\cite{lee_eunryung:2016} study global variable selection (i.e. test $\beta_j(z)=0$ for all $z$) combining kernel smoothing with group LASSO and SCAD penalties and prove consistent high-dimensional variable selection when the regularization parameter is chosen via BIC. Their theory is limited to one-dimensional $z_i\in \mathbb{R}$ but is otherwise nice in allowing for correlated heteroskedastic errors, and non sub-Gaussian error tails.
+%Closer to us, \cite{boehm:2015} tackled local variable selection by combining spike-and-slab priors with a latent Gaussian processes, an approach extended by \cite{jhuang:2019} using horseshoe priors, whereas \cite{kang:2018} applied a soft-thresholding operator to a Gaussian process. 
+%%Bayesian domain selection for VC model. \cite{boehm:2015} propose a continuous spike-and-slab prior on $\beta_j(s)$ where dependence across $s$ is captured by applying a spike-and-slab inverse cdf to a latent GP. Specifically let $F$ be the spike-and-slab cdf and $\theta_j(s)$ be a GP, then define $\beta_j(s)=F^{-1}(\Phi(\theta_j(s)))$ where $\Phi$ is the standard Normal cdf. This ensures that marginally $\beta_j(s)$ follows a spike-and-slab and that nearly $(s,s')$ are both generated from either the spike or the slab.
+%%\cite{kang:2018} define the prior on $\beta_j(s)$ by applying a soft-thresholding operator to a GP, so the BVS selects regions in space where $\beta_j(s)$ is sufficiently far from 0.
+%%\cite{jhuang:2019} extend \cite{boehm:2015} to using a horseshoe prior extension based on placing a GP (that interestingly has a low-rank covariance) on the horseshoe's latent dispersion and then thresholding.
+%\cite{morris:2011,zhu_hongxiao:2011,shang_zuofeng:2012} used basis functions such as wavelets, Fourier transforms and splines for functional data observed over a common grid (e.g. mass spectrometry, images).
+%%This induces parsimony and shrinkage in the basis representation but does not test for exact zeroes in the original space, i.e. performing exact local null tests. For example, \cite{morris:2011} based inference on reporting regions where the covariate effect is above a user-specified threshold.
+%%see also \cite{morris:2015} (Section 5) for a related review on function on scalar regression. % where one may test interval-based null hypotheses using semi-parametric models, e.g. wavelet-based.
+%%\cite{morris:2015} (Section 5) discusses function on scalar regression. He also discusses adding random effects.
+%%\cite{morris:2008} consider function-on-scalar regression via wavelets, and perform multiple comparisons to test $\beta_j(z)\neq 0$ for multiple $z$, via computing posterior probabilities that have connections to Bayesian False Discovery Rate control.
+%Most of these methods test whether covariate effects are near 0, rather than exactly 0 as is our goal here.
+%There is also abundant work in situations where $z$ is discrete, see for example \cite{smith_michael:2007} for a Bayesian framework for regressions located on a lattice and \cite{scheel:2013,choi_jungsoon:2018} for variable selection over discrete spatial locations.
+%In said settings one typically defines a local regression at each possible $z$ value, whereas we consider (possibly continuous) domains where parameters are shared across nearby $z$'s.
+%%There is also abundant work on scalar-on-image regression, \cite{goldsmith:2014} and \cite{li_fan:2015} proposed frameworks with prior dependence in the inclusion indicators of the image spatial coefficients, whereas \cite{kang:2018} used a soft-thresholded Gaussian process prior.
+%%\cite{morris:2011} considered functional data observed on a fine grid that is common across all subjects and proposed applying an isomorphic transform to the data, e.g. given by wavelet, Fourier or spline transforms, such that one can then directly model the basis that describes the transformed data and map the inference back to the original data. The authors set a spike-and-slab prior on the transformed coefficients, which assigns no prior mass to zero coefficients in the original space, and report the latter when they have large posterior probability of being above a user-defined practical significance threshold.
+%%\cite{zhu_hongxiao:2011} consider a robust alternative to \cite{morris:2021} by specifying mixtures of normals on the coefficients and error terms.
+%%
+%%\cite{reich:2010} test if covariate effects $\beta_j$ are zero, constant, or spatially-varying. They set independent GP priors with Matern covariance on each $\beta_j$. They use standard spike-and-slab to detect constant $\beta_j$'s, and detection of spatially-varying $\beta_j$'s is via dropping its contribution on the GP covariance. Computation is via standard MCMC.
+%%See \cite{reich:2021} for an review of these and other related strategies.
+%On a different thread, \cite{wanghansheng:2009,wang_dewei:2012,kong:2015,li_lexin:2017} proposed penalized likelihood and kernel methods for varying-coefficient models that encourage sparsity, but are not designed to conduct local hypothesis tests. 
+%Closest to our work, \cite{deshpande:2024} used Bayesian additive regression trees (BART) for varying-coefficient models, both for independent and dependent observations, and proved near-minimax estimation rates when $p$ grows at a rate slower than $n$. However, no theory was provided for variable selection.
+%Also close to us, \cite{paulon:2023} consider a flexible framework for time-varying variable selection with discrete covariates for longitudinal outcomes aimed at detecting high-order covariate interactions, and prove parameter estimation and variable selection consistency for fixed $p$. Instead, we consider a simpler semi-parametric model that does not require longitudinal data, allows for continuous and discrete covariates, and for multivariate $z$. Further, our theory considers high-dimensional covariates and model misspecification.
+%%To our knowledge ours is the first theoretical study of local variable selection in high dimensions, and also in considering the effects of model misspecification.
+
+
+
+%Our first main contribution is describing how said issues can arise from misspecifying the mean structure and, in dependent and functional data settings, also from misspecifying the dependence structure.
+%Our second main contribution is providing a simple construction that avoids said issues. We illustrate our methodology in settings with independent data with the salary example, and in functional data settings with the brain example. 
+%For clarity we focus on the case where the outcome is continuous, but our ideas can be directly extended to other generalized linear models, e.g. binary or count outcomes.
+
+The key in our approach lies in using basis functions that capture covariate effects, locally for each neighborhood in $z$,
+and are orthogonal to basis used outside that neighborhood. We refer to this construction as an {\it orthogonal cut basis}. It can be viewed as an extension of a piece-wise constant parameterization that maintains certain orthogonality properties and allows including higher-degree terms, e.g. cubic, as in Figure \ref{fig:splinefit}. In dependent data settings, an additional element is required: a block-diagonal approximation to the covariance that captures local dependence. %Combined with the orthogonal cut basis, such a purposedly misspecified dependence model ensures consistent local variable selection as $n \rightarrow \infty$.
+%The key element in our construction is capturing covariate effects using basis functions that are local, in the sense of describing the outcome in a neighborhood of any given $z$,  and orthogonal to basis used outside that neighborhood. 
+%We refer to this construction as {\it orthogonal cut basis}. It can be thought of as an extension of a piece-wise constant parameterization that orthogonal to the baseline mean and where one can use higher-degree terms (e.g. cubic, in Figure \ref{fig:splinefit}).
+%In dependent data settings a further element is needed, namely a block-diagonal approximation to the covariance that captures local dependence. 
+%Combined with the local orthogonal bases, such a purposedly misspecified dependence model ensures consistent local variable selection as $n \rightarrow \infty$.
+
+We set notation. Let $y = (y_1, \ldots, y_n) \in \mathbb{R}^n$ be the observed outcomes,
+$x_i= (x_{i1},\ldots,x_{ip})$ the $p$ covariates for individual $i$, and $z_i \in \mathbb{R}^d$ the ``coordinates" of interest. % for evaluating the effect of the variables in $x$. 
+For example $y_i$ is the salary of individual $i$, $z_i$ the age, and $x_i$ records race and gender.
+%in another $y_i$ is the brain activity for a given patient at time $z_i$.
+The goal is to evaluate the effect of $x_i$ on $y_i$ at each possible $z_i$. 
+Our theory and methods also hold when $z_i$ is multivariate,  see Section \ref{ssec:simulation_iid_bivar} and Figures \ref{fig:bspline_fit_cubic_bivar}-\ref{fig:simiid_bivar} for bivariate examples.
+%However, our examples focus only on univariate \(z_i\) for simplicity and clarity. 
+We note however that multivariate functional data requires
+specifying suitable dependence models, which falls beyond our scope.  %We remark that our results also hold when $z_i$ is multivariate, however our examples consider only univariate $z_i$, this is done for simplicity and because an effective deployment of the multivariate methodology requires a careful study beyond our scope. 
+Additionally to $z_i$, there may be adjustment covariates included in the model without undergoing testing. For simplicity we omit said covariates from our exposition, but they are implemented in our software and used in our salary example. 
+We denote the unknown data-generating density of $y$ as $F$, which generally lies outside the assumed model class. For purposes of local null testing, we partition the support of $z$ into a set of regions $\mathcal{R}= \{R_1,\ldots,R_{|\mathcal{R}|}\}$, e.g., the 9 intervals in Figure \ref{fig:splinefit}. 
+The idea is that these are the smallest regions that are of practical interest. We later discuss that, to improve power  and reduce sensitivity to the chosen knots,  one may consider multiple sets of regions $\mathcal{R}_1,\ldots,\mathcal{R}_L$ and combine them in a multi-resolution analysis via Bayesian model averaging. 
+%We later discuss that one may combine inference across multiple sets of regions $\mathcal{R}_1,\ldots,\mathcal{R}_L$ via Bayesian model averaging. 
+However, for clarity we consider a single $\mathcal{R}$ for now.
+Our method does not require that knots are perfectly aligned with the $z$ values where covariate effects transition from zero to non-zero. If a covariate truly has no effect for all $z$ in a region, then there is no effect, otherwise there is an effect for some $z$ in that region that will be asymptotically detected by our approach. That is, we do not seek precise change-points where local covariate effects transition from zero to non-zero, rather we report posterior inference coherently with the given regions.
+Our multi-resolution analysis offers a way to increase the precision in certain regions, if so desired, as we illustrate in our simulations. Our framework applies to regions of arbitrary shape, e.g. defined by brain regions, but our software focuses on hyper-rectangles that lead to simpler interpretation, akin to tree-based methods. 
+Our methods are implemented in the R package mombf.
+
+%Two other popular strategies are using local smoothers or Gaussian processes, however it is not trivial to express local testing problems in such frameworks. Also GP-based calculations have complexity of order $n^3$, unless one develops low-rank or nearest-neighbour approximations as in \cite{banerjee:2017} (see also \cite{quinonero:2005}).
+%This said, we remark that setting a prior on the basis coefficients as in our framework defines a stochastic process on $f(z)$, e.g. a Gaussian process.
+%Also, by the spectral representation theorem \citep{fuentes:2010}, any Gaussian process can be expressed as an infinite basis expansion, and in particular there is an equivalence with cubic splines (\cite{rasmussen:2006}, Chapter 6.3). Due to computational restrictions it is common to truncate said basis expansion, which leads to similar model misspecification-related issues to those discussed here.
+
+
+
+
+
+%\begin{figure}
+%% The arguments in the next line are {height}{optional width}{used only by OUP for typesetting} for figure empty box eg 
+%%\figurebox{20pc}{25pc}{}
+%%if actual size of graphics need plese see below command
+%%\figurebox{}{}{}[fig1]
+%%need to reducing the figure size use below command
+%%\figuresize{.8}%
+%\figuresize{.6}
+%\figurebox{20pc}{25pc}{}[fig1]
+%% note that files may not be rotated
+%\caption{A graph showing the truth (dot-dash), an estimate (dashes), another estimate (solid), and 95\% pointwise confidence limits (small dashes).}
+%\label{fig1}
+%\end{figure}
+
+
+
+
+\section{Local variable selection in group comparisons}
+\label{sec:single_covar}
+
+
+\subsection{Local selection in model-based tests}
+\label{ssec:model}
+
+We consider first the case of a single categorical covariate $x_{i1} \in \{1,\ldots,K\}$, defining $K$ distinct groups. 
+ Continuous and discrete covariates taking infinitely many values, and multiple covariates, are discussed in Section \ref{sec:multiple_covar}. 
+Suppose that the data-generating distribution $F$ has an expectation given by a baseline function $f_0(z_i)$ plus an interaction term $f_1(x_{i1}, z_i)$. 
+%Suppose that, unknown to the data analyst, the data-generating truth has expectation given by a baseline $f_0(z_i)$ plus an interaction term $f_1(x_{i1},z_i)$. That is,
+Specifically,
+\begin{align}
+E_F(y_i \mid z_i, x_i) = f_0(z_i) + f_1(x_{i1}, z_i), \quad i=1,\ldots,n,
+\label{eq:datagentruth_1covar}
+\end{align}
+where  $f_0$ and $f_1$ are  continuous functions in $z_i$.   An identifiability condition is required in \eqref{eq:datagentruth_1covar}, e.g. 
+ a sum-to-zero constraint $\sum_{k=1}^K f_1(k,z)=0$ at each $z$,
+so that 
+$f_1(k,z)$ represents the deviation from the baseline mean for group $k$ at $z$.
+The goal of local variable selection is to assess whether the groups have a zero effect at a specific value of $z$. This is expressed by the local null hypothesis
+\begin{align}
+f_1(1,z) = f_1(2,z)= \ldots = f_1(K,z)= 0.
+\nonumber
+%\label{eq:localnull_1covar}
+\end{align}
+In practice, the data-generating $F$, and the functions $(f_0,f_1)$, are unknown and need to be approximated. 
+%In practice one does not know the data-generating $F$, nor $f_0$ or $f_1$, and must use an approximation.
+A common strategy is to model $f_0$ and $f_1$ using basis functions, such as splines, and to assume a specific error model for the outcome $y=(y_1,\ldots,y_n)$, say Gaussian.
+Specifically, consider the approximation  of $f_0(z_i)$ with $\beta_0(z_i) = w_{i0}^T \eta_0$ and $f_1(k,z_i)$ with $\beta_{1k}(z_i) = w_{ik}^T \eta_{1k}$, where $w_{i0}=w_{i0}(z_i) \in \mathbb{R}^{l_0}$ and $w_{ik}=w_{ik}(z_i) \in \mathbb{R}^{l_1}$ evaluate the chosen basis at $z_i$, $(\eta_0, \eta_{1k})$ denote the corresponding parameters, and $(l_0,l_1)$ their dimension.
+Then,  \eqref{eq:datagentruth_1covar} is approximated by
+\begin{align}
+E_\eta(y_i \mid z_i, x_{i1}=k)= \beta_0(z_i) + \beta_{1 k}(z_i)= w_{i0}^T \eta_0 + w_{i k}^T \eta_{1 k}.
+\label{eq:vcmodel_1covar}
+\end{align}
+Equation \eqref{eq:datagentruth_1covar} is a varying coefficient model \citep{hastie:1993}, where the regression coefficients $\beta_0(z_i)$ and $\beta_{1k}(z_i)$ depend on $z_i$.
+Assuming Gaussian errors, we can express \eqref{eq:vcmodel_1covar} as
+\begin{align}
+ y \mid Z, X \sim N \left( W_0 \eta_0 + W_1 \eta_1, \Sigma \right),
+\label{eq:vcmodel_1covar_matrix}
+\end{align}
+where $W_0$ is an $n \times l_0$ matrix with $i^{th}$ row given by $w_{i0}$, $W_1$ is an $n \times l_1 K$ matrix with $i^{th}$ row given by $(w_{i1}^T,\ldots,w_{iK}^T)$, and $\Sigma$ is the error covariance. For instance, one may assume independence and take $\Sigma = \sigma^2 I$ for some $\sigma^2 > 0$, or consider an appropriate dependence model.
+For identifiability, we impose an orthogonality constraint $W_1^T W_0 = 0$ such that $W_0\eta_0$ represents the  baseline mean and $W_1\eta_1$ represents  group deviations from the baseline. This is achieved by defining a standard basis, e.g. splines, and letting $W_1$ be the residuals from regressing that basis onto $W_0$, see Section \ref{ssec:misspec}.
+For simplicity, we assume that $W$ is non-random, meaning that the covariates $X$ and coordinates $Z$ are fixed, and that any subset of $W$ with $\leq n$ columns has full column-rank.
+
+Under the model specified in \eqref{eq:vcmodel_1covar}, the local null hypothesis at $z$ can be expressed as 
+%{\color{red}: M: is this local or global? k doesn't index the knots here, or the region}
+%{ [DR. It's local. $k$ indexes groups, $z$ the specific location, and $w_k=w_k(z)$ depends on $z$. I emphasized the dependence on $z$ after \eqref{eq:localnull_1covar_vcmodel}] }
+\begin{align}
+ \beta_{11}(z)= \ldots= \beta_{1K}(z)=0 \Longleftrightarrow 
+w_1^T \eta_{11}= \ldots = w_K^T \eta_{1K}=0,
+\label{eq:localnull_1covar_vcmodel}
+\end{align}
+where $w_k=w_k(z)$ is the basis function of $\beta_{1k}$ evaluated at $z$.
+That is, the local null test at a given $z$ assesses whether particular linear combinations of the parameters $\eta_1$ are zero.
+
+To facilitate interpretation, we use a local basis such that conducting the test for any $z$ within a given region $R_b$
+is defined by finding zeroes in $\eta_{1k}$, rather than its linear combinations. % $w_k(z)^T \eta_{1k}$). 
+%that enables a single test for any $z$ within a given region $R_b$, so that the test is defined by finding zeroes in $\eta_{1k}$ (rather than in linear combinations). 
+%To simplify the exercise, we use a local basis such that one can use a single test for any $z$ in a given region $R_b$, and the test is defined by finding zeroes in $\eta_{1k}$ (rather than in linear combinations).
+By local, we mean that the value of $\beta_{1k}(z)$ in each region $R_b$ is defined by a small subset of parameters in $\eta_{1k}$.  For instance, B-spline bases have minimal support: in an $l$-degree B-spline, each interval between consecutive knots is represented by $l+1$ coefficients.
+ For multivariate $z$, we use tensor products of B-splines. 
+Figure \ref{fig:splinefit_suppl}, left, illustrates a cubic B-spline ($l=3$) in which a local hypothesis is tested for $z \in [-0.75, 0]$ (black square) with $K=2$ groups. 
+Only $l+1=4$ bases, marked in black, have nonzero values in this interval, specifically bases 2-5. That is, if $\eta_{12}=\eta_{13}=\eta_{14}=\eta_{15}=0$ it then follows that $\beta_{11}(z)= 0$ for all $z \in [-0.75, 0]$, where we recall that the deviation of group $K=2$ from the baseline is $\beta_{12}(z) = -\beta_{11}(z)$, from the identifiability constraint $W_1^T W_0=0$ discussed above.
+
+
+\subsection{Model Misspecification and orthogonal cut basis}
+\label{ssec:misspec}
+
+One of our main messages is that model-based tests, such as \eqref{eq:localnull_1covar_vcmodel}, can lead to incorrect conclusions when the model is misspecified, i.e. \eqref{eq:vcmodel_1covar_matrix} does not perfectly capture the true mean \eqref{eq:datagentruth_1covar}.
+%As discussed, a main message %{\color{red}M: needs  to be put in the intro} 
+%in this paper is that model-based tests as in \eqref{eq:localnull_1covar_vcmodel} lead to incorrect conclusions when the mean model is misspecified, i.e. one acknowledges that \eqref{eq:vcmodel_1covar_matrix} is not a perfect approximation to \eqref{eq:datagentruth_1covar}.
+Under mild conditions, likelihood-based estimators $\hat{\eta}=(\hat{\eta}_0,\hat{\eta}_1)$ for the parameters $\eta=(\eta_0,\eta_1)$ in \eqref{eq:vcmodel_1covar_matrix} converge to the optimal values that minimize the Kullback-Leibler divergence. 
+For the independent errors case  where $\Sigma= \sigma^2 I$  in \eqref{eq:vcmodel_1covar_matrix}, the asymptotic value minimizes mean squared prediction error under the data-generating $F$, and is given by a least-squares regression of $E_F(y \mid Z,X)$ on $W$,
+\begin{align}
+\eta^*= \arg\min_\eta E_F \left( (y - W\eta)^T (y - W\eta) \mid Z,X \right)= (W^T W)^{-1} W^T E_F (y \mid Z,X).
+\label{eq:asympsolution_indep}
+\end{align}
+%$\eta^*$ minimizes mean squared prediction error under the data-generating $F$, and is given by a least-squares regression of $E_F(y \mid Z,X)$ on $W$.
+The issue is that these optimal values in $\eta^*$ associated with a specific region may be non-zero even when the group means are equal in that region. In Figure \ref{fig:splinefit},
+ although the group means are equal for all $z \in [-0.75,0]$, the optimal coefficients $\eta_{12}^*,\ldots,\eta_{15}^*$ associated to this region are non-zero.
+ As $n \rightarrow \infty$, standard frequentist and Bayesian tests  provide overwhelming evidence for a group effect at such $z$ values, resulting in false positives. %This issue remains problematic even when the sample size is moderate, as in Figure \ref{fig:splinefit} where $n=1,000$.
+%As $n \rightarrow \infty$, both standard frequentist and Bayesian tests find overwhelming evidence for a group effect at such $z$, giving a false positive, and in  figure \ref{fig:splinefit} the issue is problematic even with $n=100$.
+This occurs because $\eta_{12}^*,\ldots,\eta_{15}^*$ also play a role in approximating the group means for $z \not\in [-0.75,0]$, e.g. by setting non-zero entries in $\eta_1^*$ one obtains a better approximation to the true group means for $z>0$.
+
+To address this issue, we introduce the concept of an \emph{orthogonal cut basis}. This is a basis for $\beta_{1k}(z)$ that has support only in a region of $z$ values and is orthogonal to bases outside that region.
+%We define a cut basis as a B-spline basis that is equal to the regular B-spline basis within the region of interest (say, $R_b$), and zero outside that region. 
+Then, the optimal coefficients $\eta_{1}^*$ in \eqref{eq:asympsolution_indep}  contain zeroes when there are truly no local group differences, e.g. such as $z < 0$ in Figure \ref{fig:splinefit}. 
+%In the illustration of Figure \ref{fig:splinefit}, we ensure that $\eta_1^*$ in \eqref{eq:asympsolution_indep} contains zeroes when there are truly no differences in a region, such as $z \in [-1,-0.6]$ in our example. That is, the bases defining $\beta_{1k}(z)$ within each region must be orthogonal to bases outside that region. This can be achieved by using basis for $\beta_{1k}(z)$ that only have support on one region, which we refer to as a {\it cut basis}. 
+%Specifically, a cut B-spline basis for region $R_b$ is equal to the B-spline basis in $R_b$ and to 0 outside $R_b$. 
+Figure \ref{fig:splinefit_suppl}, right panel, shows a cut cubic B-spline basis. 
+The cut B-spline basis for region $R_b$ is equal to the B-spline basis in $R_b$ and to 0 outside $R_b$, hence it does not contribute to the group means outside $R_b$. 
+%The false positives in the earlier problematic region $z \in [-0.75,0]$ are no longer present.
+%See Figure \ref{fig:splinefit} (bottom right) for a cut cubic B-spline basis example,
+%and note how one no longer infers group differences in the earlier problematic region $z \in [-0.75,0]$.
+ %The associated optimal cut B-spline (Figure \ref{fig:splinefit}, middle left) now gives equal group means for any region where the data-generating group differences are zero.
+%The bottom panels in Figure \ref{fig:splinefit} show the estimated means based on simulated data using cut B-splines of degree 3 and 0.
+%In this example, the degree 0 cut splines provide a better estimate and detect group differences in one more region than the cubic cut splines.
+Cut bases, similar to trees, set discontinuities in the estimated group differences. The baseline mean $\beta_0(z)$ can still be assumed to be continuous. Using B-splines for the baseline mean and cut B-splines for covariate effects combines desirable features of continuous semi-parametric and discontinuous non-parametric methods.
+%Similar to tree-based regression methods, cut bases may introduce discontinuities in the estimated group differences, but the baseline mean $\beta_0(z)$ can be assumed continuous.
+%That is, using B-splines for the baseline mean and cut B-splines for covariate effects combines features of continuous semi-parametric and discontinuous non-parametric methods.
+
+%We next show that the asymptotic solution $\eta_1^*$ contains zeroes when there are no local group differences. 
+Specifically, we partition the support of $z$ into $|\mathcal{R}|$ regions and select a basis $W=(W_0,W_1)$ that satisfies two conditions.
+Let $(y_b, W_{0b}, W_{1b})$ indicate the rows in $(y,\, W_0,\, W_1)$ for the observations in region $b$, i.e. $z_i \in R_b$.
+The first condition is to employ a cut basis $W_1$ for group effects $\beta_{1k}(z)$ within each region $b$.
+%, i.e. columns in $W_1$ corresponding to region $b$ take the value zero for any observation outside that region.
+Then, $(W_0,W_1)$ can be written as
+\begin{align} 
+%y= \begin{pmatrix} y_1 \\ y_2 \\ \ldots \\ y_{|\mathcal{R}|} \end{pmatrix}
+%; \hspace{5mm}
+W_0= \begin{pmatrix} W_{01} \\ W_{02} \\ \ldots \\ W_{0|\mathcal{R}|} \end{pmatrix}
+; \hspace{5mm}
+W_1= \begin{pmatrix} 
+W_{11} & 0 & \ldots &  0 \\
+0 & W_{12} & \ldots & 0 \\
+\ldots & & & \\
+0 & 0 & \ldots & W_{1|\mathcal{R}|}
+\end{pmatrix}.
+\label{eq:blockdiag_basis}
+\end{align}
+The second condition is orthogonality, that $W_{1b}^T W_{0b}=0$, and is satisfied as follows. Let $\widetilde{W}_{1b}$ be a cut basis
+such that $\widetilde{W}_{1b}^T W_{0b} \neq 0$, then we set
+$
+W_{1b}= (I - W_{0b} (W_{0b}^T W_{0b})^{-1} W_{0b}) \widetilde{W}_{1b},
+$
+which are the residuals obtained from regressing $\widetilde{W}_{1b}$ onto $W_{1b}$. Consequently,  $W_{1b}^T W_{0b}=0$.
+We refer to  any $W_1$ satisfying \eqref{eq:blockdiag_basis} and $W_{1b}^T W_{0b}=0$ as an {\it orthogonal cut basis}.
+
+Lemma \ref{lem:zero_indepmodel} below shows that the asymptotic $\eta^*$ contains zeroes. Specifically $\eta_{1b}^*$, which quantifies the group differences in region $b$,  is obtained by regressing the true mean $E_F(y_b \mid X,Z)$ onto $W_{1b}$, see Section \ref{supplsec:proof_zero_indepmodel} for the proof. 
+Therefore if $E_F(y_b \mid X,Z)$ is not linearly associated with $W_1$ in region $b$, i.e. the $K$ data-generating group means are equal in that region, it follows that $\eta_{1b}^*=0$.
+
+
+\begin{lemma}
+Consider $\eta^*=(\eta_0^*,\eta_1^*)$ in \eqref{eq:asympsolution_indep}, where $W=(W_0,W_1)$, $W_0$ is an $n \times l_0$ matrix and $W_1$ an $n \times l_1$ an orthogonal cut basis as in \eqref{eq:blockdiag_basis} satisfying $W_0^T W_1=0$.
+Let $\eta_1^*= (\eta_{11},\ldots,\eta_{1|\mathcal{R}|}^*)$ where $\eta_{1b} \in \mathbb{R}^{l_b}$ are the parameters associated to $W_{1b}$.
+Then, $ \eta_{1b}^*= (W_{1b}^T W_{1b})^{-1} W_{1b}^T E_F(y_b \mid X,Z)$.
+\label{lem:zero_indepmodel}
+\end{lemma}
+
+
+
+\subsection{Functional data}
+\label{ssec:misspec_fda}
+
+The presence of dependence, as in functional or dense longitudinal data, introduces additional challenges. 
+Specifically, when assuming a given $\Sigma \neq \sigma^2 I$, the asymptotic solution becomes
+\begin{align}
+ \widetilde{\eta}^*&= \arg\min_\eta E_F \left( (y - W\eta)^T \Sigma^{-1} (y - W\eta) \mid Z,X \right)=
+(W^T \Sigma^{-1} W)^{-1} W^T \Sigma^{-1} E_F(y \mid Z,X)
+\nonumber \\
+&=\eta^* + (W^T \Sigma^{-1} W)^{-1} W^T \Sigma^{-1} \left( E_F(y \mid Z,X) - W\eta^* \right),
+\label{eq:asympsolution_dep}
+\end{align}
+where $\eta^*$ is defined as in \eqref{eq:asympsolution_indep}. Unless the second term in \eqref{eq:asympsolution_dep} is zero, $\tilde{\eta}^* \neq \eta^*$,
+meaning that the optimal estimator for independent and dependent data are not equal.
+Hence, even if $\eta^*$ contains zeroes -- as guaranteed by Lemma \ref{lem:zero_indepmodel}  when using orthogonal cut bases --  $\tilde{\eta}^*$ may not contain zeroes.
+Intuitively, under correlated errors,  the optimal parameters for one region depend on those from other regions. To address this issue, we employ a block-diagonal approximation to $\Sigma$ that accounts only for within-region dependence.
+%In a functional data setting, 
+%this issue can be addressed by using a block-diagonal approximation to $\Sigma$ that only accounts for within-region dependence. 
+
+ We consider a setting where one observes $M$ functions, each of which is evaluated at a common number of $z$ values.
+Our model assumes independence across functions and across regions, so $\Sigma_{ij}=0$ if observations $(i,j)$ are in different regions. 
+%\begin{align}
+% \Sigma= \begin{pmatrix} \Sigma_1 & 0 & \ldots & 0 \\
+%0 & \Sigma_2 & \ldots & 0 \\
+%\ldots & & & \\
+%0 & 0 & \ldots & \Sigma_{|\mathcal{R}|} \end{pmatrix},
+%\label{eq:blockdiag_covar}
+%\end{align}
+%where $\Sigma_b$ indicates the covariance for observations within region $R_b$. 
+%We also assume independence across functions, i.e. $\Sigma_b$ is also block-diagonal, with blocks corresponding to observations for each individual function.
+Block-diagonal approximations are often reasonable for functional data, as long-range dependence tends to be weak,
+see Section 3.1 in \cite{varin:2011}  for related composite likelihood ideas.
+% Related ideas on marginal composite likelihood methods are found in \cite{caragea:2006}, %\cite{caragea:2007}, 
+%and \cite{varin:2011}  (Section 3.1).
+%In typical functional data applications long-range dependence is weak, making the block-diagonal approximation more reasonable,
+%e.g. see \cite{caragea:2006}, \cite{caragea:2007} and \cite{varin:2011} (Section 3.1) for related marginal composite likelihood ideas in spatial and multivariate data.
+%,  for further discussion.
+%The block-diagonal approximation is related to marginal composite likelihood methods, see for example \cite{caragea:2006,caragea:2007} who similar ideas in spatial and multivariate data, and \cite{varin:2011} (Section 3.1) for further discussion.
+
+In the case of functional data, %assuming that the covariates in $X$ have zero column means, 
+Lemma \ref{lem:zero_depmodel} shows that using such a block-diagonal $\Sigma$ leads to an asymptotic $\tilde{\eta}_1^*$ in \eqref{eq:asympsolution_dep} that contains zeroes when a covariate has no local effects. %The key idea is that Lemma \ref{lem:zero_indepmodel} can be extended to $\tilde{\eta}^*$ , yielding
+%\begin{align}
+% \tilde{\eta}_{1b}^*= (W_{1b}^T \Sigma_b^{-1} W_{1 b})^{-1} W_{1b}^T \Sigma_b^{-1} E_F(y_b \mid X,Z).
+%\nonumber
+%\end{align}
+Specifically, if $E_F(y_b \mid X,Z)$ does not differ across groups in region $b$ then it is linearly independent of $W_{1b}$ and hence also of $\Sigma_b^{-1} W_{1b}$,
+and then  $\tilde{\eta}_{1b}^*=0$ by Lemma \ref{lem:zero_depmodel}.
+%Under mild conditions, as outlined in Section \ref{sec:theory}, our theory ensures the consistent recovery of regions where no group differences exist.
+%Our theory in Section \ref{sec:theory} then guarantees, under mild conditions, that one consistently recover the regions where there are no group differences.
+
+In our examples with univariate $z \in \mathbb{R}$, we use a simple parametric covariance, 
+using either a first-order autoregressive or moving average model, selecting the preferred model with the Bayesian information criterion. 
+%In our experience, this gives a sufficiently precise estimation of $\Sigma$. 
+Subsequently, we perform inference assuming that $\Sigma = \hat{\Sigma}$ is known. %This approach offers convenience as it allows us to work with the following working model:
+%In our implementation we consider an approximation based on nothing that, by assuming a common parametric covariance structure across functions, one can typically estimate $\Sigma$ fairly precisely.
+%In particular, we propose estimating $\hat{\Sigma}$ using either a first-order autoregressive or moving average model, whichever is preferred by the Bayesian information criterion, and subsequently perform inference assuming that $\Sigma= \hat{\Sigma}$ is known.
+This is convenient in that one can take as a working model
+\begin{align}
+%y \mid Z, X, \hat{\Sigma} \sim N \left( W_0 \eta_0 + W_1 \eta_1, \sigma^2 \hat{\Sigma} \right) \Leftrightarrow
+\tilde{y} \mid Z, X, \hat{\Sigma} \sim N \left( \widetilde{W}_0 \eta_0 + \widetilde{W}_1 \eta_1, \sigma^2 I \right),
+\nonumber
+%\label{eq:vcmodel_1covar_fda}
+\end{align}
+where $\tilde{y}= \hat{\Sigma}^{-1/2} y$, $\widetilde{W}_0= \hat{\Sigma}^{-1/2} W_0$ and $\widetilde{W}_1= \hat{\Sigma}^{-1/2} W_1$.
+%or equivalently $y \mid Z, X, \hat{\Sigma} \sim N( W_0 \eta_0 + W_1 \eta_1, \sigma^2 \hat{\Sigma})$.
+%That is, one may run standard Bayesian independent errors calculations on $\tilde{y}$, including model search and posterior sampling strategies.
+Our strategy allows using standard Bayesian algorithms for independent errors on $\tilde{y}$, including model search.
+ One could also use more flexible covariance models, particularly for multivariate $z$, and treat $\Sigma$ as unknown. Computing marginal likelihoods gets much costlier, however, see Section \ref{sec:discussion}.
+
+%Our theoretical framework and methodology are applicable to scenarios involving multivariate $Z$. However, effectively implementing the approach in a multivariate context requires alternatives to the auto-regressive and moving average models we  employ here. Exploring these alternatives and their implementation is left as future work.
+
+
+\section{Multiple covariates}
+\label{sec:multiple_covar}
+
+We extend our approach to settings involving a covariate vector $x_i = (x_{i1},\ldots,x_{ip})$, where the data-generating truth in \eqref{eq:datagentruth_1covar} is expanded to
+$E(y_i \mid z_i, x_i) = f_0(z_i) + f_1(x_i, z_i)$.
+Similar to \eqref{eq:datagentruth_1covar}, we set an identifiability constraint so that $f_0(z_i)$ represents the baseline mean and $f_1(x_i,z_i)$ is a deviations from the mean. Then,  the local null test for covariate $j$ at $z$ corresponds to assessing whether $f_1(x_i,z)=0$ depends on $x_{ij}$ or not. To impose this constraint, we orthogonalize the basis used for $f_1$ with respect to that for $f_0$, as explained below.
+%We impose said constraint by orthogonalizing the basis used for $f_1$ with respect to that for $f_0$, see below.
+%Generically speaking said constraint takes the form $\int f_1(x,z) d\mu(x)=0$, where $\mu$ is the dominating measure associated to $x$, e.g. $\sum_x f_1(x,z)=0$ if $x$ is categorical, or $\int f_1(x,z) dx=0$ if $x$ is continuous.
+
+As discussed in relation to \eqref{eq:vcmodel_1covar}, model-based approaches for local variable selection approximate $(f_0,f_1)$ using a suitable function class and then expressing the selection in terms of the parameters of that class. While one may model $f_1(x,z)$ non-parametrically, and assess the effect of $x$ at each given $z$, the computational burden increases sharply as $p$ or the number of possible $z$ values increase, since the model space grows exponentially with the number of parameters. Instead, we consider a semi-parametric model that assumes additive covariate effects,
+\begin{align}
+ E_{\eta}(y_i \mid z_i, x_i)= \beta_0(z_i) + \sum_{j=1}^p \, \beta_{1j}(z_i) x_{ij}= w_{i0}^T \eta_0 + \sum_{j=1}^p \, w_{ij}^T \eta_{1j}.
+\label{eq:vcmodel_additive}
+\end{align}
+Analogously to \eqref{eq:vcmodel_1covar}, $\beta_0(z_i)= w_{i0}^T \eta_0$ approximates $f_0(z_i)$,
+$x_{ij} \beta_{1j}(z_i)= w_{ij}^T \eta_{1j}$ provides an additive approximation to $f_1(x_i,z_i)$,
+$w_{i0}=w_{i0}(z_i) \in \mathbb{R}^{l_0}$ and $w_{ij}=w_{ij}(z_i) \in \mathbb{R}^{l_1}$ are basis expansions computed from $(z_i,x_i)$,
+ and $(\eta_0,\eta_{11},\ldots,\eta_{1p}) \in \mathbb{R}^{l_0 + l_1 p}$ are the corresponding parameters.
+We denote the total number of parameters as $q= l_0 + l_1p$.
+
+The data-generating expectation $E_F(y_i \mid z_i,x_i)$ may not be additive, e.g. the effect of covariate $j$ at $z$ may interact with that of covariate $j'$. However, the parameters in the assumed model \eqref{eq:vcmodel_additive} remain interpretable, e.g. $\beta_{1j}(z)$ is the mean effect of covariate $j$ at coordinate $z$.
+ If covariate $j$ truly has a non-linear effect, conditional on $z$, then $\beta_{1j}(z)$ asymptotically recovers the slope of the best linear approximation, i.e. the average effect for a unit increase in covariate $j$. 
+ Model \eqref{eq:vcmodel_additive} does not include higher-order interactions. If the effect of covariate $j$ truly depends on other covariates, then $\beta_{1j}(z)$ captures the mean effect averaged across these other covariates.  Thus, testing whether $\beta_{1j}(z)=0$ remains a sensible goal.
+If desired, one may relax the additivity assumption, e.g. by incorporating interactions and tensor products,  and define $w_i$ to be the vector containing all such terms. %However we do not pursue that here, rather we focus on a model that tests for average local effects and remains easy to interpret.
+
+
+
+Assuming a Gaussian distribution for $y$, \eqref{eq:vcmodel_additive} can be written as
+in \eqref{eq:vcmodel_1covar_matrix}
+%\begin{align}
+% y \mid Z, X \sim N(W_0 \eta_0 + W_1 \eta_1, \Sigma),
+%\label{eq:vcmodel_matrix}
+%\end{align}
+%where $\Sigma$ is as in \eqref{eq:vcmodel_1covar_matrix} and 
+where $(W_0,W_1)$ is an orthogonal cut basis as in \eqref{eq:blockdiag_basis}. The only difference relative to \eqref{eq:blockdiag_basis} is that we extend $W_{1b}$, the basis for local covariate effects, by multiplying it by the value of each covariate, akin to interaction terms in standard regression. 
+For brevity we refer further details to Section \ref{supplsec:cutbasis_multiplecovar}.
+There we also discuss that, since $W_1$ is an orthogonal cut basis, Lemmas \ref{lem:zero_indepmodel} and \ref{lem:zero_depmodel}  still apply:
+if $E_F(y_b \mid X,Z)$ is linearly independent of covariate $j$ given the other covariates, then the asymptotic covariate effect in region $b$ is $\eta_{1jb}^*=0$. For dependent data, $\tilde{\eta}_{1jb}^*=0$.
+
+%As in Section \ref{ssec:misspec}, in dependent data settings where the error covariance $\Sigma \neq \sigma^2 I$, using a block-diagonal approximation across regions to $\Sigma$ suffices to ensure that $\eta_{1jb}^*=0$.
+
+As a practical remark, although our discussion applies to flexible basis functions such as cubic splines, the computational burden can be substantial when one has many covariates. In our examples, using cubic splines for the baseline $W_0$ and 0-degree splines for local covariate effects led to faster computations without compromising the quality of local variable selection. %and very similar inference  in terms of local variable selection.
+
+\section{A framework for local null testing}
+\label{sec:framework}
+
+
+\subsection{Bayesian model selection and averaging}
+\label{ssec:bms}
+
+Equation \eqref{eq:vcmodel_1covar_matrix} defines the likelihood associated to the observed $y \in \mathbb{R}^n$, given the design matrices $W_0,W_1$ constructed from the $p$ covariates in $X$, the coordinates in $Z$, and the corresponding parameters $\eta=(\eta_0,\eta_1) \in \mathbb{R}^{l_0+l_1 p}$.
+%This model includes as a particular case the group comparison model \eqref{eq:vcmodel_1covar_matrix} in Section \ref{sec:single_covar}.
+Under model \eqref{eq:vcmodel_1covar_matrix}, one may test for the effect of covariate $j=1,\ldots,p$ in region $b \in \{1,\ldots,|\mathcal{R}|\}$ by testing $\eta_{1jb}=0$ versus $\eta_{1jb} \neq 0$, resulting in a total of $p |\mathcal{R}|$ tests, see Section \ref{supplsec:cutbasis_multiplecovar}.
+%For simplicity of notation, we omit the dependence of the right hand side of  \eqref{eq:vcmodel_1covar_matrix} on $(X,Z)$.
+ One may use alternatives to our cut basis, such as a Haar wavelet basis, but then local tests are no longer given by single parameters being 0, see Section \ref{supplsec:haar_basis}. 
+
+We now discuss how to incorporate local tests into a standard Bayesian model selection framework,
+how to set priors, and how to use Bayesian model averaging to consider multiple choices of knots, which we refer to as a multi-resolution analysis.
+%Section \ref{ssec:bms} below discusses how to incorporate these tests into a standard Bayesian model selection framework.
+%Section \ref{ssec:priors} proposes default priors.
+%In Section \ref{ssec:varying_resolutions}, we explore an alternative approach where instead of pre-defining a fixed set of regions, multiple resolutions are considered. These resolutions can be combined using Bayesian model averaging, providing flexibility and adaptability in capturing the underlying structure of the data.
+%Section \ref{ssec:varying_resolutions} discusses how, rather than pre-defining a set of regions, one may consider multiple resolutions and combine them via Bayesian model averaging.
+
+
+
+
+To describe any arbitrary model within the local variable selection process, we introduce latent variables $\gamma= \{ \gamma_{jb} \}$, where
+$\gamma_{0b}= \mbox{I}(\eta_{0b} \neq 0)$ and $\gamma_{jb}= \mbox{I}(\eta_{1jb} \neq 0)$ 
+serve as indicators for the inclusion covariate $j=1,\ldots,p$ across regions $b=1,\ldots,|\mathcal{R}|$. The model size, i.e. the number of non-zero parameters, is denoted as $|\gamma|_0 = \sum_{jb} \gamma_{jb}$.
+ We denote by $W_\gamma$ the subset of columns in the design matrix $W=(W_0,W_1)$ such that $\gamma_{0b}=1$, $\gamma_{jb}=1$.  
+
+The goal is to select the optimal model $\gamma^*$, where $\gamma_{jb}^*= \mbox{I}(\eta_{1jb}^* \neq 0)$, with $\eta^*$ minimizing the  mean squared prediction error under the data-generating truth $F$ in \eqref{eq:asympsolution_indep} and \eqref{eq:asympsolution_dep}.
+Under model misspecification, $\gamma^*$ is the optimal model among those under consideration: it has smallest dimension $|\gamma^*|_0$ among models that are Kullback-Leibler closest to $F$ \citep{rossell:2022}.
+
+The posterior probability of model $\gamma$ is obtained as
+\begin{align}
+ p(\gamma \mid y)= \frac{p(y \mid \gamma) \, p(\gamma)}{p(y)}=
+\frac{p(\gamma) \int p(y \mid \eta)\,  p(\eta \mid \gamma)\,  d\eta}{p(y)},
+\label{eq:pp}
+\end{align}
+where $p(\gamma)$ is the model's prior probability and $p(\eta \mid \gamma)$ the prior on the parameters under model $\gamma$, see Section \ref{ssec:priors}.
+Given the posterior distribution $p(\gamma \mid y)$ for the entire vector $\gamma$, one can assess the local effect of covariate $j$ in region $b$ using the marginal posterior inclusion probabilities
+\begin{align}
+ \mbox{pr}(\gamma_{jb}=1 \mid y)= \sum_{\gamma: \gamma_{jb}=1} \, p(\gamma \mid y).
+\label{eq:margpp}
+\end{align}
+
+As shown in Section \ref{sec:theory}, under mild regularity conditions, $p(\gamma^* \mid y)$ converges to 1 as $n$ grows, and thus \eqref{eq:margpp} concentrates on $\gamma^*_{jb}$ uniformly across the pairs $(j, b)$.
+Hence, as $n$ grows, using either \eqref{eq:pp} or \eqref{eq:margpp} leads to consistently selecting $\gamma^*$ and vanishing family-wise type I-II errors.
+
+%In more detail, two common strategies to select a model $\hat{\gamma}$ given \eqref{eq:pp} or \eqref{eq:margpp} are as follows.
+%First, one may take the posterior mode $\hat{\gamma}=\arg\max_\gamma p(\gamma \mid y)$.
+%This option is appealing in that it takes into account the dependence between parameters (e.g. the effect of correlated covariates, effect of one covariate at nearby coordinates) and has a certain relation with the frequentist probability $P_F(\hat{\gamma} \neq \gamma^*)$ of selecting the wrong model.
+%Specifically, Proposition 1 and Corollary 1 in \cite{rossell:2022} give that 
+%\begin{align}
+% P_F \left( \hat{\gamma} \neq \gamma^* \right) \leq 2 E_F \left[ p(\hat{\gamma} \mid y) \right],
+%\nonumber
+%\end{align}
+%and that family-wise type I-II error rates are bounded by $P_F \left( \hat{\gamma} \neq \gamma^* \right)$.
+%Despite these appealing features, obtaining $\hat{\gamma}$ is computationally-challenging, and in applications one often encounters situations where $p(\hat{\gamma} \mid y)$ is relatively low. That is, $\hat{\gamma}$ is the top model but there is not strong Bayesian evidence in its favor.
+
+We propose including local covariate effects that have high marginal posterior probability in \eqref{eq:margpp}. Specifically, we set $\hat{\gamma}_{jb}=\mbox{pr}(\gamma_{jb}=1 \mid y) \geq t$, for some threshold $t \in (0,1)$. In our illustrations, we used $t=0.95$. This choice ensures that the model-based posterior expected false discovery proportion 
+remains below 0.05 \citep{mueller:2004}. 
+%More in detail, we note that  $\sum_{jb} \hat{\gamma}_{jb}$ is the number of positives  and $\sum_{jb} \hat{\gamma}_{jb} (1 - \gamma_{jb})$ is the number of false positives. Then,
+%\begin{align}
+% E(\mbox{FDP} \mid y)= E \left( \frac{\sum_{jb} \hat{\gamma}_{jb} \, (1 - \gamma_{jb}) }{\sum_{jb} \hat{\gamma}_{jb}} \mid y \right)=
+%\frac{\hat{\gamma}_{jb} \, \mbox{pr}(\gamma_{jb}=0 \mid y)}{\sum_{jb} \hat{\gamma}_{jb}}.
+%\nonumber
+%\end{align}
+This procedure also has a connection with frequentist type I errors. From Corollary 2 in \cite{rossell:2022}, for any true $\gamma^*_{jb}=0$, the frequentist probability of falsely selecting a covariate $j$ in region $b$ under any data-generating $F$ is upper bounded by
+$ P_F(\hat{\gamma}_{jb}=1) \leq t^{-1} E_F \left( \mbox{pr}(\gamma_{jb} =1 \mid y) \right)$.
+
+
+
+\subsection{Priors for the local effects and model selection}
+\label{ssec:priors}
+
+
+Posterior model probabilities in \eqref{eq:pp} require a prior $p(\gamma)$ on the models and a prior $p(\eta_\gamma \mid \gamma)$ on the coefficients under each model.
+ 
+For the latter we take 
+\begin{align}
+ \eta_\gamma \mid \gamma &\sim N(0, g V_\gamma),
+\label{eq:prior_paramters}
+\end{align}
+where $V_\gamma$ is a $|\gamma|_0 \times |\gamma|_0$ positive-definite matrix, and $g \in \mathbb{R}^+$.
+We consider two default $V_\gamma$, a diagonal matrix and an extension of the intrinsic conditionally auto-regressive prior \citep{besag:1974} that adds a diagonal matrix into $V_\gamma^{-1}$ to obtain a proper prior, see Section \ref{supplsec:prior_parameters}. The first prior imposes a penalty on the $L_2$ norm of $\eta$, in particular on local effects driving deviations from the baseline mean. The second prior also encourages spatial smoothness in $z$.
+In both cases, 
+we set a default $g=1$ so that prior precision's trace equals that of the unit information prior of \cite{schwarz:1978}.
+In our examples, both priors gave very similar local testing results. This is supported by our Bayes factor rates, see Section \ref{sec:theory}, and occurs because we use relatively few knots, hence encouraging smoothness is less critical than when one has many knots. By default we recommend the Normal shrinkage as it is faster computationally, since its prior normalization constant and posterior precision matrix are simpler.
+%We recall that, when the columns in $W$ have zero sample mean and unit variance, in our default choice for the prior in \eqref{eq:prior_paramters},  we set $V_\gamma=I$ and $g=1$, which is a minimally informative prior. 
+Our theory allows for other $g$ and $V_\gamma$, e.g. letting $g$ grow with $n$ to enforce sparsity, at the cost of decreased statistical power, see \cite{narisetty:2014,rossell:2022}.
+%. See Theorems \ref{thm:bf}-\ref{thm:pp} and \cite{narisetty:2014,rossell:2022} for further discussion.
+
+% we consider a Normal shrinkage prior
+%\begin{align}
+%  p(\eta_\gamma \mid \gamma)= N\left( \eta_\gamma; 0, g\,  \mbox{diag}(W_\gamma^TW_\gamma/n)^{-1} \right)
+%\label{eq:prior_paramters}
+%\end{align}
+%where $g>0$ is the prior dispersion. By default, we set $g=1$  so that the trace of the prior precision equals that of the unit information prior of \cite{schwarz:1978}. %, a classical minimally informative prior for Bayesian tests.
+%Prior \eqref{eq:prior_paramters} can be viewed as imposing a penalty on the $L_2$ norm of $\eta$,
+%and further our multi-resolution analysis (Section \ref{ssec:varying_resolutions}) encourages smoothness across coordinates $Z$ in the fitted regression.
+%A popular alternative to encourage smoothness in the fitted regression is to also penalize first order differences between $\eta_{1jb}$ and its neighbors, akin to Bayesian P-splines \citep{lang:2004}.
+%However since our Bayesian model selection framework already induces smoothness through a multi-resolution analysis (Section \ref{ssec:varying_resolutions}), we choose to use \eqref{eq:prior_paramters} for simplicity. 
+
+In settings with very strong dependence and moderate $n$,  we found that replacing \eqref{eq:prior_paramters} by a group pMOM prior with default parameters \citep{rossell:2021} helped prevent type I error inflation. Therefore, for dependent data, we recommend the group pMOM prior as the default choice, see Sections \ref{sec:simulation_fda} and \ref{ssec:saez_data} for examples.
+
+
+For the model prior, we consider a Complexity prior akin to \cite{castillo:2015}, 
+\begin{align}
+p(\gamma)=
+\frac{C}{q^{c |\gamma|_0}} \times {q \choose |\gamma|_0}^{-1} \mbox{I}(|\gamma|_0 \in \{0,\ldots,\bar{q}\}),
+\label{eq:prior_modelsize}
+\end{align}
+where recall that $q$ is the total number of parameters defined after \eqref{eq:vcmodel_additive}, $c \geq 0$ a prior parameter, $C=(1 - 1/q^c) / (1-1/q^{c*(\bar{q}+1)})$ the normalizing constant,
+and we consider that, although possibly $q \gg n$, one restricts attention to models with $|\gamma|_0 \leq \bar{q}$ parameters, where $\bar{q}$ is a user-defined bound such as $\bar{q} \leq n$, since models with $|\gamma|_0 > n$ result in data interpolation.
+For $c>0$ the prior probabilities decay exponentially with the model size, $|\gamma|_0$, and then equal prior probabilities are set on  all models that have the same size.
+
+%Regarding the model prior, we extend the Beta-Binomial prior of \cite{scott:2006} and the Complexity prior of \cite{castillo:2015} by adding a reward for the presence local covariate effects in nearby regions.
+%\cite{scott:2006} set a uniform prior on the model size (i.e. $|\gamma|_0= \sum_{jb} \gamma_{jb} \in \{0,\ldots,pB\}$ in our context) and subsequently another uniform prior on the models given $|\gamma|_0$, whereas \cite{castillo:2015} set a prior that decays exponentially with the model size.
+%Recall that the total number of parameters is $q= l_0 + l_1\, p$, where $l_0$ is the baseline basis dimension and $l_1$ is the dimension of the cut basis capturing each covariate's additive effect.
+%Here, we consider that, although $q$ may be larger than $n$, one restricts attention to models with $|\gamma|_0 \leq \bar{q}$ parameters, where $\bar{q}$ is a user-defined bound. 
+%To encourage the presence of local effects in neighboring regions, our prior depends on the number of active entries in $\gamma_1,\ldots,\gamma_p$ such that all its neighbors are inactive, which we denote by
+%\begin{align}
+%T(\gamma)= \sum_{j=1}^p \sum_{b=1}^{|\mathcal{R}|} \mbox{I}(\{\gamma_{jb}=1\} \cap \{\gamma_{jb'}=0 \mbox{, for all } b' \sim b \}),
+%\nonumber
+%\end{align}
+%where $b \sim b'$ denotes that $\gamma_{jb}$ and $\gamma_{b'j}$ correspond to neighboring regions.
+%In summary, we set the model prior
+%\begin{align}
+%p(\gamma) \propto 
+%\mbox{Bin}(T(\gamma); |\gamma|_0, \nu) \times
+%\frac{1}{q^{c |\gamma|_0}} \times {p|\mathcal{R}| \choose |\gamma|_0}^{-1},
+%\label{eq:prior_modelsize}
+%\end{align}
+%for some prior complexity parameter $c \geq 0$.
+%Note that dropping the first term from \eqref{eq:prior_modelsize} gives a Complexity prior of the type defined in \cite{castillo:2015},
+%and in particular that $c=0$ gives the standard Beta-Binomial of \cite{scott:2006}.
+%Note also that an alternative to the uniform term in \eqref{eq:prior_modelsize} is to set a Complexity prior \citep{castillo:2015} that decays exponentially in $|\gamma|_0$. 
+Setting $c=0$ returns the Beta-Binomial(1,1) prior of \cite{scott:2006}, i.e. a uniform prior on the model size, 
+which served as the basis for the extended BIC of \cite{chen:2008}. 
+While our primary emphasis is on Bayesian methods, the theoretical results of Section \ref{sec:theory} apply directly to the extended BIC framework by setting $c=0$ and $g=1$.  In our theoretical framework we consider a general $c$, but in our examples we set \(c = 0\). In our experience this yields a better balance between sparsity and power to detect non-zero coefficients for finite $n$.
+
+
+%On the other hand, choosing $c>0$ induces a stronger penalty for model complexity, with  excellent asymptotic properties.  However, for finite $n$, this may result in reduced statistical power. 
+%%Our theory considers a general $c$, but in our examples we use $c=0$ as in our experience it yields better performance for finite $n$. % (see \cite{rossell:2022} for a detailed discussion).
+%That is, by setting $c=0$ one often improves finite $n$ power,
+%In contrast setting $\bar{q} \leq n$ allows using less sparse model space priors such as \eqref{eq:prior_modelsize} to improve finite $n$ power, 
+%while still attaining model selection consistency. See \cite{rossell:2022} for a detailed discussion of these issues.
+
+
+%We remark that the prior normalization constant of $p(\gamma)$ is intractable, as is the case for most spatial priors, e.g. an Ising prior. Although said constant is not needed here, the multi-resolution analysis in Section \ref{ssec:varying_resolutions} would require its evaluation. Fortunately, a multi-resolution analysis by definition induces spatial dependence, hence the first term in \eqref{eq:prior_modelsize} can be dropped, see Section \ref{ssec:varying_resolutions} for details.
+
+%\color{red} DR. A couple issues with the transition prior as defined by Arnie.
+%The first is minor, it's usually better to define the model size in terms of the number of active parameters rather than the active groups, this helps encourage sparsity (else a model with 1 covariate that has 1 local effect has the same probability as another model that also has 1 covariate with 10 local effects).
+%The second is more fundamental, as far as I can see the derivations below don't define probabilities that add up to 1, i.e. one should say $p(\gamma) \propto$ rather than $p(\gamma)=$. Let me elaborate. The idea is to define a model prior as
+%\begin{align}
+% \mbox{pr}(\gamma)= \mbox{pr}(|\gamma|_0 = k) \mbox{pr}(T(\gamma) \mid |\gamma|_0=k) \mbox{pr}(\gamma \mid |\gamma|_0, T(\gamma)).
+%\nonumber
+%\end{align}
+%In \eqref{eq:tr_prior} you set $\mbox{pr}(|\gamma|_0=k)$ to be uniform, then $\mbox{pr}(T(\gamma) \mid |\gamma|_0=k)$ to be a Binomial-based prior (though I'm not clear on its details), but we're then missing $\mbox{pr}(\gamma \mid |\gamma|_0, T(\gamma))$. For example, if you mean to state that all $\gamma$'s with a given size $|\gamma|_0$ and transitions $T(\gamma)$ are equally likely, then $\mbox{pr}(\gamma \mid |\gamma|_0, T(\gamma))$ should be 1 divided by the number of possible models of size $|\gamma|_0$ that have $T(\gamma)$ transitions. I don't think that this number has an easy expression...
+% 
+
+%
+%AKS: The current implementation of the transition prior takes the model size to be determined by the original covariates, i.e. each coefficient \emph{group} contributes to the model size.  Letting $q$ be the number of linearly modeled covariates, then, the maximal model matrix has dimension $n \times (p|\mathcal{R}|+ q)$; however, we consider the maximal model size to be only $p + q$.  Thus we set uniform prior probabilities on the model size 
+%\begin{align}
+%        P\left(\sum_{j=1}^p \mbox{I} \left(\sum_{b=1}^{|\mathcal{R}|} \gamma_{jb} \neq 0 \right) + \sum_{j = p+1}^{p+q} \gamma_j = k \right)= \frac{1}{\bar{q} + q + 1} \mbox{, if } k \leq \bar{q} + q.
+%\label{eq:tr_prior_modelsize}
+%\end{align}
+% 
+%{\color{red} DR. In our current exposition there's no covariates with linear effects. For example with 1 covariate we code the baseline associated to $z$ with $W_0$ and the covariate effect as deviations from the baseline in $W_1$.}
+%
+%In this context, the transition prior is then the Beta-Binomial prior with an extra layer which penalizes transitions from basis inclusion to exclusion (group difference in the interval to no group difference) and vice versa.  This is accomplished by setting a binomial prior with low probability $\nu$ on the number of transitions within each coefficient group $T_j(\gamma) = \sum_{b \sim b'} I(\gamma_{jb} \neq \gamma_{jb'})$ for neighboring $b$ and $b'$ within each coefficient group.  Then, for a given $\gamma$, we have
+% 
+%\begin{align}
+%\mbox{pr}(\gamma) = \frac{1}{\bar{q} + q + 1} {{\bar{q} + q}\choose{\sum_{j=1}^{p+q} \gamma_j}}^{-1} 
+%\prod_{j=1}^{p} \left\{ \left(\dfrac{1}{2} \right)^{{I} \left(T_j(\gamma) \neq 0\right)} 
+%\nu^{T_j(\gamma)}\left(1-\nu \right)^{l_j - 1 - T_j(\gamma)} \right\}
+%\label{eq:tr_prior}
+%\end{align}
+% 
+%Note that the $\left(\dfrac{1}{2} \right)^{{I} \left(T_j(\gamma) \neq 0\right)}$ multiplier exists because any transition vector $t_j$ for coefficient group $j$ corresponds to two $\gamma_j$'s, e.g. $t_j = (1, 1)$ can correspond to either $\gamma_{j \cdot} = (1,0,1)$ or $(0,1,0)$.
+% 
+%NOTE for revision: it might be clearer, instead of using $|\mathcal{R}|$, to put this in terms of $l_j$ (the basis dimension for covariate $j$, with $l_j = 1$ for linearly modeled covariates)? 
+% 
+%NOTE 2: making notation consistent would require handling $j=0$ (though we include all bases for the default group).  Also, may ease notation to define a covariate-level (coefficient-group level) inclusion indicator $s_j = \mbox{I}(\sum_{b=1}^{l_j} \gamma_{jb} \neq 0)$, model size $S_j = \sum_{j=1}^{p} s_j$, the transition vector $t_j$ (length $l_j - 1$), and $T_j = \sum_{b=1}^{l_j - 1} t_{jb}$ 
+% 
+%Prior expectations under the transition prior:
+%\begin{itemize}
+%        \item $E[S_j] = \frac{p+q}{2}$
+%        \item $\sum_{j=1}^p E[T_j(\gamma)] = \sum_{j=1}^p \frac{\nu}{2} (l_j-1)$
+%\end{itemize}
+% 
+%
+
+
+\subsection{Multi-resolution analysis}
+\label{ssec:varying_resolutions}
+
+To simplify exposition, so far we  assumed that one has a predefined set of regions $\mathcal{R}$ to perform the local null tests, e.g. the 8 intervals in Figure \ref{fig:splinefit}. 
+In practice, it is often unclear what regions to use, or in other words, what resolution is appropriate for the local variable selection. 
+Although our cut basis formulation prevents type I errors for any choice of regions, if one defines too many regions then the sample size per region becomes too small, leading to type II errors.
+For example, suppose that one has a single binary covariate $x_i$ that defines two groups, and we want to compare $E(y_i \mid z_i, x_i)$ across these groups. If the group differences change little across large regions in $z_i$, it is advantageous to use fewer regions, to increase statistical power.  In contrast, if the group differences change rapidly with $z_i$, a finer resolution with more regions  may be preferred. %, for capturing  local variations and detecting smaller-scale differences between the groups.
+
+The choice of the maximum number of regions  is typically guided by computational limitations, as the model space grows exponentially, or because higher resolutions offer limited practical interest. 
+We hence propose a multi-resolution analysis to determine whether a coarser resolution may be more suitable, given the data at hand.
+%A multi-resolution analysis helps assessing whether it may be preferable to use a coarser resolution.
+For example, in our salary application, we consider 2.5 year bins as the highest resolution, since measures targeting salary discrimination are unlikely to have noticeable effects in shorter time spans. Interestingly, our multi-resolution analysis places most posterior probability on coarser 10-year intervals. %See Section \ref{ssec:saez_data} for a related discussion on our brain data.
+
+\begin{figure}[t!]
+\begin{center}
+\includegraphics[width=0.5\textwidth,height=0.5\textwidth]{multires.pdf}
+\end{center}
+\caption{Multi-resolution analysis with 4 resolutions and $z \in [0,1]$.
+Resolution 1 has 6 regular intervals. Resolutions 2-3 split the [0,0.5] and [0.5,1] into 6 intervals.
+Resolution 4 has 12 intervals.
+In resolutions  1-2, $\beta_j(z=0.4) \neq 0$ if and only if $\beta_j(z=0.45) \neq 0$ (dashed lines), leading to prior dependence across $z$. %See Section \ref{ssec:varying_resolutions} for details.
+}
+\label{fig:multires}
+\end{figure}
+
+Bayesian model averaging provides a natural framework for handling multiple resolutions.  We consider $L$ resolutions, where each resolution $l=1,\ldots,L$ consists of a set of regions $\mathcal{R}_l={R}_{l1},\ldots,R_{l |\mathcal{R}_l|}$. 
+ If so desired, the multi-resolution analysis can place more knots in certain parts of the support of $z$, see Figure \ref{fig:multires}. 
+Similar to Section \ref{ssec:priors}, let $\eta_l=\{ \eta_{ljb} \}$ and $\gamma_l=\{ \gamma_{ljb} \}$ for $j=0,\ldots,p$ and $b=1,\ldots,|\mathcal{R}_l|$ represent the set of parameters and models associated with resolution $l$,
+where the latent $\gamma_{ljb}= \mbox{I}(\eta_{lbj} \neq 0)$  indicates whether covariate $j$ has an effect in region $R_{lb}$. We consider a joint prior that factorizes as follows,
+\begin{align}
+ p(\eta_l, \gamma_l, \mathcal{R}_l)= p(\eta_l \mid \gamma_l, \mathcal{R}_l)\, p(\gamma_l \mid \mathcal{R}_l) \, p(\mathcal{R}_l).
+\nonumber
+\end{align}
+where $p(\eta_l \mid \gamma_l, \mathcal{R}_l)$ is as in \eqref{eq:prior_paramters},
+and the model selection prior in \eqref{eq:prior_modelsize} is modified to accommodate the multi-resolution setting as follows,
+\begin{align}
+p(\gamma_l \mid \mathcal{R}_l)=
+\frac{C_l}{q_l^{c |\gamma|_0}} \times {q_l \choose |\gamma_l|_0}^{-1} \mbox{I}(|\gamma_l|_0 \in \{0,\ldots,\bar{q}\}),
+\nonumber
+%\label{eq:prior_model_multires}
+\end{align}
+where $q_l= \mbox{dim}(\eta_l)$ is the number of parameters for resolution $l$,  $c \geq 0$ and $C_l=(1 - 1/q_l^c) / (1-1/q_l^{c*(\bar{q}+1)})$ the normalizing constant.
+Finally, by default, uniform prior probabilities are assigned to the resolution levels, i.e., $p(\mathcal{R}_l)=1/L$.
+
+The multi-resolution formulation induces dependence in the local variable selection across nearby $z$ values, as illustrated in Figure \ref{fig:multires}.
+Specifically,  the probability of a local effect is %by averaging the probabilities of non-zero effects within each resolution level, 
+$P \left( \beta_j(z) \neq 0 \right)= \sum_{l=1}^L  P \left( \beta_j(z) \neq 0 \mid \mathcal{R}_l  \right) p(\mathcal{R}_l)$,
+where $P \left( \beta_j(z) \neq 0 \mid \mathcal{R}_l  \right)$ is  constant across all $z$ values within the same interval at resolution $l$. Hence, nearby $z$ and $z'$ receive similar prior probabilities $\mbox{pr}( \beta_j(z) \neq 0)$ and $\mbox{pr}(\beta_j(z') \neq 0)$.
+The corresponding posterior probabilities are
+\begin{align}
+ P \left( \beta_j(z) \neq 0 \mid y \right)&=
+ \sum_{l=1}^L  P \left( \beta_j(z) \neq 0 \mid y, \mathcal{R}_l  \right) \, p(\mathcal{R}_l \mid y),
+ \nonumber
+%\label{eq:multires_priorprob}
+\end{align}
+where $P \left( \beta_j(z) \neq 0 \mid \mathcal{R}_l, y  \right)$ given a resolution level $l$ is given in \eqref{eq:margpp}, and
+$
+ p(\mathcal{R}_l \mid y) \propto p(y \mid \mathcal{R}_l)\,  p(\mathcal{R}_l)= \sum_{\gamma_l} p(y \mid \gamma_l, \mathcal{R}_l) p(\gamma_l \mid \mathcal{R}_l) \, p(\mathcal{R}_l)$
+is the marginal likelihood of resolution $l$.
+%, obtained by adding up the marginal likelihood of models $\gamma_{ljb}$ associated with that resolution.
+%The latter sum is typically too large to be conducted exactly, but can be easily estimated from Markov Chain Monte Carlo output.
+
+ 
+Our multi-resolution strategy is designed to facilitate parallel computation across resolutions. We define a distinct model for each resolution  $\mathcal{R}_l$, obtain $\mbox{pr}(\beta_j(z) \neq 0 \mid y, \mathcal{R}_l)$ separately for each resolution, and then compute their weighted average.
+A natural alternative is to induce prior dependence across resolutions. 
+%This is because, if for example $\beta_j(z)=0$ for all $z$ at a certain resolution,  then $\beta_j(z)=0$ also holds true at any coarser resolution.
+ This is because, if for example $\beta_j(z) \neq 0$ for some $z \in [0,1/2]$ and $\beta_j(z) = 0$ for all $z \in [1/2,1]$, then $\beta_j(z) \neq 0$ for some $z \in [0,1]$ at a coarser resolution. 
+However, we chose not to adopt such more advanced priors here for computational reasons. %, and because in our examples our simpler prior proved effective.
+First, computations would no longer be easily parallelizable.  Second, within a resolution level one can quickly obtain marginal likelihoods for a model by using rank 1 Cholesky decomposition updates, given that of another model that only differs by one zero parameter. 
+
+
+
+
+
+\section{Theoretical results}
+\label{sec:theory}
+
+
+\subsection{Bayes factors}
+\label{ssec:bf}
+
+We present two main results describing the asymptotic behavior of the proposed cut basis framework. First, we obtain rates at which the Bayes factor favors the optimal model $\gamma^*$ over some other model $\gamma$, see Theorem \ref{thm:bf}. Then, we establish that the  posterior model probabilities consistently select $\gamma^*$, see Theorem \ref{thm:pp}.  
+These results imply that asymptotically one detects which covariates have an effect at each considered coordinate $z$, and hence attains consistent local variable selection. As discussed in Section \ref{sec:multiple_covar}, since the assumed additive structure in \eqref{eq:vcmodel_additive} may be misspecified, consistency refers to detecting non-zero marginal effects of each covariate in $x$, averaged across the values of other covariates in $x$.
+%The latter result implies that family-wise type I and II error rates for local null tests converge to zero as $n \rightarrow \infty$.
+We consider high-dimensional settings where the total number of parameters $q = l_0 + l_1p$ can grow with $n$.
+%We include high-dimensional settings where the total number of parameters $q=l_0+l_1p$ may grow with $n$.
+The size of the optimal model $|\gamma^*|$ may also increase with $n$. %, somewhat relaxing the sparsity requirements on $\gamma^*$. %However, we note that it is essential to control the growth of $|\gamma^*|_0$ to achieve model selection consistency.
+%The optimal model's size $|\gamma^*|_0$ may also grow with $n$, which relaxes somewhat the sparsity requirements on $\gamma^*$, albeit said growth must be restrained to attain model selection consistency.
+
+We assume that the data-generating $F$ has sub-Gaussian tails, specifically  $F$ satisfies
+$ y - W_{\gamma^*} \eta_{\gamma^*}^* \sim SG(0, \omega)$
+for some $\omega > 0$, where $\eta^*{\gamma^*}$ is the optimal parameter value in \eqref{eq:asympsolution_dep}.
+This assumption allows for $y$ to be dependent.  For example, if $y \sim N(\mu, \Omega)$ for some positive-definite $\Omega$, then $y \sim SG(\mu,\omega)$ where $\omega$ is the largest eigenvalue of $\Omega$.
+%Extensions to heavier-tailed distributions for $F$ are possible, but they require additional technical considerations in the proofs that are beyond our scope.
+We consider a misspecified setting where one specifies  a model that may not match $F$. 
+To simplify the exposition and proofs,  we assume that the specified model has a fixed covariance, $\Sigma$.
+Specifically, one specifies the model
+\begin{align}
+ y \mid \gamma, \eta_\gamma &\sim N(W_\gamma \eta_\gamma, \Sigma).
+\nonumber
+%\label{eq:model_theorem}
+\end{align}
+
+
+Our results extend to unknown $\Sigma$ as follows. First, as long as $\hat{\Sigma} \stackrel{P}{\longrightarrow} \Sigma$ for a fixed positive-definite block-diagonal $\Sigma$, Theorems \ref{thm:bf}-\ref{thm:pp} continue to hold by the continuous mapping theorem.
+If the tails of $\hat{\Sigma}^{-1/2} y$ are sub-Gaussian, then our rates remain exactly valid. If said tails are exponential or thicker, then the rates become slower. 
+
+
+The Bayes factor $B_{\gamma \gamma^*}= p(y \mid \gamma) / p(y \mid \gamma^*)$ compares a model $\gamma$ with the optimal $\gamma^*$, see Section \ref{supplsec:bf_derivation} for its expression. When $B_{\gamma \gamma^*}$ is close to zero then $\gamma^*$ is favored over $\gamma$. We give the rates at which $B_{\gamma \gamma^*}$ converges to 0 in probability as $n \rightarrow \infty$, assuming the following conditions.
+
+\begin{enumerate}[leftmargin=*,label=(A\arabic*)]
+\item The matrix $W_\gamma^T \Sigma^{-1} W_\gamma$ has full column rank $|\gamma|_0$.
+
+\item Let $(\underline{l}_\gamma,\bar{l}_\gamma)$ be the smallest and largest eigenvalues of $V_{\gamma} W_{\gamma}^T \Sigma^{-1} W_\gamma/n$.
+They satisfy $c_1 \leq \underline{l}_\gamma \leq \bar{l}_\gamma \leq c_2$ for all $n \geq n_0$ and some constants $c_1,c_2,n_0>0$.
+
+\item $\Sigma^{-1}$ exists. Its largest eigenvalue $\tau$ satisfies $c_3 < \tau < c_4$ for constants $0< c_3,c_4 < \infty$.
+
+\item $\lim_{n \rightarrow \infty} g n= \infty$.
+
+\item Let $\lambda_\gamma= (\widetilde{W}_{\gamma^*} \eta_{\gamma^*}^*)^T (I - H_\gamma) \widetilde{W}_{\gamma^*} \eta_{\gamma^*}^*$,
+where $\widetilde{W}_\gamma= \Sigma^{-1/2} W_\gamma$, 
+$H_\gamma= \widetilde{W}_\gamma (\widetilde{W}_\gamma^T \widetilde{W}_\gamma)^{-1} \widetilde{W}_\gamma^T$.
+For some sequence $d_n \geq 0$ such that $\lim_{n \rightarrow \infty} d_n= \infty$,
+$$
+\lim_{n \rightarrow \infty} \frac{\lambda_\gamma}{2 \log \lambda_\gamma} + \frac{|\gamma|_0 - |\gamma^*|_0}{2} \log(gn) - \omega \tau |\gamma|_0 \log d_n= \infty.
+$$
+
+\end{enumerate}
+
+The conditions are fairly minimal, for brevity we refer their discussion to Section \ref{supplsec:conditions_thm_bf}.
+A key quantity is $\lambda_\gamma$ in Assumption (A5), it is a non-centrality parameter measuring the sum of squares explained by the optimal $\gamma^*$ but not by model $\gamma$.
+Under eigenvalue and beta-min conditions, $\lambda_\gamma$ is lower-bounded by $n$ times the smallest square entry in the optimal coefficients $|\eta_{\gamma^*}^*|$  \citep[see, e.g.,][Sections 2.2 and 5.4]{rossell:2022}. 
+
+
+
+%Assumption (A1) means that although $q$ may be larger than $n$ one restricts attention to full-rank models (as usual in practice), which implies that $|\gamma|_0 \leq n$.
+%(A2) is a mild condition that can be relaxed, but simplifies our exposition. For our default $V_\gamma=I$ it is met when the empirical covariance $W_\gamma^T \Sigma^{-1} W_\gamma/n$ converges to a fixed positive definite covariance. Another default is Zellner's prior where $V_\gamma^{-1}= W_\gamma^T \Sigma^{-1} W_\gamma/n$, then $\underline{l}_\gamma=\bar{l}_\gamma$ and (A2) is trivially met.
+%(A3) is immediately satisfied in a homoskedastic independent errors setting where $\Sigma= \sigma^2 I$, for dependent data (A3) is mild and may be relaxed to cases where $\tau$ it not bounded as $n$ grows, see the proof for details. 
+%(A4) is a minimal condition that the prior dispersion $g$ does not vanish too fast with $n$, which is satisfied by our default $g=1$ and the discussed alternatives where $g$ may grow with $n$. %%However, note that if $g$ is set to grow too quickly with $n$ then the Bayes factor rate in Theorem \ref{thm:bf}(ii) may no longer consistently select the optimal model $\gamma^*$.
+
+
+Before stating Theorem \ref{thm:bf}, we interpret its main implications.
+Part (i) indicates that overfitted models, which include all parameters in $\gamma^*$ and some extra, are essentially discarded at a polynomial rate $(gn)^{(|\gamma|_0 - |\gamma^*|_0)/2}$. 
+Part (ii) states that non-overfitted models, which are missing parameters from $\gamma^*$,   are effectively discarded at an exponential rate in $\lambda_\gamma$, times a polynomial rate akin to that in Part (i). 
+In the theorem statement the sequence $d_n$ should be considered as a lower-order term, e.g., $d_n= \log(gn)$, and $\delta$ as a constant close to 0.
+
+\begin{theorem}
+Let $d_n\geq 0$ be any sequence such that $\lim_{n \rightarrow \infty} d_n= \infty$. Assume (A1)-(A5).
+\begin{enumerate}[leftmargin=*,label=(\roman*)]
+\item Overfitted models. If $\gamma^* \subset \gamma$, then
+$\lim_{n \rightarrow \infty} P_F \left( B_{\gamma \gamma^*} \geq  \left( \frac{d_n}{gn} \right)^{\frac{|\gamma|_0 - |\gamma^*|_0}{2}} \right)= 0.$
+
+\item Non-overfitted models. If $\gamma^* \not\subset \gamma$, then for all fixed $\delta>0$
+$$
+\lim_{n \rightarrow \infty} 
+P_F \left( B_{\gamma \gamma^*} \geq \left( gnk_2 \right)^{-\frac{(|\gamma|_0-|\gamma^*|_0)}{2}} e^{-\frac{\lambda_\gamma (1-\delta)}{2 \log \lambda_\gamma} + \omega \tau |\gamma|_0 \log d_n} \right)= 0,
+$$
+where $\omega$ is the sub-Gaussian parameter, $\tau$ the largest eigenvalue of $\Sigma^{-1}$
+and $k_2= \bar{l}_{\gamma^*} (1+\delta) / \underline{l}_\gamma$ is a constant under Assumption (A2).
+\end{enumerate}
+\label{thm:bf}
+\end{theorem}
+
+
+
+\subsection{Model selection consistency}
+\label{ssec:pp}
+
+
+Theorem \ref{thm:pp} below shows that the posterior probability of the optimal model $p(\gamma^* \mid y) \stackrel{L_1}{\longrightarrow} 1$ as $n \rightarrow \infty$ and provides the associated rate.
+%at which $E_{F}[p(\gamma^* \mid y)]$ converges to 1.
+%Recall that $\gamma^*$ is the Kullback-Leibler optimal model making no type I nor II errors in the local null test.
+%By definition of $L_1$ convergence, this is equivalent to $E_{F} \sum_{\gamma \neq \gamma^*} p(\gamma \mid y)$ converging to 0.
+The result bounds separately the total posterior probability assigned to the set of overfitted models $S_0$,
+and to non-overfitted models that are either smaller ($S_1$) or larger ($S_2$) than the optimal $\gamma^*$. This decomposition helps understand false positive versus power trade-offs.
+%These $L_1$ rates are useful to bound certain frequentist error probabilities.
+%For example, let $\hat{\gamma}=\arg\max_\gamma p(y \mid \gamma)$ be the highest posterior probability model, 
+%then the frequentist probability of choosing an overfitted model 
+%$P_{F}(\hat{\gamma} \in S_0) \leq 2 E_{F}[ \mbox{pr}(\gamma^* \in S_0 \mid y)]$.
+%The probabilities of $\hat{\gamma} \neq \gamma^*$, $\hat{\gamma} \in S_1$, $\hat{\gamma} \in S_2$, or of family-wise type I-II errors are bound similarly \citep{rossell:2022}, Proposition 1, and said bounds also apply when  $\hat{\gamma}$ is the median probability model of \cite{barbieri:2004} (\cite{rossell:2022}, Corollary 1). 
+
+Theorem \ref{thm:pp} requires additional conditions involving the sub-Gaussian parameter $\omega$ of the data-generating $F$, the largest eigenvalue $\tau$ of $\Sigma^{-1}$, the prior dispersion parameter $g$ in \eqref{eq:prior_paramters}, and the model prior parameter $c \geq 0$ in \eqref{eq:prior_modelsize}. More specifically, 
+
+\begin{enumerate}[leftmargin=*,label=(B\arabic*)]
+\item The optimal model has size $|\gamma^*|_0 \leq \bar{q}$, where $\bar{q}$ is the maximum model size in \eqref{eq:prior_modelsize}.
+
+\item $\omega \, \tau >1$.
+
+\item $p(\gamma)$ is non-increasing in model size $|\gamma|_0 \in \{0,\ldots,\bar{q}\}$ and, for any $|\gamma|_0 > |\gamma^*|_0$, 
+$$\lim_{n \rightarrow \infty} \frac{1}{2}\log(g n) + \frac{1}{|\gamma|_0 - |\gamma^*|_0} \log \left( \frac{p(\gamma^*)}{p(\gamma)} \right) - (1+2^{\frac{1}{2}})^2 \omega \tau \bar{q} = \infty .$$
+
+
+\item For some $a \in (0, 1/(2 \omega \tau))$,
+$\lim_{n\rightarrow \infty} a \log(g n) + a (c + 1) \log(q) - \log(q) = \infty.$
+
+%There is a fixed $\epsilon>0$ such that $\lim_{n\rightarrow \infty} q^{\frac{1-\epsilon}{2 \omega \tau}(c + 1) -1} (g n)^{\frac{1-\epsilon}{2 \omega \tau}}= \infty$.
+
+\item For any not over-fitted model $\gamma \not\subset \gamma^*$ of size $|\gamma|_0 \leq |\gamma^*|_0$ and any fixed $k >0$,
+$$
+\lim_{n \rightarrow \infty} t + \frac{\lambda_\gamma}{\log \lambda_\gamma} - k |\gamma|_0 \log \left( t + \frac{\lambda_\gamma}{\log \lambda_\gamma} \right) = \infty
+$$
+where
+$
+ t= (|\gamma|_0 - |\gamma^*|_0) \log(g n \, k_2) + 2 \log \left( p(\gamma^*)/p(\gamma) \right).
+$
+
+\item Let $\underline{\lambda}= \frac{\min_{|\gamma|_0 \leq |\gamma^*|_0} \lambda_\gamma}{\max\{|\gamma^*|_0-|\gamma|_0,1\}}$. Then,
+$\lim_{n \rightarrow \infty}
+\frac{\underline{\lambda}}{2 \omega \tau} - c \log(q) - \frac{1}{2} \log(gn)= \infty.$
+
+\item For some $r< 1/(\omega \, \tau)$,
+$\lim_{n \rightarrow \infty} \frac{(|\gamma^*|_0+1) \bar{q}^r}{q^{cr-1-|\gamma^*|_0} (q - |\gamma^*|_0)^r (g n)^{r/2}}= 0$.
+\end{enumerate}
+
+Assumption (B1) says that the optimal model $\gamma^*$ has positive prior probability. Assumption (B2) is a worst-case scenario, one obtains faster rates in Theorem \ref{thm:pp}(i) and (iii) if $\omega \tau < 1$, see the proof for details. 
+%Assumptions (B3)-(B4) extend condition (A4): 
+Assumption (B3) is a mild requirement that $g\, n$ and $p(\gamma^*)/p(\gamma)$ are not too small relative to the model size $|\gamma|_0$.
+(B4) bounds the total number of parameters $q$ as a function of $n$. It is satisfied by setting a large $c$ (sparse model prior) or $g$ (dispersed coefficient prior).
+%For the Beta-Binomial prior where $c=0$ then (B4) requires that $q^{2(1-r)/r} \ll gn$, for some $r<1/(\omega \tau)$.
+Assumptions (B5) and (B6) are stronger versions of (A5) requiring that the non-centrality parameters $\lambda_\gamma \geq (|\gamma^*|_0 - |\gamma|_0) \underline{\lambda}$ are large enough.
+%Intuitively, under standard beta-min and restricted eigenvalue conditions, the parameter $\underline{\lambda}$ is lower-bounded by $n$ times the smallest square entry in the optimal coefficients $|\eta_{\gamma^*}^*|$  \citep[see, e.g.,][Sections 2.2 and 5.4]{rossell:2022}. % i.e. a reader may think of $\underline{\lambda} \geq c n$ for a constant $c$ given by the smallest entry in the optimal model's parameters $\eta_{\gamma^*}^*$.
+%As evident from the proof, Assumption (B5) can be relaxed to consider $\lim \,  t + \lambda_\gamma / \log(\lambda_\gamma) - 2(1+\sqrt{2})^2 \omega \tau |\gamma|_0$, but the stronger form in (B5) simplifies our exposition.
+Altogether, (B4)-(B6) limit the amount of prior sparsity induced by the model prior parameter $c$ and the prior dispersion $g$, relative to $n$ and $q$.
+Finally, Assumption (B7) is similar to (B2)-(B3) and ensures that the rate in Theorem \ref{thm:pp}(iii) converges to 0. 
+(B7) is stronger than needed but simplifies the exposition, %. It is possible to relax (B7) and obtain a faster convergence rate than that provided in Theorem \ref{thm:pp}(iii). 
+please see Assumption (B7') and Theorem \ref{thm:pp_alternative} in Section \ref{ssec:alt_thm_pp} for further details.
+%The parameter $\underline{\lambda}$ is lower-bounded by $n$ times the smallest square entry in the optimal coefficients $|\eta_{\gamma^*}^*|$  \citep[see, e.g.,][Sections 2.2 and 5.4]{rossell:2022}. % i.e. a reader may think of $\underline{\lambda} \geq c n$ for a constant $c$ given by the smallest entry in the optimal model's parameters $\eta_{\gamma^*}^*$.
+
+%Next, we state Theorem \ref{thm:pp} and provide a brief interpretation of its implications.
+
+\begin{theorem}
+%\begin{enumerate}[leftmargin=*,label=(\roman*)]
+
+%\item
+\underline{Part (i).}
+Assume (A1)-(A5) and (B2)-(B4). Let $S_0= \{\gamma: \gamma^* \subset \gamma\}$.
+There exist constants $k>0$ and $n_0$ such that, for all $n \geq n_0$ and $r<1/(\omega \tau)$,
+\begin{align}
+E_F(\mbox{pr}(S_0 \mid y)) < \frac{k (|\gamma^*|_0 +1)}{q^{r(c + 1) -1} (g n)^{\frac{r}{2}}}.
+\nonumber
+\end{align}
+%where $r= (1-\epsilon)/(\omega \tau)$ and  $\epsilon>0$ is a constant that may be taken arbitrarily close to 0.
+
+%\item 
+\underline{Part (ii).}
+Assume (A1)-(A5), (B1), (B2), (B5) and (B6). Let $\underline{\lambda}$ be the signal strength parameter in (B6),
+and $S_1= \{\gamma: |\gamma|_0 \leq |\gamma^*|_0, \gamma \not\subset \gamma^*\}$.
+For $n \geq n_0$ and fixed $n_0$,
+\begin{align}
+E_F(\mbox{pr}(S_1 \mid y))
+%\leq \sum_{l=0}^{|\gamma^*|_0} \sum_{|\gamma|_0=l, \gamma \not\subset \gamma^*} E(p(\gamma \mid y))
+< 9 \exp \left\{  -\frac{\underline{\lambda}(1-\epsilon)}{2 \tilde{\omega}} + [|\gamma^*|_0(1+\epsilon) + c] \log q + \frac{1}{2} \log(gn) \right\},
+\nonumber
+\end{align}
+for a constant $\alpha >0$ that may be taken arbitrarily close to 0.
+
+%\item 
+\underline{Part (iii).}
+Assume (A1)-(A5), (B1), (B2), (B5) and (B7). 
+Let $S_2= \{\gamma: |\gamma|_0 > |\gamma^*|_0, \gamma \not\subset \gamma^*\}$.
+There exist constants $k>0$ and $n_0$ such that, for all $n \geq n_0$ and $r<1/(\omega \tau)$,
+$$
+E_F(\mbox{pr}(S_2 \mid y)) \leq \frac{k (|\gamma^*|_0+1) b^{1/2} \bar{q}^r}{q^{cr-1-|\gamma^*|_0} (q - |\gamma^*|_0)^r (g n)^{r/2}}.
+$$
+%\end{enumerate}
+\label{thm:pp}
+\end{theorem}
+
+In Theorem \ref{thm:pp},  $r$ should regarded as being close to $1/(\omega\, \tau)$. Theorem \ref{thm:pp} (i) and (iii) state that overfitted and large non-overfitted models respectively receive vanishing posterior probability as $n$ grows, at a rate that is faster when the prior complexity and the dispersion parameters $(c,g)$ are large, and slower when either the optimal model is not sparse, i.e. $|\gamma^*|_0$ is large, or $\omega \tau$ is large.
+In the well-specified case where $F$ is Gaussian with independent observations, then $\omega\, \tau=1$. Hence, the condition $r < 1/(\omega\,  \tau) <1$ reflects that under strongly dependent data or model misspecification, convergence rates get slower.
+Similarly, Part (ii) states that small non-overfitted models are discarded at an exponential rate in $\underline{\lambda}/(2\omega\, \tau)$, which gets slower when $ \omega\, \tau>1$ and when either  $q$ or $|\gamma^*|_0$ are large. If $(c,g)$ are large, i.e. chosen to favor smaller models, then the convergence rate is slower. This reflects the intuitive notion that, by inducing stronger sparsity, the statistical power to detect truly active coefficients is reduced.
+% when the prior favors smaller models, it becomes more challenging to discard models of size $|\gamma|_0 < |\gamma^*|_0$, thereby reducing the statistical power to detect truly active coefficients.
+
+
+\section{Simulation studies}
+\label{sec:results}
+
+
+\subsection{Simulation with independent errors}
+\label{sec:simulation_iid}
+
+%We assess our framework through simulations and two examples. Section \ref{sec:simulation_iid} 
+We consider a simulation with independent errors to compare our cut orthogonal basis with our same Bayesian framework with standard uncut cubic splines.
+ We used the Gaussian shrinkage and extended auto-regressive priors discussed after \eqref{eq:prior_paramters}. 
+We also considered the VC-BART of  \cite{deshpande:2024}  fitting a varying coefficient model via Bayesian additive regression trees,
+ applying the fused lasso to our cut orthogonal basis \citep{tibshirani:2005}, regularization parameters set with the extended Bayesian information criterion), 
+and a least-squares regression where one obtains Benjamini-Hochberg adjusted P-values for interactions between each covariate and discretized coordinates $z$.
+ Finally, we used gam function in R package mgcv to fit an additive model with generalized cross-validation, and used 95\% simultaneous confidence bands for $\hat{\beta}_j(z)$ to test local null hypotheses. We used the default 12 knots, and also 24. 
+%Section \ref{sec:simulation_fda} extends the simulations to  functional data with highly dependent errors. Here, we compare our approach to the LFMM method of \cite{paulon:2023} and to the interval testing procedure of \cite{pini:2016}. The latter is designed for a single covariate and the former is designed to detect high-order interactions between multiple discrete covariates. %Although our method focuses on a slightly different setup where one has multiple continuous covariates and assumes additive local effects, we considered these competitors due to the lack of methods that consider our exact setting.
+%Finally, Section \ref{ssec:salary} analyzes a salary survey data from independent individuals,
+%and Section \ref{ssec:saez_data} considers functional data from a neuroscience experiment. 
+In our approach, we used a cubic B-spline with 20 knots for the baseline and a multi-resolution analysis involving 7, 9 and 11 knots to evaluate  the covariate effects. 
+We considered cut basis of degree 0 and 3 but we only report the results from the former, since the results were very similar.
+%Following our previous discussion, we used the Gaussian shrinkage prior \eqref{eq:prior_paramters}  for the independent error settings, whereas  we used the group product moment prior of \citet{rossell:2021} for functional data, in both cases with default parameters.
+We used Markov Chain Monte Carlo  sampling to search over models characterized by different $\gamma$, and to obtain posterior probability estimates for the covariate effects as well as posterior samples for all the model parameters. We used the default specifications in the R package mombf, which are 5,000 Gibbs iterations, with 500 burn-in, see \cite{rossell:2017}. %Since these are standard MCMC algorithms, we refer the reader to \cite{rossell:2017}. 
+%The supplementary materials include R code to reproduce all our analyses.
+
+
+
+We illustrate the issues that arise when using cubic B-splines, and how these issues are addressed by using a cut orthogonal basis. 
+We consider two scenarios, with $n=100$ and $n=1,000$.  In both cases, we consider $p=10$ covariates, and a regular grid of $n$ values for $z_i \in [-3,3]$. The first covariate is a binary group indicator $x_{i1} \in \{0,1\}$ with equal group sizes. The remaining covariates are normally distributed with mean $x_{i1}$, and variance 1,  $x_{ij} \sim N(x_{i1},1)$. This results in  a mild empirical correlation between $x_1$ and each remaining covariate of 0.43. 
+The expected outcome is set to depend truly only on the first covariate, and that only when $z>0$, as depicted in Figure \ref{fig:splinefit}, grey lines.
+More in detail, we set the following model 
+\begin{align}
+ E(y_i \mid x_i, z_i)= 
+\begin{cases}
+\cos(z_i), &\mbox{ if } z_i \leq 0, \\
+0,   &\mbox{ if } z_i>0, x_{i1}=1, \\
+1/(z_i+1)^2, &\mbox{ if } z_i>0, x_{i1}=0.
+\end{cases}
+\nonumber
+\end{align}
+ The error variance is $0.25^2$. 
+%where it is evident that the outcome depends only on the values of the first covariate, with an effect modification for $z>0$ . 
+Section \ref{ssec:simulation_iid_bivar} shows an extension assessing our approach with bivariate $z$ where, as summarized in Figure \ref{fig:simiid_bivar}, using orthogonal cut basis also prevents type I errors.
+For each scenario, we report averaged results over 100 independent replicates 
+
+
+
+Table \ref{tab:simiid} shows the type I error and power for our cut B-spline basis, and the competing methods.
+ The results for our two prior covariances are very similar. The additive model in mgcv exhibits good power, but the type I error is inflated for covariate 1 and $z \in (-1,0]$ (0.28 for $n=100$, 0.08 for $n=1000$). The results with 24 knots were very similar, see Table \ref{tab:simiid_extra}. 
+P-value adjustment exhibits a low type I error, but the power is very low for small $n$. For example, for $n=100$ and $z \in (1,2]$, the estimated power for covariate 1 is 0, whereas for the proposed cut basis, it is 0.91. This finding highlights the importance of conducting local variable selection:  by learning that covariates 2-10 are unnecessary, the power to detect local effects for covariate 1 increases significantly.
+ Fused lasso resulted in high false positive rates. 
+One striking result that strongly supports our theoretical arguments is that when employing cubic splines for the local tests, both the posterior probabilities of rejecting the null hypothesis and the type I error for covariate 1 are near 1 for values  $z \in (-1,0)$. The 0-degree orthogonal cut spline is not affected by these issues. In this example it yields near-perfect inference, except that for $n=100$, the power to detect $\beta_1(z) \neq 0$ for $z \in (0,1)$ is approximately 0.25.
+ Figure \ref{fig:simiid}  further illustrates these results. The left panel displays the average posterior probabilities $\mbox{pr}(\beta_j(z) \neq 0 \mid y)$ across the simulation replicates while the right panel presents the power function. Both panels once again reveal that  mgcv and  standard B-splines run into false positive inflation for covariate 1 at $z \in (-1,0)$.
+
+
+%The latter exhibited a low type I error but the power was very low for small $n$, e.g. for $n=100$ and $z \in (1,2]$ the estimated power for covariate 1 was 0, whereas for the cut basis it was 0.91.
+%This finding illustrates the value of performing local variable selection: by learning that covariates 2-10 are not needed, the power to detect local effects for covariate 1 increases sharply.
+%%The right panels show the proportion of rejected null hypotheses (right), when using the rule $\mbox{pr}(\beta_j(z) \neq 0 \mid y) > 0.95$ to claim an effect of covariate $j$ at coordinate $z$.
+%The most noticeable feature supporting our theoretical arguments is that, when using cubic splines for the local tests, the posterior probabilities and the type I error for covariate 1 and $z \in (-1,0)$ are both near 1.
+%As indicated by our theory, the 0-degree spline is not affected by these issues. In this example, both for $n=100$ and $n=1,000$ they lead to near-perfect inference, except that for $n=100$ the power to detect $\beta_1(z) \neq 0$ for $z \in (0,1)$ was roughly 0.25.
+%Figure \ref{fig:simiid} further portrays these results. The left panel displays the average posterior probabilities $\mbox{pr}(\beta_j(z) \neq 0 \mid y)$ and the left panel the power function, both again reveal that standard B-splines run into a false positive inflation for covariate 1 at $z \in (-1,0)$.
+
+VC-BART reported local effects for truly inactive covariates 2-10 in all simulations, when using a threshold of 0.95 posterior probability inclusion in a tree. For this reason, we decided instead  to reject a local null hypothesis at $z$ when the 95\% posterior interval for $\beta_j(z)$ did not include 0.   Although this procedure resulted in a lower type I error, it remained above 0.15 for some $z$'s, even for $n=1,000$, and the power was generally lower than for our methodology, see Figure \ref{fig:simiid} and Table \ref{tab:simiid}.
+As discussed, a strategy to prevent false positives in VC-BART is to only report estimated covariate effects above some threshold; however,  it is not obvious how to set the threshold. Additionally, this approach cannot detect effects below the selected threshold. %and then one cannot detect effects below the threshold.
+% Figure \ref{fig:simiid}.
+
+Table \ref{tab:simiid_mse} shows the root mean squared estimation error for the local effects $\beta_j(z)$, averaged across covariates and $z$. Said error  was very similar for degree 0 cut splines and standard cubic B-splines, and for VC-BART it was nearly twice for $n=100$ and four times larger for $n=1,000$. %and significantly higher for VC-BART (almost twice larger for $n=100$, and four times larger for $n=1,000$). 
+%This highlights a fundamental distinction between the two tasks of variable selection and parameter estimation. %: methods that perform poorly in variable selection may still deliver accurate parameter estimation.
+ R package mgcv also attained excellent estimation error, both for 12 and 24 knots. 
+
+Finally, our proposed approach had substantially lower computational time compared to VC-BART, and scaled better as $n$ increased (e.g.,  5 seconds vs. 7 minutes  for $n=1,000$, Table \ref{tab:cputime_simiid}). %Finally, the computational time for our approach than for VC-BART, and it scaled much better as $n$ grows (e.g. 59 sec. vs. 12.6min for $n=1,000$, Table \ref{tab:cputime_simiid}). 
+This advantage is likely because our approach allows pre-computation of sufficient statistics. After this pre-computation, the computational cost does not depend on $n$.
+ R package mgcv was fastest, e.g. 4 seconds for $n=1,000$, since it fits a single model. 
+%A likely reason is that for our method it is possible to pre-compute sufficient statistics, after which the computational cost does not depend on $n$.
+
+%VC-BART reported local effects for (truly inactive) covariates 2-10 in all simulations, when using a threshold of 0.95 posterior probability inclusion in a tree. Given this high false positive rate we do not include VC-BART in Table \ref{tab:simiid} nor Figure \ref{fig:simiid}.
+%We however included VC-BART in Table \ref{tab:simiid_mse}, where we show the root mean squared estimation error for the local effects $\beta_j(z)$, averaged across covariates and $z$. Here the standard cubic B-splines attained a low estimation error, and to a lesser extent also VC-BART. That is, these methods performed poorly for variable selection but not for parameter estimation, illustrating that these are two fundamentally distinct tasks.
+
+
+Our results so far consider an ideal case where a knot is placed at the true change-point $z=0$. 
+In Section \ref{ssec:simulation_iid_misalign} we set the true change-point at $z=0.15$.
+Our method found evidence for a local effect of covariate 1 in regions that include any $z \geq 0.15$, and no evidence elsewhere.
+Our posterior probabilities should be interpreted as evidence for there being differences somewhere in the region, rather than for all $z$ in the region. This is a limitation relative to the competing methods that attempt to also learn the true change-point.
+Section \ref{ssec:simulation_iid_nonequispaced} then considers 4 resolutions, two of which place more knots on $z \geq 0$ than on $z<0$.
+The evidence for local covariate effects was similar than in our previous simulations.
+Interestingly, for $n=100$ the posterior distribution favored the resolution with less knots, whereas for larger $n$ it favored the resolutions placing more knots in $z>0$, where the effect of covariate 1 truly varies, see Figure \ref{fig:simiid_nonequispaced}.
+
+
+\begin{table}
+\begin{center}
+\begin{tabular}{ccccccccc} 
+\multicolumn{9}{c}{$n=100$} \\ 
+& \multicolumn{4}{c}{Covariate 1} & \multicolumn{4}{c}{Covariates 2-10} \\ 
+ Region          & Gaussian &  ICAR+    & VCBART & GAM         & Gaussian &  ICAR+      & VCBART     & GAM  \\
+                 & prior    &  prior    &        &                         & prior    &  prior      &            & \\
+$z \in $ (-3,-2] & 0        &  0        &0.05    &  0.004      & 0       &  0       & 0.14$^{**}$&  0.04 \\
+$z \in $ (-2,-1] & 0        &  0        &0.05    &  0.03       & 0       &  0       & 0.14$^{**}$&  0.04  \\ 
+$z \in $  (-1,0] & 0        &  0        & 0      &  0.28$^{**}$ & 0.001   &  0       & 0.002      &  0.04 \\ 
+$z \in $   (0,1] & 0.25     &  0.21     &0.18    &  0.79       & 0.001   &  0.001   & 0          &  0.05 \\ 
+$z \in $   (1,2] & 0.91     &  0.91     &0.95    &  0.99       & 0       &  0.001   & 0          &  0.05 \\ 
+$z \in $   (2,3] & 0.96     &  0.96     &0.95    &  0.94       & 0       &  0       & 0          &  0.04 \\ 
+%
+\multicolumn{9}{|c|}{$n=1000$} \\ 
+& \multicolumn{4}{c}{Covariate 1} & \multicolumn{4}{c}{Covariates 2-10} \\ 
+ Region         & Gaussian &  ICAR+  & VCBART     & GAM         & Gaussian & ICAR+& VCBART     & GAM \\
+                & prior    &  prior  &          &                       & prior  & prior&            & \\
+$z \in $(-3,-2] &   0      & 0       & 0.08$^{**}$  & 0.001       & 0      & 0     & 0.17$^{**}$&   0.006 \\ 
+$z \in $(-2,-1] &   0      & 0       & 0.08$^{**}$  & 0.001       & 0     & 0     & 0.17$^{**}$&   0.006 \\ 
+$z \in $ (-1,0] &   0      & 0        & 0         & 0.08$^{**}$  & 0    & 0     & 0          &  0.01 \\ 
+$z \in $  (0,1] &   1      & 1        & 0.68      & 0.95        & 0     & 0    & 0          &  0.01 \\ 
+$z \in $  (1,2] &   1      & 1        &  1        & 1           & 0     & 0    & 0.002      &  0.01 \\ 
+$z \in $  (2,3] &   1      & 1        &  1        & 1           & 0     & 0    & 0.002      &  0.01 \\ 
+\end{tabular}
+\end{center}
+\caption{Independent errors simulation. Proportion of rejected null hypothesis under the Gaussian shrinkage and extended intrinsic conditionally auto-regressive (ICAR+) priors, VC-BART and gam in R package mgcv (GAM) with default 12 knots. 
+For covariate 1 and $z>0$ this is the statistical power, else it is the type I error. ** indicates a type I error $>0.05$}
+\label{tab:simiid}
+\end{table}
+
+
+
+
+\subsection{Functional data simulation}
+\label{sec:simulation_fda}
+
+
+\begin{table}
+\begin{center}
+\begin{tabular}{ccccc} 
+ Region          & Cut0 & Tensor & IT       & VC-BART  \\  
+$z \in $ (-3,-2] & 0.02 & 0.032&   0.01   &  0.51 \\ 
+$z \in $ (-2,-1] & 0.035& 0.032&   0.01   &  0.44 \\ 
+$z \in $  (-1,0] & 0.047& 0.032&  0.0131  &  0.46 \\
+$z \in $   (0,1] & 0.96 & 0.657&     0.389&  0.92 \\ 
+$z \in $   (1,2] & 0.981& 0.791&     0.964&  1    \\ 
+$z \in $   (2,3] & 1    & 0.800&    0.992 &  1    \\ 
+\end{tabular}
+\end{center}
+\caption{Functional data simulation. Proportion of rejected null hypothesis for 0-degree cut orthogonal basis, tensor model, interval testing (IT) procedure  and VC-BART. For $z<0$ this is the type I error, for $z>0$ the statistical power}
+\label{tab:simfda}
+\end{table}
+
+We simulate functional data for $M=50$ individuals over a uniform grid of $100$ time points within the interval $z \in [-3,3]$, with strongly correlated errors. For each individual, we consider  $p=10$ covariates and generate data over said grid. We employ the same  model for the outcome and covariates as in Section \ref{sec:simulation_iid}, that is  only covariate 1 truly has an effect, at coordinates $z > 0$. However,  now the errors are drawn from a mean zero, unit-variance, Gaussian process with autocorrelation $\mbox{cov}(\epsilon_{it}, \epsilon_{it'})= 0.99^{|t-t'|}$. We simulate $100$ independent replicates and report averaged results.
+
+As discussed in Section \ref{ssec:priors}, we replaced the Gaussian shrinkage prior in \eqref{eq:prior_paramters} by the group product moment prior of \citet{rossell:2021}, with default parameters.
+We compare our approach to the tensor model method of \cite{paulon:2023}, the interval testing procedure of \cite{pini:2016},  and VC-BART.
+The former is designed to detect high-order interactions between multiple discrete covariates, and has two versions: one designed for a single covariate and another for multiple covariates. The multiple covariate version performed poorly, with a type I error rate exceeding 0.5. 
+Given also that the latter method is designed for a single covariate, we first focus on comparing the three methods when considering only the truly active covariate 1.
+
+Table \ref{tab:simfda} shows that our method has higher power than LFMM (0.96 vs. 0.657 for $z \in (0,1]$), with a similar type I error rate.  Similarly, the interval testing procedure exhibits low power in detecting the covariate effect within the range of $z \in (0,1]$. While the procedure controls the family-wise error rate within any specified interval of the domain, this also diminishes its power.  VC-BART exhibited high type I error rates. 
+Figure \ref{fig:pp_simfda}, left, shows the average posterior probability of a local effect for covariate 1 for both the LFMM and our method. At coordinates $z<0$, where there is truly no covariate effect, these probabilities are close to 0 for both methods. However, for $z>0$, where the covariate effect truly exists, our method exhibits higher posterior probabilities. 
+
+
+The right panel of Figure \ref{fig:pp_simfda} and Table \ref{tab:simfda_10covar} present the results for our method when using all 10 covariates. The results for covariate 1 are overall similar to the single covariate setting, although the posterior probabilities for $z<0$ and the corresponding type I errors are slightly higher. For  $z>0$, the power is also slightly lower, e.g. from $0.96$ to $0.73$ for $z \in (0,1]$. For the truly inactive covariates $2$-$10$, the average posterior probabilities were below $0.2$ at any $z$, and the type I errors ranged from $0.05$ to $0.08$. In Section \ref{ssec:simulation_fda} we show results for a larger sample size, $M=100$ individuals. As illustrated in Table \ref{tab:simfda_10covar},  all type I errors are below $0.05$, and the statistical power is $\geq 0.99$ for all $z$. %, which aligns with our expectations based on the theoretical results outlined in Section \ref{sec:theory}.
+ For VC-BART, the type I error remained above 0.5.  
+
+%The right panel in Figure \ref{fig:pp_simfda} and Table \ref{tab:simfda_10covar} show results for our method when one uses the 10 covariates. 
+%The results for covariate 1 are overall similar to the single covariate setting, albeit the posterior probabilties for $z<0$ and the corresponding type I errors are now slightly higher, whereas for $z>0$ the power is lower (e.g. from 0.96 to 0.73 for $z \in (0,1]$). 
+% For (truly inactive) covariates 2-10 the average posterior probabilities were below 0.2 at any $z$, and the type I errors were in the range 0.05 - 0.08.
+%When running again the simulation with $M=100$ individuals all type I errors were below 0.05 (Table \ref{tab:simfda_10covar}) and the statistical power was $\geq 0.99$ for all $z$, as predicted by our theory.
+
+
+
+\section{Salary gaps versus age}
+\label{ssec:salary}
+
+
+\begin{figure}
+\begin{center}
+\begin{tabular}{cc}
+\includegraphics[width=0.5\textwidth]{salary_pp_localtests.pdf} &
+\includegraphics[width=0.5\textwidth]{salary_estimated_effects.pdf}
+\end{tabular}
+\end{center}
+\caption{Salary Data, discussed in Section \ref{ssec:salary}. Left: posterior probability of a salary gap associated with race, gender and college education versus age, adjusted by occupation and worker class. Right: corresponding estimated effect.}
+\label{fig:salary}
+\end{figure}
+
+We used a dataset obtained from the 2019 Current Population Survey \citep{flood:2020}  to investigate the presence of a salary gap associated with potentially discriminatory factors, such as race with binary indicators for black race and Hispanic origin, and sex.
+Survey data require re-weighting for consistent inference, and this operation can affect particularly estimated local effects, but we do not consider weights here for simplicity.  Specifically, the goal was to assess whether said gaps exist at all ages. The dataset includes $n=36,308$ single-race individuals aged 18-65 who were employed full-time, working 35-40 hours per week, and not serving in the military.
+The response variable is the log-10 annual work income.  Besides assessing the effects of race and sex at various ages, giving the $z$ coordinates, we included the possession of a university degree as a benchmark that is expected to have a positive effect across all ages. We also examined the effects of being government-employed and self-employed. We also included the occupational sector as an adjustment covariate. The inclusion of the occupational sector is predetermined and no testing is performed. The data contain information on 24 occupational sectors, such as architect/engineer, computer/maths, construction, farming, food, maintenance, etc.
+
+
+%The response is the recorded log-10 annual work income and the goal is to test the effect of black race, hispanic origin and sex at various ages ($z$ coordinates). As a benchmark we also tested for the effect of possessing a university degree, which is expected to have a positive effect at all ages, and of being either government- or self-employed. 
+%We included the occupational sector as an adjustment covariate whose inclusion is forced into the model (i.e. no testing is performed).
+%The occupational sector has 24 categories such as architect/engineer, computer/maths, construction, farming, food, maintenance, etc.
+%%occupations: architect/engineer   arts/sports/media business operations      computer/maths 
+%%             construction           education          extraction             farming 
+%%                  finance                food              health        installation 
+%%                    legal         maintenance          management              office 
+%%            personal care          production          protective               sales 
+%%                  science      social service          technician      transportation 
+%The data had $n=36,308$ individuals.
+
+%We performed a multi-resolution analysis at 2 resolutions defining 10 and 20 local testing regions, respectively, roughly corresponding to 5 and 2.5 year bins.
+We performed a multi-resolution analysis using  four resolutions, defining 5, 10, 15 and 20 local testing regions respectively. The latter corresponds to 2.5 year bins, finer resolutions are unlikely of interest, as salary policies take years to have a noticeable effect.  
+Figure \ref{fig:salary} summarizes the results. 
+In the left panel, The existence of a black race, sex and college effect had a posterior probability near 1 at any age.
+College was associated with higher salaries, while black race and female sex were associated with lower salaries.
+However, these gaps were estimated to be smaller for younger individuals, aged $\leq 30$, see the right panel. 
+Interestingly, we did not find strong evidence of salary gaps associated with Hispanic origins among individuals who had recently joined the workforce, i.e. aged $\leq 30$. However, strong evidence was found for such gaps at all other ages.
+We emphasize  that the lack of evidence against a null hypothesis does not prove its truth, as there may be limited power to detect such differences. However, given the large sample size, it appears that if there were truly a salary gap for individuals aged $\leq 30$, it should not be very large. 
+%Finally,  we also did not find evidence of salary gaps associated with being self- or government-employed. 
+We remark that these findings should be interpreted conditional on the assumption that two individuals are equal in terms of their occupational sector, college education, and other covariates. Our analysis is not designed to detect discrimination that may hinder individuals from obtaining a certain education or occupation.
+ 
+%We remark that these findings should be interpreted as being conditional on two individuals being equal in their occupational sector, college education and other covariates, e.g. any discrimination making it difficult to attain a certain education or occupation is not intended to be detected by our analysis.
+
+ 
+Figure \ref{fig:salary_suppl} shows the sensitivity of our results to using a larger, and fixed, number of 20 and 30 knots.
+With more knots statistical power should decrease, accordingly covariates black and hispanic show less evidence for local effects. 
+For government and self-employed still no local effects are found, supporting that in our framework adding knots does not lead to false positives, whereas for college and female there continues to be evidence for local effects at most ages.
+
+
+
+\section{Local brain activity over time}
+\label{ssec:saez_data}
+
+
+We consider a dataset from  \cite{saez:2018} measuring brain activity over time using multi-electrode electrocorticography.  
+%The study investigated the neural dynamics in the human orbitofrontal cortex during decision-making. 
+%The subjects were individuals with medically refractory epilepsy who had undergone electrode implantation as part of their pre-operative procedure. 
+Patients played a game where they chose between a certain prize and a risky gamble. %, which had varying probabilities of higher winnings. %Electrodes were placed on patients' brains prior to a surgery, and patients repeatedly played economic decision-making games.
+The goal is to assess whether certain game covariates are associated with brain activation and, if so, at what specific times. 
+%The researchers examined the relationship between brain activity and variables related to the decision-making task. 
+We consider eight covariates. Three are outcome-related: 1) whether the gamble resulted in a win or loss, 2) the reward prediction error (RPE) representing the difference between the obtained reward and the expected value of the gamble, and 3) the additional money that would have been won for the non-chosen option (regret). There was also a dummy covariate indicating whether participants chose to gamble or not and covariates about previous rounds, e.g. losing in the immediately preceding round.
+
+%All trials were  time-locked to the moment when the outcome of the gamble was revealed, set as $z = 0$. 
+Prior to time $z=0$ participants placed their bets. At exactly time $0$, the money gained was revealed to the participants. The researchers recorded the brain activity before and after the outcome revelation, from $z=-450$ until $z=1500$ miliseconds.
+Figure \ref{fig:ECoG}, left, shows the mean  high-frequency brain activity for an illustrative electrode averaged across 179 trials %with  corresponding 80\% point-wise confidence intervals 
+played by a single patient, split according to whether the game was won (top) or lost (bottom). 
+%See also Figure 2b  in \cite{saez:2018}. Additional experimental details and data pre-processing can be found in the same publication.
+See \cite{saez:2018} for further experimental and data pre-processing details.
+ 
+First, we examine the local effect of each covariate separately. We  perform a multi-resolution analysis with 10, 20, 30 and 37 knots. The highest resolution corresponds to having a knot at every 50-ms interval, sufficient to capture changes in brain activity typically observed in this type of experiment, see \cite{saez:2018} for a discussion.
+%For example, \cite{saez:2018} consider 50ms increments in a rolling window approach.
+We find a significant increase in brain activity associated with game wins and regret. Specifically, the posterior probability of an effect for game wins is between 0.73 and 0.96 within the time range of $z \in (665,833)$. Similarly we observe high probabilities for regret, between 0.89 and 1, in $z \in (665, 870)$. The estimated effects displayed temporal variability, gradually decreasing over time, see Figure \ref{fig:EcoG_effect_singles}. 
+%the existence of multiple valuation components related to brain activity, particularly in relation to outcome-related covariates, such as gamble win or loss, RPE, and regret, rather than choice-related processes like gamble choice.
+
+We next jointly include the eight covariates in our model, using multiple resolutions as above. 
+This analysis identifies  regret %collinearity among the outcome-related covariates, leading 
+as the only variable with a significant effect on brain activity, with a posterior probability of roughly 0.9 in the time range $z \in (720, 870)$ %, with a highest estimated effect size of 0.0986. 
+see Figure \ref{fig:ECoG}, right.
+The differences with our previous analysis are likely because game wins, which before also had local effects, are highly correlated with regret.
+
+Overall, our findings support that brain activity is associated to outcome-related covariates such as gamble win and regret, rather than choice-related processes like gamble choice, and that it is important to account for the joint effect of multiple covariates.
+%Further, we observe that neural activity may be more highly associated with regret than with wins. 
+%Our method helped disentangle highly correlated covariates and identify which ones can best explain variation in neural activity.  %More in general, this example illustrates the feasibility of conducting complex associative studies and local variable selection with the proposed approach in highly correlated neurobehavioral data.
+%\color{red} Michele Is this last sentence still true? In some ways, it is because when we do single-resolution analyses we get sometimes also RPE as significant, or just RPE. Not sure how to write it. 
+
+
+%In contrast to the remarks made in \cite{saez:2018}, neither the univariate nor multivariable analyses revealed any association with past game characteristics. We would like to emphasize that our primary purpose here is to illustrate the feasibility of conducting complex associative studies and local variable selection with the proposed approach, when using highly correlated data from an authentic neuroscience experiment. Providing a comprehensive neuroscience analysis exceeds our scope. %To comprehensively address all possible effect modifications, further investigations would be necessary. 
+
+
+
+
+\section{Discussion}
+\label{sec:discussion}
+
+%We have proposed  a framework based on orthogonal cut splines for local variable selection, aiming to provide robust inference in the presence of misspecification in the data-generating mean or covariance structure. The approach can accommodate both independent and dependent errors and is conceptually straightforward: local basis functions are employed to capture the effects of covariates, which are then orthogonalized with respect to the baseline mean. 
+%Based on our experience, using cubic splines for the baseline mean and employing cut orthogonal splines of degree 0 for group differences yielded accurate local variable selection while maintaining lower computational costs compared to using higher degrees for the group differences.
+
+Models assuming additive effects can provide more accurate inference than non-parametric methods when the sample size is moderate or there are many covariates, while facilitating interpretation and computation.  
+If desired, one may also include covariate interactions, see the sex vs. race interaction in our salary example, see Figure \ref{fig:salary_female_race}.
+%Under the additivity assumption one tests the local effect of a covariate in $x$, averaged across the values of other covariates in $x$, but if desired one may also include higher-order covariate interactions.
+%to account for higher-order interactions within elements in $x$, one can augment the vector of covariates. 
+Although our orthogonal cut basis protect against type I error inflation in such models,
+if one uses too many knots then power can suffer. However, our results support that the multi-resolution analysis can help improve power.
+
+We focused on testing multiple scientific hypotheses, rather than estimating covariate effects. An alternative illustrated in Section \ref{sec:simulation_iid} is to use credible intervals for covariate selection. 
+False positive inflation issues also apply to said intervals, unless one ensures the presence of zeroes in the asymptotic solution, e.g. our orthogonal cut basis.
+%Also, in a Bayesian framework such intervals do not lead to efficient testing procedures for a precise null hypothesis \citep{BergerDelampady1987}. %
+%Additionally, it fails to account for multiplicity, especially with dependent hypotheses: even with a small number of predictors, we may expect an increased proportion of falsely rejected null hypotheses. 
+%Incidentally, this is the case also for procedures based on frequentist confidence intervals. Indeed, the  Bayesian posterior intervals under the full model converge to the frequentist confidence intervals, because of the Bernstein–von Mises theorem. 
+Also, with many covariates, credible intervals can be inefficient compared to the exclusion of inactive covariates.
+
+
+Our work enables the use of standard posterior inference algorithms.
+These  algorithms were effective in our examples,
+but computations become costlier when one considers many covariates, different resolutions, or as one adds local testing regions.
+ Hence, with multivariate coordinates, restraint in setting many regions may be needed. 
+When many covariate effects are zero the posterior distribution concentrates on small models, which eases computation, but for non-sparse truths it would be interesting to develop tailored computations.
+ For functional data we showed a proof-of-principle where one can use any covariance estimate $\hat{\Sigma}$ and then treats it as fixed. 
+Fixing $\hat{\Sigma}$ underestimates uncertainty, but one still obtains consistent model selection and it enables
+quickly computing marginal likelihoods via rank 1 Cholesky updates, and storing them whenever a model is revisited.
+Developing statistically and computationally efficient covariance models that fully account for uncertainty would certainly be interesting future work. 
+
+
+%This significantly simplifies calculation, since marginal likelihoods 
+%In settings with multivariate functional data
+%it would also be interesting to develop covariance models beyond the auto-regressive and moving averages used in our examples. %This could involve utilizing low-rank covariance decompositions or incorporating random effects. 
+%Such dependence models would be particularly relevant for settings with multivariate coordinates ($z$).
+%The challenge lies in proposing statistically and computationally efficient methods despite the larger number of parameters involved.
+
+
+
+Beyond our specific framework, we hope to shed light on subtle issues arising in local variable selection under misspecification, and help others put forward alternative solutions. 
+%As mathematical models are simplifications of reality and are inherently prone to some degree of misspecification,  this seems an interesting avenue for future research.
+
+
+%Our framework is based on a semi-parametric model assuming additive local covariate effects. The idea is that one may attain more accurate inference than with non-parametric methods with moderate sample sizes and/or a large number of covariates, and to do so at a lower computational cost.
+%The formulation allows to use standard MCMC algorithms for model search and posterior inference, which sufficed for our examples.
+%It should be noted however that when considering many local testing regions, resolutions levels the computational cost may increase sharply, particularly when there are many covariates.
+%When many covariate effects are zero (sparse truth) per our results the posterior distribution and hence most MCMC interation concentrate around small models, facilitating computation. However, under non-sparse truths it may be necessary to develop tailored computational algorithms that would deserve further separate study.
+%In would also be interesting to develop more refined covariance models than the simple parametric choices (auto-regressive and moving averages) considered in our examples, e.g. using low-rank covariance decompositions or random effects. The challenge there is to propose that remains statistically and computationally efficient, despite having a larger number of parameters.
+
+%We emphasize that beyond the specific proposed framework, we hope that our work sheds light on subtle issues that may occur in local variable selection under misspecification, and for which others may propose alternative solutions. Given that mathematical models are ultimately simplifications of reality and hence always misspecified to some degree, we hope to help illustrate strategies to retain valid inference in such settings.
+
+\section*{Acknowledgment}
+
+DR was funded by Ayudas Fundaci\'on BBVA Proyectos de Investigaci\'on Cient\'ifica en Matem\'aticas 2021, grant Consolidaci\'on investigadora CNS2022-135963 by the AEI, PID2022-138268NB-I00 by MCIN/AEI/10.13039/501100011033 /FEDER,
+Europa Excelencia EUR2020-112096 from the AEI/10.13039/501100011033 and European Union NextGenerationEU/PRT.
+ASK and MG were partially supported by NSF SES Award number 1659921.
+
+
+\section*{Supplementary material}
+
+The Supplementary Material includes proofs, R scripts for our examples and supplementary results.
+
+
+
+\bibliographystyle{biometrika}
+\bibliography{references}
+
+
+
+\end{document}

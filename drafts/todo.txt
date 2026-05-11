@@ -2,12 +2,12 @@ TO DO:
 
 
 Today:
-- finish up intro.  
+- X finish up intro.  
 - BNN chapter experiments description.  
 - start competitor sims, extract metrics from completed sims.  Work on salary data analysis.
 
 
-Finish final dissertation draft by Wed.  Some results not ready OK, but should just be plug-in.
+Finish dissertation draft by Wed.  OK if some results not ready by then, but should just be plug-in.
 Outline presentation on Wed.  Presentation draft by Sat.  
 
 
@@ -18,34 +18,53 @@ CURRENT DRAFT NOTES:
 - INTRO:
 	- X Mean field section 
 	- Data 
-		- ECoG - look at presentation for 
-		- salary data
-
+		- ECoG - look at presentation for images
+		- salary data - look at presentation for images
+	- add in references
 
 - BNN CHAPTER:
-	- compress related work, add work on ARD as a precursor to dropout - google link
-	- Proof of equivalence in appendix
+	- experiments and discussion sections (outline below)
+	- compress related work, add a few sentences about ARD as a precursor to dropout
+	- Proof of equivalence of half-Cauchy decomposition in appendix
 	- KLs in appendix
+	- add in references
 
 
 
 EXPERIMENTS
 	- function recovery:
-   		- need to generate credible intervals for functions.  Just run regular forward pass 1000 times on same model with 0/1 data, then mean center both using obs from -1:1
-  		- MSE use model.eval to measure Eyhat on test data vs true Ey
-  	- simulated data:
-  		- competitor descriptions: SS, ssgam, softbart --- models that generate PIPs and thus generate BFDR
-  		- functions: original, original with modded support/interactions and extra functions, all with 0.5 mutual correlation
-  		- tables evaluating FDR, BFDR, etc.
-  		- 2 models ---- 2 horseshoe layers, 4 horseshoe layers
-  	- wage data - review ecog paper analyses
+   		- need to generate credible intervals for functions by running regular forward pass 100 times on same model using data that includes x1:x4 one at a time, then mean center it (since individual function intercepts are nonidentifiable).  Plot with data?
+  		- function MSE: generate Ey-hat using model.eval() on test set.  MSE of Ey-hat vs true test set Ey.  Mean/sd of fMSE across 50 simulations.
+  	- BFDR calibration: average BFDRs and FDRs across datasets using max BFDR = 1:100/100, plot with a 1 standard deviation error bar?  I don't know.  Is there a typical way to do this?
+  	- Simulations:
+  		- 2x3=6 data settings: 4 true + 100 nuisance predictors, 8 true + 100 nuisance predictors; 1k, 2k, 5k obs.  All predictors generated with 0.5 mutual correlation. 
+  		- 2 models ---- 2 horseshoe layers + 3 deterministic, 4 horseshoe layers + deterministic output layer
+  			- functions: original 4 functions, original with modified support, interactions, and a few extra functions, all with 0.5 mutual correlation 		
+  		- competitor descriptions: 
+  			- ssgam, softbart --- state of the art models used for non-linear data that generate PIPs and BFDR.
+  		    	- note: Spike-and-Slab GAM takes a very long time and eats up all the computing power on the machine (it's parallelized and yet takes a long time).  Doing this last.
+	  		- straw man competitors (assume linearity): lm, spike-and-slab
+
+  		- metrics: 
+  		    - average time (I didn't think to measure it from the beginning, so for my method I'm just using the run times for a few sets of 10 simulations and taking the mean.  Number of observations )
+  		    - test set mse: test set Eyhat vs. observed y
+  		    - function mse: test set Eyhat vs true Ey
+  		    - fdr
+  		    - bfdr
+  		    - Sensitivity (TP / (TP + FN)) and specificity (TN / (TN + FP))
+  		    - f1 (2*precision*sensitivity / (precision + sensitivity))
+  	- salary data - review ecog paper analyses
 
 DISCUSSION / future work
-- better posterior estimation --- replace mean-field assumption with structured VI.  Ghosh and doshi-velez do this for the weights using multivariate normal with a low-rank estimate of the covariance matrix; we could similarly tie the scale parameters together via multivariate (log)-Normal.
-- application to other types of settings: varying coef models in which coordinates effect of $X$ is modulated through $Z$ --- essentially, run NN on Z to get vector of f_(Z_i)'s, last layer's output multiplied by X_i using horseshoe.  
-- use with non-local priors and normalizing flow for variational inference
+- frame this work as a first step in recovering Bayesian operating characteristics for methods originally developed for linear models applied to neural networks (and demonstrating fusion of Bayesian and deterministic methods?  Is this a good idea?)
+- better posterior estimation --- replace mean-field assumption with structured VI.  Ghosh and doshi-velez do this for the weights using multivariate normal with a low-rank estimate of the covariance matrix; we could similarly tie the SCALE parameters together via multivariate (log)-Normals.
+- Very different approach: Discrete spike-slab type model using non-local prior and normalizing flow for variational inference
+- Using variational dropout rate $\alpha = E^2[\lamda_j] / Var[\lambda_j]$ with knockoffs (thus avoiding the tau corrections).
+
+- application to other types of settings: varying coef models in which coordinate $Z$'s effect on $X$ is modulated through $f$, i.e. y = f_1(Z)x_1 + f_2(Z)x_3 + ...  (VC-BART type setting; coordinates Z and X assumed separate, no interactions between X variables) --- essentially, run NN on Z to get vector of f_(Z_i)'s, last layer's output multiplied by X_i using horseshoe.  Could also model each $f(\cdot)$ in separate sub-networks.
 - detect linear relationships via skip layers
-- theory.  Nalisnick and Padrhaic Smyth's work on variational dropout, Rockova and Polson's work on posterior concentration in Spike-Slab RELU.
+
+- Theory needs to be developed.  (Nalisnick and Padrhaic Smyth's work on variational dropout offers some pathways, Rockova and Polson's work on posterior concentration in Spike-Slab RELU.)
 
 
 
@@ -70,13 +89,14 @@ EXPERIMENTS
 
 
 Simulated data:
-- data generated using $y_i = f_1(x_{i,1}) + f_2(x_{i,2}) + f_3(x_{i,3}) + f_4(x_{i,4}) + \epsilon, \qquad \epsilon ~ N(0, 1)$; X has 4 truly active variables (x_1, x_2, x_3, x_4) and 100 nuisance variables ($p = 104$).  All predictors in X have mutual correlation 0.5.  Each X_j = 1/2 * z_0 + 1/2 * z_j, j \in \{1, ..., p} where z_0 and all z_j ~ iid N(0,1).
+- first data setting: data generated using $y_i = f_1(x_{i,1}) + f_2(x_{i,2}) + f_3(x_{i,3}) + f_4(x_{i,4}) + \epsilon, \qquad \epsilon ~ N(0, 1)$; X has 4 truly active variables (x_1, x_2, x_3, x_4) and 100 nuisance variables ($p = 104$).  All predictors in X have mutual correlation 0.5.  Each X_j = 1/2 * z_0 + 1/2 * z_j, j \in \{1, ..., p} where z_0 and all z_j ~ iid N(0,1).
 
 - PUT IN: f_j specifications
 
-- tested for n = 1000, 2000, 5000; 80-20 test-train split (i.e. trained on 800, 1600, 4000 obs; test set used to calculate test MSE)
+- tested for 50 simulated datasets (new X and epsilons generated each time), for different n = 1000, 2000, 5000; 80-20 test-train split (i.e. trained on 800, 1600, 4000 obs; test set used to calculate test MSE and function MSE)
 
-- (NEEDED?) generate picture of function recovery with credible interval, run regular forward pass 1000 times on same model with 0/1 data, then mean center both using obs from -1:1
+- (NEEDED?) generate picture of function recovery with credible interval
+
 - test MSE
 
 
@@ -121,4 +141,71 @@ Furthermore, in the context of predictive uncertainty, even when the total dimen
 
 
 
+###########################
+prompt:
 
+I will provide the raw LaTeX code for my introduction and chapter 3 of my dissertation.  Can you help me reorganize and compress the subsections "Compression and Architecture Selection" and "Input Variable selection in Neural Networks" in the "Related Work" section?  I would also like you to expand a bit on automatic relevance determination (ARD) by defining the main idea and method using LaTeX math environments as necessary, and explain how it is a precursor to variational dropout (but also describe its main differences).  The basic idea of the discussion is that ARD is a precursor to variational dropout, which is a precursor to my method.  Please use LaTeX that matches the LaTeX that I provide you with, and language that matches my overall style (though it would be great if you can make it more precise and rigorous; the audience is PhD level Bayesian statisticians and professors).  Please provide references for your statements; for any statements or references that you are not sure are precise, please still include but place in LaTeX code that makes the font color purple.  
+
+
+
+
+###########################
+prompt:
+
+Using the provided LaTeX for the introduction and chapter 3, can you draft the Experiments and Discussion sections for me (using style and LaTeX that matches the language and LaTeX of the introduction and Chapter portions so that I can drop it into the draft I already have)?  I have provided an outline below, with instructions to you for different sections included in curly brackets.  Please include references as needed.  If you are not 95% sure about assertions that you make or that a reference addresses the specific topic, please still include it, but place it in LaTeX code that marks it in purple.
+
+
+# EXPERIMENTS:
+
+## FUNCTION RECOVERY:
+    - {BASIC IDEA FOR SECTION (please flesh out while describing how I'm showing it): show that the method recovers functional form of non-linear relationships between active predictors and reponse.}
+	- {MY PLAN}: 
+	    - I am going to generate credible intervals for functions by running regular forward pass 100 times on same model using data that includes x1:x4 one at a time, then mean center each of the generated functions (since individual function intercepts are nonidentifiable).  Plot with data (after mean-centering based on true Ey).  Just do this for one dataset & trained model for  each of 1k obs, 2k, 5k.
+		- I am going to report "function MSE": generate Ey-hat using model.eval() on test set.  MSE of Ey-hat vs true test set Ey.  Mean/sd of fMSE across 50 simulations.
+
+## BFDR CALIBRATION: 
+	- {BASIC IDEA}: show that BFDR for method matches (or is more conservative than) actual FDR in simulations
+	- {my plan}: plot BFDRs and FDRs (mean over 50 datasets), along with TPR and FPR recovered by setting max BFDR = 1:100/100.  Averaged across 50 simulated datasets.  
+
+## SIMULATED DATA:
+	- {PLEASE DESCRIBE, using LaTeX math environments when appropriate.  This should have 1 subsection describing my 2 methods and training, 1 subsection describing the competitors, 1 subsection for data setting 1 and results, and 1 subsection for data setting 2 and results.  Please also set up placeholder tables for the COMPARISON METRICS with the methods (mine and competitors) in the rows, and the metrics in the columns that I can drop results into myself easily.  An overall format similar to the table of shrinkage priors in the introduction would be best.}
+  	- 2x3=6 data settings: 2 different data-generating functions with 4 true + 100 nuisance predictors, 8 true + 100 nuisance predictors; 50 sims each with 1k, 2k, 5k obs.  All predictors X generated with 0.5 mutual correlation as follows generate z_0~N(0,1) and z_j~N(0,1) all i.i.d.; x_j = (z_0 + z_j)/2.
+  	- I use 2 model architectures on each dataset ---- 2 horseshoe layers + 3 deterministic; 4 horseshoe layers + deterministic output layer.  All layers have 16 nodes in them (apart from the output layers)
+  	- functions used to simulate data
+		- data setting 1: y = f_1(x_1) + f_2(x_2) + f_3(x_3) + f_4(x_4) + epsilon, epsilon ~ N(0,1).
+			- f1 = -cos(pi * x_1 / 1.5)
+			- f2 = cos(pi * x_2) + sin(pi * x_2 / 1.2)
+			- f3 = abs(x_3)^(0.75)
+			- f4 = (1/4) * (x_4)^2
+		- data setting 2: some of the same functions, but with smaller support, interactions, and a few extra functions.  I() = indicator function.
+		    - y = -cos(pi/1.5*x_1)*(I(x_6>0) + I(x_7<0)) + cos(pi*x_2*I(x_8>0)) + sin(pi/1.2*x_2*I(x_8>0)) - 2*x_3/(1 + x_4^2) + 1 / (1 + 2*x_5*I(x_5>0)) + epsilon, epsilon ~ N(0,1)
+	- my models trained for 50,000 epochs, with cosine KL annealing such that the KL weight = 1 by epoch 20k.  Training 1 model for 50k epochs takes approx 1hr 40min for 2 hshoe-layer + 3 deterministic-layer architectures; 2hr 30min for 4hshoe-layers and 1 deterministic output layer.
+	- tau_0 set using Piironen & Vehtari 2017's suggestion, with p_0 set to p/10 (so assuming sparsity, but not right on the dot).  Agnostic p_0 used to set tau_0 in intermediate layers (p_0 = d_{\ell-1} / 2)
+
+ 	- COMPETITOR DESCRIPTIONS:
+	  	- ssgam, softbart --- state of the art models used for non-linear data that generate PIPs.  {please describe each briefly, with references}
+		- straw man competitors (models assume linearity of relationship between predictor and response): lm, spike-and-slab
+	- COMPARISON METRICS:
+        - Results reported from setting a max BFDR = 0.05.  LM doesn't generate PIPs obviously, so using Benjamini-Hochberg with max FDR set to 0.05.
+        - {include note that the bad results from using only the only the m_eff correction to tau and only the spectral norm correction to tau are in the Appendix to provide a comparison to the good results from using both corrections, i.e. providing evidence that both are needed.}
+     	METRICS:
+     		- average time to run (I didn't think to measure it from the beginning, so for my methods I'm just using the run times for a few sets of 10 simulations and taking the mean.  Not sensitive at all to number of observations.  2 hshoe layers + 3 det layers take about 1hr 40 min for 50k epochs; 4 hshoe layers + 1 det layer take about 2 hrs 30min) - just report the mean
+	        - test set mse: test set Eyhat vs. observed y  - report mean and sd
+        	- function mse: test set Eyhat vs true Ey (as described above).  Since I generated different data every single time (not just different epsilons), I would just report mean and sd of this
+            - FDR - mean and sd.  Benjamini-Hochberg for lm, with max FDR set to 0.05
+            - BFDR - mean and sd.  Max BFDR set to 0.05 (?)
+            - Sensitivity (TP / (TP + FN))
+            - Specificity (TN / (TN + FP)).  mean/sd 
+            - f1 score (2*precision*sensitivity / (precision + sensitivity)).  mean/sd
+
+## SALARY DATA - review ecog paper analyses.  I need to do this still
+
+# DISCUSSION / FUTURE WORK:
+{Frame this work as a first step in recovering Bayesian operating characteristics for methods originally developed for linear models applied to neural networks (and demonstrating fusion of Bayesian and deterministic methods within neural network.)  Nice to note that the spectral norm correction works well with differing numbers of dterministic layers.}
+
+- future work: 
+	- better posterior estimation --- replace mean-field assumption with structured VI.  Ghosh and doshi-velez do this for the weights using multivariate normal with a low-rank estimate of the covariance matrix; we could similarly tie the SCALE parameters together via multivariate (log)-Normals.
+	- Application to varying coef models in which coordinate $Z$'s effect on $X$ is modulated through $f$, i.e. y = f_1(Z)x_1 + f_2(Z)x_3 + ...  (VC-BART type setting; coordinates Z and X assumed separate, no interactions between X variables) --- essentially, run NN on Z to get vector of f_(Z_i)'s, last layer's output multiplied by X_i using horseshoe.  Could also model each $f(\cdot)$ in separate sub-networks.
+	- Very different approach: Discrete spike-slab type model using non-local prior and normalizing flows for variational inference
+	- Using variational dropout rate from the local scale parameter $\alpha = E^2[\lamda_j] / Var[\lambda_j]$ with knockoffs (thus avoiding the tau corrections).
+	- Theory needs to be developed.  
