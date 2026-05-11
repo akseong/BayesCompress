@@ -73,13 +73,37 @@ metrics_err_by_max_bfdr <- function(dropout_vec, true_vec, bfdr_vec){
 }
 
 
-# n=1000, mcorr = 0.5, 5x16 2 hshoe 3 deterministic layers ----
 
-stem <- here::here("final_sims", "results", "nfdsmallbias_mutcorr0.5_5x165000obs_")
+
+stem <- here::here("final_sims", "results", "hshoesmallbias_mutcorr0.5_5x165000obs_")
 true_vec <- rep(0, 104)
 true_vec[1:4] <- 1
+n_sims = 50
+compiled_stem <- paste0("hshoe4det1_origfns_5k_", n_sims, "sims_compiled.RData")
+compiled_fname <- here::here("final_sims", "results", compiled_stem)
+
+# ORIG FCNS
+# hshoe2det3_origfns_1k_50sims_compiled.RData       100 sims available:   nfdsmallbias_mutcorr0.5_5x161000obs_
+# hshoe2det3_origfns_2k_50sims_compiled.RData       50 sims available:    nfdsmallbias_mutcorr0.5_5x162000obs_
+# hshoe2det3_origfns_5k_50sims_compiled.RData       125 sims available:   nfdsmallbias_mutcorr0.5_5x165000obs_
+#
+# hshoe4det1_origfns_1k_50sims_compiled.RData       66 available          hshoesmallbias_mutcorr0.5_5x161000obs_
+# hshoe4det1_origfns_2k_50sims_compiled.RData       50 available          hshoesmallbias_mutcorr0.5_5x162000obs_
+# hshoe4det1_origfns_5k_50sims_compiled.RData       34 avilable           hshoesmallbias_mutcorr0.5_5x165000obs_
+
+
+# MOD FCNS
+# hshoe2det3_modfns_1k_50sims_compiled.RData        64 available:         meanfssmallbias_5x16_origmodsupint_p100_mcor.5_1000obs_
+
+# hshoe2det3_modfns_5k_50sims_compiled.RData        52 available:         meanfssmallbias_5x16_origmodsupint_p100_mcor.5_5000obs_
+
+# hshoe4det1
+
+
+
+
 # started off some with 5, some with 10.  Figure out which ones have 5, vs 10
-overall_seeds <- c(516, as.numeric(paste0(516, 0:13)))
+overall_seeds <- as.numeric(c(516, paste0(516, 0:13)))
 possible_sim_seeds <- c()
 
 for (i in 1:length(overall_seeds)){
@@ -96,13 +120,22 @@ for (i in 1:length(poss_fnames)){
   exists_TF[i] <- file.exists(poss_fnames[i])
 }
 
-sim_fnames <- paste0(stem, possible_sim_seeds[exists_TF], ".RData")
-mod_fnames <- paste0(stem, possible_sim_seeds[exists_TF], ".pt")
+sum(exists_TF)
+length(unique(poss_fnames[exists_TF]))
+
+
+
+sim_fnames <- paste0(stem, possible_sim_seeds[exists_TF], ".RData")[1:n_sims]
+mod_fnames <- paste0(stem, possible_sim_seeds[exists_TF], ".pt")[1:n_sims]
+
+load(sim_fnames[1])
 
 ksn50k_mat <- 
   ksntc50k_mat <- 
   ksn_metrictest_mat <- 
-  ksntc_metrictest_mat <-   matrix(NA, nrow = length(sim_fnames), ncol = 104)
+  ksntc_metrictest_mat <-
+  ktc50k_mat <- 
+  ktc_metrictest_mat <- matrix(NA, nrow = length(sim_fnames), ncol = ncol(sim_res$kappa_mat))
 
 # quick check of sn and sntc corrected kappas at last epoch
 metrictest_rows <- rep(NA, length(sim_fnames))
@@ -111,118 +144,187 @@ for (f_ind in 1:length(sim_fnames)){
   last_epoch <- nrow(sim_res$kappa_sn_mat)
   ksn50k_mat[f_ind, ] <- sim_res$kappa_sn_mat[last_epoch,]
   ksntc50k_mat[f_ind, ] <- sim_res$kappa_sntc_mat[last_epoch,]
+  ktc50k_mat[f_ind, ] <- sim_res$kappa_tc_mat[last_epoch,]
   
   row_ind <- get_smallest_testmse_epoch(sim_res$loss_mat)
   metrictest_rows[f_ind] <- row_ind
   ksn_metrictest_mat[f_ind, ] <- sim_res$kappa_sn_mat[row_ind,]
   ksntc_metrictest_mat[f_ind, ] <- sim_res$kappa_sntc_mat[row_ind,]
+  ktc_metrictest_mat[f_ind, ] <- sim_res$kappa_tc_mat[last_epoch,]
 }
 
+# sum(ksn50k_mat[, 1:4] < 0.05)     # 1000obs: 126 out of 300    # 5000obs: 206 
+# sum(ksn50k_mat[, 5:104] < 0.5)    # 1000obs: no FPs            # 5000obs: 0
+# 
+# sum(ksntc50k_mat[, 1:4] < 0.05)   # 1000obs: 191 out of 300    # 5000obs: 351
+# sum(ksntc50k_mat[, 5:104] < 0.5)  # 1000obs: no FPs            # 5000obs: 100
 
-sum(ksn50k_mat[, 1:4] < 0.05)     # 1000obs: 126 out of 300    # 5000obs: 206 
-sum(ksn50k_mat[, 5:104] < 0.5)    # 1000obs: no FPs            # 5000obs: 0
+kmat_list <- list(
+  "ktc50k_mat" = ktc50k_mat,
+  "ksn50k_mat" = ksn50k_mat,
+  "ksntc50k_mat" = ksntc50k_mat,
+  "ktc_metrictest_mat" = ktc_metrictest_mat,
+  "ksn_metrictest_mat" = ksn_metrictest_mat,
+  "ksntc_metrictest_mat" = ksntc_metrictest_mat
+)
 
-sum(ksntc50k_mat[, 1:4] < 0.05)   # 1000obs: 191 out of 300    # 5000obs: 351
-sum(ksntc50k_mat[, 5:104] < 0.5)  # 1000obs: no FPs            # 5000obs: 100
 
-
-metrictest_rows
+# metrictest_rows
 sim_res$loss_mat[metrictest_rows,5] # KLweight at best test_mse
 sum(ksn_metrictest_mat[, 1:4] < 0.05) # 17 out of 300          # 5000obs: 25
-sum(ksn_metrictest_mat[, 5:104] < 0.5)  # no FPs               # 5000obs: 0
+sum(ksn_metrictest_mat[, 5:ncol(sim_res$kappa_mat)] < 0.5)  # no FPs               # 5000obs: 0
 
 sum(ksntc_metrictest_mat[, 1:4] < 0.05) # 156 out of 300       # 5000obs: 313
-sum(ksntc_metrictest_mat[, 5:104] < 0.5)  # 8                  # 5000obs: 11
-
-
+sum(ksntc_metrictest_mat[, 5:ncol(sim_res$kappa_mat)] < 0.5)  # 8                  # 5000obs: 11
 
 
 max_bfdrs <- c(0.01, 0.05, 0.1, .25)
 
-ksn50k_bfdr0.01 <- matrix(NA, nrow = nrow(ksn50k_mat), ncol = 8)
-colnames(ksn50k_bfdr0.01) <- c("max_bfdr", "fdr", "bfdr", "FPR", "TPR_sens_recall", "FNR", "TN_specificity", "f1")
+# ksn50k_bfdr0.01 <- matrix(NA, nrow = , ncol = 8)
+# colnames(ksn50k_bfdr0.01) <- c("max_bfdr", "fdr", "bfdr", "FPR", "TPR_sens_recall", "FNR", "TN_specificity", "f1")
+# 
+# ksn50k_bfdr0.05 <- 
+#   ksn50k_bfdr0.1 <- 
+#   ksn50k_bfdr0.25 <- 
+#   ksntc50k_bfdr0.01 <- 
+#   ksntc50k_bfdr0.05 <- 
+#   ksntc50k_bfdr0.1 <- 
+#   ksntc50k_bfdr0.25 <- 
+#   ksn_metrictest_bfdr0.01 <- 
+#   ksn_metrictest_bfdr0.05 <- 
+#   ksn_metrictest_bfdr0.1 <- 
+#   ksn_metrictest_bfdr0.25 <-
+#   ksntc_metrictest_bfdr0.01 <- 
+#   ksntc_metrictest_bfdr0.05 <- 
+#   ksntc_metrictest_bfdr0.1 <- 
+#   ksntc_metrictest_bfdr0.25 <-ksn50k_bfdr0.01
 
-ksn50k_bfdr0.05 <- 
-  ksn50k_bfdr0.1 <- 
-  ksn50k_bfdr0.25 <- 
-  ksntc50k_bfdr0.01 <- 
-  ksntc50k_bfdr0.05 <- 
-  ksntc50k_bfdr0.1 <- 
-  ksntc50k_bfdr0.25 <- 
-  ksn_metrictest_bfdr0.01 <- 
-  ksn_metrictest_bfdr0.05 <- 
-  ksn_metrictest_bfdr0.1 <- 
-  ksn_metrictest_bfdr0.25 <-
-  ksntc_metrictest_bfdr0.01 <- 
-  ksntc_metrictest_bfdr0.05 <- 
-  ksntc_metrictest_bfdr0.1 <- 
-  ksntc_metrictest_bfdr0.25 <-ksn50k_bfdr0.01
+ksn50k_bfdr_arr <- array(NA, dim = c(nrow(ksn50k_mat), 8, length(max_bfdrs)))
+errmat_colnames <- c("max_bfdr", "fdr", "bfdr", "FPR", "TPR_sens_recall", "FNR", "TN_specificity", "f1")
+dimnames(ksn50k_bfdr_arr) <- list(paste0("sim_", 1:nrow(ksn50k_mat)), errmat_colnames, paste0("bfdr_",max_bfdrs))
+
+ksntc50k_bfdr_arr <- 
+  ksn_metrictest_bfdr_arr <-
+  ksntc_metrictest_bfdr_arr <- 
+  ktc50k_bfdr_arr <-
+  ktc_metrictest_bfdr_arr <- ksn50k_bfdr_arr
 
 for (k in 1:nrow(ksn50k_mat)){
   err_mat <- metrics_err_by_max_bfdr(dropout_vec = ksn50k_mat[k, ], true_vec, bfdr_vec = max_bfdrs)
-  ksn50k_bfdr0.01[k, ] <- c(err_mat[1, ])
-  ksn50k_bfdr0.05[k, ] <- c(err_mat[2, ])
-  ksn50k_bfdr0.1[k, ] <- c(err_mat[3, ])
-  ksn50k_bfdr0.25[k, ] <- c(err_mat[4, ])
+  ksn50k_bfdr_arr[k, , ] <- t(err_mat)
+  # ksn50k_bfdr0.01[k, ] <- c(err_mat[1, ])
+  # ksn50k_bfdr0.05[k, ] <- c(err_mat[2, ])
+  # ksn50k_bfdr0.1[k, ] <- c(err_mat[3, ])
+  # ksn50k_bfdr0.25[k, ] <- c(err_mat[4, ])
   
   err_mat_sntc <- metrics_err_by_max_bfdr(dropout_vec = ksntc50k_mat[k, ], true_vec, bfdr_vec = max_bfdrs)
-  ksntc50k_bfdr0.01[k, ] <- c(err_mat_sntc[1, ])
-  ksntc50k_bfdr0.05[k, ] <- c(err_mat_sntc[2, ])
-  ksntc50k_bfdr0.1[k, ] <- c(err_mat_sntc[3, ])
-  ksntc50k_bfdr0.25[k, ] <- c(err_mat_sntc[4, ])
+  ksntc50k_bfdr_arr[k, , ] <- t(err_mat_sntc)
+  # ksntc50k_bfdr0.01[k, ] <- c(err_mat_sntc[1, ])
+  # ksntc50k_bfdr0.05[k, ] <- c(err_mat_sntc[2, ])
+  # ksntc50k_bfdr0.1[k, ] <- c(err_mat_sntc[3, ])
+  # ksntc50k_bfdr0.25[k, ] <- c(err_mat_sntc[4, ])
   
+  err_mat_tc <- metrics_err_by_max_bfdr(dropout_vec = ktc50k_mat[k, ], true_vec, bfdr_vec = max_bfdrs)
+  ktc50k_bfdr_arr[k, , ] <- t(err_mat_tc)
+  
+  err_mat_tc_metrictest <- metrics_err_by_max_bfdr(dropout_vec = ktc_metrictest_mat[k, ], true_vec, bfdr_vec = max_bfdrs)
+  ktc_metrictest_bfdr_arr[k, , ] <- t(err_mat_tc_metrictest)
+
   err_mat_metrictest <- metrics_err_by_max_bfdr(dropout_vec = ksn_metrictest_mat[k, ], true_vec, bfdr_vec = max_bfdrs)
-  ksn_metrictest_bfdr0.01[k, ] <- c(err_mat_sntc[1, ])
-  ksn_metrictest_bfdr0.05[k, ] <- c(err_mat_sntc[2, ])
-  ksn_metrictest_bfdr0.1[k, ] <- c(err_mat_sntc[3, ])
-  ksn_metrictest_bfdr0.25[k, ] <- c(err_mat_sntc[4, ])
+  ksn_metrictest_bfdr_arr[k, , ] <- t(err_mat_metrictest)
+  # ksn_metrictest_bfdr0.01[k, ] <- c(err_mat_sntc[1, ])
+  # ksn_metrictest_bfdr0.05[k, ] <- c(err_mat_sntc[2, ])
+  # ksn_metrictest_bfdr0.1[k, ] <- c(err_mat_sntc[3, ])
+  # ksn_metrictest_bfdr0.25[k, ] <- c(err_mat_sntc[4, ])
   
   err_mat_metrictest <- metrics_err_by_max_bfdr(dropout_vec = ksntc_metrictest_mat[k, ], true_vec, bfdr_vec = max_bfdrs)
-  ksntc_metrictest_bfdr0.01[k, ] <- c(err_mat_sntc[1, ])
-  ksntc_metrictest_bfdr0.05[k, ] <- c(err_mat_sntc[2, ])
-  ksntc_metrictest_bfdr0.1[k, ] <- c(err_mat_sntc[3, ])
-  ksntc_metrictest_bfdr0.25[k, ] <- c(err_mat_sntc[4, ])
+  ksntc_metrictest_bfdr_arr[k, , ] <- t(err_mat_metrictest)
+  # ksntc_metrictest_bfdr0.01[k, ] <- c(err_mat_sntc[1, ])
+  # ksntc_metrictest_bfdr0.05[k, ] <- c(err_mat_sntc[2, ])
+  # ksntc_metrictest_bfdr0.1[k, ] <- c(err_mat_sntc[3, ])
+  # ksntc_metrictest_bfdr0.25[k, ] <- c(err_mat_sntc[4, ])
 }
 
+bfdr_arr_list <- list(
+  "ktc50k_bfdr_arr" = ktc50k_bfdr_arr,
+  "ksn50k_bfdr_arr" = ksn50k_bfdr_arr,
+  "ksntc50k_bfdr_arr" = ksntc50k_bfdr_arr,
+  "ktc_metrictest_bfdr_arr" = ktc_metrictest_bfdr_arr,
+  "ksn_metrictest_bfdr_arr" = ksn_metrictest_bfdr_arr,
+  "ksntc_metrictest_bfdr_arr" = ksntc_metrictest_bfdr_arr
+)
 
-ksn50k_bfdr0.01
-ksn50k_bfdr0.05
-ksn50k_bfdr0.1
-ksn50k_bfdr0.25
+res <- list(kmat_list, bfdr_arr_list)
+save(res, file = compiled_fname)
 
-ksntc50k_bfdr0.01
-ksntc50k_bfdr0.05
-ksntc50k_bfdr0.1
-ksntc50k_bfdr0.25
+t(apply(ktc50k_bfdr_arr, c(2, 3), mean))
+t(apply(ktc50k_bfdr_arr, c(2, 3), sd))
 
-apply(ksn50k_bfdr0.01, 2, mean)
-apply(ksn50k_bfdr0.01, 2, sd)
-apply(ksn50k_bfdr0.05, 2, mean)
-apply(ksn50k_bfdr0.05, 2, sd)
-apply(ksn50k_bfdr0.1, 2, mean)
-apply(ksn50k_bfdr0.1, 2, sd)
-cat_color("pause")
-apply(ksntc50k_bfdr0.01, 2, mean)
-apply(ksntc50k_bfdr0.01, 2, sd)
-apply(ksntc50k_bfdr0.05, 2, mean)
-apply(ksntc50k_bfdr0.05, 2, sd)
-apply(ksntc50k_bfdr0.1, 2, mean)
-apply(ksntc50k_bfdr0.1, 2, sd)
-cat_color("pause")
-apply(ksn_metrictest_bfdr0.01, 2, mean)
-apply(ksn_metrictest_bfdr0.01, 2, sd)
-apply(ksn_metrictest_bfdr0.05, 2, mean)
-apply(ksn_metrictest_bfdr0.05, 2, sd)
-apply(ksn_metrictest_bfdr0.1, 2, mean)
-apply(ksn_metrictest_bfdr0.1, 2, sd)
-cat_color("pause")
-apply(ksntc_metrictest_bfdr0.01, 2, mean)
-apply(ksntc_metrictest_bfdr0.01, 2, sd)
-apply(ksntc_metrictest_bfdr0.05, 2, mean)
-apply(ksntc_metrictest_bfdr0.05, 2, sd)
-apply(ksntc_metrictest_bfdr0.1, 2, mean)
-apply(ksntc_metrictest_bfdr0.1, 2, sd)
-cat_color("pause")
+t(apply(ksn50k_bfdr_arr, c(2, 3), mean))
+t(apply(ksn50k_bfdr_arr, c(2, 3), sd))
+
+t(apply(ksntc50k_bfdr_arr, c(2, 3), mean))
+t(apply(ksntc50k_bfdr_arr, c(2, 3), sd))
+
+
+t(apply(ktc_metrictest_bfdr_arr, c(2, 3), mean))
+t(apply(ktc_metrictest_bfdr_arr, c(2, 3), sd))
+
+t(apply(ksn_metrictest_bfdr_arr, c(2, 3), mean))
+t(apply(ksn_metrictest_bfdr_arr, c(2, 3), sd))
+
+t(apply(ksntc_metrictest_bfdr_arr, c(2, 3), mean))
+t(apply(ksntc_metrictest_bfdr_arr, c(2, 3), sd))
+
+
+
+
+
+
+
+# ksn50k_bfdr0.01
+# ksn50k_bfdr0.05
+# ksn50k_bfdr0.1
+# ksn50k_bfdr0.25
+# 
+# ksntc50k_bfdr0.01
+# ksntc50k_bfdr0.05
+# ksntc50k_bfdr0.1
+# ksntc50k_bfdr0.25
+# 
+# apply(ksn50k_bfdr0.01, 2, mean)
+# apply(ksn50k_bfdr0.01, 2, sd)
+# apply(ksn50k_bfdr0.05, 2, mean)
+# apply(ksn50k_bfdr0.05, 2, sd)
+# apply(ksn50k_bfdr0.1, 2, mean)
+# apply(ksn50k_bfdr0.1, 2, sd)
+# cat_color("pause")
+# apply(ksntc50k_bfdr0.01, 2, mean)
+# apply(ksntc50k_bfdr0.01, 2, sd)
+# apply(ksntc50k_bfdr0.05, 2, mean)
+# apply(ksntc50k_bfdr0.05, 2, sd)
+# apply(ksntc50k_bfdr0.1, 2, mean)
+# apply(ksntc50k_bfdr0.1, 2, sd)
+# cat_color("pause")
+# apply(ksn_metrictest_bfdr0.01, 2, mean)
+# apply(ksn_metrictest_bfdr0.01, 2, sd)
+# apply(ksn_metrictest_bfdr0.05, 2, mean)
+# apply(ksn_metrictest_bfdr0.05, 2, sd)
+# apply(ksn_metrictest_bfdr0.1, 2, mean)
+# apply(ksn_metrictest_bfdr0.1, 2, sd)
+# cat_color("pause")
+# apply(ksntc_metrictest_bfdr0.01, 2, mean)
+# apply(ksntc_metrictest_bfdr0.01, 2, sd)
+# apply(ksntc_metrictest_bfdr0.05, 2, mean)
+# apply(ksntc_metrictest_bfdr0.05, 2, sd)
+# apply(ksntc_metrictest_bfdr0.1, 2, mean)
+# apply(ksntc_metrictest_bfdr0.1, 2, sd)
+# cat_color("pause")
+
+
+
+
+
 
 
 # 1000 obs

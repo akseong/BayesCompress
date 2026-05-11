@@ -1,0 +1,44 @@
+
+
+
+
+
+currently running (reverse order):
+
+
+test
+2x hshoe orig mods, 5000 obs
+succeeded 4:37pm
+
+
+
+
+
+
+
+nfdsmallbias prefix sims trained using newfcns_detlayers.R
+hshoesmallbias prefix sims traing using newfcns_hshoelayers.R
+meanfssmallbias prefix trained using meanfcns_sim.R
+meanfshshoesmallbias trained using....
+
+Finished:
+
+
+
+orig fcns:
+- 2 hshoe, 3 det:
+	- 5k: 100   nfdsmallbias_mutcorr0.5_5x165000obs_984995
+	- 2k: 50 	nfdsmallbias_mutcorr0.5_5x162000obs_21129
+	- 1k: 125 	nfdsmallbias_mutcorr0.5_5x161000obs_1483
+- 4 hshoe, 1 det:
+	- 8 	hshoesmallbias_mutcorr0.5_5x165000obs_72269   516 used; 0-3 in progress
+	- 50 	hshoesmallbias_mutcorr0.5_5x162000obs_72269   516--5164 done;
+	- 66 	hshoesmallbias_mutcorr0.5_5x161000obs_72269
+
+8fcns, interactions, limited support
+- 2hshoe, 3det:
+	- 52 	meanfssmallbias_5x16_origmodsupint_p100_mcor.5_5000obs_976304
+	- 
+	- 64 	meanfssmallbias_5x16_origmodsupint_p100_mcor.5_1000obs_21129
+	- 
+	- meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_1000obs_         516--5161 in progress
