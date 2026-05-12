@@ -74,24 +74,24 @@ metrics_err_by_max_bfdr <- function(dropout_vec, true_vec, bfdr_vec){
 
 
 # ORIG FCNS:       compiled results                                       sim stem
-# hshoe2det3_origfns_1k_50sims_compiled.RData       100 sims available:   nfdsmallbias_mutcorr0.5_5x161000obs_
-# hshoe2det3_origfns_2k_50sims_compiled.RData       50 sims available:    nfdsmallbias_mutcorr0.5_5x162000obs_
-# hshoe2det3_origfns_5k_50sims_compiled.RData       125 sims available:   nfdsmallbias_mutcorr0.5_5x165000obs_
+# hshoe2det4_1k_50sims_origfcns_bfdr_arr.Rdata       100 sims available:   nfdsmallbias_mutcorr0.5_5x161000obs_
+# hshoe2det4_2k_50sims_origfcns_bfdr_arr.Rdata       50 sims available:    nfdsmallbias_mutcorr0.5_5x162000obs_
+# hshoe2det4_5k_50sims_origfcns_bfdr_arr.Rdata       125 sims available:   nfdsmallbias_mutcorr0.5_5x165000obs_
 #
-# hshoe4det1_origfns_1k_50sims_compiled.RData       66 available          hshoesmallbias_mutcorr0.5_5x161000obs_
-# hshoe4det1_origfns_2k_50sims_compiled.RData       50 available          hshoesmallbias_mutcorr0.5_5x162000obs_
-# hshoe4det1_origfns_5k_50sims_compiled.RData       34 avilable           hshoesmallbias_mutcorr0.5_5x165000obs_
+# hshoe4det1_1k_50sims_origfcns_bfdr_arr.Rdata       66 available          hshoesmallbias_mutcorr0.5_5x161000obs_
+# hshoe4det1_2k_50sims_origfcns_bfdr_arr.Rdata       50 available          hshoesmallbias_mutcorr0.5_5x162000obs_
+# hshoe4det1_5k_50sims_origfcns_bfdr_arr.Rdata       34 avilable           hshoesmallbias_mutcorr0.5_5x165000obs_
 
 
 # MOD FCNS
-# hshoe2det3_modfns_1k_50sims_compiled.RData        64 available:         meanfssmallbias_5x16_origmodsupint_p100_mcor.5_1000obs_
-
-# hshoe2det3_modfns_5k_50sims_compiled.RData        52 available:         meanfssmallbias_5x16_origmodsupint_p100_mcor.5_5000obs_
+# compiled/hshoe2det4_1k_50sims_modfcns_bfdr_arr.Rdata        64 available:         meanfssmallbias_5x16_origmodsupint_p100_mcor.5_1000obs_
+# compiled/hshoe2det4_2k_50sims_modfcns_bfdr_arr.Rdata        0 available:          meanfssmallbias_5x16_origmodsupint_p100_mcor.5_2000obs_
+# compiled/hshoe2det4_5k_50sims_modfcns_bfdr_arr.Rdata        52 available:         meanfssmallbias_5x16_origmodsupint_p100_mcor.5_5000obs_
 
 # hshoe4det1
 
 
-stem <- here::here("final_sims", "results", "hshoesmallbias_mutcorr0.5_5x165000obs_")
+stem <- here::here("final_sims", "results", "hshoesmallbias_mutcorr0.5_5x161000obs_")
 modfcns_TF <- grepl("meanfs", stem)
 n_sims = 50 
 
@@ -289,7 +289,7 @@ bfdr_arr_list <- list(
 res <- list(kmat_list, bfdr_arr_list)
 save(res, file = compiled_fname)
 
-cat_color("results saved to ", compiled_fname)
+cat_color(paste0("results saved to ", compiled_fname))
 
 
 
