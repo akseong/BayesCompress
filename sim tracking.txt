@@ -4,6 +4,7 @@
 
 
 currently running (reverse order):
+competitors, no ssgam: - origfcns 2k
 competitors, no ssgam: - origfcns 5k
 2xfailed
 competitors, no ssgam: - modfcns 5k

@@ -73,15 +73,6 @@ metrics_err_by_max_bfdr <- function(dropout_vec, true_vec, bfdr_vec){
 }
 
 
-
-
-stem <- here::here("final_sims", "results", "meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_1000obs_")
-true_vec <- rep(0, 104)
-true_vec[1:4] <- 1
-n_sims = 50
-compiled_stem <- paste0("hshoe4det1_origfns_5k_", n_sims, "sims_compiled.RData")
-compiled_fname <- here::here("final_sims", "results", compiled_stem)
-
 # ORIG FCNS:       compiled results                                       sim stem
 # hshoe2det3_origfns_1k_50sims_compiled.RData       100 sims available:   nfdsmallbias_mutcorr0.5_5x161000obs_
 # hshoe2det3_origfns_2k_50sims_compiled.RData       50 sims available:    nfdsmallbias_mutcorr0.5_5x162000obs_
@@ -98,6 +89,24 @@ compiled_fname <- here::here("final_sims", "results", compiled_stem)
 # hshoe2det3_modfns_5k_50sims_compiled.RData        52 available:         meanfssmallbias_5x16_origmodsupint_p100_mcor.5_5000obs_
 
 # hshoe4det1
+
+
+stem <- here::here("final_sims", "results", "hshoesmallbias_mutcorr0.5_5x165000obs_")
+modfcns_TF <- grepl("meanfs", stem)
+n_sims = 50 
+
+if (modfcns_TF){
+  reconstruct_fcn <- reconstruct_meanfcndat
+  true_vec <- rep(0, 108)
+  true_vec[1:8] <- 1
+  fname_suffix <- "modfcns_bfdr_arr"   
+} else {
+  reconstruct_fcn <- reconstruct_flistdat
+  true_vec <- rep(0, 104)
+  true_vec[1:4] <- 1
+  fname_suffix <- "origfcns_bfdr_arr"
+}
+
 
 
 
@@ -122,23 +131,34 @@ for (i in 1:length(poss_fnames)){
 
 sum(exists_TF)
 length(unique(poss_fnames[exists_TF]))
-
+if (length(unique(poss_fnames[exists_TF])) < n_sims) {warning("fewer than ", n_sims, " exist")}
 
 
 sim_fnames <- paste0(stem, possible_sim_seeds[exists_TF], ".RData")[1:n_sims]
 mod_fnames <- paste0(stem, possible_sim_seeds[exists_TF], ".pt")[1:n_sims]
 
+# construct filename ----
 load(sim_fnames[1])
+nn_mod <- torch_load(paste0(stem, possible_sim_seeds[exists_TF][1], ".pt"))
+hshoe_layers <- grepl("fc", names(nn_mod$children))
+det_layers <- grepl("det", names(nn_mod$children))
+architecture_str <- paste0("hshoe", sum(hshoe_layers), "det", sum(det_layers))
 
+compiled_stem <- paste0(
+  architecture_str, "_", 
+  round(sim_res$sim_params$n_obs/1000), "k_",
+  n_sims, "sims_", fname_suffix
+)
+compiled_fname <- here::here("final_sims", "compiled", paste0(compiled_stem, ".Rdata"))
+
+
+# store results
 ksn50k_mat <- 
   ksntc50k_mat <- 
   ksn_metrictest_mat <- 
   ksntc_metrictest_mat <-
   ktc50k_mat <- 
   ktc_metrictest_mat <- matrix(NA, nrow = length(sim_fnames), ncol = ncol(sim_res$kappa_mat))
-
-
-
 
 perf_mat <- matrix(NA, nrow = n_sims, ncol = 4)
 colnames(perf_mat) <- c("train_sig", "mse_train", "mse_test", "kl")
@@ -156,7 +176,7 @@ for (f_ind in 1:length(sim_fnames)){
   ktc50k_mat[f_ind, ] <- sim_res$kappa_tc_mat[last_epoch,]
   
   row_ind <- get_smallest_testmse_epoch(sim_res$loss_mat)
-  perf_mat[f_ind, ] <- c(sim_res$sim_params$train_sig, sim_res$loss_mat[row_ind, 2:4])
+  perf_mat_metrictest[f_ind, ] <- c(sim_res$sim_params$train_sig, sim_res$loss_mat[row_ind, 2:4])
   metrictest_rows[f_ind] <- row_ind
   ksn_metrictest_mat[f_ind, ] <- sim_res$kappa_sn_mat[row_ind,]
   ksntc_metrictest_mat[f_ind, ] <- sim_res$kappa_sntc_mat[row_ind,]
@@ -256,6 +276,8 @@ for (k in 1:nrow(ksn50k_mat)){
 }
 
 bfdr_arr_list <- list(
+  "perf_mat" = perf_mat,
+  "perf_mat_metrictest" = perf_mat_metrictest,
   "ktc50k_bfdr_arr" = ktc50k_bfdr_arr,
   "ksn50k_bfdr_arr" = ksn50k_bfdr_arr,
   "ksntc50k_bfdr_arr" = ksntc50k_bfdr_arr,
@@ -266,6 +288,10 @@ bfdr_arr_list <- list(
 
 res <- list(kmat_list, bfdr_arr_list)
 save(res, file = compiled_fname)
+
+cat_color("results saved to ", compiled_fname)
+
+
 
 t(apply(ktc50k_bfdr_arr, c(2, 3), mean))
 t(apply(ktc50k_bfdr_arr, c(2, 3), sd))

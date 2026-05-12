@@ -139,16 +139,23 @@ metrics_err_by_max_bfdr <- function(dropout_vec, true_vec, bfdr_vec){
 
 
 #### COMPILE POSSIBLE DATA SEEDS ----
-stem <- here::here("final_sims", "results", "nfdsmallbias_mutcorr0.5_5x165000obs_")
-fname <- here::here("final_sims", "compiled", "competitors_origfcns_5k_nossgam.Rdata")
-true_vec <- rep(0, 104)
-true_vec[1:4] <- 1
-reconstruct_fcn <- reconstruct_flistdat
-# sim_res$sim_params$flist
+stem <- here::here("final_sims", "results", "nfdsmallbias_mutcorr0.5_5x162000obs_")
+modfcns_TF <- grepl("meanfs", stem)
 n_sims = 50
 max_bfdr = 0.05
 ssgam_cores = 2
 
+if (modfcns_TF){
+  reconstruct_fcn <- reconstruct_meanfcndat
+  true_vec <- rep(0, 108)
+  true_vec[1:8] <- 1
+  fname_suffix <- "modfcns_competitors_nossgam"   
+} else {
+  reconstruct_fcn <- reconstruct_flistdat
+  true_vec <- rep(0, 104)
+  true_vec[1:4] <- 1
+  fname_suffix <- "origfcns_competitors_nossgam"
+}
 
 # find seeds
 overall_seeds <- as.numeric(c(516, paste0(516, 0:13)))
@@ -175,6 +182,21 @@ sim_seeds <- (possible_sim_seeds[exists_TF])[1:n_sims]
 first_sim <- paste0(stem, sim_seeds[1], ".RData")
 load(first_sim)
 sim_params <- sim_res$sim_params
+
+# construct filename ----
+nn_mod <- torch_load(paste0(stem, possible_sim_seeds[exists_TF][1], ".pt"))
+hshoe_layers <- grepl("fc", names(nn_mod$children))
+det_layers <- grepl("det", names(nn_mod$children))
+architecture_str <- paste0("hshoe", sum(hshoe_layers), "det", sum(det_layers))
+
+fname_stem <- paste0(
+  architecture_str, "_", 
+  sim_res$sim_params$n_obs/1000, "k_",
+  n_sims, "sims_", fname_suffix
+)
+
+fname <- here::here("final_sims", "compiled", paste0(fname_stem, ".Rdata"))
+
 
 ##### setup storage ----
 # PIPs
