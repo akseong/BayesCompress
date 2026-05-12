@@ -4,25 +4,13 @@
 
 
 currently running (reverse order):
-competitors, no ssgam: - origfcns 2k
-competitors, no ssgam: - origfcns 5k
+competitors, no ssgam: all but modsupint 2k obs
 2xfailed
 competitors, no ssgam: - modfcns 5k
 1xfailed
 competitors - modfcns 1k
 competitors - origfcns 1k
 
-
-3x meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_1000obs_  
-
-
-
-hshoesmallbias_mutcorr0.5_5x165000obs_ (just 2)
-
-3x hshoe mod fcns, 1k obs - not all finished
-test
-2x hshoe orig mods, 5000 obs - finished 8:42am
-succeeded 4:37pm
 
 
 
