@@ -94,7 +94,7 @@ sim_params <- list(
   "meanfcn" = meanfcn_orig_modsup_int,
   "standardize" = TRUE,
   # sim params
-  "seed" = 5162,
+  "seed" = 5164,
   "n_sims" = 10,           ##
   # network params / architecture
   "p_0frac" = 0.2,  ## expect about 1/10 covs to be included

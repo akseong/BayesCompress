@@ -75,7 +75,7 @@ metrics_err_by_max_bfdr <- function(dropout_vec, true_vec, bfdr_vec){
 
 
 
-stem <- here::here("final_sims", "results", "hshoesmallbias_mutcorr0.5_5x165000obs_")
+stem <- here::here("final_sims", "results", "meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_1000obs_")
 true_vec <- rep(0, 104)
 true_vec[1:4] <- 1
 n_sims = 50

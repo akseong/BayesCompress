@@ -4,8 +4,13 @@
 
 
 currently running (reverse order):
-3x hshoe mod fcns, 1k obs
+meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_1000obs_  
 
+
+
+hshoesmallbias_mutcorr0.5_5x165000obs_ (just 2)
+
+3x hshoe mod fcns, 1k obs - not all finished
 test
 2x hshoe orig mods, 5000 obs - finished 8:42am
 succeeded 4:37pm
@@ -31,17 +36,19 @@ orig fcns:
 	- 2k: 50 	nfdsmallbias_mutcorr0.5_5x162000obs_21129
 	- 1k: 125 	nfdsmallbias_mutcorr0.5_5x161000obs_1483
 - 4 hshoe, 1 det:
-	- 8 	hshoesmallbias_mutcorr0.5_5x165000obs_72269   516 used; 0-3 in progress
+	- 48 	hshoesmallbias_mutcorr0.5_5x165000obs_72269   516 used; 0-3 in progress
 	- 50 	hshoesmallbias_mutcorr0.5_5x162000obs_72269   516--5164 done;
 	- 66 	hshoesmallbias_mutcorr0.5_5x161000obs_72269
+
 
 8fcns, interactions, limited support
 - 2hshoe, 3det:
 	- 52 	meanfssmallbias_5x16_origmodsupint_p100_mcor.5_5000obs_976304
 	- 
 	- 64 	meanfssmallbias_5x16_origmodsupint_p100_mcor.5_1000obs_21129
+
 - 4 hshoe, 1 det:
-	- meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_1000obs_         516--5161 in progress
+	- 27    meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_1000obs_         516--5161 done; 2-4 in progress
 
 
 
