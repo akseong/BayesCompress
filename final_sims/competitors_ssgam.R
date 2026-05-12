@@ -139,16 +139,23 @@ metrics_err_by_max_bfdr <- function(dropout_vec, true_vec, bfdr_vec){
 
 
 #### COMPILE POSSIBLE DATA SEEDS ----
-stem <- here::here("final_sims", "results", "meanfssmallbias_5x16_origmodsupint_p100_mcor.5_1000obs_")
-fname <- here::here("final_sims", "compiled", "competitors_modfcns_1k.Rdata")
-true_vec <- rep(0, 108)
-true_vec[1:8] <- 1
-reconstruct_fcn <- reconstruct_meanfcndat
-# sim_res$sim_params$flist
+stem <- here::here("final_sims", "results", "nfdsmallbias_mutcorr0.5_5x162000obs_")
+modfcns_TF <- grepl("meanfs", stem)
 n_sims = 50
 max_bfdr = 0.05
 ssgam_cores = 2
 
+if (modfcns_TF){
+  reconstruct_fcn <- reconstruct_meanfcndat
+  true_vec <- rep(0, 108)
+  true_vec[1:8] <- 1
+  fname_suffix <- "modfcns_competitors_nossgam"   
+} else {
+  reconstruct_fcn <- reconstruct_flistdat
+  true_vec <- rep(0, 104)
+  true_vec[1:4] <- 1
+  fname_suffix <- "origfcns_competitors_nossgam"
+}
 
 # find seeds
 overall_seeds <- as.numeric(c(516, paste0(516, 0:13)))
@@ -176,6 +183,21 @@ first_sim <- paste0(stem, sim_seeds[1], ".RData")
 load(first_sim)
 sim_params <- sim_res$sim_params
 
+# construct filename ----
+nn_mod <- torch_load(paste0(stem, possible_sim_seeds[exists_TF][1], ".pt"))
+hshoe_layers <- grepl("fc", names(nn_mod$children))
+det_layers <- grepl("det", names(nn_mod$children))
+architecture_str <- paste0("hshoe", sum(hshoe_layers), "det", sum(det_layers))
+
+fname_stem <- paste0(
+  architecture_str, "_", 
+  sim_res$sim_params$n_obs/1000, "k_",
+  n_sims, "sims_", fname_suffix
+)
+
+fname <- here::here("final_sims", "compiled", paste0(fname_stem, ".Rdata"))
+
+
 ##### setup storage ----
 # PIPs
 BHpvals_mat <- pipsmat_ss <- pipsmat_ssgam <- pipsmat_sb <- matrix(NA, nrow = n_sims, ncol = length(true_vec))
@@ -194,7 +216,7 @@ colnames(resmat_lm)[4] <- "max_fdr"
 for (s_i in 1:n_sims){
   t1_sim <- Sys.time()
   
-  simdat <- reconstruct_fcn(sim_seed = sim_seeds[1], sim_params)
+  simdat <- reconstruct_fcn(sim_seed = sim_seeds[s_i], sim_params)
   simdat_df_raw <- data.frame(
     "y" = as_array(simdat$y),
     "Ey" = as_array(simdat$Ey),
@@ -207,11 +229,16 @@ for (s_i in 1:n_sims){
   # scale train/test split, remove Ey from simdat
   scale_list <- scale_mat(simdat_rawtrain)
   simdat_train <- scale_list$scaled[, -2]
-  Ey_train <- scale_list$scaled[, 2]
+  # Ey_train <- simdat_df_raw$Ey_train
   
   simdat_test <- scale_mat(simdat_rawtest, means = scale_list$means, sds = scale_list$sds)$scaled
-  Ey_test <- simdat_test$Ey
   simdat_test <- simdat_test[, -2]
+  
+  y_train_mean <- mean(simdat_rawtrain$y)
+  y_train_sd <- sd(simdat_rawtrain$y)
+  # keep Ey_test, y_test unscaled.  unscale the yhats to meet it.
+  Ey_test <- simdat_rawtest$Ey
+  y_test <- simdat_rawtest$y
   
   
   # lm ----
@@ -224,8 +251,10 @@ for (s_i in 1:n_sims){
   metrics_lm <- metrics_from_decision(est = BH_decisions, tru = true_vec)
   
   yhat_test <- predict.lm(lm_fit, newdata = simdat_test)
-  mse_test <-  mean((yhat_test - simdat_test$y)^2)
-  fmse_test <- mean((yhat_test - Ey_test)^2)
+  yhat_test_unsc <- (yhat_test + y_train_mean)*y_train_sd
+  
+  mse_test <-  mean((yhat_test_unsc - y_test)^2)
+  fmse_test <- mean((yhat_test_unsc - Ey_test)^2)
   t2 <- Sys.time()  
   
   ## store
@@ -234,7 +263,7 @@ for (s_i in 1:n_sims){
   resmat_lm[s_i, 1:4] <- c(mse_test, fmse_test, as.numeric(c(t2-t1)), max_bfdr)
   # "fdr"   "bfdr"  "FPR"    "TPR_sens_recall"    "FNR"    "TN_specificity"    "f1"
   resmat_lm[s_i, c(5, 7:11)] <- metrics_lm
-
+  
   
   
   
@@ -265,9 +294,10 @@ for (s_i in 1:n_sims){
   
   modmat_test <- cbind(1, simdat_test[, -1])
   yhat_test <- predict(ss_fit, newdata = modmat_test)
+  yhat_test_unsc <- (yhat_test + y_train_mean)*y_train_sd
   
-  mse_test <- mean((yhat_test - simdat_test$y)^2)
-  fmse_test <- mean((yhat_test - Ey_test)^2)
+  mse_test <-  mean((yhat_test_unsc - y_test)^2)
+  fmse_test <- mean((yhat_test_unsc - Ey_test)^2)
   
   # store: 
   pipsmat_ss[s_i, ] <- pips_ss  
@@ -277,7 +307,7 @@ for (s_i in 1:n_sims){
     as.numeric(c(t2_ss-t1_ss)),
     metrics_ss
   )
-
+  
   
   # SS GAM ----
   f1_string <- paste0("y ~ ", paste0("x.", 1:sim_params$d_in, collapse = " + "))
@@ -288,21 +318,23 @@ for (s_i in 1:n_sims){
   ssgam_fit <- spikeSlabGAM(formula=f1, data=simdat_train)
   yhat_test <- predict(ssgam_fit, newdata = simdat_test)
   t2_ssgam <- Sys.time()
-
+  
   ssgam_summ <- summary(ssgam_fit)
   posts <- ssgam_summ$trmSummary[-1,1]
   func_posts <- posts[2*1:length(true_vec)]
   lin_posts <- posts[2*1:length(true_vec)-1]
   pips_ssgam <- ifelse(func_posts > lin_posts, func_posts, lin_posts)
   metrics_ssgam <- metrics_err_by_max_bfdr(
-    dropout_vec = 1-pips_ssgam, 
-    true_vec = true_vec, 
+    dropout_vec = 1-pips_ssgam,
+    true_vec = true_vec,
     bfdr_vec = c(max_bfdr, .5)
   )[1,]
   
+  yhat_test_unsc <- (yhat_test + y_train_mean)*y_train_sd
   
-  mse_test <- mean((yhat_test - simdat_test$y)^2)
-  fmse_test <- mean((yhat_test - Ey_test)^2)
+  mse_test <-  mean((yhat_test_unsc - y_test)^2)
+  fmse_test <- mean((yhat_test_unsc - Ey_test)^2)
+  
   
   # get PIPs, ignore intercept
   pipsmat_ssgam[s_i, ] <- pips_ssgam
@@ -312,7 +344,7 @@ for (s_i in 1:n_sims){
     as.numeric(c(t2_ssgam-t1_ssgam)),
     metrics_ssgam
   )
-
+  
   print(resmat_ssgam[s_i, ])
   cat("ssgam: "); t2_ssgam - t1_ssgam; cat("\n")
   
@@ -324,9 +356,12 @@ for (s_i in 1:n_sims){
     X_test = simdat_test[, -1]
   )
   t2_sb <- Sys.time()
-  mse_test <- mean((sbfit$y_hat_test - simdat_test$y)^2)
-  fmse_test <- mean((sbfit$y_hat_test - Ey_test)^2)
-
+  
+  yhat_test_unsc <- (sbfit$y_hat_test + y_train_mean)*y_train_sd
+  
+  mse_test <-  mean((yhat_test_unsc - y_test)^2)
+  fmse_test <- mean((yhat_test_unsc - Ey_test)^2)
+  
   # get PIPs, metrics
   pips_sb <- posterior_probs(sbfit)$post_probs
   metrics_sb <- metrics_err_by_max_bfdr(
@@ -349,7 +384,6 @@ for (s_i in 1:n_sims){
   #message ----
   Sys.time()- t1_sim
   cat_color(paste0("simdat ", s_i, " finished \n \n"))
-  
 }
 
 

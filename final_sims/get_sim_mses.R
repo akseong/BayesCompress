@@ -180,6 +180,7 @@ if (length(unique(poss_fnames[exists_TF])) < n_sims) {warning("fewer than ", n_s
 
 sim_fnames <- paste0(stem, possible_sim_seeds[exists_TF], ".RData")[1:n_sims]
 mod_fnames <- paste0(stem, possible_sim_seeds[exists_TF], ".pt")[1:n_sims]
+sim_seeds <- possible_sim_seeds[exists_TF][1:n_sims]
 
 mse_mat <- matrix(NA, nrow = n_sims, ncol = 3)
 colnames(mse_mat) <- c("test_mse", "fcn_mse", "train_sig")
@@ -218,26 +219,24 @@ for (s_i in 1:n_sims){
   y_test <- simdat$y[(1+n_ttsplit):sim_res$sim_params$n_obs, ]
   
   # Ey was never scaled.... fuck.  just scale it by the y scales?
-  if(use_cuda){
-    Ey_raw <- simdat$Ey$unsqueeze(2)$cuda()  
+  # actually, no, this is good. keep Ey and ytest unscaled
+    if(use_cuda){
+    Ey <- simdat$Ey$unsqueeze(2)$cuda()  
   } else {
-    Ey_raw <- simdat$Ey$unsqueeze(2)
+    Ey <- simdat$Ey$unsqueeze(2)
   }
-  Ey <- (Ey_raw - simdat$y_mean)/simdat$y_sd
-  # Ey <- (Ey_raw - mean(Ey_raw))/sd(Ey_raw)
-  Ey_train <- Ey[1:n_ttsplit, ]
   Ey_test <- Ey[(1+n_ttsplit):sim_res$sim_params$n_obs, ]
   
   # test_mse
   nn_mod$eval()
   yhat_test <- nn_mod(x_test)
   
-  test_mse <- mean((yhat_test - y_test)^2)
-  
-  # function mse
-  test_fmse <- mean((yhat_test - Ey_test)^2)
-  
-  mse_mat[s_i, ] <- c(test_mse$item(), test_fmse$item(), sim_res$sim_params$train_sig)
+  # unscaled
+  yhat_test_unsc <- (yhat_test + simdat$y_mean)*simdat$y_sd
+  mse_test <-  mean((yhat_test_unsc - y_test)^2)
+  fmse_test <- mean((yhat_test_unsc - Ey_test)^2)
+
+  mse_mat[s_i, ] <- c(mse_test$item(), fmse_test$item(), sim_res$sim_params$train_sig)
   # function recovery
 }
 

@@ -139,7 +139,7 @@ metrics_err_by_max_bfdr <- function(dropout_vec, true_vec, bfdr_vec){
 
 
 #### COMPILE POSSIBLE DATA SEEDS ----
-stem <- here::here("final_sims", "results", "nfdsmallbias_mutcorr0.5_5x162000obs_")
+stem <- here::here("final_sims", "results", "nfdsmallbias_mutcorr0.5_5x165000obs_")
 modfcns_TF <- grepl("meanfs", stem)
 n_sims = 50
 max_bfdr = 0.05
@@ -216,7 +216,7 @@ colnames(resmat_lm)[4] <- "max_fdr"
 for (s_i in 1:n_sims){
   t1_sim <- Sys.time()
   
-  simdat <- reconstruct_fcn(sim_seed = sim_seeds[1], sim_params)
+  simdat <- reconstruct_fcn(sim_seed = sim_seeds[s_i], sim_params)
   simdat_df_raw <- data.frame(
     "y" = as_array(simdat$y),
     "Ey" = as_array(simdat$Ey),
@@ -229,11 +229,16 @@ for (s_i in 1:n_sims){
   # scale train/test split, remove Ey from simdat
   scale_list <- scale_mat(simdat_rawtrain)
   simdat_train <- scale_list$scaled[, -2]
-  Ey_train <- scale_list$scaled[, 2]
+  # Ey_train <- simdat_df_raw$Ey_train
   
   simdat_test <- scale_mat(simdat_rawtest, means = scale_list$means, sds = scale_list$sds)$scaled
-  Ey_test <- simdat_test$Ey
   simdat_test <- simdat_test[, -2]
+  
+  y_train_mean <- mean(simdat_rawtrain$y)
+  y_train_sd <- sd(simdat_rawtrain$y)
+  # keep Ey_test, y_test unscaled.  unscale the yhats to meet it.
+  Ey_test <- simdat_rawtest$Ey
+  y_test <- simdat_rawtest$y
   
   
   # lm ----
@@ -246,8 +251,10 @@ for (s_i in 1:n_sims){
   metrics_lm <- metrics_from_decision(est = BH_decisions, tru = true_vec)
   
   yhat_test <- predict.lm(lm_fit, newdata = simdat_test)
-  mse_test <-  mean((yhat_test - simdat_test$y)^2)
-  fmse_test <- mean((yhat_test - Ey_test)^2)
+  yhat_test_unsc <- (yhat_test + y_train_mean)*y_train_sd
+  
+  mse_test <-  mean((yhat_test_unsc - y_test)^2)
+  fmse_test <- mean((yhat_test_unsc - Ey_test)^2)
   t2 <- Sys.time()  
   
   ## store
@@ -287,9 +294,10 @@ for (s_i in 1:n_sims){
   
   modmat_test <- cbind(1, simdat_test[, -1])
   yhat_test <- predict(ss_fit, newdata = modmat_test)
+  yhat_test_unsc <- (yhat_test + y_train_mean)*y_train_sd
   
-  mse_test <- mean((yhat_test - simdat_test$y)^2)
-  fmse_test <- mean((yhat_test - Ey_test)^2)
+  mse_test <-  mean((yhat_test_unsc - y_test)^2)
+  fmse_test <- mean((yhat_test_unsc - Ey_test)^2)
   
   # store: 
   pipsmat_ss[s_i, ] <- pips_ss  
@@ -317,14 +325,16 @@ for (s_i in 1:n_sims){
   # lin_posts <- posts[2*1:length(true_vec)-1]
   # pips_ssgam <- ifelse(func_posts > lin_posts, func_posts, lin_posts)
   # metrics_ssgam <- metrics_err_by_max_bfdr(
-  #   dropout_vec = 1-pips_ssgam, 
-  #   true_vec = true_vec, 
+  #   dropout_vec = 1-pips_ssgam,
+  #   true_vec = true_vec,
   #   bfdr_vec = c(max_bfdr, .5)
   # )[1,]
   # 
+  # yhat_test_unsc <- (yhat_test + y_train_mean)*y_train_sd
   # 
-  # mse_test <- mean((yhat_test - simdat_test$y)^2)
-  # fmse_test <- mean((yhat_test - Ey_test)^2)
+  # mse_test <-  mean((yhat_test_unsc - y_test)^2)
+  # fmse_test <- mean((yhat_test_unsc - Ey_test)^2)
+  # 
   # 
   # # get PIPs, ignore intercept
   # pipsmat_ssgam[s_i, ] <- pips_ssgam
@@ -346,8 +356,11 @@ for (s_i in 1:n_sims){
     X_test = simdat_test[, -1]
   )
   t2_sb <- Sys.time()
-  mse_test <- mean((sbfit$y_hat_test - simdat_test$y)^2)
-  fmse_test <- mean((sbfit$y_hat_test - Ey_test)^2)
+  
+  yhat_test_unsc <- (sbfit$y_hat_test + y_train_mean)*y_train_sd
+  
+  mse_test <-  mean((yhat_test_unsc - y_test)^2)
+  fmse_test <- mean((yhat_test_unsc - Ey_test)^2)
   
   # get PIPs, metrics
   pips_sb <- posterior_probs(sbfit)$post_probs
@@ -371,7 +384,6 @@ for (s_i in 1:n_sims){
   #message ----
   Sys.time()- t1_sim
   cat_color(paste0("simdat ", s_i, " finished \n \n"))
-  
 }
 
 

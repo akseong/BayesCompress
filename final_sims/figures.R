@@ -126,6 +126,8 @@ if (length(unique(poss_fnames[exists_TF])) < n_sims) {warning("fewer than ", n_s
 
 sim_fnames <- paste0(stem, possible_sim_seeds[exists_TF], ".RData")[1:n_sims]
 mod_fnames <- paste0(stem, possible_sim_seeds[exists_TF], ".pt")[1:n_sims]
+sim_seeds <- possible_sim_seeds[exists_TF][1:n_sims]
+
 
 mse_mat <- matrix(NA, nrow = n_sims, ncol = 3)
 colnames(mse_mat) <- c("test_mse", "fcn_mse", "train_sig")
@@ -146,7 +148,7 @@ fig_stem <- paste0(
 fig_fname <- here::here("final_sims", "compiled", paste0(fig_stem, ".Rdata"))
 
 
-# load sim
+# load sim ----
 s_i = 1
 load(sim_fnames[s_i])
 nn_mod <- torch_load(mod_fnames[s_i])
@@ -157,27 +159,41 @@ sim_res$sim_params$standardize <- TRUE
 
 simdat <- reconstruct_fcn(sim_seed = sim_seeds[s_i], sim_res$sim_params)
 
-# scale train/test split, remove Ey from simdat
+# scale train/test split, remove Ey from simdat ----
 n_ttsplit <- sim_res$sim_params$ttsplit * sim_res$sim_params$n_obs
 x_train <- simdat$x[1:n_ttsplit, ]
 x_test <- simdat$x[(1+n_ttsplit):sim_res$sim_params$n_obs, ]
 y_train <- simdat$y[1:n_ttsplit, ]
 y_test <- simdat$y[(1+n_ttsplit):sim_res$sim_params$n_obs, ]
 
+
 # Ey was never scaled.... fuck.  just scale it by the y scales?
+# actually, no, this is good. keep Ey and ytest unscaled
 if(use_cuda){
-  Ey_raw <- simdat$Ey$unsqueeze(2)$cuda()  
+  Ey <- simdat$Ey$unsqueeze(2)$cuda()  
 } else {
-  Ey_raw <- simdat$Ey$unsqueeze(2)
+  Ey <- simdat$Ey$unsqueeze(2)
 }
-Ey <- (Ey_raw - simdat$y_mean)/simdat$y_sd
-# Ey <- (Ey_raw - mean(Ey_raw))/sd(Ey_raw)
-Ey_train <- Ey[1:n_ttsplit, ]
 Ey_test <- Ey[(1+n_ttsplit):sim_res$sim_params$n_obs, ]
 
 # test_mse
 nn_mod$eval()
 yhat_test <- nn_mod(x_test)
+
+# unscaled
+yhat_test_unsc <- (yhat_test + simdat$y_mean)*simdat$y_sd
+mse_test <-  mean((yhat_test_unsc - y_test)^2)
+fmse_test <- mean((yhat_test_unsc - Ey_test)^2)
+
+# FUNCTION RECOVERY ----
+# run regular forward pass 100 times using data that includes x1:x4 one at a time, mean center each of the generated functions
+# plot with data (after mean-centering based on true Ey)
+# for one dataset and one trained model for each of 1k, 2k, 5k
+
+
+# construct x_mat
+
+
 
 
 
