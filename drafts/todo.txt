@@ -2,11 +2,14 @@ TO DO:
 
 
 Today:
-- X finish up intro.  
-- BNN chapter experiments description.  
-- start competitor sims, extract metrics from completed sims.  Work on salary data analysis.
+- salary data analysis
+	- while runnings:
+		- copy paste results, minor edits
+		- fcn recovery while salary data running
+		- edit intro data section, related work, experiments description
 
-
+announcement
+future work
 Finish dissertation draft by Wed.  OK if some results not ready by then, but should just be plug-in.
 Outline presentation on Wed.  Presentation draft by Sat.  
 
