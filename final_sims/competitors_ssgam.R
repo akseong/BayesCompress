@@ -141,7 +141,7 @@ metrics_err_by_max_bfdr <- function(dropout_vec, true_vec, bfdr_vec){
 #### COMPILE POSSIBLE DATA SEEDS ----
 stem <- here::here("final_sims", "results", "nfdsmallbias_mutcorr0.5_5x161000obs_")
 modfcns_TF <- grepl("meanfs", stem)
-n_sims = 2
+n_sims = 50
 max_bfdr = "arr"
 max_bfdrs = c(0.01, 0.05, 0.1, 0.25)
 ssgam_cores = 2
@@ -150,12 +150,12 @@ if (modfcns_TF){
   reconstruct_fcn <- reconstruct_meanfcndat
   true_vec <- rep(0, 108)
   true_vec[1:8] <- 1
-  fname_suffix <- paste0("TESTmodfcns_competitors_ssgam", "_bfdr", max_bfdr)
+  fname_suffix <- paste0("modfcns_competitors_ssgam", "_bfdr", max_bfdr)
 } else {
   reconstruct_fcn <- reconstruct_flistdat
   true_vec <- rep(0, 104)
   true_vec[1:4] <- 1
-  fname_suffix <- paste0("TESTorigfcns_competitors_ssgam", "_bfdr", max_bfdr)
+  fname_suffix <- paste0("origfcns_competitors_ssgam", "_bfdr", max_bfdr)
 }
 
 # find seeds
