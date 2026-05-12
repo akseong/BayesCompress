@@ -139,22 +139,23 @@ metrics_err_by_max_bfdr <- function(dropout_vec, true_vec, bfdr_vec){
 
 
 #### COMPILE POSSIBLE DATA SEEDS ----
-stem <- here::here("final_sims", "results", "meanfssmallbias_5x16_origmodsupint_p100_mcor.5_5000obs_")
+stem <- here::here("final_sims", "results", "nfdsmallbias_mutcorr0.5_5x161000obs_")
 modfcns_TF <- grepl("meanfs", stem)
-n_sims = 50
-max_bfdr = 0.05
+n_sims = 2
+max_bfdr = "arr"
+max_bfdrs = c(0.01, 0.05, 0.1, 0.25)
 ssgam_cores = 2
 
 if (modfcns_TF){
   reconstruct_fcn <- reconstruct_meanfcndat
   true_vec <- rep(0, 108)
   true_vec[1:8] <- 1
-  fname_suffix <- "modfcns_competitors_ssgam"   
+  fname_suffix <- paste0("TESTmodfcns_competitors_ssgam", "_bfdr", max_bfdr)
 } else {
   reconstruct_fcn <- reconstruct_flistdat
   true_vec <- rep(0, 104)
   true_vec[1:4] <- 1
-  fname_suffix <- "origfcns_competitors_ssgam"
+  fname_suffix <- paste0("TESTorigfcns_competitors_ssgam", "_bfdr", max_bfdr)
 }
 
 # find seeds
@@ -203,14 +204,14 @@ fname <- here::here("final_sims", "compiled", paste0(fname_stem, ".Rdata"))
 BHpvals_mat <- pipsmat_ss <- pipsmat_ssgam <- pipsmat_sb <- matrix(NA, nrow = n_sims, ncol = length(true_vec))
 
 # errmats
-resmat_colnames <- c("test_mse", "fcn_mse", "time", "max_bfdr", "fdr", "bfdr", "FPR", "TPR_sens_recall", "FNR", "TNR_specificity", "f1")
+resarr_colnames <- c("test_mse", "fcn_mse", "time", "max_bfdr", "fdr", "bfdr", "FPR", "TPR_sens_recall", "FNR", "TNR_specificity", "f1")
 
-resmat_ss <- matrix(NA, nrow = n_sims, ncol = length(resmat_colnames))
-colnames(resmat_ss) <- resmat_colnames
+resarr_ss <- array(NA, dim = c(n_sims, length(resarr_colnames), length(max_bfdrs)))
+dimnames(resarr_ss) <- list(paste0("sim_", 1:n_sims), resarr_colnames, paste0("bfdr_",max_bfdrs))
 
-resmat_lm <- resmat_ssgam <- resmat_sb <- resmat_ss
+resarr_lm <- resarr_ssgam <- resarr_sb <- resarr_ss
 
-colnames(resmat_lm)[4] <- "max_fdr"
+dimnames(resarr_lm)[[2]][4] <- "max_fdr"
 
 
 for (s_i in 1:n_sims){
@@ -247,9 +248,9 @@ for (s_i in 1:n_sims){
   # lm_fit <- lm(y ~ ., data = simdat_train)
   # lm_pvals <- summary(lm_fit)$coef[-1, 4]
   # BH_pvals <- p.adjust(lm_pvals, method = "BH")
-  # BH_decisions <- round(BH_pvals, 4) < 0.05
-  # metrics_lm <- metrics_from_decision(est = BH_decisions, tru = true_vec)
-  # 
+  # BH_decisions <- sapply(max_bfdrs, function(X) BH_pvals < X)
+  # metrics_lm_mat <- t(apply(BH_decisions, 2, function(X) metrics_from_decision(est = X, tru = true_vec)))
+  # colnames(metrics_lm_mat) <- c("fdr", "FPR", "TPR", "FNR", "TNR", "f1")
   # yhat_test <- predict.lm(lm_fit, newdata = simdat_test)
   # yhat_test_unsc <- (yhat_test + y_train_mean)*y_train_sd
   # 
@@ -260,10 +261,10 @@ for (s_i in 1:n_sims){
   # ## store
   # BHpvals_mat[s_i, ] <- BH_pvals  # pvals instead of PIPs
   # # "test_mse"   "fcn_mse"    "time"    "max_fdr"   
-  # resmat_lm[s_i, 1:4] <- c(mse_test, fmse_test, as.numeric(c(t2-t1)), max_bfdr)
+  # resarr_lm[s_i, 1:3, ] <- c(mse_test, fmse_test, as.numeric(c(t2-t1)))
+  # resarr_lm[s_i, 4, ] <- max_bfdrs
   # # "fdr"   "bfdr"  "FPR"    "TPR_sens_recall"    "FNR"    "TN_specificity"    "f1"
-  # resmat_lm[s_i, c(5, 7:11)] <- metrics_lm
-  # 
+  # resarr_lm[s_i, c(5, 7:11), ] <- t(metrics_lm_mat)
   # 
   # 
   # 
@@ -289,8 +290,8 @@ for (s_i in 1:n_sims){
   # metrics_ss <- metrics_err_by_max_bfdr(
   #   dropout_vec = 1-pips_ss, 
   #   true_vec = true_vec, 
-  #   bfdr_vec = c(max_bfdr, .5)
-  # )[1,]
+  #   bfdr_vec = max_bfdrs
+  # )
   # 
   # modmat_test <- cbind(1, simdat_test[, -1])
   # yhat_test <- predict(ss_fit, newdata = modmat_test)
@@ -301,11 +302,13 @@ for (s_i in 1:n_sims){
   # 
   # # store: 
   # pipsmat_ss[s_i, ] <- pips_ss  
-  # resmat_ss[s_i, ] <- c(
-  #   mse_test,
-  #   fmse_test,
-  #   as.numeric(c(t2_ss-t1_ss)),
-  #   metrics_ss
+  # resarr_ss[s_i, , ] <- t(
+  #   cbind(
+  #     mse_test,
+  #     fmse_test,
+  #     as.numeric(c(t2_ss-t1_ss)),
+  #     metrics_ss
+  #   )
   # )
   
   
@@ -313,12 +316,12 @@ for (s_i in 1:n_sims){
   f1_string <- paste0("y ~ ", paste0("x.", 1:sim_params$d_in, collapse = " + "))
   f1 <- as.formula(f1_string)
   options(mc.cores = ssgam_cores)
-  
+
   t1_ssgam <- Sys.time()
   ssgam_fit <- spikeSlabGAM(formula=f1, data=simdat_train)
   yhat_test <- predict(ssgam_fit, newdata = simdat_test)
   t2_ssgam <- Sys.time()
-  
+
   ssgam_summ <- summary(ssgam_fit)
   posts <- ssgam_summ$trmSummary[-1,1]
   func_posts <- posts[2*1:length(true_vec)]
@@ -327,25 +330,25 @@ for (s_i in 1:n_sims){
   metrics_ssgam <- metrics_err_by_max_bfdr(
     dropout_vec = 1-pips_ssgam,
     true_vec = true_vec,
-    bfdr_vec = c(max_bfdr, .5)
+    bfdr_vec = max_bfdrs
   )[1,]
-  
+
   yhat_test_unsc <- (yhat_test + y_train_mean)*y_train_sd
-  
+
   mse_test <-  mean((yhat_test_unsc - y_test)^2)
   fmse_test <- mean((yhat_test_unsc - Ey_test)^2)
-  
-  
+
+
   # get PIPs, ignore intercept
   pipsmat_ssgam[s_i, ] <- pips_ssgam
-  resmat_ssgam[s_i, ] <- c(
+  resarr_ssgam[s_i, , ] <- t(cbind(
     mse_test,
     fmse_test,
     as.numeric(c(t2_ssgam-t1_ssgam)),
     metrics_ssgam
-  )
-  
-  print(resmat_ssgam[s_i, ])
+  ))
+
+  print(resarr_ssgam[s_i, , ])
   cat("ssgam: "); t2_ssgam - t1_ssgam; cat("\n")
   
   # # softbart ---- 
@@ -367,23 +370,25 @@ for (s_i in 1:n_sims){
   # metrics_sb <- metrics_err_by_max_bfdr(
   #   dropout_vec = 1-pips_sb, 
   #   true_vec = true_vec, 
-  #   bfdr_vec = c(max_bfdr, .5)
-  # )[1,]
+  #   bfdr_vec = max_bfdrs
+  # )
   # 
   # # store
   # pipsmat_sb[s_i, ] <- pips_sb
-  # resmat_sb[s_i, ] <- c(
-  #   mse_test,
-  #   fmse_test,
-  #   as.numeric(c(t2_sb-t1_sb)),
-  #   metrics_sb
+  # resarr_sb[s_i, , ] <- t(
+  #   cbind(
+  #     mse_test,
+  #     fmse_test,
+  #     as.numeric(c(t2_sb-t1_sb)),
+  #     metrics_sb
+  #   )
   # )
-  # print(resmat_sb[s_i, ])
+  # print(resarr_sb[s_i, , ])
   # cat("softbart: "); t2_sb - t1_sb; cat("\n")
   
   #message ----
   Sys.time()- t1_sim
-  cat_color(paste0("simdat ", s_i, " finished \n \n"))
+  cat_color(paste0("simdat ", s_i, " finished; \n", "working on ", fname_stem, "\n"))
 }
 
 
@@ -392,18 +397,14 @@ competitor_list <- list(
   # "pipsmat_ss" = pipsmat_ss,
   "pipsmat_ssgam" = pipsmat_ssgam,
   # "pipsmat_sb" = pipsmat_sb,
-  # "resmat_lm" = resmat_lm,
-  "resmat_ssgam" = resmat_ssgam,
-  # "resmat_ss" = resmat_ss,
-  # "resmat_sb" = resmat_sb
+  # "resarr_lm" = resarr_lm,
+  "resarr_ssgam" = rearr_ssgam,
+  # "resarr_ss" = resarr_ss,
+  # "resarr_sb" = resarr_sb
 )
 
 save(competitor_list, file = fname)
-
-
-
-
-
+cat_color(paste0("results saved to ", fname))
 
 
 

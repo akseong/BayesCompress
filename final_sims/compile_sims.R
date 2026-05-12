@@ -91,7 +91,7 @@ metrics_err_by_max_bfdr <- function(dropout_vec, true_vec, bfdr_vec){
 # hshoe4det1
 
 
-stem <- here::here("final_sims", "results", "hshoesmallbias_mutcorr0.5_5x161000obs_")
+stem <- here::here("final_sims", "results", "hshoesmallbias_mutcorr0.5_5x165000obs_")
 modfcns_TF <- grepl("meanfs", stem)
 n_sims = 50 
 
