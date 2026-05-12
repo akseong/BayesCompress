@@ -4,17 +4,14 @@
 
 
 currently running (reverse order):
-test of ssgam 
+2x ssgam - 1k obs orig, mod
+meanfssmallbias_5x16_origmodsupint_p100_mcor.5_2000obs_ x4   516-5162
+
 competitors - modfcns 1k, 5k
 competitors - origfcns 1k, 2k, 5k
 
 
-
-2xfailed
-
-1xfailed
-competitors - modfcns 1k
-competitors - origfcns 1k
+run 11 meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_1000obs_    next
 
 
 
@@ -46,7 +43,7 @@ orig fcns:
 8fcns, interactions, limited support
 - 2hshoe, 3det:
 	- 52 	meanfssmallbias_5x16_origmodsupint_p100_mcor.5_5000obs_976304
-	- 
+	-       meanfssmallbias_5x16_origmodsupint_p100_mcor.5_2000obs_              516-5162 running
 	- 64 	meanfssmallbias_5x16_origmodsupint_p100_mcor.5_1000obs_21129
 
 - 4 hshoe, 1 det:

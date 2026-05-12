@@ -139,7 +139,7 @@ metrics_err_by_max_bfdr <- function(dropout_vec, true_vec, bfdr_vec){
 
 
 #### COMPILE POSSIBLE DATA SEEDS ----
-stem <- here::here("final_sims", "results", "nfdsmallbias_mutcorr0.5_5x161000obs_")
+stem <- here::here("final_sims", "results", "meanfssmallbias_5x16_origmodsupint_p100_mcor.5_1000obs_")
 modfcns_TF <- grepl("meanfs", stem)
 n_sims = 50
 max_bfdr = "arr"
@@ -331,7 +331,7 @@ for (s_i in 1:n_sims){
     dropout_vec = 1-pips_ssgam,
     true_vec = true_vec,
     bfdr_vec = max_bfdrs
-  )[1,]
+  )
 
   yhat_test_unsc <- (yhat_test + y_train_mean)*y_train_sd
 
