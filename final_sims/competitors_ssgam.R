@@ -313,7 +313,7 @@ for (s_i in 1:n_sims){
     metrics_ssgam
   )
 
-  resmat_ss[s_i, ]
+  print(resmat_ssgam[s_i, ])
   cat("ssgam: "); t2_ssgam - t1_ssgam; cat("\n")
   
   # softbart ---- 
@@ -343,7 +343,7 @@ for (s_i in 1:n_sims){
     as.numeric(c(t2_sb-t1_sb)),
     metrics_sb
   )
-  resmat_sb[s_i, ]
+  print(resmat_sb[s_i, ])
   cat("softbart: "); t2_sb - t1_sb; cat("\n")
   
   #message ----

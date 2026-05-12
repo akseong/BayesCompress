@@ -139,11 +139,11 @@ metrics_err_by_max_bfdr <- function(dropout_vec, true_vec, bfdr_vec){
 
 
 #### COMPILE POSSIBLE DATA SEEDS ----
-stem <- here::here("final_sims", "results", "meanfssmallbias_5x16_origmodsupint_p100_mcor.5_1000obs_")
-fname <- here::here("final_sims", "compiled", "competitors_modfcns_1k.Rdata")
-true_vec <- rep(0, 108)
-true_vec[1:8] <- 1
-reconstruct_fcn <- reconstruct_meanfcndat
+stem <- here::here("final_sims", "results", "nfdsmallbias_mutcorr0.5_5x165000obs_")
+fname <- here::here("final_sims", "compiled", "competitors_origfcns_5k_nossgam.Rdata")
+true_vec <- rep(0, 104)
+true_vec[1:4] <- 1
+reconstruct_fcn <- reconstruct_flistdat
 # sim_res$sim_params$flist
 n_sims = 50
 max_bfdr = 0.05
@@ -279,42 +279,42 @@ for (s_i in 1:n_sims){
   )
   
   
-  # SS GAM ----
-  f1_string <- paste0("y ~ ", paste0("x.", 1:sim_params$d_in, collapse = " + "))
-  f1 <- as.formula(f1_string)
-  options(mc.cores = ssgam_cores)
-  
-  t1_ssgam <- Sys.time()
-  ssgam_fit <- spikeSlabGAM(formula=f1, data=simdat_train)
-  yhat_test <- predict(ssgam_fit, newdata = simdat_test)
-  t2_ssgam <- Sys.time()
-  
-  ssgam_summ <- summary(ssgam_fit)
-  posts <- ssgam_summ$trmSummary[-1,1]
-  func_posts <- posts[2*1:length(true_vec)]
-  lin_posts <- posts[2*1:length(true_vec)-1]
-  pips_ssgam <- ifelse(func_posts > lin_posts, func_posts, lin_posts)
-  metrics_ssgam <- metrics_err_by_max_bfdr(
-    dropout_vec = 1-pips_ssgam, 
-    true_vec = true_vec, 
-    bfdr_vec = c(max_bfdr, .5)
-  )[1,]
-  
-  
-  mse_test <- mean((yhat_test - simdat_test$y)^2)
-  fmse_test <- mean((yhat_test - Ey_test)^2)
-  
-  # get PIPs, ignore intercept
-  pipsmat_ssgam[s_i, ] <- pips_ssgam
-  resmat_ssgam[s_i, ] <- c(
-    mse_test,
-    fmse_test,
-    as.numeric(c(t2_ssgam-t1_ssgam)),
-    metrics_ssgam
-  )
-  
-  print(resmat_ssgam[s_i, ])
-  cat("ssgam: "); t2_ssgam - t1_ssgam; cat("\n")
+  # # SS GAM ----
+  # f1_string <- paste0("y ~ ", paste0("x.", 1:sim_params$d_in, collapse = " + "))
+  # f1 <- as.formula(f1_string)
+  # options(mc.cores = ssgam_cores)
+  # 
+  # t1_ssgam <- Sys.time()
+  # ssgam_fit <- spikeSlabGAM(formula=f1, data=simdat_train)
+  # yhat_test <- predict(ssgam_fit, newdata = simdat_test)
+  # t2_ssgam <- Sys.time()
+  # 
+  # ssgam_summ <- summary(ssgam_fit)
+  # posts <- ssgam_summ$trmSummary[-1,1]
+  # func_posts <- posts[2*1:length(true_vec)]
+  # lin_posts <- posts[2*1:length(true_vec)-1]
+  # pips_ssgam <- ifelse(func_posts > lin_posts, func_posts, lin_posts)
+  # metrics_ssgam <- metrics_err_by_max_bfdr(
+  #   dropout_vec = 1-pips_ssgam, 
+  #   true_vec = true_vec, 
+  #   bfdr_vec = c(max_bfdr, .5)
+  # )[1,]
+  # 
+  # 
+  # mse_test <- mean((yhat_test - simdat_test$y)^2)
+  # fmse_test <- mean((yhat_test - Ey_test)^2)
+  # 
+  # # get PIPs, ignore intercept
+  # pipsmat_ssgam[s_i, ] <- pips_ssgam
+  # resmat_ssgam[s_i, ] <- c(
+  #   mse_test,
+  #   fmse_test,
+  #   as.numeric(c(t2_ssgam-t1_ssgam)),
+  #   metrics_ssgam
+  # )
+  # 
+  # print(resmat_ssgam[s_i, ])
+  # cat("ssgam: "); t2_ssgam - t1_ssgam; cat("\n")
   
   # softbart ---- 
   t1_sb <- Sys.time()
@@ -356,10 +356,10 @@ for (s_i in 1:n_sims){
 competitor_list <- list(
   "BHpvals_mat" = BHpvals_mat,
   "pipsmat_ss" = pipsmat_ss,
-  "pipsmat_ssgam" = pipsmat_ssgam,
+  # "pipsmat_ssgam" = pipsmat_ssgam,
   "pipsmat_sb" = pipsmat_sb,
   "resmat_lm" = resmat_lm,
-  "resmat_ssgam" = resmat_ssgam,
+  # "resmat_ssgam" = resmat_ssgam,
   "resmat_ss" = resmat_ss,
   "resmat_sb" = resmat_sb
 )

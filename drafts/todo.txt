@@ -209,3 +209,17 @@ Using the provided LaTeX for the introduction and chapter 3, can you draft the E
 	- Very different approach: Discrete spike-slab type model using non-local prior and normalizing flows for variational inference
 	- Using variational dropout rate from the local scale parameter $\alpha = E^2[\lamda_j] / Var[\lambda_j]$ with knockoffs (thus avoiding the tau corrections).
 	- Theory needs to be developed.  
+
+
+
+
+
+
+3.8: Discussion - highlight findings, discuss limitations.  structured variational prior
+
+
+# FUTURE Work chapter
+- 
+- most of current chapter 3.8
+- tying localized inference into neural network model
+

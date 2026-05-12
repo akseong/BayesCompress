@@ -4,7 +4,15 @@
 
 
 currently running (reverse order):
-meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_1000obs_  
+competitors, no ssgam: - origfcns 5k
+2xfailed
+competitors, no ssgam: - modfcns 5k
+1xfailed
+competitors - modfcns 1k
+competitors - origfcns 1k
+
+
+3x meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_1000obs_  
 
 
 
