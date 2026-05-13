@@ -367,6 +367,25 @@ ggsave(file = "science_coll.png")
 kappas_sntc <- sim_res$kappa_sntc_mat[50,]
 eta <- BFDR_eta_search(dropout_probs = kappas_sntc, max_rate = 0.05)
 kappas_sntc < eta
+round(kappas_sntc, 5)
+# age                         female                       hispanic                          black 
+# 0.00030                        0.00052                        0.00227                        0.00031 
+# college classworkerGovernment employee       classworkerSelf-employed          occarchitect/engineer 
+# 0.00028                        0.00050                        0.00034                        0.00085 
+# occarts/sports/media         occbusiness operations              occcomputer/maths                occconstruction 
+# 0.00079                        0.00271                        0.00131                        0.00337 
+# occeducation                  occextraction                     occfarming                     occfinance 
+# 0.00208                        0.00040                        0.00124                        0.00140 
+# occfood                      occhealth                occinstallation                       occlegal 
+# 0.00120                        0.00057                        0.00951                        0.00048 
+# occmaintenance                  occmanagement               occpersonal care                  occproduction 
+# 0.00125                        0.00034                        0.00020                        0.01027 
+# occprotective                       occsales                     occscience              occsocial service 
+# 0.00020                        0.00426                        0.00230                        0.01068 
+# occtechnician              occtransportation 
+# 0.00118                        0.00145
+
+
 
 
 
