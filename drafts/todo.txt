@@ -226,3 +226,24 @@ Using the provided LaTeX for the introduction and chapter 3, can you draft the E
 - most of current chapter 3.8
 - tying localized inference into neural network model
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Salary data
+- without specifying interactions:  6, 13, 19, 31  - race: Hawaiian/PI (243 obs), occbusiness operations (1056), occfinance (890), occscience --- default group is architect/engineer.
+  - go ahead and plot.
+
+- specifying age interaction: fc2sn kappas thinks everything matters; local kappas: 8 college at .09; 16 occeducation 0.05, 18 occfarming 0.08, 20 occfood 0.04, 24 occmaintenance 0.04, 25 occmanagement 0.09, 27occpersonalcare 0.05
