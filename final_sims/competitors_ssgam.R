@@ -398,7 +398,7 @@ competitor_list <- list(
   "pipsmat_ssgam" = pipsmat_ssgam,
   # "pipsmat_sb" = pipsmat_sb,
   # "resarr_lm" = resarr_lm,
-  "resarr_ssgam" = rearr_ssgam,
+  "resarr_ssgam" = resarr_ssgam,
   # "resarr_ss" = resarr_ss,
   # "resarr_sb" = resarr_sb
 )

@@ -84,7 +84,7 @@ reconstruct_flistdat <- function(
 # hshoe4det1
 
 
-stem <- here::here("final_sims", "results", "hshoesmallbias_mutcorr0.5_5x161000obs_")
+stem <- here::here("final_sims", "results", "hshoesmallbias_mutcorr0.5_5x165000obs_")
 modfcns_TF <- grepl("meanfs", stem)
 n_sims = 50 
 
@@ -145,18 +145,23 @@ fig_stem <- paste0(
   n_sims, "sims_", fname_suffix
   )
 
-fig_fname <- here::here("final_sims", "compiled", paste0(fig_stem, ".Rdata"))
+# fig_fname <- here::here("final_sims", "compiled", paste0(fig_stem, ".Rdata"))
 
+
+# for (s_i in 1:50){
+#   load(sim_fnames[s_i])
+#   cat(s_i, ": ", round(sim_res$kappa_sntc_mat[50, 1:4], 4), "\n")
+# }
 
 # load sim ----
-s_i = 1
+s_i = 1  # 8, 41
 load(sim_fnames[s_i])
+sim_res$kappa_sntc_mat[50, 1:4]
 nn_mod <- torch_load(mod_fnames[s_i])
 # reconstruct data ----
 use_cuda <- nn_mod$fc1$atilde_logvar$is_cuda
 sim_res$sim_params$use_cuda <- use_cuda
 sim_res$sim_params$standardize <- TRUE
-
 simdat <- reconstruct_fcn(sim_seed = sim_seeds[s_i], sim_res$sim_params)
 
 # scale train/test split, remove Ey from simdat ----
@@ -165,7 +170,6 @@ x_train <- simdat$x[1:n_ttsplit, ]
 x_test <- simdat$x[(1+n_ttsplit):sim_res$sim_params$n_obs, ]
 y_train <- simdat$y[1:n_ttsplit, ]
 y_test <- simdat$y[(1+n_ttsplit):sim_res$sim_params$n_obs, ]
-
 
 # Ey was never scaled.... fuck.  just scale it by the y scales?
 # actually, no, this is good. keep Ey and ytest unscaled
@@ -192,21 +196,105 @@ fmse_test <- mean((yhat_test_unsc - Ey_test)^2)
 
 
 # construct x_mat
+# plot_datagen_fcns(flist = sim_res$sim_params$flist)
+
+fill_0s <- function(mat, n0cols = 100){
+  n_rows <- nrow(mat)
+  n_cols <- ncol(mat)
+  zero_mat <- matrix(0, nrow = n_rows, ncol = n0cols)
+  res <- cbind(mat, zero_mat)
+  return(res)
+}
+
+xvec_length <- 61
+xvec_unsc <- seq(-3, 3, length.out = xvec_length)
+
+x14mat <- cbind(
+  c(xvec_unsc, rep(0, 3*xvec_length)),
+  c(rep(0, xvec_length), xvec_unsc, rep(0, 2*xvec_length)),
+  c(rep(0, 2*xvec_length), xvec_unsc, rep(0, xvec_length)),
+  c(rep(0, 3*xvec_length), xvec_unsc)
+)
+
+xmat_unsc <- fill_0s(x14mat, n0cols = 100)
+xmat <- scale_mat(
+  xmat_unsc, 
+  means = as_array(simdat$x_mean),
+  sds = as_array(simdat$x_sd)
+  )$scaled
+
+n_samps <- 100
+Eyhats_sc <- matrix(NA, nrow = nrow(xmat), ncol = n_samps)
+
+# x0 <- matrix(0, nrow = 1, ncol = ncol(xmat))
+# nn_mod$eval()
+# bias0 <- nn_mod(torch_tensor(x0))
+
+for (i in 1:n_samps){
+  nn_mod$train()
+  Eyhats_sc[, i] <- as_array(nn_mod(torch_tensor(xmat)))
+  # bias0 <- nn_mod(torch_tensor(x0))
+  # Eyhats_sc[, i] <- as_array(nn_mod(torch_tensor(xmat)) - bias0)
+}
+Eyhats <- Eyhats_sc*simdat$y_sd + simdat$y_mean
+Eyhat_mean <- apply(Eyhats, 1, mean)
+Eyhat_qtiles <- t(apply(Eyhats, 1, function(X) quantile(X, probs = c(0.025, 0.975))))
+# pin x0 to 0
+x0_ind <- which(xvec_unsc==0)
+
+estf1b <- Eyhat_mean[x0_ind]
+estf2b <- Eyhat_mean[x0_ind + 1* xvec_length]
+estf3b <- Eyhat_mean[x0_ind + 2* xvec_length]
+estf4b <- Eyhat_mean[x0_ind + 3* xvec_length]
+
+bias0 <- c(rep(estf1b, xvec_length),rep(estf2b, xvec_length),rep(estf3b, xvec_length),rep(estf4b, xvec_length))
+
+
+true_fcn <- c()
+for (i in 1:4){
+  fcni0 <- sim_res$sim_params$flist[[i]](0)
+  true_fcn <- c(true_fcn, (sim_res$sim_params$flist[[i]](xvec_unsc) - fcni0))
+}
+
+f_df <- data.frame(
+  "Ey_mean" = Eyhat_mean - bias0,
+  "q2.5" = Eyhat_qtiles[,1] - bias0,
+  "q97.5" = Eyhat_qtiles[,2] - bias0,
+  "fcn" = c(rep("f1", xvec_length), rep("f2", xvec_length), rep("f3", xvec_length), rep("f4", xvec_length)),
+  "true" = true_fcn,
+  "x" = rep(xvec_unsc, 4)
+)
 
 
 
+n_train <- sim_res$sim_params$n_obs*sim_res$sim_params$ttsplit
+est_plt <- f_df %>% 
+  ggplot() + 
+  geom_line(
+    aes(y = Ey_mean, x = x, color = fcn)
+  ) + 
+  geom_ribbon(
+    aes(ymin = q2.5, ymax = q97.5,
+        x = x,
+        # color = as_factor(female)
+        fill = fcn
+    ),
+    alpha = 0.2
+  ) +
+  geom_line(
+    aes(y = true_fcn, x = x, group = fcn),
+    color = "black"
+  ) + 
+  facet_wrap(vars(fcn)) + 
+  labs(
+    # subtitle = TeX(paste0("$n_{train}$=", n_train,": function estimates and 95% credible intervals")),
+    y = "y"
+  ) + 
+  theme(legend.position = "none")
 
+est_plt
 
-
-
-
-
-
-
-
-
-
-
+ggsave(est_plt, file = here::here("final_sims", "figs", "fplot4000_hshoe1_notitle.png"))
 
 
 

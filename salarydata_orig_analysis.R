@@ -45,8 +45,8 @@ sal_unsc <- salary %>%
   ) %>% 
   mutate(
     race = fct_relevel(race, "White"),
-    classworker = fct_relevel(classworker, "Wage/salary"),
-    occ = fct_relevel(occ, "office")
+    classworker = fct_relevel(classworker, "Wage/salary")
+    # occ = fct_relevel(occ, "office")
   ) %>% 
   select(logincome, age, female, hispanic, black, college, occ, classworker) %>% 
   droplevels()
@@ -119,7 +119,7 @@ agnostic_tau <- tau0_PV(
   p_0 = 1, d = 2, sig = 1, n = n_train
 )
   
-save_stem <- here::here("final_sims", "results", "salary_analysis_h2d4x16_orig")
+save_stem <- here::here("final_sims", "results", "salary_analysis_h2d4x16_orig_arch")
 sim_params <- list(
   # train_params
   seed = 516,

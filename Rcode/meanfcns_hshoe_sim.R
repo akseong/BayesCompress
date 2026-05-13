@@ -71,7 +71,7 @@ save_mod_path_prestem <- here::here(
   "results", 
   "meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_"
 )
-n_obs <- 1000 # includes training and test
+n_obs <- 2000 # includes training and test
 d_in <- 108
 sim_desc <- c(
   "harder meanfcn nonlin regression example, 
@@ -86,7 +86,7 @@ sim_params <- list(
   "sim_name" = sim_desc,
   # data params
   "n_obs" = n_obs,
-  "d_in" = d_in,           ##
+  # "d_in" = d_in,           ##
   "err_sig" = 1,          ##
   "mut_corr" = 0.25,
   "ttsplit" = 4/5,        # Liang use 200 train, 300 test
@@ -94,7 +94,7 @@ sim_params <- list(
   "meanfcn" = meanfcn_orig_modsup_int,
   "standardize" = TRUE,
   # sim params
-  "seed" = 5164,
+  "seed" = 5160,
   "n_sims" = 10,           ##
   # network params / architecture
   "p_0frac" = 0.2,  ## expect about 1/10 covs to be included
