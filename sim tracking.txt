@@ -4,6 +4,8 @@
 
 
 currently running (reverse order):
+salary_analysis_h2d4x16_nointspec
+salary_analysis_h2d4x16
 2x ssgam - 1k obs orig, mod
 meanfssmallbias_5x16_origmodsupint_p100_mcor.5_2000obs_ x4   516-5162
 
