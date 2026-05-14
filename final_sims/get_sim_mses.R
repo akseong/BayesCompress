@@ -138,7 +138,7 @@ reconstruct_flistdat <- function(
 # hshoe4det1
 
 
-stem <- here::here("final_sims", "results", "hshoesmallbias_mutcorr0.5_5x161000obs_")
+stem <- here::here("final_sims", "results", "hshoesmallbias_mutcorr0.5_5x165000obs_")
 modfcns_TF <- grepl("meanfs", stem)
 n_sims = 50 
 
@@ -232,13 +232,20 @@ for (s_i in 1:n_sims){
   yhat_test <- nn_mod(x_test)
   
   # unscaled
-  yhat_test_unsc <- (yhat_test + simdat$y_mean)*simdat$y_sd
+  yhat_test_unsc <- (yhat_test)*simdat$y_sd + simdat$y_mean
   mse_test <-  mean((yhat_test_unsc - y_test)^2)
   fmse_test <- mean((yhat_test_unsc - Ey_test)^2)
 
   mse_mat[s_i, ] <- c(mse_test$item(), fmse_test$item(), sim_res$sim_params$train_sig)
   # function recovery
 }
+
+# TEST MSE
+mean(mse_mat[, 1])
+sd(mse_mat[, 1])
+# fMSE
+mean(mse_mat[, 2])
+sd(mse_mat[, 2])
 
 save(mse_mat, file = mse_fname)
 cat_color(paste0("mse_mat file saved to: ", mse_fname))

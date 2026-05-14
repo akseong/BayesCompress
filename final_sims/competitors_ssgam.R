@@ -10,8 +10,8 @@ library(tidyr)
 library(dplyr)
 library(ggplot2)
 library(gridExtra)
-library(BoomSpikeSlab)
-library(SoftBart)
+# library(BoomSpikeSlab)
+# library(SoftBart)
 library(spikeslab)
 library(spikeSlabGAM)
 
@@ -139,7 +139,7 @@ metrics_err_by_max_bfdr <- function(dropout_vec, true_vec, bfdr_vec){
 
 
 #### COMPILE POSSIBLE DATA SEEDS ----
-stem <- here::here("final_sims", "results", "nfdsmallbias_mutcorr0.5_5x165000obs_")
+stem <- here::here("final_sims", "results", "nfdsmallbias_mutcorr0.5_5x162000obs_")
 modfcns_TF <- grepl("meanfs", stem)
 n_sims = 50
 max_bfdr = "arr"
@@ -252,7 +252,7 @@ for (s_i in 1:n_sims){
   # metrics_lm_mat <- t(apply(BH_decisions, 2, function(X) metrics_from_decision(est = X, tru = true_vec)))
   # colnames(metrics_lm_mat) <- c("fdr", "FPR", "TPR", "FNR", "TNR", "f1")
   # yhat_test <- predict.lm(lm_fit, newdata = simdat_test)
-  # yhat_test_unsc <- (yhat_test + y_train_mean)*y_train_sd
+  # yhat_test_unsc <- (yhat_test)*y_train_sd + y_train_mean
   # 
   # mse_test <-  mean((yhat_test_unsc - y_test)^2)
   # fmse_test <- mean((yhat_test_unsc - Ey_test)^2)
@@ -265,7 +265,6 @@ for (s_i in 1:n_sims){
   # resarr_lm[s_i, 4, ] <- max_bfdrs
   # # "fdr"   "bfdr"  "FPR"    "TPR_sens_recall"    "FNR"    "TN_specificity"    "f1"
   # resarr_lm[s_i, c(5, 7:11), ] <- t(metrics_lm_mat)
-  # 
   # 
   # 
   # # Spike-slab-----
@@ -295,7 +294,7 @@ for (s_i in 1:n_sims){
   # 
   # modmat_test <- cbind(1, simdat_test[, -1])
   # yhat_test <- predict(ss_fit, newdata = modmat_test)
-  # yhat_test_unsc <- (yhat_test + y_train_mean)*y_train_sd
+  # yhat_test_unsc <- (yhat_test)*y_train_sd + y_train_mean
   # 
   # mse_test <-  mean((yhat_test_unsc - y_test)^2)
   # fmse_test <- mean((yhat_test_unsc - Ey_test)^2)
@@ -310,7 +309,7 @@ for (s_i in 1:n_sims){
   #     metrics_ss
   #   )
   # )
-  
+
   
   # SS GAM ----
   f1_string <- paste0("y ~ ", paste0("x.", 1:sim_params$d_in, collapse = " + "))
@@ -347,7 +346,6 @@ for (s_i in 1:n_sims){
     as.numeric(c(t2_ssgam-t1_ssgam)),
     metrics_ssgam
   ))
-
   print(resarr_ssgam[s_i, , ])
   cat("ssgam: "); t2_ssgam - t1_ssgam; cat("\n")
   
@@ -360,7 +358,8 @@ for (s_i in 1:n_sims){
   # )
   # t2_sb <- Sys.time()
   # 
-  # yhat_test_unsc <- (sbfit$y_hat_test + y_train_mean)*y_train_sd
+  # # yhat_test_unsc <- (sbfit$y_hat_test + y_train_mean)*y_train_sd
+  # yhat_test_unsc <- (sbfit$y_hat_test)*y_train_sd + y_train_mean
   # 
   # mse_test <-  mean((yhat_test_unsc - y_test)^2)
   # fmse_test <- mean((yhat_test_unsc - Ey_test)^2)
@@ -402,6 +401,7 @@ competitor_list <- list(
   # "resarr_ss" = resarr_ss,
   # "resarr_sb" = resarr_sb
 )
+
 
 save(competitor_list, file = fname)
 cat_color(paste0("results saved to ", fname))

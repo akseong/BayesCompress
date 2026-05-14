@@ -139,7 +139,7 @@ metrics_err_by_max_bfdr <- function(dropout_vec, true_vec, bfdr_vec){
 
 
 #### COMPILE POSSIBLE DATA SEEDS ----
-stem <- here::here("final_sims", "results", "nfdsmallbias_mutcorr0.5_5x165000obs_")
+stem <- here::here("final_sims", "results", "meanfssmallbias_5x16_origmodsupint_p100_mcor.5_2000obs_")
 modfcns_TF <- grepl("meanfs", stem)
 n_sims = 50
 max_bfdr = "arr"
@@ -212,7 +212,8 @@ dimnames(resarr_ss) <- list(paste0("sim_", 1:n_sims), resarr_colnames, paste0("b
 resarr_lm <- resarr_ssgam <- resarr_sb <- resarr_ss
 
 dimnames(resarr_lm)[[2]][4] <- "max_fdr"
-
+time_mat <- matrix(NA, ncol = 4, nrow = n_sims)
+colnames(time_mat) <- c("lm", "ss", "ssgam", "sb")
 
 for (s_i in 1:n_sims){
   t1_sim <- Sys.time()
@@ -266,7 +267,7 @@ for (s_i in 1:n_sims){
   # "fdr"   "bfdr"  "FPR"    "TPR_sens_recall"    "FNR"    "TN_specificity"    "f1"
   resarr_lm[s_i, c(5, 7:11), ] <- t(metrics_lm_mat)
   
-  
+  time_mat[s_i, 1] <- t2-t1
   
   # Spike-slab-----
   t1_ss <- Sys.time()
@@ -310,7 +311,7 @@ for (s_i in 1:n_sims){
       metrics_ss
     )
   )
-  
+  time_mat[s_i, 2] <- t2_ss-t1_ss
   
   # # SS GAM ----
   # f1_string <- paste0("y ~ ", paste0("x.", 1:sim_params$d_in, collapse = " + "))
@@ -347,7 +348,7 @@ for (s_i in 1:n_sims){
   #   as.numeric(c(t2_ssgam-t1_ssgam)),
   #   metrics_ssgam
   # ))
-  # 
+  # time_mat[s_i, 3] <- t2_ssgam-t1_ssgam
   # print(resarr_ssgam[s_i, , ])
   # cat("ssgam: "); t2_ssgam - t1_ssgam; cat("\n")
   
@@ -384,6 +385,7 @@ for (s_i in 1:n_sims){
       metrics_sb
     )
   )
+  time_mat[s_i, 4] <- t2_sb-t1_sb
   print(resarr_sb[s_i, , ])
   cat("softbart: "); t2_sb - t1_sb; cat("\n")
   
@@ -394,12 +396,13 @@ for (s_i in 1:n_sims){
 
 
 competitor_list <- list(
+  "time_mat" = time_mat,
   "BHpvals_mat" = BHpvals_mat,
   "pipsmat_ss" = pipsmat_ss,
   # "pipsmat_ssgam" = pipsmat_ssgam,
   "pipsmat_sb" = pipsmat_sb,
   "resarr_lm" = resarr_lm,
-  # "resarr_ssgam" = rearr_ssgam,
+  # "resarr_ssgam" = resarr_ssgam,
   "resarr_ss" = resarr_ss,
   "resarr_sb" = resarr_sb
 )
@@ -408,20 +411,33 @@ save(competitor_list, file = fname)
 cat_color(paste0("results saved to ", fname))
 
 
-
-
-# hshoe2det4_1k_50sims_origfcns_competitors_nossgam_bfdrarr.Rdata
-# hshoe2det4_2k_50sims_origfcns_competitors_nossgam_bfdrarr.Rdata
-# hshoe2det4_5k_50sims_origfcns_competitors_nossgam_bfdrarr.Rdata
-
-
-# hshoe2det4_5k_50sims_modfcns_competitors_nossgam_bfdrarr.Rdata
-
-
-
-
-
-
+# 
+# load(here::here("final_sims", "compiled", "hshoe2det4_5k_50sims_modfcns_competitors_nossgam_bfdrarr.Rdata"))
+# apply(competitor_list$resarr_sb[, ,2], 2, mean)
+# apply(competitor_list$resarr_sb[, ,2], 2, sd)
+# 
+# 
+# apply(competitor_list$resarr_lm[, ,2], 2, mean)
+# apply(competitor_list$resarr_lm[, ,2], 2, sd)
+# 
+# 
+# apply(competitor_list$resarr_ss[, ,2], 2, mean)
+# apply(competitor_list$resarr_ss[, ,2], 2, sd)
+# 
+# 
+# 
+# # hshoe2det4_1k_50sims_origfcns_competitors_nossgam_bfdrarr.Rdata
+# # hshoe2det4_2k_50sims_origfcns_competitors_nossgam_bfdrarr.Rdata
+# # hshoe2det4_5k_50sims_origfcns_competitors_nossgam_bfdrarr.Rdata
+# 
+# 
+# # hshoe2det4_5k_50sims_modfcns_competitors_nossgam_bfdrarr.Rdata
+# 
+# 
+# hshoe2det4_5k_50sims_ORIGfcns_competitors_nossgam_bfdrarr.Rdata
+# 
+# 
+# 
 
 
 

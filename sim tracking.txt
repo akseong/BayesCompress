@@ -4,8 +4,8 @@
 
 
 currently running (reverse order):
-2 meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_2000obs_   2k hshoe
-1 meanfssmallbias_5x16_origmodsupint_p100_mcor.5_2000obs_        2k 2hshoe4det last one
+4 meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_2000obs_   2k hshoe  
+
 2 meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_1000obs_    1k hshoe
 
 
@@ -55,13 +55,13 @@ orig fcns:
 8fcns, interactions, limited support
 - 2hshoe, 3det:
 	- 5k: 52 	meanfssmallbias_5x16_origmodsupint_p100_mcor.5_5000obs_976304
-	- 2k: 48    meanfssmallbias_5x16_origmodsupint_p100_mcor.5_2000obs_              5164 running last
+	- 2k: 50    meanfssmallbias_5x16_origmodsupint_p100_mcor.5_2000obs_718268              
 	- 1k: 64 	meanfssmallbias_5x16_origmodsupint_p100_mcor.5_1000obs_21129
 
 - 4 hshoe, 1 det:
-	- 5k:       meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_5000obs_
-	- 2k: 10    meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_2000obs_         5161-5162 running
-	- 1k: 49    meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_1000obs_         5167 (last)
+	- 5k: 10      meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_5000obs_ 			516-5160  failed; 
+	- 2k: 32    meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_2000obs_         	5161-5164 failed; 5-6 running
+	- 1k: 50    meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_1000obs_475331      
 
 
 
@@ -108,4 +108,48 @@ mod_fcn:
 
 
 
+
+
+
+n=1000  bfdr_0.05
+
+HS2       max_bfdr 	fdr 	       bfdr 	  FPR 	TPR_sens_recall 	  FNR 	TN_specificity 	       f1
+bfdr_0.05     0.05 	0.0 	0.005456591 	0.000 	          0.670 	0.330 	         1.000 		0.7904762
+	   sd   	0 	0.0 	0.010256485 	0.000         0.1467331 	0.1467331    0.000000000 	0.14171882
+
+HS4			max_bfdr fdr        	bfdr 		FPR 	TPR_sens_recall   FNR 	TN_specificity        f1
+bfdr_0.05     0.05   0 		0.011250208   		0           0.560 		 0.440              1 		0.6979048
+		sd 	  0    	 0 		0.012128156  	 	0 	      0.1789995 	0.1789995           0 		0.18268862
+
+
+		
+
+
+
+
+
+
+
+# Sim results:
+
+
+ss-gam takes too long.  
+
+HS-2 outperforms HS-4 in terms of Sensitivity; HS2 picks up on more true positives, at the cost of a little predictive error.
+
+SoftBART's sensitivity is consistently higher than HS2; f1 scores are modestly higher; but at a very large cost in predictive error.
+
+HS-2 and HS-4's functional MSE also decreases with sample size; that does not occur with SoftBART.  If anything, it appears to increase.
+
+HS2 and 4 have stable test MSE across $n = 1k, 2k, 5k$; few, if any false positives, well below the target BFDR; and learns from additional observations.
+
+
+Our method effectively controls FDR, with exceedingly rare false positives, and excellent predictive performance as measured by the test MSE and functional MSE.  While SoftBART achieves higher sensitivity, its advantage diminishes with sample size, and it appears to have difficulty learning from more observations.
+
+
+Each methods' test mse is relatively stable across sample sizes within each setting.  However, our method is the only one whose functional MSE decreases with sample size, indicating that the neural network is actually able to better approximate the truth.
+
+
+Specificity: All methods' Specificity is perfect or near perfect, and all do a fairly good job of controlling FDR, with OLS linear regression the only method exceeding the nominal rate.
+Sensitivity: The linear methods are at a severe handicap in Setting 1, as the functions in Setting 1 are largely symmetric; they perform better in Setting 2, where the interactions reduce symmetry, and perhaps also benefitting from the larger number of active variables.
 
