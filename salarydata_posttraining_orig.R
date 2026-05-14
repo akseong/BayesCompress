@@ -66,41 +66,41 @@ age_sd <- sim_res$sim_params$age_sd
 ages <- 18:65 # length 48
 agevec <- (ages-age_mean)/age_sd
 
-# create expanded datamat to generate predictions
-all_df <- expand.grid(
-  "logincome" = 0,
-  "age" = ages,
-  "female" = c(0,1),
-  "hispanic" = c(0,1),
-  "black" = c(0,1),
-  "college" = c(0,1),
-  "classworker" = unique(sal_unsc$classworker),
-  "occ" = unique(sal_unsc$occ)
-) %>%
-  mutate(
-    # race = fct_relevel(race, "White"),
-    classworker = fct_relevel(classworker, "Wage/salary")
-    # occ = fct_relevel(occ, "office")
-  )
-all_design <- model.matrix(as.formula(sim_res$sim_params$formula_str), data = all_df)[, -1]
-all_design[,1] <- (all_design[,1] - age_mean)/age_sd
-colnames(all_design) == colnames(sim_res$sim_params$design)
-
-
-n_samps = 100
-yhat_mat <- matrix(NA, ncol = n_samps, nrow = nrow(all_design))
-for (i in 1:n_samps){
-  yhat_mat[, i] <- as_array(nn_mod(torch_tensor(all_design)))
-}
-yhat_mat <- yhat_mat*y_sd + y_mean
-Eyhat <- apply(yhat_mat, 1, mean)
-yhat_qtiles <- apply(yhat_mat, 1, function(X) quantile(X, probs = c(0.025, 0.975)))
-dim(yhat_qtiles)
-all_df$Eyhat <- Eyhat
-all_df$q.025 <- yhat_qtiles[1, ]
-all_df$q.975 <- yhat_qtiles[2, ]
-all_df <- all_df[, -1]
-save(all_df, file = paste0(fname_stem, "_all_df.Rdata"))
+# # create expanded datamat to generate predictions
+# all_df <- expand.grid(
+#   "logincome" = 0,
+#   "age" = ages,
+#   "female" = c(0,1),
+#   "hispanic" = c(0,1),
+#   "black" = c(0,1),
+#   "college" = c(0,1),
+#   "classworker" = unique(sal_unsc$classworker),
+#   "occ" = unique(sal_unsc$occ)
+# ) %>%
+#   mutate(
+#     # race = fct_relevel(race, "White"),
+#     classworker = fct_relevel(classworker, "Wage/salary")
+#     # occ = fct_relevel(occ, "office")
+#   )
+# all_design <- model.matrix(as.formula(sim_res$sim_params$formula_str), data = all_df)[, -1]
+# all_design[,1] <- (all_design[,1] - age_mean)/age_sd
+# colnames(all_design) == colnames(sim_res$sim_params$design)
+# 
+# 
+# n_samps = 100
+# yhat_mat <- matrix(NA, ncol = n_samps, nrow = nrow(all_design))
+# for (i in 1:n_samps){
+#   yhat_mat[, i] <- as_array(nn_mod(torch_tensor(all_design)))
+# }
+# yhat_mat <- yhat_mat*y_sd + y_mean
+# Eyhat <- apply(yhat_mat, 1, mean)
+# yhat_qtiles <- apply(yhat_mat, 1, function(X) quantile(X, probs = c(0.025, 0.975)))
+# dim(yhat_qtiles)
+# all_df$Eyhat <- Eyhat
+# all_df$q.025 <- yhat_qtiles[1, ]
+# all_df$q.975 <- yhat_qtiles[2, ]
+# all_df <- all_df[, -1]
+# save(all_df, file = paste0(fname_stem, "_all_df.Rdata"))
 load(paste0(fname_stem, "_all_df.Rdata"))
 
 all_df <- all_df %>% 
@@ -113,7 +113,39 @@ all_df <- all_df %>%
         hispanic == 1 & black == 1 ~ "Hispanic, Black",
         hispanic == 1 & black == 0 ~ "Hispanic, non-Black"
       ), c("Hispanic, Black", "non-Hispanic, non-Black", "Hispanic, non-Black", "non-Hispanic, Black")
-    )
+    ),
+    college = ifelse(college == 1, "college", "no college"),
+    Hispanic = ifelse(hispanic==1, "Hispanic", "non-Hispanic"),
+    gender_black =fct_relevel(
+      case_when(
+        female == 0 & black == 0 ~ "Male, non-Black",
+        female == 0 & black == 1 ~ "Male, Black",
+        female == 1 & black == 1 ~ "Female, Black",
+        female == 1 & black == 0 ~ "Female, non-Black"
+      ), 
+      c("Male, Black", "Male, non-Black", "Female, Black", "Female, non-Black")
+    ),
+    fhb = fct_relevel(
+      case_when(
+        female == 0 & black == 0 & hispanic == 0 ~ "Male, non-Black, non-Hispanic",
+        female == 0 & black == 1 & hispanic == 0 ~ "Male, Black, non-Hispanic",
+        female == 1 & black == 1 & hispanic == 0 ~ "Female, Black, non-Hispanic",
+        female == 1 & black == 0 & hispanic == 0 ~ "Female, non-Black, non-Hispanic",
+        female == 0 & black == 0 & hispanic == 1 ~ "Male, non-Black, Hispanic",
+        female == 0 & black == 1 & hispanic == 1 ~ "Male, Black, Hispanic",
+        female == 1 & black == 1 & hispanic == 1 ~ "Female, Black, Hispanic",
+        female == 1 & black == 0 & hispanic == 1 ~ "Female, non-Black, Hispanic"
+      ),
+        c("Male, Black, Hispanic",
+          "Male, non-Black, Hispanic",
+          "Female, Black, Hispanic",
+          "Female, non-Black, Hispanic",
+          "Male, Black, non-Hispanic",
+          "Male, non-Black, non-Hispanic",
+          "Female, Black, non-Hispanic",
+          "Female, non-Black, non-Hispanic"
+          )
+      )
   )
 
 
@@ -137,6 +169,250 @@ all_df <- all_df %>%
 
 
 
+# Hispanic wage gap ----
+table(sal$occ, sal$hispanic)
+# - office 4052:1127, 
+# - construction 1286:1023
+# - food 1042:598
+# - health 2547:457
+# - management 2801:513
+# - transportation 1589:690
+
+#### office ----
+office_HnH <- all_df %>% 
+  filter(
+    # female      ==   0,
+    # hispanic    ==   0,
+    # black       ==   0,
+    # college     ==   0,
+    classworker ==   "Wage/salary",
+    occ         ==   "office"
+  )  %>% 
+  # mutate(
+  #   gender = ifelse(female == 1, "Female", "Male"),
+  #   college = ifelse(college == 1, "college", "no college"),
+  #   Hispanic = ifelse(hispanic==1, "Hispanic", "non-Hispanic"),
+  #   gender_black =fct_relevel(
+  #     case_when(
+  #       female == 0 & black == 0 ~ "Male, non-Black",
+  #       female == 0 & black == 1 ~ "Male, Black",
+  #       female == 1 & black == 1 ~ "Female, Black",
+  #       female == 1 & black == 0 ~ "Female, non-Black"
+  #     ), 
+  #     c("Male, Black", "Male, non-Black", "Female, Black", "Female, non-Black")
+  #   )
+  # ) %>%
+  ggplot() +
+  geom_line(
+    aes(
+      y = Eyhat, x = age,
+      color = Hispanic,
+    )
+  ) + 
+  geom_ribbon(
+    aes(ymin = q.025, ymax = q.975, 
+        x = age,
+        # color = as_factor(female)
+        fill = Hispanic,
+    ), 
+    alpha = 0.2
+  ) + 
+  facet_grid(college ~ gender_black) + 
+  labs(
+    # title = TeX("Mean $log_{10}$ income trajectories"),
+    subtitle = "Office workers' salary: Hispanic (red) vs non-Hispanic (blue)",
+    y = TeX("Estimated mean $log_{10}$ income"),
+    x = "Age (years)",
+    color = "",
+    fill = ""
+  ) + 
+  ylim(c(4.1, 4.87))+ 
+  theme(
+    legend.position = "none" #c(0.9, 0.1)
+  )
+  
+ggsave(office_HnH, file = here::here("final_sims", "figs", "office_HnH.png"))
+
+#### management----
+management_HnH <- all_df %>% 
+  filter(
+    # female      ==   0,
+    # hispanic    ==   0,
+    # black       ==   0,
+    # college     ==   0,
+    classworker ==   "Wage/salary",
+    occ         ==   "management"
+  )  %>% 
+  # mutate(
+  #   gender = ifelse(female == 1, "Female", "Male"),
+  #   college = ifelse(college == 1, "college", "no college"),
+  #   Hispanic = ifelse(hispanic==1, "Hispanic", "non-Hispanic"),
+  #   gender_black =fct_relevel(
+  #     case_when(
+  #       female == 0 & black == 0 ~ "Male, non-Black",
+  #       female == 0 & black == 1 ~ "Male, Black",
+  #       female == 1 & black == 1 ~ "Female, Black",
+  #       female == 1 & black == 0 ~ "Female, non-Black"
+  #     ), 
+  #     c("Male, Black", "Male, non-Black", "Female, Black", "Female, non-Black")
+  #   )
+  # ) %>%
+  ggplot() +
+  geom_line(
+    aes(
+      y = Eyhat, x = age,
+      color = Hispanic,
+    )
+  ) + 
+  geom_ribbon(
+    aes(ymin = q.025, ymax = q.975, 
+        x = age,
+        # color = as_factor(female)
+        fill = Hispanic,
+    ), 
+    alpha = 0.2
+  ) + 
+  facet_grid(college ~ gender_black) + 
+  labs(
+    # title = TeX("Mean $log_{10}$ income trajectories"),
+    subtitle = "Management workers' salary: Hispanic (red) vs non-Hispanic (blue)",
+    y = TeX("Estimated mean $log_{10}$ income"),
+    x = "Age (years)",
+    color = "",
+    fill = ""
+  ) + 
+  ylim(c(4, 5.2))+ 
+  theme(
+    legend.position = "none" #c(0.9, 0.1)
+  )
+management_HnH
+ggsave(management_HnH, file = here("final_sims", "figs", "management_HnH.png"))
+
+
+#### health----
+health_HnH <- all_df %>% 
+  filter(
+    # female      ==   0,
+    # hispanic    ==   0,
+    # black       ==   0,
+    # college     ==   0,
+    classworker ==   "Wage/salary",
+    occ         ==   "health"
+  )  %>% 
+  # mutate(
+  #   gender = ifelse(female == 1, "Female", "Male"),
+  #   college = ifelse(college == 1, "college", "no college"),
+  #   Hispanic = ifelse(hispanic==1, "Hispanic", "non-Hispanic"),
+  #   gender_black =fct_relevel(
+  #     case_when(
+  #       female == 0 & black == 0 ~ "Male, non-Black",
+  #       female == 0 & black == 1 ~ "Male, Black",
+  #       female == 1 & black == 1 ~ "Female, Black",
+  #       female == 1 & black == 0 ~ "Female, non-Black"
+  #     ), 
+  #     c("Male, Black", "Male, non-Black", "Female, Black", "Female, non-Black")
+  #   )
+  # ) %>%
+  ggplot() +
+  geom_line(
+    aes(
+      y = Eyhat, x = age,
+      color = Hispanic,
+    )
+  ) + 
+  geom_ribbon(
+    aes(ymin = q.025, ymax = q.975, 
+        x = age,
+        # color = as_factor(female)
+        fill = Hispanic,
+    ), 
+    alpha = 0.2
+  ) + 
+  facet_grid(college ~ gender_black) + 
+  labs(
+    # title = TeX("Mean $log_{10}$ income trajectories"),
+    subtitle = "Health workers' salary: Hispanic (red) vs non-Hispanic (blue)",
+    y = TeX("Estimated mean $log_{10}$ income"),
+    x = "Age (years)",
+    color = "",
+    fill = ""
+  ) + 
+  ylim(c(4, 5))+ 
+  theme(
+    legend.position = "none" #c(0.9, 0.1)
+  )
+
+health_HnH
+ggsave(health_HnH, file = here("final_sims", "figs", "health_HnH.png"))
+
+
+
+
+table(sal$occ, sal$classworker)
+# management          2697 salaried; 359 gov; 258 self
+# arts/sports/media:  418  39   41
+# sales:              2842  40  135
+# social service:     335   202 2
+
+
+
+
+# classworker ----
+all_df %>% 
+  filter(
+    # female      ==   0,
+    # hispanic    ==   0,
+    # black       ==   0,
+    # college     ==   1,
+    # classworker ==   "Wage/salary",
+    occ         ==   "social service"
+  ) %>% 
+  ggplot() +
+  geom_line(
+    aes(
+      y = Eyhat, x = age,
+      color = classworker
+    )
+  ) + 
+  geom_ribbon(
+    aes(ymin = q.025, ymax = q.975, 
+        x = age,
+        # color = as_factor(female)
+        fill = classworker,
+    ), 
+    alpha = 0.2
+  ) + 
+  facet_grid(fhb ~ college) + 
+  labs(
+    # title = TeX("Mean $log_{10}$ income trajectories"),
+    subtitle = "Health workers' salary: Hispanic (red) vs non-Hispanic (blue)",
+    y = TeX("Estimated mean $log_{10}$ income"),
+    x = "Age (years)",
+    color = "",
+    fill = ""
+  ) + 
+  ylim(c(4, 5))
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Female wage gap ----
 ## salaried office workers, no college degree ----
 fhb <- all_df %>% 
   filter(
@@ -180,7 +456,7 @@ fhb_plt <- fhb %>%
   )
 fhb_plt
 # 10^4.2 ~ 16k, 10^4.4 ~ 25k, 10^4.6 ~ 40k
-ggsave(plot = fhb_plt, filename = "fhb_plot_notitle.png" )
+# ggsave(plot = fhb_plt, filename = "fhb_plot_notitle.png" )
 
 
 ## salaried office workers; college degree ----
@@ -226,7 +502,7 @@ fhb_coll_plt <- fhb_coll %>%
   )
 fhb_coll_plt
 
-ggsave(plot = fhb_coll_plt, filename = "fhb_coll_plot_notitle.png" )
+# ggsave(plot = fhb_coll_plt, filename = "fhb_coll_plot_notitle.png" )
 
 
 ## salaried sales workers, no college degree ----
@@ -271,7 +547,7 @@ fhb_sales_plt <- fhb_sales %>%
   )
 fhb_sales_plt
 # 10^4.2 ~ 16k, 10^4.4 ~ 25k, 10^4.6 ~ 40k
-ggsave(plot = fhb_sales_plt, filename = "fhb_sales_notitle.png" )
+# ggsave(plot = fhb_sales_plt, filename = "fhb_sales_notitle.png" )
 
 
 ## salaried sales workers; college degree ----
@@ -317,7 +593,7 @@ fhb_sales_coll_plt <- fhb_sales_coll %>%
   )
 fhb_sales_coll_plt
 
-ggsave(plot = fhb_sales_coll_plt, filename = "fhb_sales_coll_plot_notitle.png" )
+# ggsave(plot = fhb_sales_coll_plt, filename = "fhb_sales_coll_plot_notitle.png" )
 
 
 
@@ -358,7 +634,57 @@ all_df %>%
   theme(
     legend.position = c(0.9, 0.1)
   )
-ggsave(file = "science_coll.png")
+# ggsave(file = "science_coll.png")
+
+
+## self-employed ----
+table(sal$occ, sal$classworker)
+
+#occ = management has most self-emplyoed
+all_df %>% 
+  filter(
+    # female      ==   0,
+    hispanic    ==   0,
+    black       ==   0,
+    # college     ==   0,
+    # classworker ==   "Wage/salary",
+    occ         ==   "management"
+  ) %>% 
+  mutate(
+    college = ifelse(college == 0, "no college", "college")
+  ) %>% 
+  ggplot() +
+  geom_line(
+    aes(
+      y = Eyhat, x = age,
+      color = gender,
+    )
+  ) + 
+  geom_ribbon(
+    aes(ymin = q.025, ymax = q.975, 
+        x = age,
+        # color = as_factor(female)
+        fill = gender
+    ), 
+    alpha = 0.2
+  ) + 
+  ylim(c(4, 5.15))+
+  facet_grid(college ~ classworker) + 
+  labs(
+    # title = TeX("Mean $log_{10}$ income trajectories"),
+    subtitle = "non-Hispanic, non-Black workers in management",
+    y = TeX("Estimated mean $log_{10}$ income"),
+    x = "Age (years)",
+    color = "",
+    fill = ""
+  ) + 
+  theme(
+    legend.position = c(0.9, 0.1)
+  )
+
+ggsave(file = "class_worker_manage.png")
+
+
 
 
 

@@ -12,8 +12,8 @@ library(ggplot2)
 library(gridExtra)
 library(BoomSpikeSlab)
 library(SoftBart)
-library(spikeslab)
-library(spikeSlabGAM)
+# library(spikeslab)
+# library(spikeSlabGAM)
 
 library(torch)
 # modified forward portion of torch_horseshoe_klcorrected
@@ -150,12 +150,12 @@ if (modfcns_TF){
   reconstruct_fcn <- reconstruct_meanfcndat
   true_vec <- rep(0, 108)
   true_vec[1:8] <- 1
-  fname_suffix <- paste0("modfcns_competitors_nossgam", "_bfdr", max_bfdr)
+  fname_suffix <- paste0("MODfcns_competitors_nossgam", "_bfdr", max_bfdr)
 } else {
   reconstruct_fcn <- reconstruct_flistdat
   true_vec <- rep(0, 104)
   true_vec[1:4] <- 1
-  fname_suffix <- paste0("origfcns_competitors_nossgam", "_bfdr", max_bfdr)
+  fname_suffix <- paste0("ORIGfcns_competitors_nossgam", "_bfdr", max_bfdr)
 }
 
 # find seeds
@@ -252,7 +252,7 @@ for (s_i in 1:n_sims){
   metrics_lm_mat <- t(apply(BH_decisions, 2, function(X) metrics_from_decision(est = X, tru = true_vec)))
   colnames(metrics_lm_mat) <- c("fdr", "FPR", "TPR", "FNR", "TNR", "f1")
   yhat_test <- predict.lm(lm_fit, newdata = simdat_test)
-  yhat_test_unsc <- (yhat_test + y_train_mean)*y_train_sd
+  yhat_test_unsc <- (yhat_test)*y_train_sd + y_train_mean
   
   mse_test <-  mean((yhat_test_unsc - y_test)^2)
   fmse_test <- mean((yhat_test_unsc - Ey_test)^2)
@@ -295,7 +295,7 @@ for (s_i in 1:n_sims){
   
   modmat_test <- cbind(1, simdat_test[, -1])
   yhat_test <- predict(ss_fit, newdata = modmat_test)
-  yhat_test_unsc <- (yhat_test + y_train_mean)*y_train_sd
+  yhat_test_unsc <- (yhat_test)*y_train_sd + y_train_mean
   
   mse_test <-  mean((yhat_test_unsc - y_test)^2)
   fmse_test <- mean((yhat_test_unsc - Ey_test)^2)
@@ -360,7 +360,8 @@ for (s_i in 1:n_sims){
   )
   t2_sb <- Sys.time()
   
-  yhat_test_unsc <- (sbfit$y_hat_test + y_train_mean)*y_train_sd
+  # yhat_test_unsc <- (sbfit$y_hat_test + y_train_mean)*y_train_sd
+  yhat_test_unsc <- (sbfit$y_hat_test)*y_train_sd + y_train_mean
   
   mse_test <-  mean((yhat_test_unsc - y_test)^2)
   fmse_test <- mean((yhat_test_unsc - Ey_test)^2)
@@ -405,6 +406,22 @@ competitor_list <- list(
 
 save(competitor_list, file = fname)
 cat_color(paste0("results saved to ", fname))
+
+
+
+
+# hshoe2det4_1k_50sims_origfcns_competitors_nossgam_bfdrarr.Rdata
+# hshoe2det4_2k_50sims_origfcns_competitors_nossgam_bfdrarr.Rdata
+# hshoe2det4_5k_50sims_origfcns_competitors_nossgam_bfdrarr.Rdata
+
+
+# hshoe2det4_5k_50sims_modfcns_competitors_nossgam_bfdrarr.Rdata
+
+
+
+
+
+
 
 
 

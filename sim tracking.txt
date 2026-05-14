@@ -4,8 +4,9 @@
 
 
 currently running (reverse order):
-1 meanfssmallbias_5x16_origmodsupint_p100_mcor.5_2000obs_   last one
-2 meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_1000obs_
+2 meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_2000obs_   2k hshoe
+1 meanfssmallbias_5x16_origmodsupint_p100_mcor.5_2000obs_        2k 2hshoe4det last one
+2 meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_1000obs_    1k hshoe
 
 
 
@@ -23,9 +24,11 @@ competitors - origfcns 1k, 2k, 5k
 run 11 meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_1000obs_    next
 
 
+5.75
+5.25
 
-
-
+7.9
+7.14
 
 
 
@@ -52,13 +55,13 @@ orig fcns:
 8fcns, interactions, limited support
 - 2hshoe, 3det:
 	- 5k: 52 	meanfssmallbias_5x16_origmodsupint_p100_mcor.5_5000obs_976304
-	- 2k: 40    meanfssmallbias_5x16_origmodsupint_p100_mcor.5_2000obs_              5163 running
+	- 2k: 48    meanfssmallbias_5x16_origmodsupint_p100_mcor.5_2000obs_              5164 running last
 	- 1k: 64 	meanfssmallbias_5x16_origmodsupint_p100_mcor.5_1000obs_21129
 
 - 4 hshoe, 1 det:
 	- 5k:       meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_5000obs_
-	- 2k:       meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_2000obs_         516-5160 running
-	- 1k: 39    meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_1000obs_         5165-6 running (last)
+	- 2k: 10    meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_2000obs_         5161-5162 running
+	- 1k: 49    meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_1000obs_         5167 (last)
 
 
 
