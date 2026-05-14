@@ -86,7 +86,7 @@ sim_params <- list(
   "sim_name" = sim_desc,
   # data params
   "n_obs" = n_obs,
-  # "d_in" = d_in,           ##
+  "d_in" = d_in,           ##
   "err_sig" = 1,          ##
   "mut_corr" = 0.25,
   "ttsplit" = 4/5,        # Liang use 200 train, 300 test
@@ -94,7 +94,7 @@ sim_params <- list(
   "meanfcn" = meanfcn_orig_modsup_int,
   "standardize" = TRUE,
   # sim params
-  "seed" = 5160,
+  "seed" = 5162,
   "n_sims" = 10,           ##
   # network params / architecture
   "p_0frac" = 0.2,  ## expect about 1/10 covs to be included
