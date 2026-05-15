@@ -94,15 +94,16 @@ metrics_err_by_max_bfdr <- function(dropout_vec, true_vec, bfdr_vec){
 stem <- here::here("final_sims", "results", "meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_2000obs_")
 modfcns_TF <- grepl("meanfs", stem)
 n_sims = 50 
+max_bfdrs <- c(0.01, 0.05, .1, .25)
 
 if (modfcns_TF){
   true_vec <- rep(0, 108)
   true_vec[1:8] <- 1
-  fname_suffix <- "modfcns_bfdr_arr"   
+  fname_suffix <- "modfcns_bfdrall_arr"   
 } else {
   true_vec <- rep(0, 104)
   true_vec[1:4] <- 1
-  fname_suffix <- "origfcns_bfdr_arr"
+  fname_suffix <- "origfcns_bfdrall_arr"
 }
 
 # started off some with 5, some with 10.  Figure out which ones have 5, vs 10
@@ -202,7 +203,6 @@ sum(ksntc_metrictest_mat[, 1:4] < 0.05) # 156 out of 300       # 5000obs: 313
 sum(ksntc_metrictest_mat[, 5:ncol(sim_res$kappa_mat)] < 0.5)  # 8                  # 5000obs: 11
 
 
-max_bfdrs <- c(0.01, 0.05, 0.1, .25)
 
 # ksn50k_bfdr0.01 <- matrix(NA, nrow = , ncol = 8)
 # colnames(ksn50k_bfdr0.01) <- c("max_bfdr", "fdr", "bfdr", "FPR", "TPR_sens_recall", "FNR", "TN_specificity", "f1")
@@ -288,7 +288,6 @@ cat_color(paste0("results saved to ", compiled_fname))
 
 
 
-
 t(apply(ktc50k_bfdr_arr, c(2, 3), mean))
 t(apply(ktc50k_bfdr_arr, c(2, 3), sd))
 
@@ -309,62 +308,18 @@ t(apply(ksntc_metrictest_bfdr_arr, c(2, 3), mean))
 t(apply(ksntc_metrictest_bfdr_arr, c(2, 3), sd))
 
 
+
+#### plot ROC
+
+load(here("final_sims", "compiled", "hshoe2det4_1k_50sims_origfcns_bfdr_arr.Rdata"))
+
+mat <- res[[2]]$ksntc50k_bfdr_arr
+#
 res[[2]]$ksntc50k_bfdr_arr[,,2]
 
-
-
-# ksn50k_bfdr0.01
-# ksn50k_bfdr0.05
-# ksn50k_bfdr0.1
-# ksn50k_bfdr0.25
-# 
-# ksntc50k_bfdr0.01
-# ksntc50k_bfdr0.05
-# ksntc50k_bfdr0.1
-# ksntc50k_bfdr0.25
-# 
-# apply(ksn50k_bfdr0.01, 2, mean)
-# apply(ksn50k_bfdr0.01, 2, sd)
-# apply(ksn50k_bfdr0.05, 2, mean)
-# apply(ksn50k_bfdr0.05, 2, sd)
-# apply(ksn50k_bfdr0.1, 2, mean)
-# apply(ksn50k_bfdr0.1, 2, sd)
-# cat_color("pause")
-# apply(ksntc50k_bfdr0.01, 2, mean)
-# apply(ksntc50k_bfdr0.01, 2, sd)
-# apply(ksntc50k_bfdr0.05, 2, mean)
-# apply(ksntc50k_bfdr0.05, 2, sd)
-# apply(ksntc50k_bfdr0.1, 2, mean)
-# apply(ksntc50k_bfdr0.1, 2, sd)
-# cat_color("pause")
-# apply(ksn_metrictest_bfdr0.01, 2, mean)
-# apply(ksn_metrictest_bfdr0.01, 2, sd)
-# apply(ksn_metrictest_bfdr0.05, 2, mean)
-# apply(ksn_metrictest_bfdr0.05, 2, sd)
-# apply(ksn_metrictest_bfdr0.1, 2, mean)
-# apply(ksn_metrictest_bfdr0.1, 2, sd)
-# cat_color("pause")
-# apply(ksntc_metrictest_bfdr0.01, 2, mean)
-# apply(ksntc_metrictest_bfdr0.01, 2, sd)
-# apply(ksntc_metrictest_bfdr0.05, 2, mean)
-# apply(ksntc_metrictest_bfdr0.05, 2, sd)
-# apply(ksntc_metrictest_bfdr0.1, 2, mean)
-# apply(ksntc_metrictest_bfdr0.1, 2, sd)
-# cat_color("pause")
-
-
-
-
-
-
-
-# 1000 obs
-# sntc correction clearly superior when using last epoch kappas
-# using kappas from best test_mse with only the sn correction gives nearly identical results to using sntc correction
-# 5000 obs   same!
-
-
-
+# column 4 is FPR, col 5 is TPR
+apply(res[[2]]$ksntc50k_bfdr_arr, 3, function(X) X[,4])
+apply(res[[2]]$ksntc50k_bfdr_arr, 3, function(X) X[,5])
 
 
 

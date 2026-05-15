@@ -1,0 +1,201 @@
+\thesistitle{Principled Sparsity in Flexible Models: Bayesian Variable Selection in Generalized Additive Models and Deep Neural Networks}
+
+%"Dissertation" for PhD, "Thesis" for master's
+\documenttitle{Dissertation}
+
+\degreename{Doctor of Philosophy}
+
+% Use the wording given in the official list of degrees awarded by UCI:
+% http://www.rgs.uci.edu/grad/academic/degrees_offered.htm
+\degreefield{Statistics}
+
+% Your name as it appears on official UCI records.
+\authorname{Arnold K. Seong}
+
+% Use the full name of each committee member and full title 
+% (e.g. Professor/Associate Professor).
+\committeechair{Professor Veronica Berrocal}
+\othercommitteemembers
+{
+  Professor Michele Guindani\\
+  Professor Weining Shen\\
+  Professor Tianchen Qian
+}
+
+\degreeyear{2026}
+
+\copyrightdeclaration
+% {
+%   {\copyright} {\Degreeyear} \Authorname
+% }
+
+% If you have previously published parts of your manuscript, you must list the
+% copyright holders; see Section 3.2 of the UCI Thesis and Dissertation Manual.
+% Otherwise, this section may be omitted.
+\prepublishedcopyrightdeclaration
+{
+	Chapter~2 {\copyright} 2025 Oxford University Press\\
+	All other materials {\copyright} {\Degreeyear} \Authorname
+}
+
+% The dedication page is optional
+% (comment out to exclude).
+\dedications
+{
+  \emph{To my family and teachers,} \\
+  \emph{from English to Statistics and everywhere in between,}\\[0.5em]
+  \emph{and, most of all, to my boys,} 
+  \emph{who always help me see what matters.} \\[0.5em]
+}
+
+\acknowledgments
+{
+  I am deeply grateful to Professor Michele Guindani for his
+  guidance, patience, and intellectual generosity throughout my doctoral
+  studies.  I would also like to thank Professor Veronica Berrocal for overseeing 
+  the completion of my PhD at UCI.
+
+  I thank the members of my dissertation committee,
+  Professor Weining Shen and Professor Tianchen Qian,
+  for their time, insight, and constructive feedback.
+
+  % -------------------------------------------------------------------------
+  % UCI REQUIRES that you acknowledge all grants and funding sources.
+  % Fill in your funding information below.
+  % -------------------------------------------------------------------------
+  This work was supported in part by [funding agency and grant number].
+
+  Portions of Chapter~1 appeared in: D.\ Rossell, A.\ K.\ Seong, I.\ Saez,
+  and M.\ Guindani, ``Semiparametric local variable selection under
+  misspecification,'' \emph{Biometrika}, vol.\ 112, no.\ 2, 2025 (asae068).
+  Permission to reprint has been obtained from Oxford University Press.
+}
+
+
+% Some custom commands for your list of publications and software.
+\newcommand{\mypubentry}[3]{
+  \begin{tabular*}{1\textwidth}{@{\extracolsep{\fill}}p{4.5in}r}
+    \textbf{#1} & \textbf{#2} \\ 
+    \multicolumn{2}{@{\extracolsep{\fill}}p{.95\textwidth}}{#3}\vspace{6pt} \\
+  \end{tabular*}
+}
+\newcommand{\mysoftentry}[3]{
+  \begin{tabular*}{1\textwidth}{@{\extracolsep{\fill}}lr}
+    \textbf{#1} & \url{#2} \\
+    \multicolumn{2}{@{\extracolsep{\fill}}p{.95\textwidth}}
+    {\emph{#3}}\vspace{-6pt} \\
+  \end{tabular*}
+}
+
+
+
+% Include, at minimum, a listing of your degrees and educational
+% achievements with dates and the school where the degrees were
+% earned. This should include the degree currently being
+% attained. Other than that it's mostly up to you what to include here
+% and how to format it, below is just an example.
+%
+% CV is required for PhD theses, but not Master's
+% comment out to exclude
+
+
+% ---------------------------------------------------------------------------
+% CURRICULUM VITAE  (required for PhD)
+% ---------------------------------------------------------------------------
+\curriculumvitae
+{
+
+\textbf{EDUCATION}
+
+  \begin{tabular*}{1\textwidth}{@{\extracolsep{\fill}}lr}
+    \textbf{Doctor of Philosophy in Statistics} & \textbf{2026} \\
+    \vspace{4pt}
+    University of California, Irvine & \emph{Irvine, California} \\
+    \textbf{Master of Science in Statistics} & \textbf{2019} \\
+    \vspace{4pt}
+    University of California, Irvine & \emph{Irvine, California} \\
+    \textbf{Master of Fine Arts in Poetry} & \textbf{2007} \\
+    \vspace{4pt}
+    University of Washington & \emph{Seattle, Washington} \\
+    \textbf{Bachelor of Arts in English Literature} & \textbf{2004} \\
+    \vspace{4pt}
+    Cornell University & \emph{Ithaca, New York} \\
+  \end{tabular*}
+
+\vspace{12pt}
+\textbf{RESEARCH EXPERIENCE}
+
+  \begin{tabular*}{1\textwidth}{@{\extracolsep{\fill}}lr}
+    \textbf{Graduate Research Assistant} & \textbf{2019--2026} \\
+    \vspace{4pt}
+    University of California, Irvine & \emph{Irvine, California} \\
+  \end{tabular*}
+
+\vspace{12pt}
+\textbf{TEACHING EXPERIENCE}
+
+  \begin{tabular*}{1\textwidth}{@{\extracolsep{\fill}}lr}
+    \textbf{Teaching Assistant} & \textbf{[Years]} \\
+    \vspace{4pt}
+    University of California, Irvine & \emph{Irvine, California} \\
+  \end{tabular*}
+
+\pagebreak
+
+\textbf{REFEREED JOURNAL PUBLICATIONS}
+
+  \mypubentry{Semiparametric local variable selection under misspecification}
+  {2025}
+  {D.\ Rossell, A.\ K.\ Seong, I.\ Saez, M.\ Guindani.
+   \emph{Biometrika}, Volume 112, Issue 2, asae068.
+   \url{https://doi.org/10.1093/biomet/asae068}}
+
+\vspace{12pt}
+\textbf{SOFTWARE}
+
+  \mysoftentry{R}{https://www.r-project.org/}
+  {Statistical computing environment used for simulation studies and
+   data analyses throughout this dissertation.}
+
+  \mysoftentry{torch (R interface to PyTorch)}{https://torch.mlverse.org/}
+  {Deep learning framework used for Bayesian neural network
+   implementation in Chapter~3.}
+
+}
+
+% The abstract was previously limited to a maximum of 350 words, 
+% but the UCI manual at https://etd.lib.uci.edu/electronic/td2e#2.2.1.
+% currently does not indicate that there is any word limit for the abstract
+\thesisabstract
+{
+  Variable selection is the task of identifying the subset of predictors that are truly
+  relevant to an outcome and represents a central challenge in modern statistics.
+  Classical penalized-likelihood approaches such as the LASSO provide
+  computationally efficient solutions in parametric settings, but they
+  offer limited uncertainty quantification in general and face fundamental 
+  obstacles when the model space under scrutiny is large or the form of the relationships between predictors and response are not fully specified.  This dissertation develops Bayesian approaches to variable selection in two complementary semi-parametric settings.
+
+  The first contribution addresses local variable selection in generalized
+  additive models under possible model misspecification.  We show that
+  standard basis-expansion methods fail to achieve asymptotically
+  consistent selection of localized functional effects, as the overlapping
+  basis functions widely used in such analyses contaminate one another's estimates.  We resolve this by constructing an orthogonalized basis that eliminates basis overlap, and we pair it with a model-complexity prior that penalizes overly
+  flexible representations, thus allowing us to frame the problem of local null testing and effect detection as a Bayesian variable selection problem.  The resulting procedure attains selection consistency for localized effects and is shown to be robust under misspecification.  The method is validated on 
+  wage data and electrocorticography (ECoG) recordings.
+
+  The second contribution introduces a Bayesian neural network framework
+  for variable selection based on the horseshoe prior.  By embedding
+  a continuous global-local shrinkage prior at the input layer of a
+  deep network, the method inherits the expressive capacity of neural
+  networks while retaining the interpretability and uncertainty
+  quantification of principled Bayesian inference.  Simulation studies
+  and real-data analyses demonstrate that the approach achieves sparse,
+  stable input-variable selection even in the presence of complex,
+  nonlinear response surfaces.
+}
+
+
+%%% Local Variables: ***
+%%% mode: latex ***
+%%% TeX-master: "thesis.tex" ***
+%%% End: ***

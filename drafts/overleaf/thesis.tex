@@ -1,0 +1,124 @@
+% UCI Ph.D. Dissertation - Arnold K. Seong
+% Bayesian Variable Selection in Semi-Parametric Settings
+
+\documentclass[12pt, fleqn]{ucithesis}
+
+% Standard packages
+\usepackage{amsmath}
+\usepackage{amsthm}
+\usepackage{amssymb}
+\usepackage{array}
+\usepackage{graphicx}
+\usepackage{natbib}
+\usepackage{relsize}
+\usepackage[titletoc]{appendix}
+\usepackage{bm}
+\usepackage{bbm}
+
+% Layout / formatting packages
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{multirow}
+\usepackage{tabularx}
+\usepackage{booktabs}
+\usepackage{parskip}
+\usepackage{xcolor}
+\usepackage{epigraph}
+\setlength\epigraphwidth{.55\textwidth}
+% \usepackage[margin=1in]{geometry}
+\usepackage{makecell}
+
+% Make \makecell use left-alignment and tighter row spacing
+\renewcommand\cellalign{tl}
+\renewcommand\theadalign{tl}
+\setcellgapes{3pt}
+
+
+% Font encoding (required by ProQuest)
+\usepackage[T1]{fontenc}
+
+% Hyperlinks (no colored borders)
+\usepackage[plainpages=false,pdfborder={0 0 0}]{hyperref}
+\usepackage[plain,noend]{algorithm2e}
+
+% Widow/orphan control
+\widowpenalty=10000
+\clubpenalty=10000
+
+% Theorem environments
+\newtheorem{theorem}{\textsc{Theorem}}[chapter]
+\newtheorem{definition}{\textsc{Definition}}[chapter]
+\newtheorem{example}{\textsc{Example}}[chapter]
+\newtheorem{proposition}{\textsc{Proposition}}[chapter]
+\newtheorem{corollary}{\textsc{Corollary}}[chapter]
+\newtheorem{remark}{\textsc{Remark}}[chapter]
+\newtheorem{assumption}{\textsc{Assumption}}[chapter]
+
+% Convenient math macros
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\Prob}{\mathbb{P}}
+\newcommand{\N}{\mathcal{N}}
+\newcommand{\ind}{\mathbbm{1}}
+\newcommand{\bx}{\bm{x}}
+\newcommand{\by}{\bm{y}}
+\newcommand{\bX}{\bm{X}}
+\newcommand{\bW}{\bm{W}}
+\newcommand{\bbeta}{\bm{\beta}}
+\newcommand{\bgamma}{\bm{\gamma}}
+\newcommand{\btheta}{\bm{\theta}}
+\newcommand{\Norm}{\mathcal{N}}
+\newcommand{\Cauchyp}{\mathcal{C}^{+}}
+
+
+% Frontmatter macros
+\input{preliminaries}
+
+% Convenience macro for missing citations
+\newcommand{\missingcite}[1]{\textcolor{red}{#1}}
+\newcommand{\note}[1]{\textcolor{red}{#1}}
+\newcommand{\mg}[1]{\textcolor{blue}{#1}}
+
+
+
+% PDF metadata
+\hypersetup{
+    pdftitle={\Thesistitle},
+    pdfauthor={\Authorname},
+    pdfsubject={\Degreefield},
+}
+
+% Number subsubsections
+\setcounter{secnumdepth}{3}
+
+% Uncomment to compile only one chapter at a time:
+%\includeonly{chapter1}
+
+\begin{document}
+
+\preliminarypages
+
+% ---- Main chapters --------------------------------------------------------
+\include{chapter1}   % Chapter 1: Introduction
+\include{chapter2}   % Chapter 2: Semiparametric Local Variable Selection
+                     %            under Misspecification (Rossell et al. 2025)
+\include{chapter3}   % Chapter 3: Horseshoe Prior in Bayesian Neural Networks
+
+
+
+% ---- Bibliography ---------------------------------------------------------
+\clearpage
+\phantomsection
+
+\bibliographystyle{abbrvnat}
+\bibliography{thesis}
+
+% ---- Appendices -----------------------------------------------------------
+\captionsetup[figure]{list=no}
+\captionsetup[table]{list=no}
+
+\begin{appendices}
+\include{appendix}
+\end{appendices}
+
+\end{document}

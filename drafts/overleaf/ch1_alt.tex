@@ -1,0 +1,428 @@
+% =============================================================================
+% chapter1.tex  --  Chapter 1: Introduction
+% Arnold K. Seong, UCI Ph.D. Dissertation, 2026
+% =============================================================================
+
+\chapter{Introduction}
+\label{chap:intro}
+
+Variable selection is the task of identifying which
+predictors in a candidate set are genuinely relevant to an outcome of
+interest and, just as importantly, screening out those which, conditional on the selected predictors, are either not associated with the outcome or whose magnitude of impact is below a determined threshold for scientific relevance.  This task is increasingly important in the age of high-dimensional data regimes: our ability to collect data about many different factors makes it ever more difficult to identify which of these factors are truly important to the outcome that we care about.  Whether our goal is understanding which genetic variants are associated with a disease \citep{tibshirani1996lasso}, which economic or demographic indicators predict future wages, or which neural signals encode a cognitive process, the ability to separate signal from noise is imperative to scientific understanding.
+
+At the same time, we also require more flexible modeling tools to describe complex relationships beyond linear associations.  Modeling neuronal cluster activation in response to timed stimuli, for example, or identifying not only if there are differences in wages between demographic groups \textit{but also when} those wage gaps are present, requires models that have the capacity to learn and express such relationships.  This is, however, a double-edged sword: more flexible models increase the risk of overfitting and finding specious relationships between predictor and outcome, again necessitating principled variable selection methods.  
+This dissertation develops Bayesian methods for variable selection in \emph{semi-parametric} settings, where the relationship between predictors and the outcome is only partially specified and may include nonlinear functional components. The two main contributions---a procedure
+that tests for local effects in functional data via variable selection and modified basis projections (Chapter~\ref{chap:semipar}) and a horseshoe-prior-augmented Bayesian neural network for input variable selection (Chapter~\ref{chap:horseshoe}) --- are united by a common concern: 
+achieving principled, interpretable, and uncertainty-aware variable selection when the model's functional form is flexible or unknown.
+
+The remainder of this chapter provides background needed to situate
+these contributions. 
+Section~\ref{sec:intro-vs} motivates variable selection and reviews its principal challenges.
+Section~\ref{sec:intro-freq} surveys modern frequentist approaches, while
+Section~\ref{sec:intro-bayes} introduces Bayesian variable and model selection, contrasting its goals, mechanics, and advantages with the frequentist paradigm. Section~\ref{sec:intro-semipar} extends these ideas to semi-parametric and nonparametric settings.
+Section~\ref{sec:intro-data} describes the two benchmark datasets used in
+Chapter~\ref{chap:semipar}. 
+Section~\ref{sec:intro-outline} provides a
+detailed outline of the dissertation.
+
+% -----------------------------------------------------------------------------
+\section{The Variable Selection Problem}
+\label{sec:intro-vs}
+% -----------------------------------------------------------------------------
+
+Let $y \in \R$ denote a scalar response and let
+$\bx = (x_1, \ldots, x_p)^{\top} \in \R^p$ denote a vector of $p$ candidate
+predictors observed on $n$ units. In the classical linear regression setting, the
+data-generating model is
+\begin{equation}
+  y_i = \beta_0 + \bx_i^{\top}\bbeta^* + \epsilon_i,
+  \qquad \epsilon_i \overset{\mathrm{iid}}{\sim} N(0, \sigma^2),
+  \quad i = 1,\ldots,n,
+  \label{eq:linear-model}
+\end{equation}
+where $\bbeta^* \in \R^p$ is the true coefficient vector. Variable
+selection amounts to recovering the \emph{true active set}
+$\mathcal{S}^* = \{j : \beta_j^* \neq 0\}$, i.e. the non-zero coefficients signifying a linear relationship between covariate $x_i$ and the response $y$
+
+The problem is trivially solved under the linearity assumption when $p$ is small relative to $n$: ordinary least squares (OLS) is consistent, and classical methods identify non-zero coefficients with controlled type-I error. When $p$ is large, however, three compounding difficulties arise.
+
+\begin{enumerate}
+  \item \textbf{Dimensionality.} When $p \geq n$, OLS is not even identifiable; the system of equations is under-determined, leading to infinite possible coefficient estimates or requiring penalization to obtain usable results.
+
+  \item \textbf{Multiplicity.} Testing $p$ hypotheses simultaneously
+  inflates the family-wise error rate unless explicit multiplicity
+  corrections are applied, which in turn reduce power.
+
+  \item \textbf{Model uncertainty.} With $2^p$ possible subsets of
+  predictors, exhaustive evaluation quickly becomes computationally
+  infeasible.  Forward/backward stepwise heuristics do not control for multiplicity, nor do they search the model space in a principled way.
+\end{enumerate}
+
+Variable selection becomes considerably more
+involved when the mean function is nonlinear or only partially specified.
+In a \emph{generalized additive model} (GAM) \citep{hastie1990gam}, for
+example, the response depends on predictors through a sum of smooth
+functions:
+\begin{equation}
+  g\bigl(\E[y_i \mid \bx_i]\bigr)
+  \;=\; f_0 \;+\; \sum_{j=1}^{p} f_j(x_{ij}),
+  \label{eq:gam}
+\end{equation}
+where $g$ is a known link function and each $f_j$ is an unknown smooth
+function. Here, variable selection means determining which $f_j$ are
+identically zero---a functional hypothesis rather than a scalar one, requiring tests over groups of coefficients.  Moreover, one may wish to determine whether a non-zero $f_j$ exerts its effect only over a \emph{localized} region of the predictor's support.  Answering this question dramatically increases the number of required hypothesis tests, and, as the work presented in Chapter~\ref{chap:semipar} demonstrates, models employing standard basis expansions such as splines do not yield asymptotically consistent estimators for local effects.
+
+Last, in deep neural networks, understanding which input
+features $x_j$ are truly related to the response becomes even more difficult, as the functional form of the relationship is implicitly determined by a myriad of learned parameters whose relationships are difficult to disentangle --- embedded within affine functions and connected by non-linear activations --- even in small network configurations.  
+
+% -----------------------------------------------------------------------------
+\section{Frequentist Approaches to Variable Selection}
+\label{sec:intro-freq}
+% -----------------------------------------------------------------------------
+
+Classical frequentist variable selection falls into two broad families:
+subset-selection procedures and penalized-likelihood methods.
+
+\subsection{Subset Selection and Stepwise Procedures}
+\label{subsec:subset}
+
+Best-subset selection enumerates all $2^p$ candidate models, fits each by
+OLS, and selects the model that minimizes an information criterion such as
+AIC \citep{akaike1974aic} or BIC \citep{schwarz1978bic}. When $p$ is
+small, this finds the global minimum of the criterion. But the
+computational cost grows exponentially with $p$, making exhaustive search
+impractical even for moderate $p$.
+
+Forward, backward, and stepwise greedy procedures reduce the search to
+$O(p^2)$ model evaluations but sacrifice optimality guarantees. These
+algorithms are well known to produce unstable selections: small
+perturbations to the data can change the selected model drastically
+\citep{breiman1996stability}. Moreover, reported $p$-values following a
+stepwise search are not valid in the classical sense, because the same
+data were used both to select and to test the model \citep{berk2013valid}.
+
+\subsection{Penalized Likelihood: LASSO and Its Extensions}
+\label{subsec:lasso}
+
+A landmark development in variable selection was the \emph{least absolute
+shrinkage and selection operator} (LASSO) of \citet{tibshirani1996lasso},
+which solves
+\begin{equation}
+  \hat{\bbeta}^{\mathrm{LASSO}}
+  \;=\;
+  \arg\min_{\bbeta \in \R^p}
+  \left\{
+    \frac{1}{2n}\|\by - \bX\bbeta\|_2^2
+    \;+\; \lambda\|\bbeta\|_1
+  \right\},
+  \label{eq:lasso}
+\end{equation}
+for a tuning parameter $\lambda > 0$. The $\ell_1$ penalty simultaneously
+shrinks coefficients toward zero and sets some exactly to zero, achieving
+variable selection as a by-product of estimation. Unlike best-subset
+selection, the LASSO is convex and can be solved efficiently for large $p$
+using coordinate descent \citep{friedman2010glmnet}.
+
+Despite its computational appeal, the LASSO has well-documented
+limitations. Variable-selection consistency requires the
+\emph{irrepresentable condition} \citep{zhao2006irrepresentable}, a
+stringent incoherence condition on the design matrix that is often violated
+in practice. The elastic net \citep{zou2005elasticnet} and SCAD
+\citep{fan2001scad} penalties address some of these shortcomings, but they
+share the same fundamental limitation: they produce \emph{point estimates}
+with no accompanying measure of uncertainty about which variables are truly
+active. Furthermore, extending penalized methods to semi-parametric
+settings requires careful treatment of the functional components.
+While Group-LASSO penalties \citep{yuan2006grouplasso} can zero out entire smooth
+functions, they do not support inference about \emph{localized} effects
+within a non-zero function. Both limitations motivate the Bayesian
+approaches developed in this dissertation.
+
+% -----------------------------------------------------------------------------
+\section{Bayesian Variable and Model Selection}
+\label{sec:intro-bayes}
+% -----------------------------------------------------------------------------
+
+Bayesian statistics frames all inference as a problem of updating a prior
+distribution over unknowns to a posterior distribution given observed data.
+In the variable-selection context, the unknowns include not only the model
+parameters $\bbeta$ but also the model \emph{structure} itself, represented
+by a binary indicator vector
+$\bgamma = (\gamma_1, \ldots, \gamma_p)^{\top} \in \{0,1\}^p$, where
+$\gamma_j = 1$ if variable $j$ is included and $\gamma_j = 0$ otherwise.
+Each configuration $\bgamma$ defines a sub-model $\mathcal{M}_{\bgamma}$,
+and Bayesian variable selection assigns a probability to every such
+sub-model.
+
+\subsection{The Posterior over Model Space}
+\label{subsec:posterior-model}
+
+Given a prior $p(\bgamma)$ over model indicators and a prior
+$p(\bbeta_{\bgamma} \mid \bgamma)$ over the parameters active under
+$\mathcal{M}_{\bgamma}$, the joint posterior is
+\begin{equation}
+  p(\bgamma, \bbeta_{\bgamma} \mid \by)
+  \;\propto\;
+  p(\by \mid \bbeta_{\bgamma}, \bgamma)\,
+  p(\bbeta_{\bgamma} \mid \bgamma)\,
+  p(\bgamma).
+  \label{eq:joint-posterior}
+\end{equation}
+Marginalizing over parameters yields the \emph{posterior model
+probability} (PMP),
+\begin{equation}
+  p(\bgamma \mid \by)
+  \;\propto\;
+  p(\by \mid \bgamma)\, p(\bgamma),
+  \label{eq:pmp}
+\end{equation}
+where $p(\by \mid \bgamma) = \int p(\by \mid \bbeta_{\bgamma},
+\bgamma)\,p(\bbeta_{\bgamma}\mid\bgamma)\,\mathrm{d}\bbeta_{\bgamma}$
+is the \emph{marginal likelihood} under $\mathcal{M}_{\bgamma}$. The ratio
+of marginal likelihoods for two models is the \emph{Bayes factor}
+\citep{kass1995bayes},
+\begin{equation}
+  \mathrm{BF}(\bgamma, \bgamma')
+  \;=\;
+  \frac{p(\by \mid \bgamma)}{p(\by \mid \bgamma')}.
+  \label{eq:bayes-factor}
+\end{equation}
+
+\subsection{Priors for Variable Selection}
+\label{subsec:vs-priors}
+
+\paragraph{Spike-and-slab priors.}
+The canonical Bayesian variable-selection prior is the
+\emph{spike-and-slab} distribution, introduced by
+\citet{mitchell1988spikeand} and developed extensively by
+\citet{george1993vs} and \citet{george1997approaches}. The prior places
+each coefficient under a mixture:
+\begin{equation}
+  \beta_j \mid \gamma_j
+  \;\sim\;
+  (1 - \gamma_j)\,\delta_0(\beta_j)
+  \;+\;
+  \gamma_j\,\N(0, \tau^2),
+  \label{eq:spike-slab}
+\end{equation}
+where $\delta_0$ is a point mass at zero (the ``spike'') and $\N(0,\tau^2)$
+is a diffuse Gaussian (the ``slab''). The indicator $\bgamma$ then follows
+a prior such as $\gamma_j \overset{\mathrm{iid}}{\sim}
+\mathrm{Bernoulli}(\pi)$, with $\pi$ either fixed or given a further
+hyperprior. A model-complexity prior that penalizes models with many active
+variables is often used to guard against overfitting \citep{scott2010bayes}.
+
+\paragraph{Continuous shrinkage priors.}
+An alternative to discrete indicator variables is to place a continuous
+prior on $\bbeta$ that concentrates near zero while allowing heavy tails
+for large signals. The \emph{horseshoe prior} of
+\citet{carvalho2010horseshoe} achieves this through a global-local scale
+mixture of Gaussians:
+\begin{equation}
+  \beta_j \mid \lambda_j, \tau
+  \;\sim\;
+  \N(0,\, \lambda_j^2 \tau^2),
+  \quad
+  \lambda_j \sim \mathrm{Half\text{-}Cauchy}(0,1),
+  \quad
+  \tau \sim \mathrm{Half\text{-}Cauchy}(0,1),
+  \label{eq:horseshoe}
+\end{equation}
+where $\tau$ is a \emph{global} shrinkage parameter and $\lambda_j$ are
+\emph{local} scales that allow individual coefficients to escape shrinkage.
+The resulting marginal prior on $\beta_j$ has a pole at zero and heavy
+tails, mimicking a spike-and-slab without requiring discrete model
+indicators---a computational advantage that becomes especially significant
+in deep neural networks (Chapter~\ref{chap:horseshoe}).
+
+\subsection{Advantages over Frequentist Methods}
+\label{subsec:bayes-advantages}
+
+Bayesian variable selection offers several advantages over frequentist
+penalized-likelihood methods.
+
+\begin{enumerate}
+  \item \textbf{Uncertainty quantification.} The \emph{posterior inclusion
+  probability} (PIP), $\Prob(\gamma_j = 1 \mid \by)$, provides a
+  coherent, calibrated measure of evidence for each predictor that has no
+  direct frequentist analogue.
+
+  \item \textbf{Model averaging.} Predictions and estimates can be averaged
+  across models weighted by their posterior probabilities, yielding
+  \emph{Bayesian model averaging} (BMA) \citep{hoeting1999bma}, which
+  typically improves predictive accuracy and avoids the instability of
+  single-model selection.
+
+  \item \textbf{Automatic multiplicity control.} By penalizing large models
+  through the prior on $\bgamma$, Bayesian methods naturally adjust for the
+  number of comparisons being made, without requiring separate multiplicity
+  corrections \citep{scott2010bayes}.
+
+  \item \textbf{Interpretability.} The PIP is directly interpretable as a
+  probability, unlike LASSO coefficient paths, which depend on the
+  arbitrary scale of $\lambda$.
+
+  \item \textbf{Coherent incorporation of prior knowledge.} Domain
+  knowledge about which variables are a priori likely to be active can be
+  encoded directly in $p(\bgamma)$ or in the parameter priors.
+\end{enumerate}
+
+% -----------------------------------------------------------------------------
+\section{Variable Selection in Semi-Parametric Settings}
+\label{sec:intro-semipar}
+% -----------------------------------------------------------------------------
+
+The methods reviewed above were developed primarily for parametric linear
+models. In many contemporary applications, the relationship between
+predictors and outcome is better described by a semi-parametric or
+nonparametric model, such as the GAM in \eqref{eq:gam}. Extending variable
+selection to these settings introduces new challenges.
+
+\subsection{Functional Variable Selection in Generalized Additive Models}
+\label{subsec:functional-vs}
+
+In the GAM setting, variable selection reduces to testing
+$H_{0j}: f_j \equiv 0$ for each $j = 1,\ldots,p$. The most common approach
+represents each $f_j$ in a basis expansion,
+$f_j(x) \approx \sum_{k=1}^{K} \phi_{jk}(x)\,\alpha_{jk}$,
+and tests whether $\bm{\alpha}_j = (\alpha_{j1},\ldots,\alpha_{jK})^{\top}$
+is zero. Basis choices include B-splines \citep{eilers1996bsplines},
+natural splines, and Fourier bases.
+
+However, standard basis expansions are not well suited to detecting
+\emph{localized} effects: a smooth function $f_j$ may be non-zero only over
+a compact sub-interval of its domain, yet a global basis will distribute
+that local signal across many basis coefficients. As a consequence,
+selection procedures based on such representations fail to achieve
+asymptotic consistency for localized effects \citep{rossell2025semiparametric}.
+Chapter~\ref{chap:semipar} resolves this issue by constructing an
+\emph{orthogonalized} basis that eliminates overlap between basis functions,
+thereby permitting each basis coefficient to capture an independent,
+spatially localized contribution to $f_j$. Paired with a model-complexity
+prior that penalizes unnecessary flexibility, the resulting Bayesian
+procedure achieves consistent selection of localized effects even under
+model misspecification.
+
+\subsection{Variable Selection in Neural Networks}
+\label{subsec:nn-vs}
+
+Deep neural networks have emerged as a highly expressive class of function
+approximators, capable of capturing complex, high-dimensional response
+surfaces that resist parametric description \citep{goodfellow2016deep}.
+A fully connected network with $L$ hidden layers maps an input
+$\bx \in \R^p$ to a scalar output through a composition of affine
+transformations and element-wise nonlinearities:
+\begin{equation}
+  f(\bx)
+  \;=\;
+  W_L \,\sigma\!\left(W_{L-1}\,\sigma\!\left(\cdots
+  \sigma(W_1 \bx + \mathbf{b}_1) \cdots\right)
+  + \mathbf{b}_{L-1}\right) + b_L,
+  \label{eq:dnn}
+\end{equation}
+where $W_\ell$ and $\mathbf{b}_\ell$ are the weight matrix and bias
+vector at layer $\ell$, and $\sigma$ is an activation function such as
+ReLU. Input-variable selection means identifying which components of
+$\bx$ are necessary for accurate prediction---equivalent to asking which
+columns of $W_1$ are not identically zero.
+
+Frequentist approaches to neural-network sparsity rely primarily on
+post-hoc pruning or $\ell_1$/$\ell_0$ regularization of the weights
+\citep{lecun1990obd, han2015pruning}. These methods produce sparse
+networks but provide no probabilistic measure of which inputs are truly
+relevant. A fully Bayesian treatment places a prior over the network
+weights and updates it to a posterior given data, yielding principled
+uncertainty quantification. \citet{louizos2017bayesian} showed that the
+horseshoe prior of \citet{carvalho2010horseshoe} can be embedded in a
+neural network via a global-local scale-mixture parameterization,
+enabling automatic input-variable selection through the posterior
+distribution of the local scales $\lambda_j$ at the first layer.
+Chapter~\ref{chap:horseshoe} builds on and modifies this framework,
+developing a tractable variational inference procedure and demonstrating
+that the resulting method achieves stable, interpretable input-variable
+selection across a range of nonlinear simulation settings and real
+datasets.
+
+% -----------------------------------------------------------------------------
+\section{Data}
+\label{sec:intro-data}
+% -----------------------------------------------------------------------------
+
+The empirical work in Chapter~\ref{chap:semipar} is illustrated on two
+datasets that represent complementary challenges in semi-parametric
+variable selection: a wage dataset with socioeconomic predictors, and a
+high-frequency electrocorticography (ECoG) dataset from cognitive
+neuroscience.
+
+\subsection{Wage Data}
+\label{subsec:data-wages}
+
+The wage dataset is a cross-sectional sample of male workers drawn from
+the \emph{Current Population Survey} \citep{murphy1990empirical}. The
+response variable is the (log) hourly wage, and the predictors include
+years of education, years of potential labor-market experience, and
+demographic indicators. The relationship between wages and experience is
+widely recognized to be nonlinear---roughly hump-shaped over the working
+life---making a generalized additive model a natural choice. A key
+scientific question is whether the effect of experience on wages is
+\emph{globally} smooth or whether it is concentrated in specific
+segments of the experience distribution, such as the early career
+period. The localized variable-selection method of
+Chapter~\ref{chap:semipar} is particularly well suited to answering
+this question.
+
+\subsection{Electrocorticography (ECoG) Data}
+\label{subsec:data-ecog}
+
+Electrocorticography (ECoG) records electrical activity directly from
+the surface of the brain at high temporal resolution
+\citep{miller2009power}. Unlike scalp electroencephalography (EEG),
+ECoG electrodes are placed subdurally and thus pick up local field
+potentials with far greater signal-to-noise ratio. The dataset used in
+Chapter~\ref{chap:semipar} consists of broadband power measurements
+recorded from a grid of electrodes placed over the cortex of a human
+participant during a motor or cognitive task. Each electrode's
+time-averaged power serves as a response variable, and the predictors
+encode spatial or temporal features of the experimental stimuli.
+
+The ECoG setting exemplifies the localized-effect problem: the brain's
+functional organization is spatially structured, so a stimulus may
+activate only a subset of electrodes, and the effect may be restricted
+to a particular frequency band or time window. Detecting such localized
+activations while controlling for the large number of electrodes tested
+simultaneously is precisely the inferential challenge addressed in
+Chapter~\ref{chap:semipar}.
+
+% -----------------------------------------------------------------------------
+\section{Dissertation Outline}
+\label{sec:intro-outline}
+% -----------------------------------------------------------------------------
+
+The remainder of this dissertation is organized as follows.
+
+\textbf{Chapter~\ref{chap:semipar}} presents the work of
+\citet{rossell2025semiparametric} on semiparametric local variable
+selection under misspecification. We introduce a model-complexity prior
+for generalized additive models, construct an orthogonalized basis that
+eliminates basis-function overlap, and prove that the resulting Bayesian
+selection procedure is asymptotically consistent for localized
+functional effects even when the working model is misspecified.
+Simulation studies illustrate the method's advantages over standard
+basis-expansion competitors, and the wage and ECoG datasets are
+analyzed in detail.
+
+\textbf{Chapter~\ref{chap:horseshoe}} develops a Bayesian neural
+network for input-variable selection based on a modified horseshoe
+prior. We describe the model architecture, the variational inference
+algorithm used for posterior approximation, and theoretical properties
+of the induced shrinkage. The method is evaluated on simulated datasets
+with known nonlinear structure and on real-data benchmarks.
+
+\textbf{The Appendix} collects supplementary material including
+additional proofs, simulation tables, and implementation details for
+both chapters.
+
+%%% Local Variables: ***
+%%% mode: latex ***
+%%% TeX-master: "thesis.tex" ***
+%%% End: ***

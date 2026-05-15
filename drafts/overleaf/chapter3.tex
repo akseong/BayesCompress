@@ -1,0 +1,1905 @@
+% =============================================================================
+% chapter3.tex  --  Chapter 3: Bayesian Variable Selection in Neural Networks
+%                              via the Horseshoe Prior
+% Arnold K. Seong, UCI Ph.D. Dissertation, 2026
+%
+% =============================================================================
+\epigraph{BUT TO HONOR TRUTH WHICH IS SMOOTH DIVINE AND LIVES AMONG THE GODS WE MUST TRUST (WITH PLATO) DANCE LYING WHICH LIVES DOWN BELOW AMID THE MASS OF MEN BOTH TRAGIC AND ROUGH}{Tango VII \\ The Beauty of the Husband \\ \textit{Anne Carson}}
+
+\chapter{Bayesian Variable Selection and BFDR control in Neural Networks via the Horseshoe Prior}
+\label{chap:horseshoe}
+
+% -----------------------------------------------------------------------------
+% 1. INTRODUCTION
+% -----------------------------------------------------------------------------
+
+\section{Introduction}
+\label{sec:ch3-intro}
+ 
+Deep neural networks (DNNs) have been remarkably successful as prediction engines in 
+a wide variety of applications from genomics and
+neuroimaging to econometrics and clinical decision-making \citep{goodfellow_deep_2016}, but
+the difficulty in using DNNs to identify which variables are genuinely relevant to the response,
+a standard primary aim of research in most disciplines, limits their utility
+in scientific research.  As their use and size has burgeoned, 
+economic incentives have driven research into reducing the size of neural networks, whether 
+through using lower bit representations for network parameters (quantization) or reducing the number of layers and/or hidden units.  However,
+research on the related question of variable selection remains limited.  Even when variable selection is addressed, it tends to be treated largely heuristically, typically based on ex post facto thresholding-as-tuning
+rather than considering decision theory or statistical properties such as the false discovery rate (FDR),
+again hampering the application of DNNs to scientific research \citep{miotto_deep_2017, vasudevan_off--shelf_2021}.
+
+% \note{a few quick refs on DNNs being underutilized in science:
+% \\
+% https://www.nature.com/articles/s41524-020-00487-0
+% \\
+% - Off-the-shelf deep learning is not enough, and requires parsimony, Bayesianity, and causality
+% \\
+% https://pmc.ncbi.nlm.nih.gov/articles/PMC8372231/
+% \\
+% https://www.cambridge.org/core/journals/behavioral-and-brain-sciences/article/abs/deep-problems-with-neural-network-models-of-human-vision/ABCE483EE95E80315058BB262DCA26A9
+% \\
+% https://pmc.ncbi.nlm.nih.gov/articles/PMC6455466/
+% Deep learning for healthcare}
+
+
+
+On a broader level, uncertainty quantification in general tends to be an afterthought in neural network implementations, particularly those which act simply as a deterministic mapping of inputs to outputs, at times leading to surprisingly incoherent yet overconfident predictions.  While frequentist methods primarily measure \textit{aleatoric uncertainty}, or uncertainty arising from variability in the data, the Bayesian notion of uncertainty also includes \textit{epistemic} uncertainty, where uncertainty of the unknown state of nature is additionally expressed through priors, making Bayesian methods particularly suited to uncertainty quantification regarding the models themselves. 
+
+% \note{more here on BNNs as alleviating issues of UQ, as well as motivation for use in modsel/varsel}
+
+The aim of the method described in this paper is to combine 
+the expressive capacity of neural networks with the known operating characteristics
+of the Horseshoe prior \citep{carvalho_handling_2009, carvalho2010horseshoe}, a canonical Bayesian variable selection prior.  We follow previous work 
+by \cite{louizos2017bayesian} and equip a neural network with a 
+Bayesian sparsity prior, structured to select network weights 
+corresponding to inputs rather than nodes.  However, rather than pruning and quantizing to reduce the network's 
+computational and memory requirements, our focus is on adapting the Horseshoe prior \citep{carvalho_handling_2009,
+carvalho_horseshoe_2010}
+from its well-studied application in linear models to the neural network setting.  As such, we propose 
+corrections to inferential parameters to mitigate some of the issues 
+that arise from adapting a method originally developed for linear models 
+to a neural network setting, and show in experiments that our method allows for well-calibrated control over the Bayesian False Discovery Rate.
+
+
+
+
+% -----------------------------------------------------------------------------
+% 2. RELATED WORK
+% -----------------------------------------------------------------------------
+
+\section{Related Work}
+\label{sec:ch3-related}
+
+\subsection{Sparsity and Architecture Selection in Neural Networks}
+\label{subsec:ch3-arch}
+
+The most extensively studied form of sparsity in neural networks
+targets the network \emph{architecture} rather than the input
+variables: the goal is to produce smaller, faster networks by
+pruning redundant weights or hidden units.  First introduced by \citet{lecun_optimal_1989}, early work in this area relies on pruning individual weights according to a saliency measure.  \citet{lecun_optimal_1989, hassibi_second_1992} use the 2nd order derivative of the loss or Hessian, but more heuristic pruning approaches based on weight magnitude or layer activation are also common \citep{han_learning_2015}, as are LASSO-based procedures \citep{lemhadri_lassonet_2021, thompson_contextual_2024}.
+
+Directly related are dropout procedures, stochastic cousins in which weights are randomly masked or set to zero; in addition to regularizing networks, dropout has been used to garnish measures of uncertainty in neural networks, and work by \citep{kingma_variational_2015} and \citep{gal_dropout_2016} have shown that dropout can be formulated as special cases of Bayesian regularization.  In addition to the "local reparameterization trick" used widely in variational inference, \citep{kingma_variational_2015} develops an empirical Bayes approach in which a layer-wise dropout rate $\alpha$ is learned rather than set heuristically; \citet{molchanov_variational_2017} extend their approach to allow each weight's dropout rate to vary individually and unboundedly, leading to greater sparsity.
+
+\subsubsection*{Compression and Architecture selection:}
+Importantly for network compression, pruning single weights yields
+\emph{unstructured} sparsity, which does not reduce the dimensions of the matrices required to represent network layer weights.  Pruning whole neurons or channels, in contrast: pruning the $k$'th node is equivalent to removing the $k$'th column of the weight matrix.  Furthermore, in a sequence of dense network layers, removing the $k$'th node in layer $\ell$ then removes the $k$'th input to layer $l+1$, thus rendering the $k$'th row of weights in the next layer unnecessary as well.  
+
+Most work tends to be on pruning outputs, which has a similar capability to reduce the dimensions of weight matrices as pruning inputs, but notably not in the first layer, where only columns of the first layer's weight matrix can be reduced.
+Bayesian formulations of structured pruning place group-sparse priors
+over the weights feeding into or out of each hidden unit. \citet{ghosh_structured_2018} and
+\citet{ghosh_model_nodate} place horseshoe priors on hidden-unit
+\emph{pre-activations}: a unit whose pre-activation scale is shrunk
+toward zero contributes little to the network and is pruned.
+\citet{neklyudov_structured_2017} achieve a similar effect through
+log-normal multiplicative noise applied at the neuron level, and
+\citet{louizos_learning_2018} approach the same problem from a
+penalized-likelihood perspective via a differentiable relaxation of
+the $L_0$ norm.
+
+
+% \note{Pruning activations - ghosh et al, the Rockova papers
+% pruning individual weights / edges - most dropout techniques, skaaret-lund adopt a hybrid approach of pruning individual weights as well as inputs, Liang paper}
+
+% \note{need to edit related work section from here on}
+
+% \citet{louizos2017bayesian} provide the most direct antecedent
+% to our approach.  Their Bayesian compression framework places a
+% grouped scale-mixture prior over the weights associated with each hidden unit, inducing
+% unit-level sparsity and enabling both weight pruning and fixed-point
+% quantization of the surviving weights.  Because their objective is
+% compression, they focus on eliminating hidden units and shortening
+% weight representations rather than on identifying active input
+% features, and they do not address false discovery rate control.  
+
+% \citet{ghosh_structured_2018} and \citet{ghosh_model_nodate} use
+% the horseshoe prior \citep{carvalho_horseshoe_2010} placed over
+% the pre-activations of each hidden unit in a BNN, rather than
+% over the weights associated with each input.  Their primary
+% motivation is model selection in the sense of determining the
+% appropriate number of neurons per layer: a unit whose
+% pre-activation is strongly shrunk toward zero contributes little
+% to the network's output and can be pruned.  Selection in this
+% framework is based on thresholding the posterior shrinkage factors
+% after variational inference, but no formal FDR control procedure
+% is provided, and input variable selection is not addressed.
+
+% \citet{neklyudov_structured_2017} propose a structured Bayesian
+% pruning method based on log-normal multiplicative noise, targeting
+% neurons and convolutional channels.  \citet{nalisnick_dropout_2019}
+% show that multiplicative dropout corresponds to imposing structured
+% shrinkage priors on the weights, establishing a connection between
+% classical regularization and Bayesian inference.
+% \citet{ullrich_soft_2017} achieve compression through soft
+% weight-sharing, interpreting the resulting discretization in terms
+% of minimum description length.
+
+% \citet{skaaret-lund_sparsifying_2023} and the related work of
+% \citet{hubin_variational_2023} propose a latent binary BNN
+% (LBBNN) in which the inclusion of each weight is governed by a
+% latent Bernoulli variable, implementing the spike-and-slab prior
+% in a neural-network context.  They enhance their variational
+% inference procedure with an inverse autoregressive flow
+% \citep{kobyzev_normalizing_2021} to obtain a richer
+% variational family; however, their focus remains on network
+% sparsification rather than input-variable selection.
+
+% \citet{jantre_comprehensive_2023} provide a comprehensive comparison
+% of spike-and-slab shrinkage priors for structured sparsity in BNNs,
+% examining both group-LASSO and group-horseshoe formulations; their
+% work is most closely related to ours in its treatment of structured
+% priors, though it does not consider the input-selection or FDR-control
+% aspects that motivate our development.
+
+\subsection{Input Variable Selection in Neural Networks}
+\label{subsec:ch3-input}
+
+\subsubsection*{Automatic Relevance Determination:}
+\label{subsec:ch3-ard}
+
+Despite the extensive literature on architecture compression and model selection, methods
+that specifically address input-variable selection in neural
+networks are relatively sparse.  The one exception is literature on \textit{automatic relevance determination} (ARD) in neural networks, introduced by \citet{domany_bayesian_1996, neal_bayesian_2012}.  Essentially an empirical Bayes procedure with a similar formulation to continuous shrinkage priors, ARD assigns each input
+feature $j$ its own Gaussian prior precision $\alpha_j$ on the weights
+connecting that input to the first hidden layer.  Writing
+$\mathbf{w}_j^{(1)} = (w_{j1}^{(1)}, \ldots, w_{j,d_1}^{(1)})^\top$ for
+the $j$-th row of $\bW^{(1)}$, ARD posits
+\begin{equation}
+  \mathbf{w}_j^{(1)} \mid \alpha_j
+  \;\sim\; \mathcal{N}\!\left(\mathbf{0},\, \alpha_j^{-1} I_{d_1}\right),
+  \qquad j = 1, \ldots, p,
+  \label{eq:ard-prior}
+\end{equation}
+so that a single hyperparameter $\alpha_j$ governs the scale of all
+$d_1$ weights fanning out from input $j$.  The hyperparameters
+$\{\alpha_j\}_{j=1}^p$ are estimated via maximizing the marginal
+likelihood, typically
+by an EM-style fixed-point iteration.  When input $j$ carries no
+signal, the evidence is maximized by $\alpha_j \to \infty$, which
+drives $\mathbf{w}_j^{(1)}$ to zero and effectively deletes that input
+from the network.  The variational dropout procedures described in the previous section, Section~\ref{subsec:ch3-arch}, can be viewed as a scalable, deep-network generalization of \textit{ARD}.
+% ARD therefore accomplishes \emph{group} variable
+% selection at the level of inputs by pushing a continuous
+% hyperparameter to infinity, a mechanism closely analogous to the
+% global--local shrinkage of the horseshoe
+% \citep{carvalho_horseshoe_2010}, but with a single precision in place
+% of the hierarchical half-Cauchy scale.
+
+\subsubsection*{Other input-selection approaches}
+\label{subsubsec:ch3-input}
+
+The Bayesian compression framework of \citet{louizos2017bayesian} descends from the ARD lineage via variational dropout, and also provides the most direct antecedent to our approach, though their focus is still on network compression.  By placing a grouped scale-mixture prior over the weights associated with the inputs to each layer, their method uses the variational dropout parameters as tuning parameters to achieve desired levels of compression.
+
+Outside the ARD lineage, a handful of works address input-variable
+selection in neural networks directly. \citet{liang_bayesian_2018}
+train a single-hidden-layer BNN with an independent spike-and-slab prior on every weight and
+perform selection by thresholding the marginal posterior inclusion
+probabilities of the input-to-hidden connections; network width (3,
+5, or 7 units) is chosen by a pilot-run extended BIC.  Examining every
+connection individually is feasible only for narrow single-layer
+networks; grouping the $d_1$ weights per input, as we do, both scales
+to deeper architectures and provides a single interpretable relevance
+summary per feature.  
+% \citet{overweg_interpretable_2019} apply a tied sparsity-inducing prior to the input weights of an ICU-outcome BNN and threshold the posteriors by hand, without formal error-rate control.
+\citet{song_variable_2019} propose SurvNet, a non-Bayesian
+backward-elimination procedure that controls FDR through synthetic
+knockoff-like importance statistics, at the cost of requiring
+assumptions on the input distribution and providing no posterior
+uncertainty quantification.  \citet{liu_variable_2021} avoid
+sparsity-inducing priors altogether, instead quantifying relevance via
+the posterior distribution of the $\ell_2$-norm of the output gradient
+with respect to each input under isotropic Gaussian weight priors;
+their Bernstein--von Mises result yields credible intervals with
+asymptotically valid frequentist coverage, but their procedure is
+post-hoc with respect to variable selection and does not model input
+sparsity explicitly.
+
+More recently, \citet{skaaret-lund_sparsifying_2023} and
+\citet{hubin_variational_2023} adopt a hybrid approach of pruning individual weights as well as inputs, combining variational dropout for individual weights and a discrete spike-and-slab prior over layer inputs.  Again, however, apart from using a single unit (i.e. a basic linear regression) to perform variable selection as proof of concept, there is no examination of their method's variable selection properties in the deep neural network setting.
+
+% These methods share a common objective---reducing the network's
+% computational and memory footprint---and, with the exception of
+% \citet{skaaret-lund_sparsifying_2023}, do not address which
+% \emph{inputs} the network relies upon.  In particular, none of
+% them report false discovery rate control over the selected set.
+
+In summary, existing methods either (i) target architecture rather
+than inputs, (ii) retain the ARD / variational-dropout style of
+scaling individual weights without grouping by input, or (iii)
+provide only post-hoc relevance measures without a direct
+probability-of-inclusion quantity.  Our method is, to our knowledge,
+the first to attempt to adapt canonical Bayesian variable selection techniques to the deep neural network setting and provide principled BFDR
+control.  We retain the scalable variational framework of
+variational dropout, but replace the improper log-uniform prior with
+the proper, well-characterized horseshoe prior
+\citep{carvalho_horseshoe_2010}, restore the group structure of
+ARD by tying a single local scale $\lambda_j^{(1)}$ to all $d_1$
+weights emanating from input $j$, and formulate corrections to the global scale parameter $\tau$ to adapt to the deep neural network structure.  The resulting shrinkage weight
+$\kappa_j^{(1)}$ then plays the role of a pseudo-posterior exclusion
+probability with the same interpretation as under a spike-and-slab
+prior, permitting direct BFDR control in the sense of
+\citet{bernardo_fdr_2007}.
+
+
+
+
+% \citet{louizos2017bayesian} develop a Bayesian compression framework
+% in which a grouped scale-mixture prior on the weights of each hidden
+% unit induces neuron-level sparsity and simultaneously provides the
+% posterior variance required for fixed-point quantization of the
+% surviving weights. 
+
+% \citet{liang_bayesian_2018} train a single-hidden-layer BNN with
+% a spike-and-slab prior over every individual network connection and
+% perform variable selection by examining the posterior inclusion
+% probability of all connections linking the input nodes to the
+% hidden layer.  Selection is based on thresholding these marginal
+% probabilities.  Network size (three, five, or seven hidden units)
+% is determined empirically by minimizing an extended BIC over a
+% short Monte Carlo pilot run.  In small hidden-layer architectures,
+% examining all connections is feasible and provides interpretable
+% individual-weight posteriors; in deeper or wider networks, however,
+% this approach does not scale.  Our method, by contrast, pools the
+% connection weights for each input into a group and places a
+% single local shrinkage parameter on the group, which is both
+% computationally more efficient and provides a single, interpretable
+% quantity ($\kappa_j$ or its complement) summarizing each input's
+% relevance.
+
+% \citet{overweg_interpretable_2019} propose a sparse BNN for
+% interpretable outcome prediction in the ICU setting, using a
+% sparsity-inducing prior applied in a tied manner to the input
+% weights.  Variable selection is performed by inspecting the
+% posterior distributions after fitting and defining thresholds by
+% hand; no formal FDR procedure is described.
+
+% \citet{song_variable_2019} develop SurvNet, a non-Bayesian method
+% that achieves FDR control in deep networks via a backward-elimination
+% procedure driven by a synthetic-variable importance measure.
+% Constructing the synthetic variables requires assumptions about the
+% marginal input distribution, paralleling the knockoff framework of
+% \citet{barber_controlling_2015}; the method does not provide
+% posterior uncertainty quantification.
+
+% \citet{liu_variable_2021} take a different approach, using standard
+% isotropic Gaussian priors on network weights rather than
+% sparsity-inducing priors.  Variable importance is measured by the
+% $\ell_2$ norm of the gradient of the network output with respect
+% to each input, and variable selection is carried out by examining
+% credible intervals for this importance measure.  The theoretical
+% contribution is a Bernstein--von Mises theorem showing that
+% the credible intervals have asymptotically correct frequentist
+% coverage; however, the method does not explicitly model input
+% sparsity and relies on a post-hoc gradient-based importance
+% measure rather than direct inference on whether an input is active.
+
+\subsection{Theoretical Results for Sparse Bayesian Neural Networks}
+\label{subsec:ch3-theory}
+
+A growing theoretical literature establishes favorable frequentist
+properties of sparse Bayesian deep networks.
+\citet{polson_posterior_2018} prove that a spike-and-slab deep ReLU
+network with an appropriate complexity prior achieves near-minimax
+posterior concentration at the optimal rate for $\alpha$-H\"{o}lder
+smooth target functions, and that the posterior automatically
+concentrates on sparser architectures as sample size grows. \citet{cherief-abdellatif_consistency_2018, cherief-abdellatif_generalization_2019} show that the variational
+posterior obtained by maximizing the evidence lower bound (ELBO)
+inherits the same minimax concentration rates, so that the
+computational convenience of variational inference does not entail
+a sacrifice in asymptotic statistical performance.
+\citet{wang_uncertainty_2020} establish semi-parametric
+Bernstein--von Mises theorems for linear and quadratic functionals
+in sparse deep ReLU networks, showing that Bayesian credible
+intervals for these functionals achieve valid frequentist coverage
+asymptotically.  \citet{liu_variable_2021} extend these results to
+the variable-importance functionals used in their selection procedure.
+Collectively, these results provide partial theoretical underpinning
+for the use of BNNs in principled variable selection, though
+analogous results specifically for horseshoe-prior networks and
+for the BFDR procedure we propose remain open problems.
+
+
+% \section{Alternate related work}
+% \note{NEED TO REVIEW this alternate related work}
+% \subsection{Sparsity in Neural Networks: Architecture versus Inputs}
+% \label{subsec:ch3-arch}
+
+% Sparsity in neural networks has been studied under two largely
+% distinct headings.  The first, \emph{architecture selection}, seeks to
+% reduce the size of an over-parameterized network by pruning redundant
+% weights, neurons, or channels.  The second, \emph{input variable
+% selection}, asks the inferential question of which of the $p$ input
+% features are genuinely relevant to the response.  Our proposal
+% belongs to the latter category, but shares its Bayesian machinery with
+% several proposals of the former; we review both, organized by the
+% lineage Automatic Relevance Determination
+% $\rightarrow$ variational dropout $\rightarrow$ our method, which runs
+% through the literature and directly motivates the model developed in
+% Section~\ref{sec:ch3-method}.
+
+% \subsubsection*{Architecture selection and compression}
+% \label{subsubsec:ch3-arch-comp}
+
+% The earliest work in this area prunes individual weights on the basis
+% of a saliency measure derived from the loss Hessian
+% \citep{lecun1990obd}, or from simple weight magnitudes
+% \citep{han2015pruning}.  Pruning single weights yields
+% \emph{unstructured} sparsity, which rarely produces wall-clock
+% speed-ups because it does not reduce the dimensions of the underlying
+% weight matrices.  Pruning whole neurons or channels, by contrast,
+% removes an entire row or column of $\bW^{(\ell)}$ and the corresponding
+% row of $\bW^{(\ell+1)}$, yielding \emph{structured} sparsity that
+% directly compresses the network.
+
+% Bayesian formulations of structured pruning place group-sparse priors
+% over the weights feeding into or out of each hidden unit.
+% \citet{louizos2017bayesian} develop a Bayesian compression framework
+% in which a grouped scale-mixture prior on the weights of each hidden
+% unit induces neuron-level sparsity and simultaneously provides the
+% posterior variance required for fixed-point quantization of the
+% surviving weights.  \citet{ghosh_structured_2018} and
+% \citet{ghosh_model_nodate} place horseshoe priors on hidden-unit
+% \emph{pre-activations}: a unit whose pre-activation scale is shrunk
+% toward zero contributes little to the network and is pruned.
+% \citet{neklyudov_structured_2017} achieve a similar effect through
+% log-normal multiplicative noise applied at the neuron level, and
+% \citet{louizos_learning_2018} approach the same problem from a
+% penalized-likelihood perspective via a differentiable relaxation of
+% the $L_0$ norm.  \citet{skaaret-lund_sparsifying_2023} and
+% \citet{hubin_variational_2023} implement a discrete spike-and-slab
+% prior over individual weights through latent Bernoulli variables,
+% combined with normalizing-flow variational posteriors.
+
+% These methods share a common objective---reducing the network's
+% computational and memory footprint---and, with the exception of
+% \citet{skaaret-lund_sparsifying_2023}, do not address which
+% \emph{inputs} the network relies upon.  In particular, none of
+% them report false discovery rate control over the selected set.
+
+% \subsubsection*{From Automatic Relevance Determination to variational dropout}
+% \label{subsubsec:ch3-ard}
+
+% The oldest Bayesian approach explicitly targeting input-variable
+% selection in neural networks 
+
+% The conceptual descendants of ARD most relevant to deep networks are
+% the family of \emph{variational dropout} methods
+% \citep{kingma_variational_2015, molchanov_variational_2017}.
+% \citet{kingma_variational_2015} observed that Gaussian multiplicative
+% dropout with per-weight rates $p_{jk}$ can be reinterpreted as
+% stochastic variational inference under an improper log-uniform prior
+% $p(\log |w_{jk}|) \propto 1$, with a factorized Gaussian variational
+% posterior
+% $q_\phi(w_{jk}) = \mathcal{N}(\mu_{jk}, \alpha_{jk}\mu_{jk}^2)$; the
+% dropout rate becomes the learned variance-to-mean-squared ratio
+% $\alpha_{jk}$, and is trained jointly with the network weights by
+% maximizing the ELBO via the local reparameterization trick.
+% \citet{molchanov_variational_2017} exploit this
+% reinterpretation to obtain sparse networks: by allowing the
+% per-weight $\alpha_{jk}$ to grow unboundedly, individual weights whose
+% signal-to-noise ratio is low are effectively deleted, recovering at
+% the level of individual weights the same mechanism---driving a
+% precision-like hyperparameter to infinity to eliminate uninformative
+% weights---that underlies ARD.
+
+% Variational dropout can therefore be viewed as a scalable, deep-
+% network generalization of ARD in which: (i) the fixed Gaussian prior
+% precisions of ARD are replaced by an improper log-uniform prior over
+% weight magnitudes, (ii) point estimates of relevance hyperparameters
+% via evidence maximization are replaced by a fully factorized Gaussian
+% variational posterior over weights, trained jointly with the
+% likelihood, and (iii) the local reparameterization trick
+% \citep{kingma_variational_2015} enables mini-batch stochastic
+% optimization at the scale of modern architectures.  The improper
+% log-uniform prior, however, has been shown by
+% \citet{hron_variational_2018} to render the KL divergence in the ELBO
+% undefined; the procedure remains useful in practice only because
+% several of the resulting pathologies are cancelled by the variational
+% formulation, and the interpretation of the learned
+% $\alpha_{jk}$ as a posterior quantity is therefore fragile.
+
+% Our proposal (Section~\ref{sec:ch3-method}) can be read as the next
+% step in this lineage.  
+
+
+
+
+
+
+% -----------------------------------------------------------------------------
+% 3. BACKGROUND
+% -----------------------------------------------------------------------------
+
+\section{Background}
+\label{sec:ch3-background}
+
+\subsection{Scale Mixture Priors and the Spike-and-Slab}
+\label{subsec:ch3-scale-mix}
+
+The canonical Bayesian approach to variable selection in linear regression
+formulates the regression coefficients $\beta$ as having a Normal prior with mean $\mu = 0$ and scale $\lambda$, with $\lambda$ governed by some distribution $p(\lambda)$, i.e. 
+\begin{equation}
+      \beta|\lambda \sim N(\beta | 0, \lambda^2);     \qquad     \lambda \sim p(\lambda).
+\end{equation}
+This appears rather innocuous, but placing structure on $p(\lambda)$ can yield marginal prior distributions on $\beta$ which place more mass at 0 and in the tails, thus biasing the posterior over the coefficients to favor values close to or far from 0.  In the extreme case, placing a Bernoulli$(\pi)$ prior on $\lambda$ recovers the discrete spike-and-slab prior of
+\citep{mitchell_bayesian_1988, george_approaches_1997}, in which the marginal prior for $\beta$ is a mixture of a point mass or Dirac delta function at 0 (the "spike") and a continuous, Normal "slab" covering the real line, with the Bernoulli parameter $\pi$ defining the mixture proportions.  As discussed in
+Section~\ref{subsec:bvs}, this prior yields exact posterior
+inclusion probabilities and is considered the gold standard for
+Bayesian variable selection; however, posterior computation requires
+a sum over $2^p$ model configurations due to the discrete prior, which quickly grows infeasible 
+even for moderately large $p$.
+
+Relaxation of the point mass at 0 with continuous distributions leads to the family of continuous shrinkage priors, which offer a computationally tractable
+alternative by replacing the discrete prior with a hierarchical scale mixture.  Assigning $\lambda$ a prior that concentrates near zero while
+maintaining heavy tails produces a marginal prior on $\beta$
+that still mimics the spike-and-slab qualitatively: small coefficients
+are strongly regularized while large coefficients are left nearly
+unattenuated.  A few notable continuous shrinkage priors include the Normal-Jeffrey's prior, which employs an improper prior $p(\lambda) \propto 1/ \lambda$; the Bayesian LASSO \citet{park_bayesian_2008}, which employs a double-exponential prior for $\lambda$ to induce a marginal Laplace distribution on $\beta$; and the Horseshoe prior \citep{carvalho2010horseshoe} discussed below.
+
+In MCMC-based methods, using continuous shrinkage priors rather than a discrete prior bypasses the combinatorial search over model
+configurations, reducing the dimensionality of the model search space from $2^p$ to simply $p$.  For our purposes, the key advantage of the continuous shrinkage formulation is that the continuous posterior over $(\beta, \lambda)$ is differentiable and thus amenable to gradient-based variational inference.
+
+The Normal-Jeffrey's prior, $p(\log \lambda) \propto 1$, while widely used in variational dropout procedures (\citep{kingma_variational_2015, molchanov_variational_2017, louizos_learning_2018}, was shown later by \citet{hron_variational_2018} to induce a
+pathological variational objective.  The KL divergence between the variational
+posterior and the improper prior is undefined, and the resulting
+ELBO is not a valid lower bound on the marginal likelihood in
+the standard sense.  This motivates the use of the horseshoe
+prior, which is a proper continuous shrinkage prior with
+well-characterized properties and a well-defined variational
+objective.
+
+
+\subsection{The Horseshoe Prior}
+\label{subsec:ch3-horseshoe}
+
+
+The horseshoe prior of \citet{carvalho_handling_2009} and
+\citet{carvalho_horseshoe_2010} is defined through the
+global-local scale mixture
+\begin{equation}
+  \beta_j \mid \lambda_j, \tau \;\sim\; \mathcal{N}(0,\, \lambda_j^2 \tau^2),
+  \qquad
+  \lambda_j \sim \mathrm{Half\text{-}Cauchy}(0, 1),
+  \qquad
+  \tau \sim \mathrm{Half\text{-}Cauchy}(0, \tau_0),
+  \label{eq:horseshoe}
+\end{equation}
+where $\lambda_j > 0$ is a \emph{local} scale that controls
+shrinkage of the $j$-th coefficient individually, and $\tau > 0$
+is a \emph{global} scale that governs the overall level of
+sparsity.  The Half-Cauchy$(0,1)$ prior on $\lambda_j$ is proper
+and assigns substantial probability both near zero and in the
+heavy tails, so that the marginal prior on $\beta_j$ has a pole
+at zero (thus favoring near-zero coefficients) while
+remaining heavy-tailed enough to prevent over-shrinkage of
+genuinely large signals.  The half-Cauchy prior on $\tau$ is
+recommended by \citet{polson_half-cauchy_2012} as a robust
+default for global scale parameters; \citet{piironen_hyperprior_2017}
+provide guidance on setting $\tau_0$ based on prior beliefs about
+the expected number of active predictors.
+
+A key summary statistic in the Horseshoe model is the \emph{shrinkage weight}
+\begin{equation}
+  \kappa_j = \frac{1}{1 + \lambda_j^2 \tau^2} \;\in\; (0, 1),
+  \label{eq:kappaj}
+\end{equation}
+which characterizes the degree to which the posterior mean of
+$\beta_j$ is shrunk toward zero.  When $\kappa_j \approx 1$ the
+posterior mean is strongly attenuated; when $\kappa_j \approx 0$
+the coefficient is left nearly at its maximum-likelihood estimate.
+\citet{carvalho_handling_2009} show that the posterior mean under
+the horseshoe satisfies
+\begin{equation}
+  \mathbb{E}[\beta_j \mid \mathbf{y}]
+  \;\approx\;
+  \bigl(1 - \mathbb{E}[\kappa_j \mid \mathbf{y}]\bigr)\,
+  \hat{\beta}_j^{\mathrm{OLS}},
+  \label{eq:hs-post-mean}
+\end{equation}
+which has the form of a Bayesian model-averaging estimator with
+weight $1 - \mathbb{E}[\kappa_j \mid \mathbf{y}]$ assigned to
+the OLS estimate.  This quantity therefore serves as a
+``pseudo-posterior inclusion probability'' analogous to
+$\mathrm{PIP}_j$ under a discrete spike-and-slab prior,
+enabling FDR-controlled variable selection via the thresholding
+rule of \citet{bernardo_fdr_2007} (see
+Section~\ref{subsec:ch3-bfdr}) as well as inclusion rules 
+based on decision theory (\citet{guindani_bayesian_2009}; see Section~\ref{subsec:ch3-decision}).
+
+
+
+% -----------------------------------------------------------------------------
+% 4. VARIATIONAL INFERENCE
+% -----------------------------------------------------------------------------
+
+\section{Variational Inference for Bayesian Neural Networks}
+\label{sec:ch3-vi}
+
+\subsection{Mean-Field Variational Inference and the ELBO}
+\label{subsec:ch3-elbo}
+
+Exact posterior inference in a BNN is typically intractable: the posterior
+$p(\mathbf{W} \mid \mathbf{y}, \mathbf{X})$ over the full weight
+tensor $\mathbf{W}$ is a high-dimensional, non-conjugate
+distribution with multiple modes.  Variational inference
+\citep{blei_variational_2017} replaces exact posterior evaluation
+with optimization: one posits a tractable family of variational distributions 
+$\mathcal{Q} = \{q_\phi(\mathbf{W}) : \phi \in \Phi\}$ and finds
+the member of $\mathcal{Q}$ minimizing the 
+KL divergence from the true posterior, which is equivalent to maximizing $\mathcal{L}(\phi)$, the
+\emph{evidence lower bound} or ELBO, where
+\begin{equation}
+  \mathcal{L}(\phi)
+  = \mathbb{E}_{q_\phi}\!\bigl[\log p(\mathbf{y} \mid \mathbf{X},
+    \mathbf{W})\bigr]
+  - \mathrm{KL}\bigl(q_\phi(\mathbf{W}) \;\|\; p(\mathbf{W})\bigr).
+  \label{eq:elbo}
+\end{equation}
+The first term is the expected log-likelihood under the variational distribution, rewarding fidelity to the observed data; the second
+penalizes departure of the variational posterior $q_\phi(\bW)$ from \textit{the prior} $p(\bW)$.  Since the marginal likelihood 
+\begin{equation}
+    \log p(\mathbf{y}) = \mathcal{L}(\phi) +
+\mathrm{KL}(q_\phi(\bW \| p(\bW \mid \mathbf{y},\mathbf{X})) \geq
+\mathcal{L}(\phi), 
+    \label{eq:marglike}
+\end{equation}
+and $\log p(\mathbf{y})$ by definition is integrated over the parameter space (thus constant with respect to parameters),
+the ELBO is a lower bound on the log marginal
+likelihood, and maximizing the ELBO simultaneously minimizes the
+KL divergence to the posterior.
+
+To aid computational tractability, variational inference procedures typically adopt the \emph{mean-field} assumption, in which the variational posterior is assumed to 
+factorize over some partition of the variational parameters $\phi$; in other words, the variational posterior assumes independence between the partitions of $\phi$. In a deep neural network with weights $\{ \bW^{(\ell)} \}_{l=1}^L$ (denoting $\ell$ layers of weights organized into matrices $\bW^{l)}$) and latent variables $\bm{\lambda}, \bm{\tau}$, the variational posterior might factorize fully as
+\begin{equation}
+  q_\phi( \{ \bW^{l} \}_{l=1}^L, \bm{\lambda}, \bm{\tau})
+  = \prod_\ell q_\phi(\tau^{(\ell)}) 
+  \cdot \prod_{\ell,j} q_\phi(\lambda^{(\ell)}_j)
+  \cdot \prod_{\ell,j,k} q_\phi(w^{(\ell)}_{j,k}),
+  \label{eq:mean-field}
+\end{equation}
+where $w^{(\ell)}_{j,k}$ denotes the weight connecting unit $j$ of layer $\ell-1$ to unit $k$ of the current layer $\ell$, and the products
+over $l, j, k$ run over all network connections.  As each marginal factor can be
+updated independently, Mean-Field
+Variational Inference (MFVI) is computationally efficient but ignores posterior correlations
+among weights, thus underestimating posterior uncertainty.  
+% However, adopting a noncentered parameterization of the Horseshoe model as in equation \ref{eq:cauchydecomp} motivates fully factorizing the variational distributions.  Furthermore, 
+
+Work by
+\citet{farquhar_liberty_2021} provides theoretical and empirical
+evidence that depth in a network can partially compensate for
+the independence assumption in the mean-field approximation, since
+deeper mean-field networks can induce richer marginal distributions
+over the function space than shallow networks with correlated
+weight posteriors.  Their work, however, applies only to the \textit{predictions} of the network, not the parameters.  As a partial remedy, \citet{ghosh_structured_2018} use a multivariate Normal variational distribution with a low-rank covariance to model network weights; again, this is likely to have more of an effect on the quality of predictive uncertainty rather than parameter uncertainty.  Future work targeting inference for variable selection, however, might consider similar variational specifications for the scale parameters.
+% We exploit this finding by using networks with at least two hidden layers, accepting the mean-field approximation in exchange for computational tractability.  
+
+\subsection{Stochastic Gradient Estimation and the
+  Reparameterization Trick}
+\label{subsec:ch3-reparam}
+
+Maximizing the ELBO in~\eqref{eq:elbo} requires traveling along gradients with
+respect to the variational parameters $\phi$.  However, naive Monte Carlo gradient estimation by first sampling all parameters individually and then composing them according to the model leads to high variance gradients during training.  The
+\emph{local reparameterization trick}
+\citep{kingma_variational_2015}
+resolves this by sampling the preactivations directly from their marginal distributions under $q_\phi$, essentially composing the parameters (and input $\bx_i$) first, then sampling once, leading to unbiased, much lower-variance gradient estimates.  \note{For a full treatment of the local reparameterization trick specific to our model, please see the Appendix (NEED TO DO)}
+
+
+
+% instead expressing samples $w \sim q_\phi$ as
+% deterministic functions of $\phi$ and a noise variable
+% $\epsilon$ with a fixed distribution: $w = g_\phi(\epsilon)$,
+% $\epsilon \sim p(\epsilon)$, essentially composing the parameters first according to distributional properties, and sampling once.  This allows unbiased,
+% low-variance gradient estimates via automatic differentiation
+% through the deterministic function $g_\phi$.
+
+% For a Gaussian variational factor
+% $q(w_{kj}) = \mathcal{N}(\mu_{kj}, s_{kj}^2)$, the
+% reparameterization is $w_{kj} = \mu_{kj} + s_{kj}\epsilon_{kj}$
+% with $\epsilon_{kj} \sim \mathcal{N}(0,1)$.  For the log-normal
+% variational factors used to approximate the half-Cauchy scale
+% variables (see Section~\ref{subsec:ch3-vardist}), the
+% reparameterization is $\lambda_j = \exp(\mu_{\lambda_j} +
+% s_{\lambda_j}\eta_j)$ with $\eta_j \sim \mathcal{N}(0,1)$.
+
+% \citet{kingma_variational_2015} also introduce the \emph{local
+% reparameterization trick}, which samples the pre-activations
+% $z_k^{(\ell)} = \sum_j w_{kj}^{(\ell)} z_j^{(\ell-1)}$ directly
+% from their marginal distribution under $q_\phi$, rather than
+% sampling individual weights.  For Gaussian $q(w_{kj})$, the
+% pre-activation is Gaussian with mean
+% $\bar{z}_k^{(\ell)} = \sum_j \mu_{kj}^{(\ell)} z_j^{(\ell-1)}$
+% and variance $\sum_j (s_{kj}^{(\ell)})^2 (z_j^{(\ell-1)})^2$.
+% This reduces gradient variance further and is adopted in our
+% implementation.
+
+% -----------------------------------------------------------------------------
+% 5. PROPOSED METHOD
+% -----------------------------------------------------------------------------
+
+\section{Methods}
+\label{sec:ch3-method}
+
+
+Let $\mathbf{y} = (y_1, \ldots, y_n)^\top \in \mathbb{R}^n$
+denote the observed responses and
+$\mathbf{X} \in \mathbb{R}^{n \times p}$ the predictor matrix,
+with rows $\mathbf{x}_i \in \mathbb{R}^p$.  
+We assume a setting in which the data $\mathbf{X}$ is collected on many characteristics, of which only an unknown subset of predictors $\bX^\star \subseteq \bX$ have any relation (linear or otherwise) to the response $\by = (y_1, \ldots, y_n)^\top \in \mathbb{R}^n$.  That is, we assume the response $y_i$ is generated by an unknown function $f^\star$ of a subset $\bx^\star_i$ of the covariate vector $\bx_i$ such that $f^\star(\bx^\star_i) = f^\star(\bx_i)$.  Invoking the usual assumptions of i.i.d. samples and homoskedastic, Gaussian noise, we can then express the assumed data-generating mechanism for the $i$th observation as
+\begin{equation}
+    y_i \sim N \left( f^\star (\bx_i), \sigma_\varepsilon^2 \right).
+\end{equation}
+We propose to model $f^\star(\bx_i)$ using a feedforward neural network, denoted $f(\bx_i, \{\bW^{(\ell)}\}^L_{\ell=1})$, with $\ell$ layers each containing 
+$d_1, \ldots, d_\ell$ nodes, and scalar output such that
+\begin{equation}
+    \begin{aligned}
+        \hat{y}_i 
+            & = f(\bx_i, \{\bW^{(\ell)}\}^L_{\ell=1}) \\
+            & = \bm{h}_i^{(\ell-1)} \bW^{(\ell)} + \bm{b}^{(\ell)},
+            \qquad
+            & {\bm{h}}_i^{(\ell)}
+            = \sigma^{(\ell-1)}\!\left({\bm{h}}_i^{(\ell-1)} \bW^{(\ell)} + \bm{b}^{(\ell)} \right),  
+    \end{aligned}
+    \label{eq:network}
+\end{equation}
+where $\bm{h}_i^{(\ell)} \in \mathbb{R}^{d_\ell}$ is the output vector of activations for layer $\ell$ 
+(and $\bm{h}_i^{(\ell=0)} = x_i$), 
+$W^{(\ell)} \in \mathbb{R}^{d_{\ell-1} \times d_{\ell}}$ and $\bm{b}^{(\ell)} \in \mathbb{R}^{d_\ell}$
+are the weight matrix and bias vector at layer $\ell$, and 
+$\sigma^{(\ell)}(\cdot)$ denotes the layer activation.  Note that we are using a notation more commonly found in statistical literature, in which layer "width" is actually the number of rows in the weight matrix $\bW^{(\ell)}$. Under a Gaussian likelihood
+model, $y_i \mid \hat{y}_i, \sigma_\varepsilon^2 \sim
+\mathcal{N}(\hat{y}_i, \sigma_\varepsilon^2)$.
+
+We equip the neural network weight parameters with a grouped Horseshoe prior, 
+structured in such a way to allow for variable selection. 
+Rather than giving each weight $\{w^{(\ell)}_{j,k}\} = \bW^{(\ell)}$ its own local scale parameter and thus applying differing levels of shrinkage to individual weights, 
+the local scale parameter $\lambda^{(\ell)}_j$ is shared by the weights in the $j$'th \textit{row} of $\bW^{(\ell)}$, effectively coupling all weights that correspond to the $j$'th column of the input for layer $\ell$. 
+The Bayesian model formulation is then
+\begin{equation}
+    \begin{aligned}
+          y_i | \bx_i, \{\bW^{(\ell)}\}^L_{l=1}
+            & \sim N\left( f(\bx_i, \{\bW^{(\ell)}\}^L_{l=1} ), \sigma_\varepsilon^2 \right)
+          \\
+          \{\bW^{(\ell)}\}^L_{l=1}  | \lambda, \tau
+            & \sim 
+            \prod_{\ell \in \{1, 2, ..., L\}}
+            \prod_{
+            \substack{
+              j \in \{1, 2, .., d_{\ell-1}\}, \\ 
+              k \in \{1, 2, ... d_\ell\}}
+            } 
+            N(w^{(\ell)}_{j,k} | 0, \lambda^{(\ell)2}_{j} \tau^{(\ell)2})
+          \\
+          \lambda^{(\ell)}_j 
+            & \sim C^+ (0, 1), \qquad
+          \\
+          \tau^{(\ell)} 
+            & \sim C^+ (0, \tau_0)
+    \end{aligned}
+\end{equation}
+
+In particular, in the first layer,
+the $j$-th row of $\bW^{(1)}$,
+$\mathbf{w}_j^{(1)} = (w_{j1}^{(1)}, \ldots,
+w_{j, d_1}^{(1)})^\top \in \mathbb{R}^{d_1}$ contains all
+connections from input feature $j$ to the first hidden layer.
+Because all $d_1$ weights connected to input $j$ share the single local
+scale $\lambda^{(1)}_j$, shrinking $\lambda^{(1)}_j$ toward zero effectively
+severs all connections from input $j$ to the network, setting
+that feature's contribution to zero regardless of the hidden-unit
+structure.  The global scale parameters in each layer $\tau^{(\ell)}$ control the overall
+input sparsity; in the first layer, the prior for $\tau^{(1)}$ effectively acts as a prior over model size. 
+
+
+Furthermore, placing the grouped horseshoe in layers $\ell \geq 2$ induces additional sparsity at
+the level of individual neurons in the preceding layer.  Specifically, if the
+$j$-th row of $W^{(2)}$ (the weights $w_j^{(2)}$ connecting the output of neuron $j$ from the first
+hidden layer to layer 2) is shrunk toward zero, then the $j$'th node of
+the first hidden layer is effectively inactivated.  
+This serves two purposes: it provides a form of
+``representation sparsity'' that improves interpretability of the
+first hidden layer, and mitigates identifiability issues
+by constraining the effective width of the network.  In this respect, our use of
+the horseshoe in deeper layers is related to architecture
+selection approaches, though applied here as a secondary
+objective subordinate to input selection rather than as the
+primary goal.  
+
+
+\subsection{Decomposing the Cauchy prior for Variational Inference}
+\label{subsec:ch3-decompose}
+
+In order to easily compute the KL-divergence for the log-Normal variational distributions, we follow \citet{louizos2017bayesian} and decompose the half-Cauchy priors into products of independent Gamma and inverse-Gamma distributed variables.  This decomposition is also salutary in that the thick Cauchy tails pose difficulties to variational approximation using standard exponential families.  Dropping the layer superscript $\ell$ to ease notation, we decompose the half-Cauchy as follows:
+\begin{equation}
+    \begin{aligned}
+        &\lambda_j^2 = \alpha\beta;  
+            &\quad \alpha_j \sim \text{Gamma} (1/2, 1); 
+            &\quad \beta_j \sim \text{inv-Gamma} (1/2, 1)
+        \\
+        &\tau^2 = a b;
+            &\quad a \sim \text{Gamma} (1/2, \tau_0^2); 
+            &\quad b \sim \text{inv-Gamma} (1/2, 1)
+    \end{aligned}
+\end{equation}
+This is slightly different from the more typical re-expression of the Half-Cauchy developed by \citet{wand_variational_nodate},
+\begin{equation}
+    x \sim C^+(0, A) 
+        \iff 
+        x|a \sim \text{inv-Gamma} \left( 1/2, 1/a \right);
+        \quad 
+        a \sim \text{inv-Gamma} \left( 1/2, 1/A^2 \right)
+\end{equation}
+but removes the dependence structure and is equivalent; a short proof is provided in the Appendix. \note{NEED TO INCLUDE}
+
+Noting that the individual weights $w_{j,k} \sim N(w_{j,k} | 0, \lambda^2_{j} \tau^2)$ can be rewritten as the product of independent standard Normal random variables $\tilde{w} \sim N(0,1)$ with the corresponding elements of $\lambda$ and $\tau$ (that is, $w_{j,k} = \tilde{w}_{j,k} \lambda_j \tau$), we can re-express the hierarchy in each layer as
+\begin{equation}
+    \begin{aligned}
+        \bW 
+            & = 
+            \left\{ 
+              w_{j,k}: j \in \{1, 2, .., d_{\ell-1} \}, 
+                       k \in \{1, 2, ... d_\ell \}
+            \right\}
+        \\
+    w_{j, k}
+        & = \tilde{w}_{j, k} \lambda_{j} \tau
+        = \tilde{w}_{j, k} \sqrt{\alpha_{j} \beta_{j} a b}
+        \\
+    \tilde{w}_{j, k}
+        & \sim N(0, 1)
+        \\
+    \alpha_{j} 
+        & \sim \text{Gamma} (1/2, 1);
+        \quad 
+        \beta_j \sim \text{inv-Gamma} (1/2, 1)
+        \\
+    a 
+        & \sim \text{Gamma} (1/2, \tau_0^2)
+        \quad 
+        b
+        \sim \text{inv-Gamma} (1/2, 1)
+    \end{aligned}
+    \label{eq:cauchydecomp}
+\end{equation}
+
+
+
+\subsection{Variational Posterior Distributions}
+\label{subsec:ch3-vardist}
+
+Sparsity arises from the Horseshoe prior precisely by inducing strong correlation between the weights $w_{j,k}$ and the scale parameters $\lambda_j, \tau$; however, the strongly coupled posterior is known to exhibit pathological geometries, difficult to sample from and approximate.  Decoupling the weights from the scale parameters as in \ref{eq:cauchydecomp} is referred to as an \emph{uncentered parameterization} and has been shown to lead to simpler posterior geometries \citep{Betancourt_hamiltonian_2015}.  In variational procedures, the uncentered parameterization improves numerical stability and speeds computation since the parameters $\tilde{w}_{j,k}, \lambda_j, \tau$ can be sampled independently and are \textit{marginally uncorrelated}: coupling between the parameters occurs only in the likelihood, conditional on the observed data. 
+
+Rather than directly parameterizing the marginal distribution of $w_{kj}$, then, 
+our variational distributions follow the same hierarchy as in \ref{eq:cauchydecomp}, where 
+\begin{equation}
+  w_{j, k}
+        = \tilde{w}_{j, k} \lambda_{j} \tau
+        = \tilde{w}_{j, k} \sqrt{\alpha_{j} \beta_{j} a b}
+  \label{eq:uncentered}
+\end{equation}
+with $\tilde{w}_{j, k}$ the `uncentered' weight.  For the variational distributions $q_\phi(\cdot)$, we assign $\tilde{w}_{j, k}$ a Normal distribution, and independent log-Normal distributions to the other parameters $\alpha_j, \beta_j, a, b$ in each layer:
+\begin{align}
+  q_\phi\left(a, b, \tilde{\bW}_{j,k}\right)
+    &= 
+        \mathcal{LN}\!\left(a | \mu_{a},\, \sigma_{a}^2\right)
+        \mathcal{LN}\!\left(b | \mu_{b},\, \sigma_{b}^2\right)
+        \prod_{j,k}^{d_{\ell-1}, d_\ell}\mathcal{N}\!\left(\tilde{w}_{j, k} | \mu_{j,k},\, \sigma_{j,k}^2\right)
+    \label{eq: abw-dists}
+    \\
+  q_\phi(\bm{\alpha}, \bm{\beta})
+    &= 
+        \prod_{j}^{d_{\ell-1}}
+            \mathcal{LN}\!\left(\beta_j | \mu_{\alpha_j},\, \sigma_{\alpha_j}^2\right)
+            \mathcal{LN}\!\left(\alpha_j | \mu_{\beta_j},\, \sigma_{\beta_j}^2\right)
+    \label{eq:alphabeta-dists}
+\end{align}
+
+The log-normal approximations are computationally convenient approximations
+to the Gamma and inverse-Gamma priors, with closed-form KL divergences.
+Full derivations are provided in \note{Appendix~\ref{sec:}. NEED TO ADD}
+
+
+
+\subsection{Weak identifiability of horseshoe prior parameters in deep neural networks and proposed solution.}
+\label{subsec:ch3-taucorrection}
+
+As discussed in \ref{subsec:ch3-horseshoe}, in the linear model setting, the primary inferential quantity for variable selection using the Horseshoe prior is $\kappa_j = \dfrac{1}{1 + \lambda^2\tau^2}$, in which the local scale parameter $\lambda_j$ allows individual coefficients to escape shrinkage and the prior over $\tau$ acts as a prior over model size.  Our formulation largely preserves the interpretation of the parameters $\lambda_j^{(1)}$ in the deep neural network setting as allowing the weights related to input $j$ to escape shrinkage.  However, the parameter $\tau^{(1)}$, the global scale in layer 1, poses thornier problems: 1) layer 2's shrinkage of nodes in layer 1 puts causes $\tau^{(1)}$ to be underestimated, 2) $\tau^{(1)}$is only weakly identifiable as it varies nearly inversely with the other layers' scale parameters, and 3) even if $\tau^{(1)}$ were strictly identifiable, the compositional nature of feedforward networks is such that each subsequent layer exerts an overall effect on the magnitude of other layers.  
+
+
+\subsubsection*{Shrinkage across layers and effective dimension $m_\text{eff}$:}
+In their discussion of calibrating the Horseshoe hyperparameter $\tau_0$, \citet{piironen_hyperprior_2017} propose 
+\begin{equation}
+    m_\text{eff} = \sum_{j=1}^p (1-\kappa_j)
+    \label{eq:meff}
+\end{equation}
+as the effective number of non-zero coefficients in a linear model.  In our multi-layer BNN, the horseshoe prior in layer $\ell$ identifies inactive \textit{rows} of weights in $W^{(l)}$, but this also means that the \textit{inputs} corresponding to those rows are inactive: as the uncentered parameterization in equation \ref{eq:uncentered} makes explicit, the scale parameters in layer $\ell$, $\tau^{(\ell)}\bm{\lambda}^{(\ell)}$, can just as easily be seen to apply to the input vector $\bm{h}^{(\ell-1)}$ as to the uncentered weight matrix $\tilde{\bW}^{(\ell)}$.  If those inputs are inactive, then so are the nodes (the columns of $\bW^{\ell-1)}$) producing those inputs: in other words, $\kappa^{(\ell)}_j$ is as much a shrinkage factor for node $j$ in $\bW^{(\ell-1)}$ as it is for the $j$'th row of weights in $\bW^{(\ell)}$. Thus we propose using 
+\begin{equation}
+    m^{(\ell)}_\text{eff} = \sum_{j=1}^{d_{\ell-1}} (1-\kappa^{(\ell)}_j)
+    \label{eq:meff}
+\end{equation}
+as a measure of the effective number of \textit{nodes} in layer $\ell-1$ as well as the number of effective \textit{inputs} to layer $\ell$.  
+
+Because the global sparsity induced by $\tau^{(1)}$ is predicated on the presence of $d_1 \times p$ weights in $W^{(1)}$, Layer 2's shrinkage of the layer 1 nodes places downward pressure on the estimate of $\tau^{(1)}$ we obtain via training.  Another way of thinking about this is that the global sparsity in $\bW^{(1)}$ is composed of \textit{input} sparsity, which is what we would like $\tau^{(1)}$ to govern, and \textit{representation} sparsity arriving from layer 2's shrinkage of nodes in layer 1.  When conducting inference on variable selection, in place of the naive $\tau^{(1)}$ estimated via the first layer, we propose using 
+\begin{equation}
+    \tau_{m_\text{eff}}^{(1)} = \tau^{(1)} \times \sqrt{\frac{d_1}{m^{(2)}_\text{eff}}}
+    \qquad \text{where} \quad m^{(2)}_\text{eff} = \sum_{j=1}^{d_1} (1-\kappa^{(2)}_j)
+    \label{eq:fc2-correction}
+\end{equation}
+as a better measure of the global scale parameter's contribution to \textit{input} sparsity, separate from the column sparsity induced by layer 2, 
+
+We motivate this correction factor as follows: a reasonable way to estimate the effect of global shrinkage induced by $\tau^{(1)}$ is to ignore the effects of the local scale factor and fix all $\lambda_j^{(1)}= 1$.  Then we might call 
+\begin{equation}
+    g_\text{eff} = \sum_{i=1}^{d_1} \sum_{j=1}^p \left(1 - \frac{1}{1 + \tau^2}\right) = d_1 \times \left(1 - \frac{1}{1 + \tau^2}\right)
+\end{equation}
+the \textit{portion} of the effective number of weights in $\bW^{(1)}$ that is attributable to the global scale factor $\tau^{(1)}$.  Rearrangement yields $\tau^{(1)} = \sqrt{\dfrac{g_\text{eff}}{d_1 \times p - g_\text{eff}}}$.  However, the sparsifying effect of layer 2 leaves $\bW^{(1)}$ with $m^{(2)}_\text{eff}$ effective columns rather than $d_1$ columns, and so to estimate the global \textit{input} sparsity, we require some correction $c$ such that $\tau^{(1)} \times c = \sqrt{\dfrac{g_\text{eff}}{d_1 \times m_\text{eff}^{(2)} - g_\text{eff}}}$; thus we obtain $c = \sqrt{ \dfrac{d_1\times p - g_\text{eff}}{m^{(2)}_\text{eff} \times p - g_\text{eff}}}$.  Assuming a high global sparsity level (a reasonable assumption under the Horseshoe prior) leads to very small $g_\text{eff}$, yielding $c \approx \sqrt{d_1 / m^{(2)}_\text{eff}}$ as a reasonable approximation.
+
+
+
+\subsubsection*{Weak identifiability \& the composite spectral norm correction:} 
+\label{par:ch3-spectral}
+
+Expanding the expression for the 3rd activation $\bm h_i^{(3)}$ using the uncentered parameterization in equation \ref{eq:uncentered} makes the weak identifiability of $\tau^{(1)}$'s explicit.  Letting $\bm\Lambda^{(\ell)} = \mathrm{diag}(\lambda_1, \lambda_2, \cdots, \lambda_{d_{\ell-1}})$, a diagonal matrix of the local scale parameters for layer $\ell$, we can re-express the $\ell$'th activation $\bm h_i^{(\ell)}$ as
+\begin{equation}
+        % \hat{y}_i 
+        % & = \bm{h}_i^{(\ell-1)} \bW^{(\ell)} + \bm{b}^{(\ell)}
+        %     \qquad \text{with} \qquad
+        %     {\bm{h}}_i^{(\ell)}
+        %     = \sigma^{(\ell-1)}\!\left({\bm{h}}_i^{(\ell-1)} \tau^{(\ell)} \Xi^{(\ell)} \tilde\bW^{(\ell)} + \bm{b}^{(\ell)} \right)
+        % \\    
+        %     & = \Bigg\{ \cdots \bigg\{
+        %         \sigma^{(2)} \Big[
+        %           \sigma^{(1)} \big[
+        %             \bx_i \tau^{(1)} \bm\Lambda^{(1)} \tilde \bW^{(1)} + b^{(1)}
+        %           \big]
+        %           \tau^{(2)} \bm\Lambda^{(2)} \tilde \bW^{(2)} + b^{(2)}
+        %         \Big]
+        %         \tau^{(3)} \bm\Lambda^{(3)} \tilde \bW^{(3)} + b^{(3)}
+        %         \bigg\} \cdots \Bigg\} \bW^{(\ell)} + \bm{b}^{(\ell)}
+        % \\
+        %     & = \Bigg\{ \cdots \bigg\{
+        %         \sigma^{(2)} \Big[
+        %           \sigma^{(1)} \big[
+        %             \bx_i \tau^{(1)}  \bm\Lambda^{(1)} \tilde \bW^{(1)}\tau^{(2)} + b^{(1)}\tau^{(2)}
+        %           \big]
+        %            \bm\Lambda^{(2)} \tilde \bW^{(2)} \tau^{(3)}  + b^{(2)}\tau^{(3)} 
+        %         \Big]
+        %         \bm\Lambda^{(3)} \tilde \bW^{(3)} + b^{(3)}
+        %         \bigg\} \cdots \Bigg\} \bW^{(\ell)} + \bm{b}^{(\ell)}.
+        {\bm{h}}_i^{(\ell)}
+             = \sigma^{(\ell-1)}\!\left({\bm{h}}_i^{(\ell-1)} \bW^{(\ell)} + \bm{b}^{(\ell)} \right)
+              = \sigma^{(\ell-1)}\!\left({\bm{h}}_i^{(\ell-1)} \tau^{(\ell)} \bm\Lambda^{(\ell)} \tilde\bW^{(\ell)} + \bm{b}^{(\ell)} \right).
+    \label{eq:hl-uncentered}
+\end{equation}
+
+Because $\tau^{(\ell)}$ is a scalar quantity, it can move freely "down" the RELU activation $\sigma^{(\ell-1)}$ to previous layers.  In the expanded expression for the first three layers:
+\begin{equation}
+    \begin{aligned}
+        \bm h_i^{(3)} 
+        & =  \sigma^{(2)} \Big[
+                  \sigma^{(1)} \big[
+                    \bx_i \tau^{(1)} \bm\Lambda^{(1)} \tilde \bW^{(1)} + b^{(1)}
+                  \big]
+                  \textcolor{blue}{\tau^{(2)}} \bm\Lambda^{(2)} \tilde \bW^{(2)} + b^{(2)}
+                \Big]
+                \textcolor{purple}{\tau^{(3)}} \bm\Lambda^{(3)} \tilde \bW^{(3)} + b^{(3)}
+        \\
+        & =  \sigma^{(2)} \Big[
+                  \sigma^{(1)} \big[
+                    \bx_i \tau^{(1)} \bm\Lambda^{(1)} \tilde \bW^{(1)} \textcolor{blue}{\tau^{(2)}}  + b^{(1)} \textcolor{blue}{\tau^{(2)}} 
+                  \big]
+                  \bm\Lambda^{(2)} \tilde \bW^{(2)} \textcolor{purple}{\tau^{(3)}}+ b^{(2)}  \textcolor{purple}{\tau^{(3)}}
+                \Big]
+                 \bm\Lambda^{(3)} \tilde \bW^{(3)} + b^{(3)}
+        \\
+        & =  \sigma^{(2)} \Big[
+                  \sigma^{(1)} \big[
+                    \bx_i \tau^{(1)} \bm\Lambda^{(1)} \tilde \bW^{(1)} \textcolor{blue}{\tau^{(2)}} \textcolor{purple}{\tau^{(3)}} + b^{(1)} \textcolor{blue}{\tau^{(2)}} \textcolor{purple}{\tau^{(3)}}
+                  \big]
+                  \bm\Lambda^{(2)} \tilde \bW^{(2)} + b^{(2)}  \textcolor{purple}{\tau^{(3)}}
+                \Big]
+                 \bm\Lambda^{(3)} \tilde \bW^{(3)} + b^{(3)}
+    \end{aligned}
+    \label{eq:h3-expand}
+\end{equation}
+Indeed, the only obstacle to completely free movement of any $\tau^{(\ell)}$ across all layers is that the intervening bias terms would also have to vary in tandem; this is not a major constraint, as bias terms are typically specified to have very weak priors.  A common practice is simply to fix $\tau = 1$; importantly, this leads to an invalid interpretation of $1 - \kappa_j^{(1)}$ as a posterior inclusion probability since the model is then unable to adapt to the overall sparsity of the data.  Instead, we attempt to mitigate this swapping behavior by placing a fairly informative N(0, 0.01) prior on the bias terms.
+
+However, the composition of functions across layers in \ref{eq:h3-expand} points to a larger obstacle to inference inherent to neural networks.  The depth of a neural network greatly increases its sensitivity to signals and modeling capacity precisely because subsequent layers can amplify or diminish signals from previous layers.  This, along with the weak identifiability of $\tau$, motivates a second correction to $\tau^{(1)}$ when formulating $\kappa^{(1)}_j$, in order to approximate the amplification effect of secondary layers on the magnitude of $\tau^{(1)}$ via the composite spectral norm of layers 2 through $\ell$.  
+
+The spectral norm $\|W\|_2$ of a weight matrix is its largest singular value, measuring
+the maximum amplification of an input by that layer.  As a partial remedy, then, to both the problem of weak identifiability as well as the change in magnitude effected by subsequent layers $l \geq 2$, we propose further correcting $\tau_{m_{eff}}^{(1)}$ when conducting inference by multiplying the composited spectral norm, expressed as 
+\begin{equation}
+    \tau_{\text{snm}}^{(1)} 
+    = \tau_{m_\text{eff}}^{(1)} \times
+        \left\| 
+            \prod_{\ell=2}^L  \bW^{(\ell)}
+        \right\|_2 
+    = \tau_{m_\text{eff}}^{(1)} \times       
+        \left\|
+            \prod_{\ell=2}^L
+            \tau^{(\ell)} \bm\Lambda^{(\ell)} \tilde \bW^{(\ell)}
+        \right\|_2,
+    \label{eq:compsn}
+\end{equation}
+where $\left\| \prod_{\ell=2}^L \bW^{(\ell)} \right\|_2$ characterizes the worst-case amplification of a signal through the entire network.
+
+We emphasize that this correction is approximate for two reasons.
+First, the ReLU nonlinearity breaks the linear composition on
+which the spectral norm argument relies: the true gain through
+a ReLU network depends on some fraction of active units, which
+varies with the data.  Second, bias parameters introduce
+offsets that affect the network's output but are ignored in this composition.  
+Rigorous identifiability for deep BNNs with continuous shrinkage priors remains an open
+theoretical problem; however, we demonstrate empirically in
+Section~\ref{sec:ch3-experiments} that these corrections improve
+the stability of the inferred $\tau$ and the calibration of the
+BFDR procedure. 
+
+Last, it is important to note that \textit{both} corrections are required, 
+as they address different issues: 
+the $m^{(2)}_\text{eff}$ correction during inference distinguishes 
+$\tau^{(1)}$'s contribution to input sparsity from representation sparsity
+in the first layer, whereas the composite spectral norm correction 
+provides a more precise accounting of input sparsity as it 
+propagates through the network.
+
+
+% We propose normalizing the \emph{composite spectral norm} of the
+% network as a partial remedy.  .
+% We approximately enforce
+% \begin{equation}
+%   \prod_{\ell=1}^{L} \bigl\|W_\ell\bigr\|_2 \;\approx\; 1
+%   \label{eq:spectral-norm}
+% \end{equation}
+% by rescaling each $W_\ell \leftarrow W_\ell / \|W_\ell\|_2^{1/L}$
+% at regular intervals during training.  Under this normalization,
+% variation in $\tau$ cannot be absorbed by a compensating change
+% in the spectral norms of the deeper weight matrices, giving $\tau$
+% a more consistent interpretation as measuring the overall scale
+% of input-to-output sensitivity attributable to the input layer.
+
+
+\subsection{Calibrating $\tau_0$ for more robust inference}
+\label{subsec:ch3-taunotes}
+
+The requirement of correcting $\tau^{(1)}$ during inference to adapt the horseshoe model's variable selection properties to the neural network setting does not obviate the need for sensible prior specification for $\tau$; if anything, it is more important as these corrections magnify errors in estimation.  Furthermore, inappropriate choices for $\tau_0$, the parameter for the half-Cauchy prior on the global scale, lead to a miscalibrated training objective in the KL divergence, slowing training and potentially degrading performance in prediction as well as inference.
+
+\citet{piironen_hyperprior_2017} show that proper calibration of the prior global scale parameter $\tau_0$ is imperative for practical usage in linear models, leading to improved parameter estimates and faster computation, and that the commonly used default of $\tau_0 = 1$ is in most cases several orders of magnitude too large.  They also indicate that, even in settings other than linear models, calibrating $\tau_0$ per their recommendation to yield a mildly informative prior leads to improved performance.  We found this to be true as well during testing, and thus while our setting is quite different, we follow their advice and set $\tau^{(l)}_0 = \dfrac{p_0}{d_{\ell-1} - p_0} \dfrac{\hat{\sigma}_\varepsilon}{\sqrt{n}}$, where $p_0$ is a prior guess at the number of covariates (or, more generally in a deep neural network, input matrix columns) that should be included in the model, and $\hat{\sigma}_\varepsilon$ is an estimate for the data standard deviation (which we set to 1 after data normalization).  Calibration of $\tau_0$ is most important for the input layer, as inference regarding variable selection depends primarily on the scale factors in that layer, but still matters in hidden layers, not only for prediction performance, but also because we rely on these secondary layers to furnish estimates used in the corrections above.  For hidden layers, we set $p_0$ to be an agnostic $d_{\ell-1} / 2$.
+
+
+
+\subsection{BFDR-Controlled Variable Selection}
+\label{subsec:ch3-bfdr}
+
+Given the fitted variational posterior, we compute the 
+posterior shrinkage weight $\hat{\kappa}^{(1)}_j$ for each input variable $j$ using $S$ samples from the variational posterior (dropping the layer superscript and replacing with the sample index $s$):
+\begin{equation}
+  \hat{\kappa}_j
+  = 
+    \frac{1}{S} \sum_{s=1}^{S} \frac{1}{1 + \lambda_j^{(s)2} \tau_{\text{snm}}^{(s)2 }}
+  =
+    \hat{\mathbb{E}}_{q_\phi}\!\left[\frac{1}{1 + \lambda_j^{2} \tau_{\text{snm}}^{2 }}\right].
+  \label{eq:kappa-hat}
+\end{equation}
+The
+quantity $1 - \hat{\kappa}_j$ serves as a pseudo-posterior
+inclusion probability (pseudo-PIP) in the sense of
+\citet{carvalho_handling_2009}, approximating the probability
+that input $j$ is genuinely active, as would be returned by a
+spike-and-slab model, and can be applied in the optimal BFDR thresholding rule of
+\citet{bernardo_fdr_2007, guindani_bayesian_2009}:
+\begin{equation}
+    \widehat{BFDR}(\eta)
+    =
+        \frac
+            {\sum_{j=1}^p  \left(1-\widehat{PIP}_j  \right)
+            \times
+            \mathbb{I}\left(
+                \widehat{PIP}_j > \eta
+                \right)}
+            {\sum_{i=1}^p 
+            \mathbb{I}\left(
+                \widehat{PIP}_i > \eta
+                \right)}
+    =
+        \frac
+            {\sum_{j=1}^p  \hat{\kappa_j}  \mathbb{I}\left(
+                \hat{\kappa}_j < \eta
+                \right)}
+            {\sum_{i=1}^p 
+            \mathbb{I}\left(
+                \hat{\kappa}_j < \eta
+            \right)},
+    \label{eq:bfdr}
+\end{equation}
+where $\eta$ is determined via a simple search over $(0,1)$ such that $BFDR(\eta)$ does not exceed a specified maximum BFDR.
+
+\subsection{Decision-theoretic Bayesian Discovery Process}
+\label{subsec:ch3-decision}
+Alternatively, for research settings in which false positives (FP) and false negatives (FN) bear different costs,  
+\citet{guindani_bayesian_2009} also offers a decision-theoretic thresholding rule based on PIPs that minimizes a loss function of the form 
+\begin{equation}
+    \mathcal{L}(d, \theta) = c_1 \times FP + c_2 \times FN,
+\end{equation}
+where $d$ is the decision vector (a collection of variable inclusion indicators), $\theta$ represents the correct decisions, and $c_1, c_2$ are the relative costs of making FP and FN errors.  The optimal threshold $t$ for this linear combination loss is the ratio of the costs, 
+\begin{equation}
+    t = \dfrac{c_1}{c_1 + c_2},
+\end{equation}
+and covariate $j$ is identified as being relevant if their corresponding $\hat{\kappa}_j < t$.
+
+
+% Order the inputs in decreasing order
+% of pseudo-PIP: $1 - \hat{\kappa}_{(1)} \geq \cdots \geq
+% 1 - \hat{\kappa}_{(p)}$.  Define the running empirical BFDR
+% after selecting the top $k$ inputs as
+% \begin{equation}
+%   \widehat{\mathrm{BFDR}}(k)
+%   = \frac{1}{k}\sum_{m=1}^{k} \hat{\kappa}_{(m)},
+%   \label{eq:bfdr-running}
+% \end{equation}
+% and set the threshold
+% \begin{equation}
+%   k^* = \max\!\left\{k \in \{1, \ldots, p\} :
+%     \widehat{\mathrm{BFDR}}(k) \leq q\right\},
+%   \label{eq:threshold}
+% \end{equation}
+% selecting inputs $(1), \ldots, (k^*)$ at nominal BFDR level $q$.
+% This is the Bayesian analogue of the Benjamini--Hochberg step-up
+% procedure, with pseudo-PIPs replacing $p$-values.  Theoretical
+% guarantees on the BFDR of this procedure in the horseshoe BNN
+% setting are a subject of ongoing investigation; empirical
+% calibration is assessed in Section~\ref{subsec:ch3-varsel}.
+
+% -----------------------------------------------------------------------------
+% 6. EXPERIMENTS
+% -----------------------------------------------------------------------------
+
+% -----------------------------------------------------------------------------
+% 6. EXPERIMENTS
+% -----------------------------------------------------------------------------
+
+\section{Experiments}
+\label{sec:ch3-experiments}
+
+We evaluate the proposed horseshoe BNN along three axes: 
+(i)~its ability to recover the functional form of nonlinear predictor--response relationships; 
+(ii)~the calibration of the BFDR-controlled selection rule of Section~\ref{subsec:ch3-bfdr};
+and (iii)~its variable-selection and predictive performance relative
+to both state-of-the-art nonlinear competitors and linear ``straw
+man'' baselines.  All experiments are conducted on simulated data
+under two data-generating regimes of increasing complexity, with
+a handful ($4$ and $8$) of truly active predictors alongside $100$
+nuisance covariates and sample sizes $n \in \{1000, 2000, 5000\}$.  
+The experiments are
+designed to probe robustness across additive and interaction effects,
+varying sample sizes, and nuisance-covariate
+correlation, and to illustrate the method's practical utility on a
+substantive dataset with unknown ground truth.
+
+% -----------------------------------------------------------------------------
+\subsection{Simulation Design}
+\label{subsec:ch3-simdesign}
+% -----------------------------------------------------------------------------
+
+\subsubsection*{Covariate generation:}
+
+In all simulations, all covariates $x_j$ are generated with pairwise
+correlation approximately $0.5$ through a shared latent factor $z_0$:
+\begin{equation}
+  z_0, z_1, \ldots, z_p \overset{\mathrm{iid}}{\sim} \Norm(0, 1),
+  \qquad
+  x_j = \frac{z_0 + z_j}{2}, \quad j = 1, \ldots, p.
+  \label{eq:ch3-covgen}
+\end{equation}
+This correlation induces non-trivial identifiability challenges
+between truly active and nuisance predictors while remaining
+representative of correlation levels encountered in practice.
+
+\subsubsection*{Data-generating functions:}
+
+We consider two regression functions of increasing complexity.
+
+\paragraph{Setting 1 (additive):}
+A purely additive model with four active predictors,
+\begin{equation}
+  y_i = f_1(x_{i1}) + f_2(x_{i2}) + f_3(x_{i3}) + f_4(x_{i4})
+        + \varepsilon_i,
+  \qquad \varepsilon_i \overset{\mathrm{iid}}{\sim} \Norm(0, 1),
+  \label{eq:ch3-setting1}
+\end{equation}
+with component functions
+\begin{equation}
+  \begin{aligned}
+    f_1(x) &= -\cos\!\bigl(\pi x / 1.5\bigr),
+    & f_2(x) &= \cos(\pi x) + \sin(\pi x / 1.2), \\
+    f_3(x) &= |x|^{0.75},
+    & f_4(x) &= x^2 / 4.
+  \end{aligned}
+  \label{eq:ch3-setting1-f}
+\end{equation}
+
+\paragraph{Setting 2 (interactions and localized effects):}
+A more challenging regression surface with eight active predictors
+and pairwise interactions mediated by indicator functions:
+\begin{equation}
+  \begin{aligned}
+    y_i
+    ={}& -\cos\!\bigl(\pi x_{i1} / 1.5\bigr) \times
+         \bigl[\ind(x_{i6} > 0) + \ind(x_{i7} < 0)\bigr] \\
+    &+ \cos\!\bigl(\pi x_{i2} \times \ind(x_{i8} > 0)\bigr)
+     + \sin\!\bigl(\pi x_{i2} / 1.2\bigr) \times \ind(x_{i8} > 0)  \\
+    &- \frac{2 x_{i3}}{1 + x_{i4}^2}
+     + \frac{1}{1 + 2\, x_{i5}\ind(x_{i5} > 0)}
+     + \varepsilon_i,
+    \qquad \varepsilon_i \overset{\mathrm{iid}}{\sim} \Norm(0, 1).
+  \end{aligned}
+  \label{eq:ch3-setting2}
+\end{equation}
+Setting~2 features (a)~localized effects that activate only over
+sub-regions of a predictor's support, (b)~multiplicative interactions
+between pairs of active predictors, and (c)~nonlinearities that are
+neither purely additive nor globally smooth.  In both settings, $100$
+nuisance covariates $x_{i5}, \ldots, x_{i,p+100}$
+(Setting~1) or $x_{i9}, \ldots, x_{i,108}$ (Setting~2) are generated
+according to~\eqref{eq:ch3-covgen} but do not enter the true regression
+function.
+
+For each combination of data-generating function and sample size, we
+generate $50$ independent datasets; each dataset is split into training and test sets at a 4:1 ratio, with the test sets used only to compute predictive metrics.
+
+% -----------------------------------------------------------------------------
+\subsection{Models, Training, and Competitors}
+\label{subsec:ch3-methods-comp}
+% -----------------------------------------------------------------------------
+
+\subsubsection*{Proposed method:}
+
+We evaluate two variants of the proposed horseshoe BNN, differing in the depth of the sparsity-inducing portion of the network:
+\begin{itemize}
+  \item \textbf{HS-2:} a 6-layer network with horseshoe priors on the
+    first two layers and deterministic weights on the subsequent layers;
+  \item \textbf{HS-4:} a 5-layer network with horseshoe priors on the
+    first four layers and a single deterministic output layer.
+\end{itemize}
+All hidden layers contain $d_\ell = 16$ units and use ReLU
+activations; the output layer is a scalar linear readout.  Both
+variants are trained by stochastic variational inference on the
+ELBO~\eqref{eq:elbo} for $50{,}000$ epochs, using the Adam optimizer
+{\citep{kingma_adam_2014} with default learning rate
+$10^{-3}$, the local reparameterization trick, and cosine KL
+annealing such that the KL weight rises from $0$ to $1$ over the
+first $20{,}000$ epochs.  The global
+scale hyperparameters $\tau_0^{(\ell)}$ is set following
+\citet{piironen_hyperprior_2017}:
+\begin{equation}
+  \tau_0^{(\ell)}
+  = \frac{p_0}{d_{\ell-1} - p_0}\,\frac{\hat{\sigma}_\varepsilon}{\sqrt{n}},
+  \label{eq:ch3-tau0}
+\end{equation}
+with $p_0 = p/10$ in the input layer (reflecting a prior belief in
+sparsity without precise calibration) and an agnostic $p_0 = d_{\ell-1}/2$ in
+hidden layers.  Training on a consumer-grade GPU (NVIDIA RTX 3060) required approximately $1$h~$40$min per run for HS-2 and
+approximately $2$h~$30$min per run for HS-4, independent
+of $n$ over the ranges considered.  At test time, posterior
+summaries are computed from Monte Carlo samples drawn from
+the variational posterior.
+
+\subsubsection*{Competitors:}
+
+We compare against two state-of-the-art nonlinear Bayesian
+competitors and two linear baselines:
+
+\begin{itemize}
+  \item \textbf{SS-GAM} {\citep{scheipl_ssgam}}: a
+    spike-and-slab generalized additive model that places a
+    spike-and-slab prior on grouped spline coefficients, yielding
+    posterior inclusion probabilities for each covariate.  SS-GAM is a
+    natural competitor under Setting~1, as it matches the additive
+    data-generating mechanism, but is mis-specified under Setting~2.
+  \item \textbf{SoftBART} \citep{linero_softbart_2022}:
+    a soft Bayesian additive regression trees model that induces
+    smoothness in BART via probabilistic tree traversal and performs
+    variable selection through a Dirichlet prior on splitting
+    probabilities.  Posterior inclusion probabilities are obtained
+    from posterior splitting frequencies, using the recommended default variable selection prior.
+  \item \textbf{LM-BH:} ordinary least squares regression with
+    Benjamini--Hochberg FDR control applied
+    to the marginal $p$-values, at target level $q = 0.05$.
+  \item \textbf{SS-LM:} a Bayesian linear model with an independent
+    spike-and-slab prior on each
+    regression coefficient, with BFDR-thresholded selection at target
+    level $0.05$.
+\end{itemize}
+The two linear models serve as straw-man baselines: when the true
+relationship is nonlinear, they should fail to recover the active
+set or produce inflated false discovery
+rates.  The two nonlinear competitors represent current best practice
+for PIP-based variable selection in the additive and tree-based
+function families, respectively.
+
+% -----------------------------------------------------------------------------
+\subsection{Function Recovery}
+\label{subsec:ch3-funcrecov}
+% -----------------------------------------------------------------------------
+
+We first assess whether the proposed method recovers the functional
+form of the nonlinear relationships between the active predictors and
+the response.  Under Setting~1, each of the four active predictors enters the
+response through an identifiable univariate component $f_j(x_j)$,
+which serves as the ground truth against which we compare the
+network's implied partial response.
+
+
+For a trained HS-2 and HS-4 model, we generate a credible band for $f_j$ 
+by holding all other inputs fixed at 0 and
+varying $x_j$ over a grid covering its empirical support, then 
+evaluate the network's output for that grid under $100$ Monte Carlo
+forward passes drawn from the variational posterior.  
+Because the intercept of each component function $\hat{f}_j$ is not identifiable in an
+additive decomposition, for the visualization in Figure ~\ref{fig:ch3-funcrecov} we shift the true functions $f_j$ and the mean of the posterior sample $\hat{E}[f_j]$ along the y-axis so that they must pass through the origin.  The pointwise $2.5\%$ and $97.5\%$ quantiles across the $100$ samples then form the credible band.
+
+\begin{figure}[h]
+    \centering
+    \begin{subfigure}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{figs/fcns/fplot800_notitle.png}
+        \caption{HS-2 BNN}
+        \label{fig:sub1}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{figs/fcns/fplot800_hshoe22_notitle.png}
+        \caption{HS-4 BNN}
+        \label{fig:sub2}
+    \end{subfigure}
+    \caption{Recovered component functions 
+    $\hat{f}_j$, $j = 1, \ldots, 4$, under Setting~1 from the HS-2 and HS-4
+    horseshoe BNNs, with $n_{train} = 800$.  
+    Colored lines are the mean of $100$ Monte Carlo forward passes, pinned to (0,0); shaded bands are pointwise $95\%$ posterior credible regions. Solid black lines are
+    the true components, also pinned to (0,0).}
+  \label{fig:ch3-funcrecov}
+\end{figure}
+
+
+Figure~\ref{fig:ch3-funcrecov} plots the resulting credible bands from HS-2 and HS-4
+against the true functions $f_j$ in Setting~1, after training on $n = 800$.  
+As expected, the most variable regions coincide with the boundaries of the empirical support, where data
+are sparse, but the posterior mean and credible intervals track the true
+function closely across the middle of the support, with the exception of $f_4$, which tended to be excluded from the models.
+
+
+To quantify recovery beyond the visual comparison, 
+in the simulation results (Tables~\ref{tab:ch3-setting1} and \ref{tab:ch3-setting2}),
+we also report the \emph{function MSE} (fMSE) computed on the held-out test sets.  For each simulation
+replicate, we compute the posterior mean prediction $\hat{\mathbb{E}}[y \mid \bx]$ on the test set using the fitted
+variational posterior, and compare it to the noise-free truth $\mathbb{E}[y \mid \bx]$ available by construction:
+\begin{equation}
+  \mathrm{fMSE}
+  = \frac{1}{n_{\mathrm{test}}} \sum_{i=1}^{n_{\mathrm{test}}}
+    \bigl(\hat{\mathbb{E}}[y_i \mid \bx_i]
+          - \mathbb{E}[y_i \mid \bx_i]\bigr)^2.
+  \label{eq:ch3-fmse}
+\end{equation}
+Unlike test-set MSE against observed $y$, fMSE isolates systematic estimation error from irreducible noise.  
+We report the mean and standard deviation of fMSE across the $50$ simulation replicates within each cell in Table~\ref{tab:ch3-comparison}.  To be clear, although the problem of non-identifiability of the intercepts for each function still exists, we calculate $fMSE$ directly on the held-out test set without pinning $f_j$ or the model output to (0,0).  The only alteration to model output made is reversing the data pre-processing normalization.  
+
+% -----------------------------------------------------------------------------
+\subsection{BFDR Calibration}
+\label{subsec:ch3-bfdrcalib}
+% -----------------------------------------------------------------------------
+
+The BFDR-controlled thresholding rule of Section~\ref{subsec:ch3-bfdr}
+produces a selected set at any target level $q \in (0, 1)$ by
+thresholding the pseudo-PIPs such that $1 - \hat{\kappa}_j > \eta$ so that the
+empirical BFDR does not exceed $q$.  The validity of this procedure
+rests on the claim that $1 - \hat{\kappa}_j$ accurately approximates
+a posterior inclusion probability; if the approximation is
+miscalibrated, nominal BFDR control is likely to fail.
+
+
+
+\begin{figure}[h]
+    \centering
+    \begin{subfigure}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{figs/bfdr_calib.png}
+        \caption{Realized mean BFDR and FDR against nominal BFDR threshold; shaded ribbon shows max and min values.}
+        \label{fig:sub1}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{figs/roc_hs21k.png}
+        \caption{ROC curve for HS-2; TPR and FPR averaged across 50 replicates, Setting 1, n = 1000}
+        \label{fig:sub2}
+    \end{subfigure}
+    \caption{BFDR calibration (a) and ROC curve (b) for HS-2, both computed by averaging across 50 replicates, Setting 1, $n = 1000$.  (a) indicates that the BFDR is slightly conservative overall; the maximum value of the realized FDR over 50 replicates never exceeds the BFDR at lower nominal threshold values.  (b) indicates strong performance of HS-2 under the sparse truth in Setting 1, $n_{train}=800$, on average recovering 69\% of the 4 active predictors before admitting \emph{any} of the 100 inactive predictors.}
+  \label{fig:ch3-bfdrcalib}
+\end{figure}
+
+To assess calibration, we vary the target level $q$ on a grid
+$\{0.01, 0.02, \ldots, 1.00\}$ and, for each $q$, compute on each of
+the $50$ simulated datasets (i)~the \emph{nominal} BFDR predicted by
+our thresholding rule and (ii)~the \emph{realized} FDR computed
+against the known ground truth.  Averaging across the $50$
+replicates within each cell, we plot nominal-versus-realized FDR in
+Figure~\ref{fig:ch3-bfdrcalib}.  We additionally report the true
+positive rate (TPR) and false positive rate (FPR) as functions of
+$q$, to characterize the power-vs-error trade-off.  A
+well-calibrated procedure traces the $45^\circ$ line; a conservative
+procedure lies below it.
+
+
+% -----------------------------------------------------------------------------
+\subsection{Comparison with Competing Methods}
+\label{subsec:ch3-comparison}
+% -----------------------------------------------------------------------------
+
+Tables~\ref{tab:ch3-setting1} and \ref{tab:ch3-setting2} report the full set of
+selection and predictive metrics when holding BFDR $< 0.05$ (Benjamini--Hochberg FDR for LM-BH).  
+Metrics include: 
+test-set MSE against observed $y$; 
+function MSE against the noise-free truth as defined in~\eqref{eq:ch3-fmse}; 
+realized FDR; 
+sensitivity $(\frac{TP}{TP + FN})$; 
+specificity $(\frac{TN}{TN + FP})$; and 
+$F_1$ score $(\frac{2TP}{2TP + FP + FN})$.  
+All quantities are reported as mean and standard deviation across the $50$ simulation replicates.
+
+% \begin{remark}
+% The corrections to $\tau^{(1)}$ developed in
+% Section~\ref{subsec:ch3-taucorrection} consist of two components: the
+% effective-dimension correction via $m_\mathrm{eff}^{(2)}$ and the
+% composite spectral-norm correction.  In
+% Table~\ref{tab:ch3-comparison}, we report results using \emph{both}
+% corrections jointly.  Results obtained when only one of the two
+% corrections is applied are deferred to
+% \textcolor{purple}{Appendix~\ref{app:ch3-ablation}}; they are
+% substantially worse on BFDR calibration and $F_1$, providing
+% empirical support for the claim that the two corrections address
+% distinct issues and are complementary rather than redundant.
+% \end{remark}
+
+\begin{table}[h]
+\centering
+\footnotesize
+\makegapedcells
+\begin{tabular}{@{}l l c c c c c c c@{}}
+\toprule
+  & \textbf{Method} 
+  & \makecell{Test\\ MSE}
+  & \makecell{fMSE}
+  & \makecell{FDR}
+  & \makecell{Sens.}
+  & \makecell{Spec.}
+  & \makecell{$F_1$} \\
+\midrule
+\multirow{6}{*}{\makecell{Setting 1\\ $n = 1000$}}
+ %               testMSE     fMSE        FDR         Sens            Spec        F1
+ & HS-2          &0.77 (0.08)& 0.22 (0.05)& 0 (0)     & 0.67 (0.15) & 1 (0)     & 0.79 (0.14)\\
+ & HS-4          &0.67 (0.08) &0.23 (0.08)& 0 (0)     & 0.56 (0.18) & 1 (0)     & 0.70 (0.18)\\
+ & SS-GAM        & --        & --        & --        & --            & --        & --    \\
+ & SoftBART      & 3.76 (0.29) & 2.76 (0.22) & 0 (0) & 0.78 (0.08) & 1 (0) & 0.87 (0.05) \\
+ & LM-BH         & 2.62 (0.29) & 1.6 (0.17)  & 0.07 (0.18)  & 0.17 (0.12)    & 1.00 (0.00)    & 0.26 (0.18)    \\
+ & SS-LM         & 4.65 (0.27) & 3.63 (0.17)  & 0 (0)  & 0.17 (0.12)  & 1 (0)  &0.26 (0.19) \\
+\midrule
+\multirow{6}{*}{\makecell{Setting 1\\ $n = 2000$}}
+ %                   testMSE     fMSE        FDR         Sens            Spec        F1
+ & HS-2         & 0.76 (0.06) & 0.16 (0.05) & 0 (0) & 0.75 (0.04) & 1 (0) & 0.85 (0.03) \\
+ & HS-4         & 0.67 (0.06) & 0.15 (0.05) & 0.01 (0.07) & 0.56 (0.29) & 1.00 (0.00) & 0.66 (0.32) \\
+ & SS-GAM       & -- & -- & -- & -- & -- & -- \\
+ & SoftBART     & 3.85 (0.24) & 2.87 (0.17) & 0.01 (0.04)  & 0.90 (0.14) & 1.00 (0.00)   & 0.94 (0.09)\\
+ & LM-BH        & 2.50 (0.21) & 1.50 (0.11) & 0.10 (0.22) & 0.25 (0) & 1.00 (0.01) & 0.39 (0.03) \\
+ & SS-LM        & 4.66 (0.21) & 3.67 (0.10) & 0 (0) & 0.25 (0) & 1 (0) & 0.4 (0) \\
+\midrule
+\multirow{6}{*}{\makecell{Setting 1\\ $n = 5000$}}
+ & HS-2         & 0.72 (0.04) & 0.08 (0.02) & 0 (0) & 0.91 (0.12) & 1 (0) & 0.95 (0.07) \\
+ & HS-4         & 0.66 (0.04) & 0.09 (0.04) & 0.00 (0.03) & 0.67 (0.27) & 1.00 (0.00) & 0.76 (0.26) \\
+ & SS-GAM       & -- & -- & -- & -- & -- & -- \\
+ & SoftBART     & 3.87 (0.14) & 2.86 (0.12) & 0 (0) &1.00 (0.04)  & 1.00 (0.00) & 1.00 (0.02) \\
+ & LM-BH        & 2.40 (0.09) & 1.38 (0.07) & 0.03 (0.01) & 0.25 (0) & 1.00 (0.00) & 0.40 (0.02) \\
+ & SS-LM        & 4.67 (0.09) & 3.66 (0.07) & 0 (0) & 0.25 (0) & 1 (0) & .4 (0) \\
+\bottomrule
+\end{tabular}
+\caption{Selection and predictive metrics under Setting~1: 4 true active predictors, no interactions.  All values reported as mean (sd) across $50$ simulation replicates.  Bayesian methods use BFDR-thresholded selection at nominal level $0.05$; LM-BH uses Benjamini--Hochberg at target FDR $0.05$.}
+\label{tab:ch3-setting1}
+\end{table}
+
+\note{Note: I am waiting on SS-GAM simulations to finish running, so those results are omitted for now, along with some results for HS-4 in setting 2.} 
+
+\subsubsection*{FDR control and specificity:}
+All methods achieve perfect or near-perfect specificity, and all but
+LM-BH maintain the realized FDR at or below the nominal $0.05$ level.  For our method,
+HS-2 and HS-4, false positives are exceedingly rare across sample size and setting, 
+with realized FDR essentially zero and well below the target BFDR.
+
+
+
+\subsubsection*{Sensitivity:}
+At the cost of a small increase in predictive error, HS-2 detects more true positives than HS-4.  This is most visible in Setting~1 at $n=5,000$, where sensitivity rises from $0.67$ for HS-4 to $0.91$ for HS-2.  HS-2 does include one more layer (5 hidden layers as opposed to 4) and thus extra modeling capacity, but we found in other testing that the number of overall layers was not as important as the number of horseshoe layers: more horseshoe layers tended to degrade sensitivity overall.  It is likely, instead, that the difference is attributable to the fact that the horseshoe layers include more than twice as many parameters than a deterministic layer with the same dimension, and thus are likely to require more observations to achieve similar results.
+
+SoftBART's ability to detect true positives is consistently the highest, 
+reflected in higher sensitivity and $F_1$ scores.  However, SoftBART's advantage over HS-2
+narrows steadily as sample size grows: in Setting~1 the
+gap in sensitivity shrinks from $0.78$ vs.\ $0.67$ at $n=1{,}000$ to $1.00$ vs.\
+$0.91$ at $n=5{,}000$, a pattern that foreshadows the predictive
+comparisons below. 
+
+The linear methods are at a severe handicap in Setting~1, in which three of the four true functions are symmetric.  
+LM-BH and SS-LM both stall at sensitivity $0.25$ regardless of $n$; closer examination revealed that the only covariate 
+they included in Setting~1 is $x_2$, which is the only predictor related to the response through an asymmetric function.  Both linear methods perform noticeably better in Setting~2, where the interaction terms break this symmetry.
+
+\begin{table}[h]
+\centering
+\footnotesize
+\makegapedcells
+\begin{tabular}{@{}l l c c c c c c c@{}}
+\toprule
+  & \textbf{Method} 
+  & \makecell{Test\\ MSE}
+  & \makecell{fMSE}
+  & \makecell{FDR}
+  & \makecell{Sens.}
+  & \makecell{Spec.}
+  & \makecell{$F_1$} \\
+\midrule
+\multirow{6}{*}{\makecell{Setting 2\\ $n = 1000$}}
+ & HS-2         & 2.00 (0.23) & 1.14 (0.13) & 0.01 (0.06) & 0.49 (0.15) & 1.00 (0.00) & 0.64 (0.16) \\
+ & HS-4         & 1.89 (0.19) & 1.20 (0.16) & 0 (0) & 0.32 (0.10) & 1 (0) & 0.48 (0.12) \\
+ & SS-GAM       & -- & -- & -- & -- & -- & -- \\
+ & SoftBART     & 6.75 (0.59) & 5.77 (0.55) & 0.00 (0.02) & 0.69 (0.10) & 1.00 (0.00) & 0.81 (0.07) \\
+ & LM-BH        & 2.73 (0.26) & 1.77 (0.20) & 0.04 (0.09) & 0.40 (0.09) & 1.00 (0.00) & 0.55 (0.09) \\
+ & SS-LM        & 4.79 (0.25) & 3.83 (0.21) & 0 (0) & 0.37 (0.07) & 1 (0) & 0.54 (0.08) \\
+\midrule
+\multirow{6}{*}{\makecell{Setting 2\\ $n = 2000$}}
+ & HS-2         & 2.17 (0.22) & 0.87 (0.14) & 0.01 (0.03) & 0.73 (0.19) & 1.00 (0.00) & 0.82 (0.15) \\
+ & HS-4         & -- & -- & -- & -- & -- & -- \\
+ & SS-GAM       & -- & -- & -- & -- & -- & -- \\
+ & SoftBART     & 6.70 (0.51) & 5.73 (0.50) & 0 (0) & 0.9 (0.09) & 1 (0) & 0.94 (0.05) \\
+ & LM-BH        & 2.51 (0.17) & 1.52 (0.12) & 0.06 (0.12) & 0.52 (0.14) & 1.00 (0.01) & 0.65 (0.12) \\
+ & SS-LM        & 4.74 (0.18) & 3.75 (0.14) & 0.01 (0.06) & 0.45 (0.09) & 1.00 (0.00) & 0.61 (0.09) \\
+\midrule
+\multirow{6}{*}{\makecell{Setting 2\\ $n = 5000$}}
+ & HS-2         & 2.12 (0.15) & 0.38 (0.11) & 0 (0) & 0.90 (0.15) & 1 (0) & 0.94 (0.14) \\
+ & HS-4         & -- & -- & -- & -- & -- & -- \\
+ & SS-GAM       & -- & -- & -- & -- & -- & -- \\
+ & SoftBART     & 7.83 (0.34) & 6.85 (0.28) & 0 (0) & 0.94 (0.08) & 1 (0) & 0.97 (0.04) \\
+ & LM-BH        & 3.49 (0.19) & 2.50 (0.14) & 0.04 (0.08) & 0.71 (0.10) & 1.00 (0.01) & 0.81 (0.07) \\
+ & SS-LM        & 5.80 (0.21) & 4.81 (0.17) & 0 (0) & 0.65 (0.10) & 1 (0) & 0.78 (0.07) \\
+\bottomrule
+\end{tabular}
+\caption{Selection and predictive metrics under Setting~2, 8 active predictors, related non-linearly to response, includes interactions. 
+All values reported as mean (sd) across $50$ simulation replicates.  Bayesian methods use BFDR-thresholded selection at nominal level $0.05$; LM-BH uses Benjamini--Hochberg at target FDR $0.05$.}
+\label{tab:ch3-setting2}
+\end{table}
+
+
+
+\subsubsection*{Predictive performance and learning from data:}
+Test MSE is relatively stable across sample sizes within each setting for every method considered.  
+While we note that our methods consistently report lower test MSE, 
+we find a more interesting story in the functional MSE: HS-2 and HS-4 are
+the \emph{only methods whose functional MSE decreases
+with $n$}.  With the exception of the OLS linear model (LM-BH) under Setting 1, 
+all the other methods' fMSE stays roughly the same or even \emph{increases} with $n$.
+In Setting~1, HS-2's fMSE falls from $0.22$ at $n=1{,}000$
+to $0.08$ at $n=5{,}000$, and a comparable drop is seen in Setting~2
+(from $1.14$ to $0.38$). As more observations become available, our
+horseshoe BNN demonstrably refines its approximation of the
+underlying truth.
+
+SoftBART, in contrast, fails to exhibit this behavior. Its functional
+MSE stays relatively constant across sample sizes in Setting 1, and even appears to
+\emph{increase} with sample size in Setting~2.  While it exhibits substantially higher sensitivity
+at lower sample sizes than our methods, SoftBART appears also to have substantial difficulty
+leveraging additional observations to better learn the underlying relationships
+between the predictors and the response.
+
+
+
+
+% -----------------------------------------------------------------------------
+\section{Application: Salary Gaps across the Career Lifespan}
+\label{subsec:ch3-salary}
+% -----------------------------------------------------------------------------
+As a real-data illustration we again consider the 2019 Current Population
+Survey extract introduced in Section~\ref{sec:intro-datasets}, reprising and validating 
+some results from Chapter~\ref{chap:semipar}.  The
+dataset comprises $n = 36{,}308$ single-race, full-time (35--40
+hours/week), non-military workers aged 18--65, with log-10 annual work
+income as the response. The covariates of interest are binary
+indicators for Black race, Hispanic origin, female sex, holding a
+college degree, government employment, and self-employment, together
+with age as a continuous predictor, as well as occupational sector (24
+categories).  Manipulation of the design matrix and the use of the cut basis could allow us to investigate similar local testing problems as in Chapter~\ref{chap:semipar}, but for this analysis we rely on the capability of neural network models to uncover interactions in the data without user specification.  Thus our scientific question answered through \emph{input variable selection} is global in nature: "is covariate $x_j$ associated with the outcome, whether through its main effect or interactions?" and we then use posterior summaries to investigate more granular questions.
+
+
+\subsection{Results: Variable inclusion}
+Unsurprisingly, all of the variables of interest (age, gender, Hispanic origin, identifying as Black, college education, and employment type) had extremely high posterior inclusion probabilities, indicating strong evidence of an effect.  We also trained SoftBART on the salary data to validate our variable selection results, since it is a well-established method with a history of theoretical development and, as a tree-based model, it similarly does not require the explicit specification of interactions.  Variable selection results are nearly exactly the same:
+
+\begin{table}[htbp]
+\centering
+\begin{tabular}{l c c}
+\toprule
+Covariate & HS-2 PIPs  & SoftBART PIPs\\
+\midrule
+age                              & 1.000    &   1.000\\
+female                           & 1.000    &   1.000\\
+hispanic                         & 0.997    &   1.000\\
+black                            & 1.000    &   1.000\\
+college                          & 1.000    &   1.000\\
+classworker: Government employee & 1.000    &   1.000\\
+classworker: Self-employed       & 1.000    &   1.000\\
+\bottomrule
+\end{tabular}
+\caption{Posterior inclusion probabilities for key covariates in the salary application, from both our HS-2 model and from SoftBART as validation.}
+\label{tab:posterior_inclusion_probs}
+\end{table}
+
+We emphasize that the interpretation of these results is quite different from that in Chapter~\ref{chap:semipar}, in which only the interactions between age and the other covariates were specified.  In contrast, the network (as well as the tree-based model of SoftBART) is free to explore any order of interactions between variables; as in a tree-based model, the posterior inclusion probabilities here may reflect the contribution of those interactions as well as main effects.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{figs/sal/marg_pct.png}
+    \caption{Estimated percent income difference associated with being Black, female, or Hispanic, marginal over all other covariates, at ages 18 through 45}
+  \label{fig:ch3-margeffectBFH}
+\end{figure}
+
+Even so, by drawing posterior samples from the trained model, we can estimate the marginal effects of these covariates on income.  Figure~\ref{fig:ch3-margeffectBFH} displays the estimated marginal effect, with 95\% credible intervals for the effect, of being Black, female, or Hispanic.  Contrary to the analysis in Chapter~\ref{chap:semipar}, this model indicates that a wage gap does exist for workers of Hispanic origin below age 30.  The marginal effects for these demographic groups suggest either no effect or a positive effect on earnings at ages 18 or 19, though with extremely high variability; we take these with a corresponding grain of salt, and note that the sample size for those ages is relatively low (142 and 245, whereas the average number of observations per age is 772.51).
+
+
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{figs/sal/marg_pct_wrk.png}
+    \caption{Estimated percent income difference associated with not having a college degree, working in a government job, or being self-employed, marginal over all other covariates, at ages 18 through 45}
+  \label{fig:ch3-margeffect_wrk}
+\end{figure}
+
+
+We also examine the effect of not earning a college degree, as well as the effect of working for the government or being self-employed as opposed to earning a wage or salary from a private company (Figure~\ref{fig:ch3-margeffect_wrk}).  Noting that the actual data contains only 31 government employees and 2 self-employed workers 20 years old or younger, and that comparing workers with college degrees to those without does not make much sense before at age 21 or 22, we otherwise find trends that comport with reality.  In Chapter~\ref{ssec:salary}, we found minimal evidence that self-employment has an effect at any age; here, we do find an effect, but it is relatively small.
+
+\subsection{Subcategory analysis}
+A more granular look into the data reveals many thought-provoking differences.  Figure~\ref{fig:ch3-healthCnC} displays the estimated $\log_{10}$ income trajectories for salaried health workers, stratified along all demographic variables available: Male/Female, Black/non-Black, Hispanic/non-Hispanic, college/no college.  Several interesting trends are apparent.  One is that non-black women appear, at the very beginning stages of their careers, to earn more than non-black males, but this trend flips by age 30.  In contrast, though women health workers in general earn less than men middle- and late- career, black women health workers with college degrees appear to earn the same or slightly more than black males with college degrees; the same is not true without a college degree.  Though college appears to increase the $\log_{10}$ income among health workers by roughly 0.125 (around a 33\% increase) within each stratum, black women health workers \emph{with} college degrees have similar mid- to late-career estimated earnings as non-black males \emph{without} college degrees.  Indeed, the gender wage gap for health workers is most pronounced among mid- to late-career non-black workers with or without college.
+
+\begin{figure}[h]
+    \centering
+    \begin{subfigure}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{figs/sal/health_coll.png}
+        \caption{Salaried health workers, college}
+        \label{fig:health-coll}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.45\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{figs/sal/health_no_coll.png}
+        \caption{Salaried health workers, no college}
+        \label{fig:health-nocoll}
+    \end{subfigure}
+    \caption{$\log_{10}$ income estimated trajectories with 95\% credible intervals for salaried health workers, with (a) and without (b) college degrees, stratified by (non-)Black, (non-)Hispanic, and colored by gender.}
+  \label{fig:ch3-healthCnC}
+\end{figure}
+
+Figure ~\ref{fig:ch3-officeHnH} also takes a close look at the data by subsetting and stratifying by all available variables, this time highlighting the difference in income trajectory between Hispanic and non-Hispanic office workers.  The office worker category is the most numerous of the occupational categories in the data, with 5179 observations.  Though we found the marginal effect of being Hispanic in Fig~\ref{fig:ch3-margeffectBFH} to be present before age 30, the effect before age 30 is not as clear in these subcategories, lending some explanation for the result in Chapter ~\ref{chap:semipar} of a null local effect for Hispanic origin below age 30.  Interestingly, the effect is nearly absent among women and black men without college degrees, as well as among black women below 50, whereas the divergence is strongest among non-black males, almost from the beginning.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\linewidth]{figs/sal/office_HnH.png}
+    \caption{$\log_{10}$ income estimated trajectories with 95\% credible intervals for salaried office workers, stratified by college/no college, black/non-black, gender, and colored by Hispanic/non-Hispanic}
+  \label{fig:ch3-officeHnH}
+\end{figure}
+
+A comprehensive examination of each subcategory is outside of our scope, but the two slices of data in Figures~\ref{fig:ch3-healthCnC} and ~\ref{fig:ch3-officeHnH} should make it clear that wage gaps, while persistent across discriminatory factors marginally, not only vary by age, but also take on very different forms across industries and sector.  A linear model might yield a passable approximation of the marginal effects, at least above age 25 or 30, but has little chance of capturing more local effects with much fidelity, both in the sense of changing trends across age ranges but also in the ability to model different strata within the data flexibly. Our key takeaway here is that flexible modeling strategies coupled with principled inference can allow us to capture the different forms that wage gaps take, thus informing targeted policy approaches to address them.
+
+
+% -----------------------------------------------------------------------------
+% 7. DISCUSSION
+% -----------------------------------------------------------------------------
+
+\section{Discussion and Future Work}
+\label{sec:ch3-discussion}
+
+The method developed in this chapter is best viewed as a first step
+toward recovering the Bayesian operating characteristics enjoyed by
+continuous shrinkage priors in linear regression (sparsity-inducing
+shrinkage, posterior inclusion probabilities, and BFDR-controlled
+selection) in the setting of deep neural networks.  By grouping the
+weights associated with each input under a single local horseshoe
+scale $\lambda_j^{(1)}$, and by introducing the $m_\mathrm{eff}^{(2)}$
+and composite spectral-norm corrections to the global scale
+$\tau^{(1)}$ (Section~\ref{subsec:ch3-taucorrection}), we restore an
+interpretation of $1 - \kappa_j^{(1)}$ as a pseudo-posterior
+inclusion probability sufficient to drive the BFDR thresholding rule
+of \citet{bernardo_fdr_2007}.  The experiments of
+Section~\ref{sec:ch3-experiments} indicate that our method effectively controls the FDR and produces exceedingly few false positives, 
+provide empirical support that
+this interpretation is reasonably well-calibrated under both
+additive and interaction-driven data-generating mechanisms.  
+In addition, it is the only method in our comparison that
+\emph{actually learns from more data}: its functional MSE, already much smaller than the competing methods, continues to decrease with sample size, while its sensitivity gap relative to the method with the highest sensitivity, SoftBART, also closes correspondingly.
+
+A second, more general, point illustrated by our method is that
+Bayesian and deterministic components can be \emph{fused within a
+single network}: horseshoe-structured layers responsible for
+variable selection may be composed with deterministic layers
+responsible for expressive function approximation.  The
+composite-spectral-norm correction of~\eqref{eq:compsn} is
+formulated generically and accommodates an arbitrary number of
+deterministic downstream layers, and our empirical results suggest
+that this hybrid construction does not compromise either the
+calibration of the selection procedure or the predictive
+performance of the network, in fact delivering better performance relative to sample size.  This decomposition offers a
+practical route to retaining Bayesian inferential guarantees where
+they are scientifically required---at the input interface---while
+benefitting from the efficiency of deterministic representations
+elsewhere.
+
+Several directions for future work remain.  
+In particular, our variational family uses a full mean-field factorization over
+weights, scale parameters, and the Cauchy-decomposition variables.
+\citet{ghosh_structured_2018} suggest that a low-rank multivariate
+Gaussian over the \emph{weights} improves the quality of the
+variational approximation; a natural extension would tie the
+\emph{scale} parameters $(\bm\lambda^{(\ell)}, \tau^{(\ell)})$
+through a multivariate log-normal variational posterior, either
+within a layer or jointly across layers.  Because it is precisely
+the scale parameters that drive selection, a richer posterior over
+the scale factors rather than over the weights is arguably more important for
+inference on variable selection.
+
+Finally, much theoretical work remains.  The existing posterior
+concentration and Bernstein--von Mises results for sparse deep BNNs
+\citep{polson_posterior_2018, wang_uncertainty_2020,
+liu_variable_2021} are formulated for spike-and-slab and isotropic
+Gaussian priors, respectively; analogous results for
+horseshoe-structured deep networks, and in particular theoretical
+guarantees for the BFDR procedure driven by $\kappa_j^{(1)}$ and 
+the corrections that we propose to the global scale factor $\tau$ are
+open problems.  Further development of theory regarding 
+the identifiability of deep ReLU networks with
+continuous shrinkage priors, and its interaction with both
+1) the second-layer's effective dimension reduction of the input layer 
+and 2) the magnitude-transfer pathology that
+motivate our corrections to $\tau$, are particularly
+promising directions: a rigorous understanding of identifiability
+would likely suggest principled alternatives to our approximate
+corrections, or confirm their asymptotic validity.
+
+
+% \section{Experiments - \note{TO DO}}
+% \label{sec:ch3-experiments}
+
+% We evaluate the proposed method on three tasks: (i) recovery of
+% a nonlinear response surface in a setting where the network
+% is near its interpolation threshold, (ii) input variable selection
+% in synthetic datasets designed to test both main effects and
+% interaction effects, and (iii) an application to the wage data
+% of \missingcite{(Murphy and Welch, 1990)}.
+
+% Across all experiments, the network architecture consists of
+% $L = 2$ hidden layers with $d_1 = d_2 = $ [TODO: specify width]
+% hidden units, ReLU activations, and a scalar output with Gaussian
+% likelihood.  Variational parameters are optimized using the Adam
+% optimizer \missingcite{(Kingma and Ba, 2015)} with learning rate
+% [TODO] and batch size [TODO], for [TODO] epochs.  The global scale
+% hyperparameter $\tau_0$ is set according to the \citet{piironen_hyperprior_2017}
+% recommendation as described in Section~\ref{subsec:ch3-model}.
+% All implementations use the \texttt{torch} package for R.
+
+% \subsection{Nonlinear Function Recovery}
+% \label{subsec:ch3-recovery}
+
+% \paragraph{Setup.}
+% To assess the network's ability to recover nonlinear response
+% surfaces, we generate $n$ observations from the model
+% $y_i = f_0(\mathbf{x}_i) + \varepsilon_i$,
+% $\varepsilon_i \sim \mathcal{N}(0, \sigma^2)$, where
+% $f_0$ is [TODO: specify true function] and
+% $\mathbf{x}_i \sim \mathrm{Uniform}([0,1]^p)$.
+% We vary the ratio $n / |\mathbf{W}|$, where $|\mathbf{W}|$ is
+% the total number of network parameters, to examine how function
+% recovery degrades as the network approaches the underdetermined
+% regime.
+
+% \paragraph{Results.}
+% [TODO: Insert results and figures.]
+
+% In general, when $n$ is near or exceeds the total number of
+% network parameters, nonlinear function recovery is accurate
+% and posterior credible intervals are well-calibrated.  As $n /
+% |\mathbf{W}|$ decreases, posterior uncertainty increases
+% appropriately and the horseshoe shrinkage prevents the network
+% from overfitting to noise.
+
+% \paragraph{Intercept non-identifiability.}
+% An important practical observation is that the individual additive
+% components $f_j$, when the response surface is approximately
+% additive, are not identifiable up to an additive constant: each
+% component $f_j(x_j)$ absorbs its own intercept during fitting,
+% producing component estimates that are individually shifted but
+% collectively accurate.  This is an inherent non-identifiability
+% of additive decompositions that is not specific to the horseshoe
+% BNN; approaches to resolving it are under investigation.
+
+% \subsection{Variable Selection: Simulation Studies}
+% \label{subsec:ch3-varsel}
+
+% NOTE: only compare against methods with defined BFDR control processes
+% that are intended for non-linear associations
+
+% \paragraph{Setup.}
+% Following \citet{liang_bayesian_2018}, we generate synthetic
+% datasets with $p$ candidate inputs, of which $p_0 < p$ are
+% truly active.  The active inputs enter the response through
+% a [TODO: specify functional form, including interaction
+% structure].  We compare the proposed horseshoe BNN to the
+% following competitors:
+% \begin{enumerate}
+%   \item \textbf{BART} \missingcite{(Chipman, George, and McCulloch, 2010)}:
+%     Bayesian additive regression trees.
+%   \item \textbf{SoftBART} \missingcite{(\ellinero, 2018)}: a smooth
+%     extension of BART that adapts to the degree of continuity
+%     in the response surface.
+%   \item \textbf{Spike-and-slab GAM (correct interactions)}: a
+%     generalized additive model with spike-and-slab priors on smooth
+%     components, with the interaction structure of the true model
+%     correctly specified.
+%   \item \textbf{Spike-and-slab GAM (no interactions)}: the same
+%     model without interaction terms, to test the advantage of the
+%     neural network's ability to discover interactions implicitly.
+% \end{enumerate}
+% Each method is evaluated on true positive rate (TPR), false
+% discovery rate (FDR), and mean squared prediction error (MSPE)
+% on a held-out test set, averaged over [TODO: number] replications.
+% FDR is estimated as the proportion of selected variables that are
+% not in the true active set $\mathcal{S}^*$.
+
+% \paragraph{Results.}
+% [TODO: Insert simulation results, tables, and figures.]
+
+% Table~\ref{tab:ch3-sim} reports [TODO: description of results].
+% We observe that [TODO: key findings].  In particular, the horseshoe
+% BNN empirically approaches the nominal BFDR level $q$ as sample
+% size increases, consistent with the theory of
+% \citet{bernardo_fdr_2007} applied to pseudo-PIPs.  We note that
+% the spike-and-slab GAM with correctly specified interactions
+% serves as an upper bound on achievable performance for linear-basis
+% methods; the horseshoe BNN achieves comparable variable selection
+% performance without requiring the interaction structure to be
+% specified in advance.
+
+% \begin{table}[htbp]
+%   \centering
+%   \caption{Variable selection results averaged over [TODO]
+%     replications. TPR: true positive rate; FDR: false discovery
+%     rate; MSPE: mean squared prediction error on test set.
+%     Nominal BFDR level: $q = [TODO]$.}
+%   \label{tab:ch3-sim}
+%   \begin{tabular}{lccc}
+%     \toprule
+%     Method & TPR & FDR & MSPE \\
+%     \midrule
+%     Horseshoe BNN (proposed) & [TODO] & [TODO] & [TODO] \\
+%     BART & [TODO] & [TODO] & [TODO] \\
+%     SoftBART & [TODO] & [TODO] & [TODO] \\
+%     Spike-slab GAM (correct) & [TODO] & [TODO] & [TODO] \\
+%     Spike-slab GAM (no interactions) & [TODO] & [TODO] & [TODO] \\
+%     \bottomrule
+%   \end{tabular}
+% \end{table}
+
+% \subsection{Application to Wage Data}
+% \label{subsec:ch3-wages}
+
+% \paragraph{Data.}
+% We apply the horseshoe BNN to the wage dataset of
+% \missingcite{(Murphy and Welch, 1990)}, also analyzed in
+% Chapter~\ref{chap:semipar} using the semiparametric local
+% variable selection method of \citet{rossell2025semiparametric}.
+% The dataset contains $n = $ [TODO] male workers from the Current
+% Population Survey; the response is log hourly wage, and the
+% predictor set includes years of education, years of potential
+% labor-market experience, and demographic indicator variables.
+% The analysis in Chapter~\ref{chap:semipar} identified
+% experience and education as globally active predictors with
+% evidence of localized effects; here we ask whether the horseshoe
+% BNN recovers the same active set and whether it captures the
+% nonlinearity in the experience-wage relationship without being
+% given a pre-specified basis.
+
+% \paragraph{Results.}
+% [TODO: Insert results and figures.]
+
+% The horseshoe BNN selects [TODO: describe selected variables]
+% at nominal BFDR level $q = [TODO]$.  Figure~\ref{fig:ch3-wages}
+% shows [TODO: describe figure].  The selected variables [agree /
+% partially agree / differ from] those identified by the
+% semiparametric method in Chapter~\ref{chap:semipar}, suggesting
+% [TODO: scientific interpretation].
+
+% \begin{figure}[htbp]
+%   \centering
+%   % \includegraphics[width=0.8\textwidth]{figures/ch3_wages.pdf}
+%   \caption{[TODO: Caption for wage data results figure.]}
+%   \label{fig:ch3-wages}
+% \end{figure}
+
+% % -----------------------------------------------------------------------------
+% % 7. DISCUSSION
+% % -----------------------------------------------------------------------------
+
+% \section{Discussion - \note{TO DO}}
+% \label{sec:ch3-discussion}
+
+% We have developed a Bayesian neural network method for input
+% variable selection based on a grouped horseshoe prior, with
+% false discovery rate control implemented through the
+% decision-theoretic thresholding rule of
+% \citet{bernardo_fdr_2007}.  The method adapts the Bayesian
+% compression framework of \citet{louizos_bayesian_2017} from
+% architectural pruning to input-variable selection, avoids the
+% pathologies of the improper Normal-Jeffreys prior identified by
+% \citet{hron_variational_2018}, and provides a principled
+% procedure for BFDR control that extends naturally from the linear
+% regression setting to the nonlinear, compositional setting of
+% deep networks.
+
+% Several limitations and directions for future work deserve note.
+% First, the theoretical properties of the BFDR procedure in this
+% setting---including the consistency and calibration of the
+% pseudo-PIPs $1 - \hat{\kappa}_j$ as estimators of the true
+% posterior inclusion probabilities---have not been established
+% analytically.  Extending the concentration and Bernstein--von
+% Mises results of \citet{polson_posterior_2018},
+% \missingcite{Ch\'{e}rief-Abdellatif (2020)}, and
+% \citet{wang_uncertainty_2020-1} to the horseshoe BNN setting
+% is a natural next step.  Second, the composite spectral norm
+% correction provides empirical improvements in the identifiability
+% of $\tau$ but lacks a complete theoretical justification in the
+% presence of ReLU nonlinearities and bias parameters; a rigorous
+% analysis of identifiability for global shrinkage parameters in
+% deep BNNs would be of independent theoretical interest.  Third,
+% the variational approximation used here is based on fully
+% factorized, log-normal marginals; richer approximations, such
+% as the normalizing-flow-enhanced posteriors of
+% \citet{skaaret-lund_sparsifying_2023} or the structured
+% covariance approximations of \citet{ghosh_structured_2018},
+% may improve posterior calibration at additional computational
+% cost.  Finally, the scope of the experiments, while
+% demonstrating the method's practical utility, is necessarily
+% limited; a more comprehensive benchmark across a wider range
+% of simulation settings, sample sizes, and real datasets would
+% strengthen the empirical case for the method.
+
+% Notwithstanding these limitations, the proposed horseshoe BNN
+% provides a coherent framework that brings together the
+% expressive capacity of deep neural networks, the uncertainty
+% quantification of Bayesian inference, the sparsity-inducing
+% properties of the horseshoe prior, and a principled
+% false-discovery-rate control procedure---a combination that,
+% to our knowledge, has not previously been assembled in the
+% existing literature.
+
+%%% Local Variables: ***
+%%% mode: latex ***
+%%% TeX-master: \"thesis.tex\" ***
+%%% End: ***

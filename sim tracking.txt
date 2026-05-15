@@ -153,3 +153,54 @@ Each methods' test mse is relatively stable across sample sizes within each sett
 Specificity: All methods' Specificity is perfect or near perfect, and all do a fairly good job of controlling FDR, with OLS linear regression the only method exceeding the nominal rate.
 Sensitivity: The linear methods are at a severe handicap in Setting 1, as the functions in Setting 1 are largely symmetric; they perform better in Setting 2, where the interactions reduce symmetry, and perhaps also benefitting from the larger number of active variables.
 
+
+
+
+
+
+
+
+\paragraph{Varying-coefficient extensions.}
+The horseshoe BNN can be extended to the varying-coefficient setting
+in the spirit of VC-BART \citep{deshpande:2024} by modeling responses
+of the form
+\begin{equation}
+  y_i = \sum_{j=1}^{p} f_j(\bm{z}_i)\, x_{ij} + \varepsilon_i,
+  \label{eq:ch3-vcm}
+\end{equation}
+where the effect of each predictor $x_j$ is modulated by an
+auxiliary coordinate vector $\bm{z}_i$ (e.g., spatial or temporal
+indices) through a smooth modulator $f_j(\cdot)$.  One natural
+architecture fits a single horseshoe BNN that takes $\bm{z}_i$ as
+input and outputs a vector
+$(\hat{f}_1(\bm{z}_i), \ldots, \hat{f}_p(\bm{z}_i))^\top$, whose
+final layer is then multiplied elementwise by $\bx_i$ under a
+grouped horseshoe prior on the $\bx$-side of the product;
+alternatively, each $f_j$ can be modelled by its own sub-network
+with shared horseshoe-prior-based selection.  This extension would
+bring the expressive capacity of deep networks to bear on problems
+that have so far been the domain of tree-based varying-coefficient
+methods \citep{deshpande:2024, ghosh_fitting_2025}.
+
+\paragraph{Discrete spike-and-slab priors with normalizing flows.}
+A qualitatively different avenue is to replace the continuous
+horseshoe shrinkage with a discrete spike-and-slab prior on the
+row-groups of $\bW^{(1)}$, in the spirit of
+\citet{sun_learning_2022} and \citet{skaaret-lund_sparsifying_2023},
+using non-local slabs \citep{rossell:2017} to improve inclusion
+probability separation and normalizing flows \citep{huang_neural_2018}
+as the variational family.  This would yield exact---rather than
+pseudo---posterior inclusion probabilities at the cost of a more
+complex variational optimization.
+
+\paragraph{Knockoff hybrids and variational dropout rates.}
+The empirical Bayes perspective of \citet{kingma_variational_2015}
+furnishes an alternative relevance summary: the inverse coefficient
+of variation of the posterior local scale,
+$\alpha_j = \mathbb{E}^2[\lambda_j^{(1)}]\,/\,\mathrm{Var}[\lambda_j^{(1)}]$,
+can be interpreted as a per-input variational dropout rate.
+Combined with a knockoff filter \citep{barber_controlling_2015,
+candes_panning_2018}, this statistic could provide finite-sample FDR
+control while sidestepping the $\tau^{(1)}$ corrections altogether,
+at the cost of the assumptions on the covariate distribution
+required by model-X knockoffs.

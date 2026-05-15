@@ -1,0 +1,716 @@
+% =============================================================================
+% chapter1.tex  --  Chapter 1: Introduction
+% Arnold K. Seong, UCI Ph.D. Dissertation, 2026
+% =============================================================================
+\epigraph{\begin{verse}
+\hspace*{1em} the news to my left over the dunes and\\
+reeds and bayberry clumps was\\
+\hspace*{1em} fall: thousands of tree swallows\\
+\hspace*{1em}  gathering for flight:\\
+\hspace*{1em}  an order held\\
+\hspace*{1em}  in constant change: a congregation\\
+rich with entropy: nevertheless, separable, noticeable\\
+\hspace*{1em}  as one event,\\
+\hspace*{2em} not chaos: preparations for\\
+flight from winter,\\
+cheet, cheet, cheet, cheet, wings rifling the green clumps,\\
+beaks\\
+at the bayberries\\
+\hspace*{.5em} a perception full of wind, flight, curve,\\
+\hspace*{.5em} sound:\\
+\hspace*{.5em} the possibility of rule as the sum of rulelessness:\\
+the “field” of action\\
+with moving, incalculable center:\end{verse}}{Corson's Inlet\\ \textit{A.R. Ammons}}
+
+\chapter{Introduction}
+\label{chap:intro}
+
+
+Variable selection is the task of identifying which predictors in a
+candidate set are genuinely relevant to an outcome of interest and,
+just as importantly, screening out those which, conditional on the
+selected predictors, are either not associated with the outcome or
+whose magnitude of impact is below a determined threshold for
+scientific relevance. This task is increasingly important in the age
+of high-dimensional data regimes: our ability to collect data about
+many different factors makes it ever more difficult to identify which
+of these factors are truly important to the outcome that we care
+about. Whether our goal is understanding which genetic variants are
+associated with a disease \citep{tibshirani_regression_1996}, which
+economic or demographic indicators predict future wages, or which
+neural signals encode a cognitive process, the ability to separate
+signal from noise is imperative to scientific understanding.
+
+At the same time, we also require more flexible modeling tools to
+describe complex relationships beyond linear associations. Modeling
+neuronal cluster activation in response to timed stimuli, for
+example, or identifying not only if there are differences in wages
+between demographic groups \textit{but also when} those wage gaps
+are present, requires models that have the capacity to learn and
+express such relationships. This is, however, a double-edged sword:
+more flexible models increase the risk of overfitting and finding
+specious relationships between predictor and outcome, again
+necessitating principled variable selection methods.
+
+This dissertation develops Bayesian methods for variable selection in
+\emph{semi-parametric} settings, where the relationship between
+predictors and the outcome is only partially specified and may
+include nonlinear functional components. We offer two main
+contributions united by a common concern:
+achieving principled, interpretable, and uncertainty-aware variable
+selection when the model's functional form is flexible or unknown. 
+(Chapter~\ref{chap:semipar}) develops a procedure that tests for \textit{local} effects in
+functional data via variable selection and modified basis projections.   
+(Chapter~\ref{chap:horseshoe}) introduces a horseshoe-prior-augmented
+Bayesian neural network for input variable selection with control over 
+the Bayesian false discovery rate.
+
+The remainder of this chapter provides the background necessary to
+situate these contributions. 
+Section~\ref{sec:intro-vs} surveys the main
+approaches to variable selection, from classical
+penalized-likelihood methods to the Bayesian framework.
+Section~\ref{sec:intro-fdr} introduces the false discovery rate and
+its Bayesian counterpart, the Bayesian FDR, as the inferential standard for evaluating
+variable selection procedures. 
+Section~\ref{sec:intro-models}
+situates our work within the taxonomy of parametric,
+semi-parametric, and non-parametric models.
+Section~\ref{sec:intro-gam} describes generalized additive models
+as the semi-parametric framework for Chapter~\ref{chap:semipar}.
+Section~\ref{sec:intro-nn} introduces deep neural networks and
+their Bayesian extensions as the foundation for
+Chapter~\ref{chap:horseshoe}. 
+% Section~\ref{sec:intro-outline} provides a detailed outline of the dissertation.
+
+% -----------------------------------------------------------------------------
+\section{Variable Selection: Classical and Bayesian Approaches}
+\label{sec:intro-vs}
+% -----------------------------------------------------------------------------
+
+
+\subsection{A Note on Model Selection versus Variable Selection}
+\label{subsec:modelvsvar}
+
+The terms \emph{model selection} and \emph{variable selection} are
+sometimes used interchangeably and sometimes inconsistently, but variable selection is more usefully understood as a
+component of, or a step within, the broader problem of model
+selection. Model selection encompasses all structural decisions
+that define the probability model: constraints placed on functional forms, the choice of basis representation, the link function, and
+for neural networks, the architecture (number of layers, units, and
+connectivity). Variable selection, in contrast, refers specifically
+to determining which predictors are active within a given model structure.
+
+For example, in Chapter~\ref{chap:semipar}, choosing a set of knots in an additive model determines the number of basis functions
+and the sub-intervals they cover; this is a model-selection
+decision, as this choice specifies a model. Within that chosen model, determining which basis
+coefficients are non-zero---and thus which spatial regions of a
+predictor's support are active---is variable selection. In
+Chapter~\ref{chap:horseshoe}, the neural network architecture
+(depth, width, activation function) is a model-selection choice,
+while identifying which input features are necessary is variable
+selection.
+
+Critically, treating these as separate sequential procedures
+introduces \emph{post-selection bias}: having used the data to
+select a model, subsequent inference about active coefficients no
+longer carries the claimed nominal coverage. 
+The principled solution is to unify both decisions within a single probability model over the joint space of model structures and parameters. 
+We adopt this approach in both of the following chapters' methods.  The complexity prior in Chapter~\ref{chap:semipar} spans both the basis structure and coefficient activity, 
+and additionally allows for multi-resolution comparison via Bayes Factors;
+the horseshoe prior in Chapter~\ref{chap:horseshoe} simultaneously governs the effective
+network architecture and the active input set.
+
+
+\subsection{Penalized Likelihood: LASSO and Variants}
+\label{subsec:lasso}
+
+For the purpose of primary exegesis we consider the standard linear model,
+\begin{equation}
+  y_i = \beta_0 + \mathbf{x}_i^\top \boldsymbol{\beta}^* + \varepsilon_i,
+  \qquad
+  \varepsilon_i \overset{\mathrm{iid}}{\sim} \mathcal{N}(0, \sigma^2),
+  \quad i = 1, \ldots, n,
+  \label{eq:linear-model}
+\end{equation}
+where $y \in \mathbb{R}$ denotes a scalar response and
+$\mathbf{x} = (x_1, \ldots, x_p)^\top \in \mathbb{R}^p$ a vector
+of $p$ candidate predictors observed on $n$ units. 
+Variable selection in this context amounts to recovering the true active set
+$\mathcal{S}^* = \{j : \beta_j^* \neq 0, j \in \{1, 2, ..., p\}\}$.
+
+The dominant frequentist approach to variable selection casts the
+problem as penalized optimization of a likelihood. 
+The \emph{least absolute shrinkage and selection operator} (LASSO)
+of \citet{tibshirani_regression_1996} solves
+\begin{equation}
+  \hat{\boldsymbol{\beta}}^{\mathrm{LASSO}}
+  = \arg\min_{\boldsymbol{\beta} \in \mathbb{R}^p}
+  \left\{
+    \frac{1}{2n}\|\mathbf{y} - \mathbf{X}\boldsymbol{\beta}\|_2^2
+    + \lambda\|\boldsymbol{\beta}\|_1
+  \right\},
+  \label{eq:lasso}
+\end{equation}
+for a tuning parameter $\lambda > 0$. The $\ell_1$ penalty
+simultaneously shrinks coefficients toward zero and sets some
+exactly to zero, achieving variable selection as a by-product of
+estimation. The resulting convex optimization problem can be solved
+efficiently for large $p$ via coordinate descent
+\citep[see][]{friedman2010glmnet}.
+
+Despite its computational appeal, the LASSO is unstable in the
+presence of correlated predictors: among a group of collinear
+variables, it tends to arbitrarily retain only one while discarding
+the others, thereby inflating the false discovery rate. The
+procedure is also sensitive to the choice of the regularization
+parameter $\lambda$; cross-validation selects $\lambda$ for
+predictive accuracy rather than for selection accuracy, and small
+perturbations in the data can yield qualitatively different selected
+sets. Several derivatives of the LASSO have been formulated
+to address these problems.  The \emph{smoothly clipped absolute deviation} (SCAD) penalty
+of \citet{fan_variable_2001} replaces the linear $\ell_1$ penalty
+with a locally linear, globally concave alternative that satisfies
+oracle properties but introduces additional tuning parameters. The
+\emph{elastic net} of \citet{zou_regularization_2005} adds an
+$\ell_2$ term to encourage the joint selection of correlated
+predictors. The \emph{adaptive LASSO} \citep{zou2006adaptive}
+uses data-dependent weights on each coefficient to achieve
+selection consistency under milder conditions than the standard
+irrepresentable condition required by the LASSO. Despite these
+refinements, all penalized-likelihood procedures share a fundamental
+limitation: they produce \emph{point estimates} with no
+accompanying probabilistic measure of which variables are truly
+active, making rigorous false discovery rate control difficult,
+particularly in high-dimensional and semi-parametric settings.
+
+% \subsection{The Knockoff Filter}
+% \label{subsec:knockoffs}
+
+% The more recently-developed knockoff filter of \citet{barber_controlling_2015} represents a
+% qualitatively different approach to controlled variable selection.
+% Rather than penalizing the likelihood, it augments the design matrix
+% with synthetic \emph{knockoffs}: copies of the original predictors
+% that (i)~exactly reproduce the correlation structure among
+% covariates, and (ii)~are conditionally independent of the response
+% given the true predictors. This exchangeability property under the
+% null hypothesis---where a predictor has no effect---provides the
+% symmetry needed to set a rejection threshold with exact, finite-sample
+% false discovery rate control, without any knowledge of the noise
+% level, the number of active predictors, or the magnitude of their
+% effects.
+
+% \citet{candes_panning_2018} extend the original construction to
+% the \emph{model-X} knockoff framework, which relaxes the restriction
+% $n \geq p$ and removes all assumptions about the conditional
+% distribution of the response. In model-X knockoffs, the only
+% requirement is that the marginal distribution of the covariates be
+% known (or accurately estimated); given this, valid FDR control is
+% achieved in finite samples regardless of the true response model,
+% making the framework broadly applicable to generalized linear models,
+% survival analysis, and nonlinear predictors.
+
+% The primary limitation of knockoff-based methods is their dependence
+% on an accurately estimated joint covariate distribution. In
+% high-dimensional regimes, and especially when covariates are
+% time-varying or structurally dependent, estimating this distribution
+% with sufficient accuracy to maintain power is computationally
+% intractable. Bayesian frameworks for knockoffs are only now emerging
+% \citep{noauthor_bayesian_nodate}, and remain an active area of
+% research.
+
+\subsection{Bayesian Variable Selection}
+\label{subsec:bvs}
+
+The Bayesian approach to variable selection augments the standard
+probability model for the response with a prior distribution over
+both the model parameters and the \emph{model structure} itself,
+conventionally represented by a binary indicator vector
+$\boldsymbol{\gamma} = (\gamma_1, \ldots, \gamma_p)^\top \in \{0,1\}^p$,
+where $\gamma_j = 1$ if predictor $j$ is included in the model.
+Conditioning on the data then yields a posterior distribution over
+all $2^p$ possible sub-models and their parameters.  The posterior probability of a variable's inclusion marginalized over the model space, or 
+\emph{posterior inclusion probability} (PIP),
+\begin{equation}
+  \mathrm{PIP}_j = \Pr(\gamma_j = 1 \mid \mathbf{y}),
+  \label{eq:pip}
+\end{equation}
+provides a direct, calibrated probability that predictor $j$ is
+active---an inferential quantity with no direct frequentist analogue.
+
+\subsubsection*{Spike-and-slab priors.}
+The canonical prior for Bayesian variable selection is the
+\emph{spike-and-slab} distribution of \citet{mitchell_bayesian_1988},
+developed further by \citet{george_approaches_1997}. The prior
+places each regression coefficient under a mixture,
+\begin{equation}
+  \beta_j \mid \gamma_j
+  \;\sim\;
+  (1 - \gamma_j)\,\delta_0(\beta_j)
+  \;+\;
+  \gamma_j\,\mathcal{N}(0, \tau^2),
+  \label{eq:spike-slab}
+\end{equation}
+where $\delta_0$ is a point mass at zero (the ``spike'') and
+$\mathcal{N}(0, \tau^2)$ is a diffuse Gaussian (the ``slab'').
+The binary indicators $\gamma_j$ typically receive independent
+Bernoulli priors, and a Beta-Binomial prior on the model size
+$|\boldsymbol{\gamma}| = \sum_j \gamma_j$ can be used to
+penalize large models and provide automatic multiplicity control
+\citep{bernardo_fdr_2007} via the prior over the model space.  
+
+A posterior $\Pi_n(\cdot | \by)$ is said to contract or concentrate around $\bm\theta_0$ at a rate $\epsilon_n$ for a sequence of positive numbers $\epsilon_n$ if
+\begin{equation}
+    \Pi_n\left(\mathcal{B}\left(\bm\theta_0 ; M_n \epsilon_n \right) | \by \right) \rightarrow 1
+\end{equation}
+in probability for any sequence $M_n \rightarrow \infty$ as $n \rightarrow \infty$, where $\mathcal{B}\left(\bm\theta_0 ; \epsilon_n \right) = \left\{ \bm{\theta}: d_q(\bm\theta, \bm\theta_0) < \epsilon_n \right\}$ and $d_q (\bm\theta, \bm\theta') = \sum_{i=1}^n |\theta_i - \theta_i'|^q$, or, in other words, if the mass of the posterior within a neighborhood of size $M_n\epsilon_n$ around $\theta_0$ goes to 1 in probability as observations $n \rightarrow \infty$. The Spike-and-Slab posterior over
+$\boldsymbol{\gamma}$ has been shown to have a minimax (i.e. fastest even in the worst case) rate of concentration in sparse settings of approximately $s \log(n/s)$, where $s$ is the number of relevant signals \citep{abramovich_optimality_2007, castillo_needles_2012}.
+
+While providing PIPs directly via the Bernoulli posterior on $\bm \gamma$, 
+the Spike-and-Slab poses a difficult computational
+challenge.  Exact posterior evaluation requires a sum over
+all $2^p$ sub-models, which is intractable for even moderately-sized $p$;
+in practice, rather than full enumeration of the $2^p$ possible models, 
+Markov Chain Monte Carlo methods are used to stochastically explore the model space.
+
+
+\subsubsection*{Continuous shrinkage priors.}
+Continuous shrinkage priors sidestep the combinatorially-large model space
+by placing a prior directly on $\boldsymbol{\beta}$ that
+concentrates mass near zero while maintaining heavy tails for large
+signals, thus reducing the model search space from $2^p$ to simply $p$. Table \ref{tab:shrinkage-priors} presents several examples of continuous shrinkage priors.
+
+
+Perhaps the most commonly used are the Bayesian Lasso and the Horseshoe. 
+The \emph{Bayesian Lasso} \citep{park_bayesian_2008} (so named because its \textit{maximum a posteriori} (MAP) estimate is equivalent to the frequentist LASSO estimator)
+uses independent Laplace priors, implemented as exponential
+scale mixtures of Gaussians.  Though adaptive versions such as the Spike-and-Slab LASSO can achieve near minimax-optimal posterior concentration \citep{polson_posterior_2018, bai_efficient_2020}, the classical single-prior Bayesian Lasso's Laplace tails are not heavy
+enough to reliably protect strong signals from over-shrinkage.
+
+
+\begin{table}[t]
+\centering
+\makegapedcells
+\begin{tabular}{@{}l l l l@{}}
+\toprule
+\textbf{Prior} & \textbf{Hierarchical formulation} & \textbf{Marginal on $\beta_j$} & \textbf{Reference} \\
+\midrule
+
+\makecell{Normal-- \\ Jeffreys} &
+\makecell{$\beta_j \mid \tau_j^2 \sim \Norm(0,\tau_j^2)$; \\ $p(\tau_j^2) \propto 1/\tau_j^2$} &
+\makecell{Improper: \\ $p(\beta_j)\propto 1/|\beta_j|$} &
+\makecell{Figueiredo (2003)} \\
+
+\makecell{Bayesian \\ Lasso} &
+\makecell{$\beta_j \mid \tau_j^2 \sim \Norm(0,\tau_j^2)$; \\ $\tau_j^2 \sim \mathrm{Exp}(\lambda^2/2)$} &
+\makecell{$\mathrm{Laplace}(0, 1/\lambda)$} &
+\makecell{Park \& Casella (2008); \\ Hans (2009)} \\
+\addlinespace
+
+\makecell{Horseshoe \\ (HS)} &
+\makecell{$\beta_j \mid \lambda_j,\tau \sim \Norm(0,\lambda_j^2\tau^2)$; \\ $\lambda_j \sim \Cauchyp(0,1)$; \\ $\tau \sim \Cauchyp(0,1)$} &
+\makecell{No closed form; \\ $\sim \log(1+1/\beta^2)$ near $0$, \\ Cauchy-like tails} &
+\makecell{Carvalho, Polson \\ \& Scott (2010)} \\
+\addlinespace
+
+\makecell{Regularized \\ Horseshoe} &
+\makecell{$\beta_j \mid \lambda_j,\tau,c \sim \Norm(0,\tau^2\tilde{\lambda}_j^2)$, \\ $\tilde{\lambda}_j^2 = \dfrac{c^2\lambda_j^2}{c^2 + \tau^2\lambda_j^2}$; \\ $\lambda_j \sim \Cauchyp(0,1)$; \\ $\tau \sim \Cauchyp(0,\tau_0)$; \\ $c^2 \sim \mathrm{IG}(\nu/2,\nu s^2/2)$} &
+\makecell{No closed form; \\ bounded tails \\ (Student-$t$-like \\ for large $|\beta|$)} &
+\makecell{Piironen \& \\ Vehtari (2017)} \\
+\addlinespace
+
+\makecell{R2--D2} &
+\makecell{$\beta_j \mid \psi_j,\phi_j,\omega \sim \Norm(0,\psi_j\phi_j\omega/2)$; \\ $\psi_j \sim \mathrm{Exp}(1/2)$; \\ $\boldsymbol{\phi} \sim \mathrm{Dir}(a_\pi,\ldots,a_\pi)$; \\ $\omega \sim \mathrm{BetaPrime}(a,b)$} &
+\makecell{No closed form; \\ heavy tails; \\ induced via prior on $R^2$} &
+\makecell{Zhang, Naughton, \\ Bondell \& Reich (2022)} \\
+
+\bottomrule
+\end{tabular}
+\caption{Selected continuous shrinkage priors for regression coefficients $\beta_j$.}
+\label{tab:shrinkage-priors}
+\end{table}
+
+The \emph{Horseshoe prior} of \citet{carvalho_handling_2009,
+carvalho_horseshoe_2010} enjoys minimax rate-optimal and adaptive posterior contraction rates, particularly under "nearly black" conditions (extreme sparsity of coefficient vector) \citep{pas_horseshoe_2014, pas_adaptive_2017, ghosh_asymptotic_2017}.  These properties arise from employing a
+global-local scale mixture
+\begin{equation}
+  \beta_j \mid \lambda_j, \tau
+  \;\sim\;
+  \mathcal{N}(0,\, \lambda_j^2 \tau^2),
+  \quad
+  \lambda_j \sim \mathrm{Half\text{-}Cauchy}(0, 1),
+  \quad
+  \tau \sim \mathrm{Half\text{-}Cauchy}(0, 1),
+  \label{eq:horseshoe}
+\end{equation}
+where $\tau$ is a \emph{global} shrinkage parameter adapting to
+the overall sparsity level (and thus filling the function of a prior on the model space) and $\lambda_j$ are \emph{local} scales
+that allow individual coefficients to escape shrinkage. The
+resulting marginal prior on $\beta_j$ has a sharp peak at zero and
+Cauchy-like heavy tails, concentrating mass near zero for inactive
+predictors while allowing genuine signals to pass through with
+minimal attenuation.  
+
+A useful summary of the per-coefficient
+shrinkage is the \emph{shrinkage weight}
+\begin{equation}
+  \kappa_j = \frac{1}{1 + \lambda_j^2 \tau^2},
+  \label{eq:kappa}
+\end{equation}
+which takes values in $(0, 1)$: when $\kappa_j \approx 1$ the
+coefficient is strongly shrunk toward zero, while $\kappa_j \approx 0$
+indicates that the signal passes through nearly unattenuated. The
+posterior mean of $\beta_j$ under the horseshoe takes the form
+$(1 - \mathbb{E}[\kappa_j \mid \mathbf{y}])\hat{\beta}_j^{\mathrm{OLS}}$,
+paralleling the Bayesian model-averaging estimator under a
+spike-and-slab prior \citep{carvalho_handling_2009, piironen_hyperprior_2017}. In this sense,
+the posterior expectation of $\kappa_j$ acts as a
+``pseudo''-posterior exclusion probability, analogous to
+$1 - \mathrm{PIP}_j$ under a discrete prior. 
+Because the horseshoe
+avoids discrete indicators altogether, the posterior can be
+approximated via variational inference
+\citep{blei_variational_2017}, thus turning the often difficult problem of searching the parameter space via MCMC into an optimization problem, a major computational advantage that is
+particularly consequential when the horseshoe is embedded in a deep
+neural network (Chapter~\ref{chap:horseshoe}).
+
+The global shrinkage parameter $\tau$ plays a key role in
+calibrating the overall sparsity level; \citet{polson_half-cauchy_2012}
+and \citet{piironen_hyperprior_2017} provide theoretical
+justification and practical guidance for setting the Half-Cauchy
+hyperprior on $\tau$ based on prior beliefs about the number of
+active predictors.
+
+
+% -----------------------------------------------------------------------------
+\section{False Discovery Rate and Bayesian FDR}
+\label{sec:intro-fdr}
+% -----------------------------------------------------------------------------
+
+\subsection{Frequentist FDR Control}
+\label{subsec:fdr-freq}
+
+When performing variable selection, two types of errors are
+possible: 
+including an inactive predictor (a false positive or \emph{false discovery}) 
+and omitting an active one (a false negative or \emph{missed discovery}).
+The \emph{false discovery rate} (FDR) formalizes the cost of the
+first type of error: if $V$ denotes the number of false discoveries
+and $R$ the total number of discoveries, then
+\begin{equation}
+  \mathrm{FDR} = \mathbb{E}\!\left[\frac{V}{\max(R, 1)}\right],
+  \label{eq:fdr}
+\end{equation}
+where the expectation is taken over many experiments.
+Controlling FDR at level $q$ means that the expected proportion of
+false discoveries among all reported discoveries does not exceed
+$q$. While still ensuring replicability and reliability, 
+controlling the FDR is a less stringent requirement than controlling the
+family-wise error rate (which bounds the probability of \emph{any}
+false discovery), and in practice allows substantially greater
+statistical power.
+
+The Benjamini--Hochberg (BH) procedure \citep{benjamini1995fdr}
+is the most widely used method for FDR control due to its high power, wide applicability, and clear procedure. Given ordered
+$p$-values $p_{(1)} \leq \cdots \leq p_{(p)}$, the procedure
+rejects the hypotheses $H_{(1)}, \ldots, H_{(k^*)}$ where
+\begin{equation}
+  k^* = \max\!\left\{j : p_{(j)} \leq \frac{j \cdot q}{p}\right\}.
+  \label{eq:bh}
+\end{equation}
+The BH procedure controls FDR exactly under independence of the
+test statistics as well as under positive dependancy (informally, positive correlation between test statistics) \citep{benjamini_control_2001}. 
+
+A fundamental limitation of $p$-value-based FDR procedures is that
+they require valid marginal tests for each variable, a requirement
+that can be difficult or impossible to satisfy in semi-parametric
+settings. Testing whether a smooth function $f_j \equiv 0$ in a
+generalized additive model, or whether the $j$-th input of a neural
+network has any effect on the output, does not reduce straightforwardly
+to a single test statistic with a known null distribution. The more recently developed
+knockoff filter of \citet{barber_controlling_2015} sidesteps this
+requirement by providing finite-sample FDR control without $p$-values,
+but instead requires accurate covariate-distribution estimation as FDR control is 
+predicated on synthesizing covariates which resemble the actual data but are unrelated to $y$, 
+a non-trivial task particularly in settings that motivate the use of semi-parametric methods.
+
+\subsection{Bayesian FDR}
+\label{subsec:bfdr}
+
+The \emph{Bayesian false discovery rate} (BFDR) replaces the
+frequentist expectation in~\eqref{eq:fdr} with an expectation
+taken with respect to the posterior distribution over the set of
+active variables given the observed data $\mathbf{y}$:
+\begin{equation}
+  \mathrm{BFDR}(\delta)
+  = \mathbb{E}\!\left[\frac{V(\delta)}{\max(R(\delta), 1)}
+    \,\middle|\, \mathbf{y}\right],
+  \label{eq:bfdr}
+\end{equation}
+where $\delta$ is a decision rule that maps data to a selected set.
+Because this expectation is conditioned on the observed data, \emph{the BFDR
+is an inherently posterior quantity}: it measures our uncertainty,
+\emph{after seeing} $\mathbf{y}$, about how many of our discoveries
+are false.  In plainer language, then, to evaluate a decision rule's BFDR, we 1) apply the decision rule to the covariates $x_j$, then 2) for only the included $x_j$'s, we average the posterior probability that those inclusions were wrong.
+
+A major advantage of Bayesian methods for variable selection is
+that multiplicity control is incorporated naturally via the prior
+over the model space \citep{bernardo_fdr_2007}.  \citet{bernardo_fdr_2007} and \citet{guindani_bayesian_2009} formalize
+variable selection as a decision problem under a loss function
+that penalizes both false discoveries and missed discoveries.
+The key result is that the optimal decision rule is a simple threshold on the marginal posterior
+inclusion probabilities: select predictor $j$ if and only if
+$\mathrm{PIP}_j > t^*$, where the optimal threshold $t^*$ is
+determined by sorting predictors in decreasing order of PIP and
+incrementally adding them to the selected set while the resulting
+empirical BFDR first exceeds the target level $q$.  This procedure
+is a Bayesian analogue of the Benjamini--Hochberg step-up rule,
+with posterior exclusion probabilities $1 - \mathrm{PIP}_j$ replacing $p$-values.  We describe an equivalent procedure in Section~\ref{subsec:ch3-bfdr}, where sorting and incremental addition of predictors is replaced by a search over thresholds $t^*$.
+
+% \note{guindani 2009} offers a decision-theoretically optimal rule for thresholding PIPs that minimizes a loss function of the form 
+% \begin{equation}
+%     \mathcal{L}(d, \theta) = c_1 \times FP + c_2 \times FN,
+% \end{equation}
+% where $d$ is the decision vector (a collection of variable inclusion indicators), $\theta$ represents the correct decisions, and $c_1, c_2$ are the relative costs of making FP and FN errors.  The optimal threshold $t$ for this linear combination loss is the ratio of the costs, 
+% \begin{equation}
+%     t = \dfrac{c_1}{c_1 + c_2},
+% \end{equation}
+% and variable $j$ is identified as being relevant if their corresponding $PIP_j > t$.
+
+
+In both chapters of this dissertation, we use BFDR control as
+our primary inferential standard, exploiting the posterior
+distributions induced by our respective priors to characterize
+the uncertainty in our variable-selection decisions.
+
+% -----------------------------------------------------------------------------
+\section{Parametric, Semi-Parametric, and Non-Parametric Models}
+\label{sec:intro-models}
+% -----------------------------------------------------------------------------
+
+Statistical models differ in how much structure they impose on the
+relationship between predictors and the response. \emph{Parametric}
+models assume that the data-generating process belongs to a
+finite-dimensional family of distributions, typically characterized
+by a parameter vector $\boldsymbol{\theta} \in \mathbb{R}^d$. The
+linear regression model~\eqref{eq:linear-model} is a canonical
+example. Parametric models are statistically efficient when the
+assumed form is correctly specified, but can be severely biased when the true
+relationship departs from the specified family.
+
+At the other extreme, \emph{non-parametric} models impose no fixed functional form on the relationship between predictors and response; kernel regression, spline smoothing, and Gaussian processes
+are prominent examples. They are highly flexible but typically
+require large samples, and variable selection in purely
+non-parametric settings raises fundamental identifiability
+challenges.
+
+\emph{Semi-parametric} models blend both paradigms by combining a parametric component, 
+such as a sparsity-inducing prior governing which predictors are active, 
+with a non-parametric component that captures the functional form of the active effects.
+This combination is our focus throughout the dissertation, as it
+permits the modeling of complex, nonlinear relationships through the non-parametric component 
+while retaining the structured inferential framework needed for
+principled variable selection.  
+The two particular types of semi-parametric models we investigate 
+are additive models and Bayesian neural networks.
+
+% -----------------------------------------------------------------------------
+\section{Generalized Additive Models}
+\label{sec:intro-gam}
+% -----------------------------------------------------------------------------
+
+\emph{Generalized additive models} (GAMs), introduced by \citet{hastie_generalized_1986}, 
+are semi-parametric models that extend the standard generalized
+linear model by replacing the linear predictor
+$\boldsymbol{x}_i^\top \boldsymbol{\beta}$ with a sum of smooth,
+potentially nonlinear univariate functions:
+\begin{equation}
+  g\!\left(\mathbb{E}[y_i \mid \mathbf{x}_i]\right)
+  = \alpha + \sum_{j=1}^{p} f_j(x_{ij}),
+  \label{eq:gam}
+\end{equation}
+where $g$ is a known link function and each $f_j$ is an unknown
+smooth function of predictor $j$ to be estimated. As each $f_j$ captures the marginal effect of
+predictor $j$ on the outcome, the additive structure preserves
+interpretability while still accommodating nonlinearity
+that would be misrepresented by a linear model.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=1\textwidth, height = 9cm]{figs/P-spl_fit.png}
+    \caption{A sine curve fit with B-splines and P-splines, illustrating the fit created via summing the basis functions (grey) after multiplication by coefficients $\alpha_{j,k}$}.
+    \label{fig:splines}
+\end{figure}
+
+Though each $f_j$ is theoretically infinite-dimensional, in practice these functions are typically approximated by a finite basis
+expansion $f_j(x) \approx \sum_{k=1}^{K} \phi_{jk}(x)\alpha_{jk}$,
+where $\{\phi_{jk}\}_{k=1}^K$ is a chosen set of basis functions and $\alpha_{jk}$ are
+coefficients to be estimated, thus turning the task of estimating $f_j$ into the problem of estimating coefficients in a linear sum. Penalized splines (P-splines; \citet{eilers_flexible_1996}) are a common choice of basis function, as they enforce smoothness through a penalty on the basis coefficients (see Figure \ref{fig:splines} for a comparison of fits between P-splines and their non-penalized version, Bezier or B-splines).  Although many different basis projections exist (various types of splines, wavelets, Gaussian process basis functions), a hallmark feature of all of them is that \textit{the individual basis functions overlap} with each other in order to adequately model $f(\cdot)$ through linear combination.
+
+Variable selection in the GAM
+framework for whether covariate $x_j$ has any (i.e. \emph{global}) effect amounts to testing whether the full coefficient vector
+$\boldsymbol{\alpha}_j = (\alpha_{j1}, \ldots, \alpha_{jK})^\top$
+is fully zero.  Many different approaches to this type of global testing problem exist, but by far the most commonly used is based on obtaining approximate $p$-values from a Wald-type test for $f_j = 0$, as implemented in the R package `mgcv` (Mixed GAM computation Vehicle; \citet{wood_p-values_2013}).  
+
+However, as we describe in Chapter~\ref{chap:semipar}, identifying \emph{local} effects, or effects that are non-zero only over a compact
+sub-interval of the predictor's support, poses different problems.  In particular, unless we are only interested in testing for effects in specific, pre-defined regions, the number of hypotheses that need to be tested can become either untenable or lead to a large loss in power under Frequentist methods.  Furthermore, standard basis expansions distribute local signals across overlapping basis
+functions (see Figure \ref{fig:splines}) whether or not those basis functions' support contains the region being tested. Because each coefficient's estimate contains information from neighboring regions, coefficient-based tests for selection of localized effects are not asymptotically
+consistent. 
+The method developed in Chapter~\ref{chap:semipar}
+resolves the latter problem by constructing an orthogonalized basis that
+eliminates this overlap, and largely mitigates multiple testing issues by posing the problem of identifying active and inactive regions as a Bayesian variable selection problem.
+% equipped with a model-complexity prior that jointly governs both the basis structure and the selection of active coefficients.
+
+% -----------------------------------------------------------------------------
+\section{Deep Neural Networks and Bayesian Extensions}
+\label{sec:intro-nn}
+% -----------------------------------------------------------------------------
+
+\subsection{Deep Neural Networks}
+\label{subsec:dnn}
+
+A \emph{deep feedforward neural network} (DNN) with $L$ hidden layers
+maps an input $\mathbf{x} \in \mathbb{R}^p$ to a scalar output
+through a composition of affine transformations and element-wise
+nonlinearities:
+\begin{equation}
+  f(\mathbf{x})
+  = \sigma_{L-1}\left(\,\sigma_{L-2}\!\left(\cdots
+    \sigma_1(\mathbf{x}W_1  + \mathbf{b}_1') \cdots
+    \right)W_{L-1} + \mathbf{b}_{L-1}'\right)W_L + b_L',
+  \label{eq:dnn}
+\end{equation}
+where $W_\ell \in \mathbb{R}^{d_{\ell-1} \times d_{\ell}}$ and
+$\mathbf{b}_\ell \in \mathbb{R}^{d_\ell}$ are the weight matrix
+and bias vector at layer $\ell$, and $\sigma_\ell(\cdot)$ is the
+nonlinear activation function applied in layer $\ell$, such as the rectified linear unit
+(ReLU).  (\textit{Note}: we adopt a representation more typical of linear models, in which $W$ has dimension $d_{\ell-1} \times d_\ell$, rather the transpose used in most literature on neural networks.)
+The universal approximation property of deep networks
+makes them highly expressive function estimators, capable of
+representing complex response surfaces. Standard training proceeds by minimizing an empirical
+loss (e.g., mean squared error) over the network parameters
+$\{W_\ell, \mathbf{b}_\ell\}$ via stochastic gradient descent.  
+
+While DNNs have achieved remarkable predictive accuracy across
+a wide range of scientific and applied domains, the shortcomings of DNNs in application to scientific research are significant.  Often with more parameters than observations to learn from, DNNs can easily overfit the training data and 
+thus generalize poorly; various regularization methods, such as dropout or LASSO regularization, are sometimes used to address this.
+
+The absence of uncertainty quantification in standard deterministic DNNs is also problematic.  The weight and bias parameters in each layer $\{W_l, b_l\}$ of a deterministic DNN are \textit{point estimates}, thus providing no measure of the confidence with which any prediction is made.  For scientific inference, this is a serious
+deficiency: one needs to know not only \emph{what} the network predicts,
+but \emph{how certain} that prediction is, and which predictors are
+driving it in a statistically meaningful sense.
+
+Finally, the highly tangled nature of the composition of network parameters defies interpretability, especially as the number of layers $L$ and nodes within each layer increase.  These numerous network parameters held in composition are not readily interpretable 
+in the way that, for example, regression model coefficients are, making 
+the object of inference difficult to specify.
+
+
+
+\subsection{Bayesian Neural Networks}
+\label{subsec:bnn}
+
+Bayesian Neural Networks offer remedies to some of the difficulties discussed above, though at the cost of additional computation.  In contrast to the standard deterministic neural network described above, where each weight is a point
+estimate and the trained network provides no measure of
+uncertainty about its predictions, a \emph{Bayesian neural network} (BNN) replaces the point-estimate
+network parameters with probability distributions. Rather than
+directly estimating the weights, one places a prior
+$p(\mathbf{W})$ over the network weights
+$\mathbf{W} = \{W_\ell, \mathbf{b}_\ell\}$ and updates it to a
+posterior $p(\mathbf{W} \mid \mathcal{D})$ given the observed data.
+Predictions can then made by averaging over the posterior, yielding
+calibrated uncertainty estimates that are unavailable from
+deterministic networks. An introduction to Bayesian neural
+networks from a statistical perspective is given by \citet{jospin_hands-bayesian_2022} and \citet{arbel_primer_2023}.
+
+% In addition to providing uncertainty quantification, 
+
+% \missingcite{MORE HERE ON Bayesian formulations providing regularization, and regularization techniques used in deterministic settings as special cases of Bayesian techniques.  Even dropout has been shown to be equivalent to Bayesian VI, discussed in the next section}
+
+
+
+BNNs when first developed relied on costly MCMC methods for weight estimation and posterior inference, but these methods are rarely used in practice to train large networks, as exact Bayesian methods are typically computationally intractable due to the often large number of parameters and thus the high-dimensional, multimodal nature of the weight posterior.  
+Instead, modern BNNs are typically trained using some version of \emph{Variational inference} \citep{blei_variational_2017}, in which the posterior distributions for network parameters $p(\mathbf{W} | \mathcal{D})$  are approximated with simpler distributions.
+
+
+
+\subsection{Variational Inference}
+\label{subsec:vi}
+
+In Variational Inference, the often intractable posterior distribution $p(\mathbf{W}|\mathcal{D}) = p(\mathcal{D} | \mathbf{W}) p(\mathbf{W})  /  p(\mathcal{D})$ is approximated by variational distributions $q_\phi(\mathbf{W})$, in principle by minimizing 
+what is sometimes termed the "reverse" Kullback-Leibler divergence 
+between the posterior and the approximating or variational distributions, 
+$KL \left( q_\phi(\mathbf{W})) || p(\mathbf{W}|\mathcal{D}) \right)$. 
+
+In practice, this is done by optimizing the variational parameters $\phi$ with respect to the Evidence Lower Bound or ELBO, 
+\begin{equation}
+    \mathcal{L}(\phi) = 
+      \mathbb{E}_{q_\phi} \left[ \log p(\mathcal{D}|\mathbf{W}) \right] 
+      - KL \left( q_\phi(\mathbf{W})||p(\mathbf{W}) \right).
+    \label{eq:ELBO}
+\end{equation}
+
+or the expected log-likelihood under the variational distribution minus the KL divergence between the variational posterior $q_\phi(\mathbf{W})$ and \textit{the prior} $p(\mathbf{W})$.  This leads to a nicely Bayesian interpretation of the ELBO as the fit to the data given the parameters $\mathbf{W}$, minus the "distance" the variational posterior has traveled away from the prior.
+
+Maximizing the ELBO $\mathcal{L}(\phi)$ is equivalent to minimizing $KL \left( q_\phi(\mathbf{W}) || p(\mathbf{W}|\mathcal{D}) \right)$, since the log-marginal likelihood $\log p(\mathcal{D})$ is constant and
+\begin{equation}
+  \begin{aligned}
+    KL \left( q_\phi(\mathbf{W}) || p(\mathbf{W}|\mathcal{D}) \right) 
+    & =  \mathbb{E}_{q_\phi} 
+      \left[ \log \frac{q_\phi(\mathbf{W})}{p(\mathbf{W}|\mathcal{D})} \right] 
+    \\
+    & =  \mathbb{E}_{q_\phi} 
+      \left[ \log \left(
+        q_\phi(\mathbf{W}) 
+        \frac{p(\mathcal{D})}{p(\mathcal{D}|\mathbf{W})p(\mathbf{W})} 
+      \right) \right]
+    \\
+    & = \log p(\mathcal{D})
+    - \mathbb{E}_{q_\phi} \left[\log p(\mathcal{D} | \mathbf{W}) \right]
+    + \mathbb{E}_{q_\phi} \left[ \log \frac{q_\phi(\mathbf{W})}{p(\mathbf{W})} \right]
+    \\
+    & = \log p(\mathcal{D}) - \mathcal{L}(\phi)
+  \end{aligned}
+\end{equation}
+
+
+
+\subsubsection*{The Mean Field assumption Variational Distributions}
+
+Mean Field Variational Inference (MFVI) refers to variational optimization that adopts the Mean Field assumption that the joint posterior of the parameters is factorizable along a specified partition (that is, that parameters can be partitioned such that the partition subsets are independent of each other), thus leading to simpler posteriors that, particularly for fully-factorized specifications, are much easier to sample from and making computation tractable and highly scalable.  Even though the true joint posterior may be highly dependent, the individual variational posterior distributions remain independent; variational Bayes procedures for this reason are known to underestimate variance, essentially approximating a highly correlated posterior with a product of independent "bubbles."  
+
+However, the variational approximation to the posterior remains useful.  Though the individual variational posteriors do not capture dependence in the joint posterior, the variational distributions' parameters are optimized \textit{jointly} to minimize the KL divergence to the true posterior.  Thus, even though the posteriors for individual network parameters remain \textit{statistically} independent and can be sampled independently, they are \textit{functionally} coupled: if two network parameters must be high together to satisfy the data, optimization will push their means up together.  
+
+While the variational distribution will typically under-fit the true posterior, often becoming overly certain, model specification can to some degree mitigate this behavior.
+% and picking the largest axis-aligned blob it can fit inside the true posterior \note{addref Bishop Pattern Recognition and Machine Learning}
+Some methods employ variational specifications which specify parameter correlation structures within partition subsets, such as employing multivariate Normals with low-rank estimates of the covariance matrix for a layer's weights \citep{ghosh_structured_2018}, but this comes at computational cost.  Time complexity for training a network with $D$ weight parameters under the mean field assumption is linear ($\mathcal{O}(D)$); for parameters modeled with a covariance matrix with rank $K$, that time complexity is $\mathcal{O}(DK^2)$.  
+Furthermore, in the context of predictive uncertainty, even when the total dimension over layers is the same, deeper neural networks with fully factorized variational distributions have been shown to induce richer marginal distributions with complex covariance structures even than shallow networks with correlated weight posteriors \citep{farquhar_liberty_2021}.
+
+The other major factor affecting the quality of variational inference is the ability of the variational distributions to adequately model the true posterior: a Normal variational distribution is likely to have difficulty approximating a multi-modal distribution.  A class of highly flexible variational posteriors called Normalizing Flows \citep{rezende_variational_2015}, essentially based on learning an iterative inverse CDF transform, has resulted in a significant body of work (a useful review is given by \citet{papamakarios_normalizing_2021}).  While highly expressive, normalizing flows typically require their own subnetworks within a neural network.  
+
+The work presented in this dissertation adheres to classical variational specifications which appear adequate for our model specifications, but we mention flow-based models as a potential avenue for future work.
+
+
+
+\section{Motivating Datasets: Salary Gaps and Cortical Activity}
+\label{sec:intro-datasets}
+
+Two real datasets motivate the methodological developments in Chapter~\ref{chap:semipar} and `\ref{chap:horseshoe}, chosen because they exemplify, in very different scientific settings, the central statistical problem of this thesis: recovering the truly active set of predictors, even when their effect is non-linear or varying.  In Chapter ~\ref{chap:semipar}, we consider the question of not only \emph{if} but also \emph{where}, along some continuous coordinate $z$, a covariate of interest exerts an effect on an outcome, whereas in Chapter ~\ref{chap:horseshoe}, we focus on recovering the active predictor set and more precise modeling of the functional relationship between the predictors and outcome.  Both datasets share the feature that the true relationship between predictor and outcome is likely to be both varying and \emph{localized}, non-zero only over a sub-region of the support of $z$.  
+
+% and that na\"ive semi-parametric approaches can produce misleading inference in precisely these settings.
+
+\subsection*{Salary gaps across the career lifespan}
+
+The first dataset, drawn from the 2019 Current Population Survey \citep{flood:2020}, comprises $n=36{,}308$ single-race, full-time (35--40 hours/week), non-military workers aged 18--65. The response is log-10 annual work income. The scientific question in Chapter~\ref{chap:semipar} is whether salary gaps associated with race (binary indicators for Black race and Hispanic origin) and sex are present \emph{at every stage of a worker's career}, or whether they emerge, attenuate, or intensify with age.  Age thus plays the role of the local coordinate $z$, and we additionally test the effects of holding a college degree, being government-employed, and being self-employed.  In Chapter~\ref{chap:horseshoe}, we use the salary data to illustrate our Bayesian deep neural network model's capacity for variable selection and flexible modeling of the time-varying nature of the relationships between covariates.
+% Occupational sector (24 categories) is included as an adjustment covariate that is forced into the model without undergoing selection.
+
+Substantively, application of these methods illustrates the importance of identifying localized and varying effects: policies targeting workplace discrimination typically take years to manifest in aggregate earnings, so detecting whether gaps are absent for workers newly entering the labor force but present later in a career has concrete policy relevance. As shown in Chapter~\ref{chap:semipar}, we find near-certain evidence of salary gaps associated with Black race, female sex, and college education across all ages; interestingly, we find strong evidence of salary gap for those self-identifying as Hispanic \emph{after} the age of 30, but no strong evidence of a salary gap before then. A full description of the covariates, the multi-resolution knot specification (2.5-, 5-, 7.5-, and 10-year bins), and sensitivity analyses appear in Section~\ref{ssec:salary} and Appendix~\ref{chap:appendix}.
+
+In Chapter ~\ref{chap:horseshoe} we validate some of these findings via the neural network model, which finds strong evidence of changes in salary trajectory based on each of these characteristics, along with sub-category-specific predictions which arise from the neural network's ability to capture interactions between covariates without requiring the user to formulate them explicitly.
+
+\subsection*{Cortical dynamics of economic decision-making}
+
+The dataset that originally motivated the local null testing method of Chapter ~\ref{chap:semipar} comes from a multi-electrode electrocorticography (ECoG) study of patients with medically refractory epilepsy who had intracranial electrodes implanted for pre-surgical evaluation \citep{saez:2018}. While instrumented, patients played a sequence of economic decision-making trials in which they chose between a guaranteed payoff and a risky gamble. High-frequency neural activity was recorded continuously from $z=-450$\,ms to $z=1500$\,ms relative to the moment at which the trial outcome was revealed ($z=0$). The scientific aim is to determine \emph{when} each of several trial-level covariates is reflected in cortical activity.
+
+The covariates fall into two classes. Three are \emph{outcome-related}: whether the gamble was won or lost, the reward prediction error (RPE, the difference between realized reward and the gamble's expected value), and regret (the foregone winnings of the un-chosen option). The remaining covariates are \emph{choice- and history-related}: whether the subject chose to gamble, and indicators for properties of the immediately preceding trial (e.g., a prior loss). Because neural signals evolve on the scale of tens to hundreds of milliseconds, the highest resolution in our multi-resolution analysis uses 50-ms bins, matching the temporal precision used in the original analysis of \citet{saez:2018}.
+
+This application is functional in nature: for each trial one observes a densely sampled time series, and residual autocorrelation is substantial. It therefore also serves as the primary testbed in Chapter~\ref{chap:semipar} for the dependent-data extension of our framework, in which a block-diagonal working covariance is combined with the orthogonal cut basis to preserve consistent local selection. As we show in Section~\ref{ssec:saez_data}, joint modeling of the eight covariates identifies regret (rather than win/loss or RPE, with which it is strongly correlated) as the variable most cleanly associated with local increases in high-frequency activity, with posterior probability near 0.9 over roughly $z \in (720, 870)$\,ms.
