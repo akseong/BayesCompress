@@ -138,7 +138,7 @@ reconstruct_flistdat <- function(
 # hshoe4det1
 
 
-stem <- here::here("final_sims", "results", "hshoesmallbias_mutcorr0.5_5x165000obs_")
+stem <- here::here("final_sims", "results", "meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_1000obs_")
 modfcns_TF <- grepl("meanfs", stem)
 n_sims = 50 
 

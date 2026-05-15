@@ -139,7 +139,7 @@ metrics_err_by_max_bfdr <- function(dropout_vec, true_vec, bfdr_vec){
 
 
 #### COMPILE POSSIBLE DATA SEEDS ----
-stem <- here::here("final_sims", "results", "nfdsmallbias_mutcorr0.5_5x162000obs_")
+stem <- here::here("final_sims", "results", "meanfssmallbias_5x16_origmodsupint_p100_mcor.5_2000obs_")
 modfcns_TF <- grepl("meanfs", stem)
 n_sims = 50
 max_bfdr = "arr"
@@ -397,7 +397,7 @@ competitor_list <- list(
   "pipsmat_ssgam" = pipsmat_ssgam,
   # "pipsmat_sb" = pipsmat_sb,
   # "resarr_lm" = resarr_lm,
-  "resarr_ssgam" = resarr_ssgam,
+  "resarr_ssgam" = resarr_ssgam
   # "resarr_ss" = resarr_ss,
   # "resarr_sb" = resarr_sb
 )

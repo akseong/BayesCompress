@@ -91,7 +91,7 @@ metrics_err_by_max_bfdr <- function(dropout_vec, true_vec, bfdr_vec){
 # hshoe4det1
 
 
-stem <- here::here("final_sims", "results", "meanfssmallbias_5x16_origmodsupint_p100_mcor.5_1000obs_")
+stem <- here::here("final_sims", "results", "meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_2000obs_")
 modfcns_TF <- grepl("meanfs", stem)
 n_sims = 50 
 
@@ -104,10 +104,6 @@ if (modfcns_TF){
   true_vec[1:4] <- 1
   fname_suffix <- "origfcns_bfdr_arr"
 }
-
-
-
-
 
 # started off some with 5, some with 10.  Figure out which ones have 5, vs 10
 overall_seeds <- as.numeric(c(516, paste0(516, 0:13)))
@@ -291,6 +287,8 @@ cat_color(paste0("results saved to ", compiled_fname))
 
 
 
+
+
 t(apply(ktc50k_bfdr_arr, c(2, 3), mean))
 t(apply(ktc50k_bfdr_arr, c(2, 3), sd))
 
@@ -311,8 +309,7 @@ t(apply(ksntc_metrictest_bfdr_arr, c(2, 3), mean))
 t(apply(ksntc_metrictest_bfdr_arr, c(2, 3), sd))
 
 
-
-
+res[[2]]$ksntc50k_bfdr_arr[,,2]
 
 
 

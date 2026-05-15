@@ -49,12 +49,39 @@ load(paste0(fname_stem, ".Rdata"))
 nn_mod <- torch_load(paste0(fname_stem, ".pt"))
 
 
+
+# PIPS ----
+x_names <- sim_res$sim_params$x_names
+sn_kappas <- get_kappas_sntau(nn_mod)
+names(sn_kappas) <- x_names
+
+1-sn_kappas
+
+
+# get pips from softBART for comparison ----
+# softbart ---- 
+library(SoftBart)
+sbfit <- softbart(
+  X = sal_design,
+  Y = sal$logincome,
+  X_test = sal_design
+)
+
+# get PIPs, metrics
+pips_sb <- posterior_probs(sbfit)$post_probs
+[1] 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 1.0000 0.9888 1.0000
+[11] 1.0000 0.9820 1.0000 0.9996 1.0000 1.0000 1.0000 1.0000 0.9936 1.0000
+[21] 1.0000 1.0000 0.9952 0.9632 1.0000 1.0000 0.9848 0.3820 0.9916 1.0000
+
+
+
+# sampling from posterior to estimate marginal effects ----
+library(matrixStats)
 # age normalized in sal_design
 sal_unsc <- sim_res$sim_params$sal_unsc
 sal <- sim_res$sim_params$sal
 sal_design <- sim_res$sim_params$design
 
-names(sal_design)
 
 x_names <- sim_res$sim_params$x_names
 y_mean <- sim_res$sim_params$y_mean
@@ -65,6 +92,318 @@ age_sd <- sim_res$sim_params$age_sd
 # create matrices to show different trajectories
 ages <- 18:65 # length 48
 agevec <- (ages-age_mean)/age_sd
+
+
+## marginal effect of being female ----
+marg_effect <- function(sal_design_col = 2, psamps_n=100, reverse = F){
+  cat("sal_design column chosen:", x_names[sal_design_col])
+  
+  psamps_n <- 100
+  psamps <- matrix(NA, nrow = nrow(sal_design), ncol = psamps_n)
+  colnames(sal_design)
+  # health_subset <- which(sal_design[, 18]==1)
+  x_1 <- sal_design[, ]
+  x_1[, sal_design_col] <- 1
+  
+  x_0 <- sal_design[, ]
+  x_0[, sal_design_col] <- 0
+  
+  for (i in 1:psamps_n){
+    if (!reverse){
+      psamps[, i] <- as_array(nn_mod(torch_tensor(x_1))) - as_array(nn_mod(torch_tensor(x_0)))      
+    } else {
+      psamps[, i] <- as_array(nn_mod(torch_tensor(x_0))) - as_array(nn_mod(torch_tensor(x_1)))      
+    }
+
+  }
+  
+  unique_ages <- sort(unique(sal$age))
+  G <- length(unique_ages)
+  S <- ncol(psamps)   # 100
+  
+  Delta_samples <- matrix(NA_real_, nrow = S, ncol = G)   # S x G
+  for (g in seq_len(G)) {
+    rows_g <- which(sal_design[,1] == unique_ages[g])
+    # Average over observations at this age, separately for each posterior draw.
+    Delta_samples[, g] <- colMeans(psamps[rows_g, , drop = FALSE])
+  }
+  colnames(Delta_samples) <- ages
+  
+  Delta_mean <- colMeans(Delta_samples)
+  Delta_lo   <- colQuantiles(Delta_samples, probs = 0.025)
+  Delta_hi   <- colQuantiles(Delta_samples, probs = 0.975)
+  
+  PctEffect_mean <- 100*(10^Delta_mean - 1)
+  PctEffect_lo   <- 100*(10^Delta_lo   - 1)
+  PctEffect_hi   <- 100*(10^Delta_hi   - 1)
+  
+  df <- data.frame(
+    "ages" = ages,
+    "mean" = Delta_mean,
+    "lo" = Delta_lo,
+    "hi" = Delta_hi,
+    "pct_mean" = PctEffect_mean,
+    "pct_lo" = PctEffect_lo,
+    "pct_hi" = PctEffect_hi
+  )
+  return(df)
+}
+
+
+# psamps_n <- 100
+# psamps <- matrix(NA, nrow = nrow(sal_design), ncol = psamps_n)
+# colnames(sal_design)
+# # health_subset <- which(sal_design[, 18]==1)
+# x_female <- sal_design[, ]
+# x_female[, 2] <- 1
+# 
+# x_male <- sal_design[, ]
+# x_male[, 2] <- 0
+# 
+# for (i in 1:psamps_n){
+#   nn_mod$train()
+#   psamps[, i] <- as_array(nn_mod(torch_tensor(x_female))) - as_array(nn_mod(torch_tensor(x_male)))
+# }
+# 
+# unique_ages <- sort(unique(sal$age))
+# G <- length(unique_ages)
+# S <- ncol(psamps)   # 100
+# 
+# Delta_samples <- matrix(NA_real_, nrow = S, ncol = G)   # S x G
+# for (g in seq_len(G)) {
+#   rows_g <- which(sal_design[,1] == unique_ages[g])
+#   # Average over observations at this age, separately for each posterior draw.
+#   Delta_samples[, g] <- colMeans(psamps[rows_g, , drop = FALSE])
+# }
+# colnames(Delta_samples) <- ages
+# 
+# Delta_mean <- colMeans(Delta_samples)
+# Delta_lo   <- colQuantiles(Delta_samples, probs = 0.025)
+# Delta_hi   <- colQuantiles(Delta_samples, probs = 0.975)
+# 
+# PctEffect_mean <- 100*(10^Delta_mean - 1)
+# PctEffect_lo   <- 100*(10^Delta_lo   - 1)
+# PctEffect_hi   <- 100*(10^Delta_hi   - 1)
+# 
+# fem_marg_df <- data.frame(
+#   "ages" = ages,
+#   "mean" = Delta_mean,
+#   "lo" = Delta_lo,
+#   "hi" = Delta_hi,
+#   "pct_mean" = PctEffect_mean,
+#   "pct_lo" = PctEffect_lo,
+#   "pct_hi" = PctEffect_hi
+# )
+# 
+# fem_marg_df %>% 
+#   ggplot() + 
+#   geom_line(
+#     aes(x = ages, y = pct_mean)
+#   ) +
+#   geom_ribbon(
+#     aes(x = ages, ymax = pct_hi, ymin = pct_lo),
+#     alpha = 0.2
+#   ) 
+
+fem_marg_df <- marg_effect(sal_design_col = 2, psamps_n = 200)
+fem_marg_df %>% 
+  ggplot() + 
+  geom_line(
+    aes(x = ages, y = pct_mean)
+  ) +
+  geom_ribbon(
+    aes(x = ages, ymax = pct_hi, ymin = pct_lo),
+    alpha = 0.2
+  )
+
+
+## marginal effect of being hispanic ----
+HnH_marg_df <- marg_effect(sal_design_col = 3, psamps_n = 200)
+
+HnH_marg_df %>% 
+    ggplot() + 
+    geom_line(
+      aes(x = ages, y = pct_mean)
+    ) +
+    geom_ribbon(
+      aes(x = ages, ymax = pct_hi, ymin = pct_lo),
+      alpha = 0.2
+    ) 
+
+## marginal effect of being black ----
+bl_marg_df <- marg_effect(sal_design_col = 4, psamps_n = 200)
+
+bl_marg_df %>% 
+  ggplot() + 
+  geom_line(
+    aes(x = ages, y = pct_mean)
+  ) +
+  geom_ribbon(
+    aes(x = ages, ymax = pct_hi, ymin = pct_lo),
+    alpha = 0.2
+  ) 
+
+
+margs_df <- rbind(
+  cbind(fem_marg_df, cat = "Female"),
+  cbind(HnH_marg_df, cat = "Hispanic"),
+  cbind(bl_marg_df, cat = "Black")
+)
+
+names(margs_df)
+library(latex2exp)
+marg_log_plot <-margs_df %>% 
+  ggplot() + 
+  geom_line(
+    aes(x = ages, y = mean, color = cat)
+  ) +
+  geom_ribbon(
+    aes(x = ages, ymax = hi, ymin = lo, fill = cat),
+    alpha = 0.3
+  ) + 
+  geom_hline(yintercept = 0,linetype = "dashed", alpha = 0.6) + 
+  labs(
+    subtitle = TeX("estimated marginal effect on $log_{10}$ income, 95% credible intervals"),
+    color = "", fill = "",
+    y = TeX("difference in $log_{10}$ income"),
+    x = "age"
+  )+
+  theme(
+    legend.position = "inside",
+    legend.position.inside = c(1, 1), # x, y coordinates from 0 to 1
+    legend.justification.inside = c(1, 1) # aligns the corner of the legend box
+  )
+marg_log_plot
+
+
+marg_pct_plot <- margs_df %>% 
+  ggplot() + 
+  geom_line(
+    aes(x = ages, y = pct_mean, color = cat)
+  ) +
+  geom_ribbon(
+    aes(x = ages, ymax = pct_hi, ymin = pct_lo, fill = cat),
+    alpha = 0.3
+  ) + 
+  geom_hline(yintercept = 0,linetype = "dashed", alpha = 0.6) + 
+  labs(
+    subtitle = TeX("estimated marginal effect on income as percent, 95% credible intervals"),
+    color = "", fill = "",
+    y = "% difference in income",
+    x = "age"
+  ) + ylim(-75, 100)+
+  theme(
+    legend.position = "inside",
+    legend.position.inside = c(1, 1), # x, y coordinates from 0 to 1
+    legend.justification.inside = c(1, 1) # aligns the corner of the legend box
+  )
+marg_pct_plot
+
+ggsave(marg_log_plot, file = here("final_sims", "figs", "sal", "marg_log.png"))
+ggsave(marg_pct_plot, file = here("final_sims", "figs", "sal", "marg_pct.png"))
+
+
+
+
+## marginal no college, gov sector, self-employed ----
+nocoll_marg_df <- marg_effect(sal_design_col = 5, reverse = TRUE)
+nocoll_marg_df %>% 
+  ggplot() + 
+  geom_line(
+    aes(x = ages, y = pct_mean)
+  ) +
+  geom_ribbon(
+    aes(x = ages, ymax = pct_hi, ymin = pct_lo),
+    alpha = 0.2
+  ) 
+
+gov_marg_df <- marg_effect(sal_design_col = 6, reverse = TRUE)
+self_marg_df <- marg_effect(sal_design_col = 7, reverse = TRUE)
+
+gov_marg_df %>% 
+  ggplot() + 
+  geom_line(
+    aes(x = ages, y = pct_mean)
+  ) +
+  geom_ribbon(
+    aes(x = ages, ymax = pct_hi, ymin = pct_lo),
+    alpha = 0.2
+  ) 
+self_marg_df %>%
+  ggplot() + 
+  geom_line(
+    aes(x = ages, y = pct_mean)
+  ) +
+  geom_ribbon(
+    aes(x = ages, ymax = pct_hi, ymin = pct_lo),
+    alpha = 0.2
+  ) 
+
+
+
+worktype_df <- rbind(
+  cbind(nocoll_marg_df, cat = "no college"),
+  cbind(gov_marg_df, cat = "government"),
+  cbind(self_marg_df, cat = "self-employed")
+)
+
+
+marg_log_plot_wrk <- worktype_df %>% 
+  ggplot() + 
+  geom_line(
+    aes(x = ages, y = mean, color = cat)
+  ) +
+  geom_ribbon(
+    aes(x = ages, ymax = hi, ymin = lo, fill = cat),
+    alpha = 0.3
+  ) + 
+  geom_hline(yintercept = 0,linetype = "dashed", alpha = 0.6) + 
+  labs(
+    subtitle = TeX("estimated marginal effect on $log_{10}$ income, 95% credible intervals"),
+    color = "", fill = "",
+    y = TeX("difference in $log_{10}$ income"),
+    x = "age"
+  )+
+  theme(
+    legend.position = "inside",
+    legend.position.inside = c(1, 1), # x, y coordinates from 0 to 1
+    legend.justification.inside = c(1, 1) # aligns the corner of the legend box
+  )
+marg_log_plot_wrk
+
+
+marg_pct_plot_wrk <- worktype_df %>% 
+  ggplot() + 
+  geom_line(
+    aes(x = ages, y = pct_mean, color = cat)
+  ) +
+  geom_ribbon(
+    aes(x = ages, ymax = pct_hi, ymin = pct_lo, fill = cat),
+    alpha = 0.3
+  ) + 
+  geom_hline(yintercept = 0,linetype = "dashed", alpha = 0.6) + 
+  labs(
+    subtitle = TeX("estimated marginal effect on income as percent, 95% credible intervals"),
+    color = "", fill = "",
+    y = "% difference in income",
+    x = "age"
+  ) + ylim(-75, 125)+
+  theme(
+    legend.position = "inside",
+    legend.position.inside = c(1, 1), # x, y coordinates from 0 to 1
+    legend.justification.inside = c(1, 1) # aligns the corner of the legend box
+  )
+marg_pct_plot_wrk 
+
+table(sal_unsc$age, sal_unsc$classworker)
+
+
+ggsave(marg_log_plot_wrk, file = here("final_sims", "figs", "sal", "marg_log_wrk.png"))
+ggsave(marg_pct_plot_wrk, file = here("final_sims", "figs", "sal", "marg_pct_wrk.png"))
+
+
+
+
 
 # # create expanded datamat to generate predictions
 # all_df <- expand.grid(
