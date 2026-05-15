@@ -4,9 +4,8 @@
 
 
 currently running (reverse order):
-4 meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_2000obs_   2k hshoe  
-
-2 meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_1000obs_    1k hshoe
+2x meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_2000obs_ (should be last ones)
+4x ssgam - both settings, 1k and 2k.  1K might finish overnight.  2K might take 1-2 more days?
 
 
 
@@ -37,9 +36,8 @@ hshoesmallbias prefix sims traing using newfcns_hshoelayers.R
 meanfssmallbias prefix trained using meanfcns_sim.R
 meanfshshoesmallbias trained using....
 
+#################################################################################################################
 Finished:
-
-
 
 orig fcns:
 - 2 hshoe, 3 det:
@@ -60,11 +58,11 @@ orig fcns:
 
 - 4 hshoe, 1 det:
 	- 5k: 10      meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_5000obs_ 			516-5160  failed; 
-	- 2k: 32    meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_2000obs_         	5161-5164 failed; 5-6 running
+	- 2k: 42    meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_2000obs_         	5161-5164 failed; 5-6 running failed; 7-8 running.
 	- 1k: 50    meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_1000obs_475331      
 
 
-
+################################################################################################################
 
 
 
