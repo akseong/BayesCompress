@@ -80,18 +80,20 @@ metrics_err_by_max_bfdr <- function(dropout_vec, true_vec, bfdr_vec){
 #
 # hshoe4det1_1k_50sims_origfcns_bfdr_arr.Rdata       66 available          hshoesmallbias_mutcorr0.5_5x161000obs_
 # hshoe4det1_2k_50sims_origfcns_bfdr_arr.Rdata       50 available          hshoesmallbias_mutcorr0.5_5x162000obs_
-# hshoe4det1_5k_50sims_origfcns_bfdr_arr.Rdata       34 avilable           hshoesmallbias_mutcorr0.5_5x165000obs_
+# hshoe4det1_5k_50sims_origfcns_bfdr_arr.Rdata       50 avilable           hshoesmallbias_mutcorr0.5_5x165000obs_
 
 
 # MOD FCNS
-# compiled/hshoe2det4_1k_50sims_modfcns_bfdr_arr.Rdata        64 available:         meanfssmallbias_5x16_origmodsupint_p100_mcor.5_1000obs_
-# compiled/hshoe2det4_2k_50sims_modfcns_bfdr_arr.Rdata        0 available:          meanfssmallbias_5x16_origmodsupint_p100_mcor.5_2000obs_
-# compiled/hshoe2det4_5k_50sims_modfcns_bfdr_arr.Rdata        52 available:         meanfssmallbias_5x16_origmodsupint_p100_mcor.5_5000obs_
+# hshoe2det4_1k_50sims_modfcns_bfdr_arr.Rdata        64 available:         meanfssmallbias_5x16_origmodsupint_p100_mcor.5_1000obs_
+# hshoe2det4_2k_50sims_modfcns_bfdr_arr.Rdata        50 available:         meanfssmallbias_5x16_origmodsupint_p100_mcor.5_2000obs_
+# hshoe2det4_5k_50sims_modfcns_bfdr_arr.Rdata        52 available:         meanfssmallbias_5x16_origmodsupint_p100_mcor.5_5000obs_
 
-# hshoe4det1
+# hshoe4det1_1k_50sims_modfcns_bfdr_arr.Rdata        50 available:         meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_1000obs_
+# hshoe4det1_2k_50sims_modfcns_bfdr_arr.Rdata        52 available:         meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_2000obs_
+# hshoe4det1_5k_50sims_modfcns_bfdr_arr.Rdata        14 available:         meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_5000obs_
 
 
-stem <- here::here("final_sims", "results", "meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_2000obs_")
+stem <- here::here("final_sims", "results", "meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_5000obs_")
 modfcns_TF <- grepl("meanfs", stem)
 n_sims = 50 
 max_bfdrs <- c(0.01, 0.05, 0.1, 0.25)

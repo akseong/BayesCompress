@@ -41,26 +41,25 @@ Finished:
 
 orig fcns:
 - 2 hshoe, 3 det:
-	- 5k: 100   nfdsmallbias_mutcorr0.5_5x165000obs_984995
-	- 2k: 50 	nfdsmallbias_mutcorr0.5_5x162000obs_21129
 	- 1k: 125 	nfdsmallbias_mutcorr0.5_5x161000obs_1483
-- 4 hshoe, 1 det:
-	- 5k: 50 	hshoesmallbias_mutcorr0.5_5x165000obs_72269   
-	- 2k: 50 	hshoesmallbias_mutcorr0.5_5x162000obs_72269   
-	- 1K: 66 	hshoesmallbias_mutcorr0.5_5x161000obs_72269
+	- 2k: 50 	nfdsmallbias_mutcorr0.5_5x162000obs_21129
+	- 5k: 100   nfdsmallbias_mutcorr0.5_5x165000obs_984995
 
+- 4 hshoe, 1 det:
+	- 1K: 66 	hshoesmallbias_mutcorr0.5_5x161000obs_72269
+	- 2k: 50 	hshoesmallbias_mutcorr0.5_5x162000obs_72269   
+	- 5k: 50 	hshoesmallbias_mutcorr0.5_5x165000obs_72269   
 
 8fcns, interactions, limited support
 - 2hshoe, 3det:
-	- 5k: 52 	meanfssmallbias_5x16_origmodsupint_p100_mcor.5_5000obs_976304
-	- 2k: 50    meanfssmallbias_5x16_origmodsupint_p100_mcor.5_2000obs_718268              
 	- 1k: 64 	meanfssmallbias_5x16_origmodsupint_p100_mcor.5_1000obs_21129
+	- 2k: 50    meanfssmallbias_5x16_origmodsupint_p100_mcor.5_2000obs_718268              
+	- 5k: 52 	meanfssmallbias_5x16_origmodsupint_p100_mcor.5_5000obs_976304
 
 - 4 hshoe, 1 det:
-	- 5k: 10      meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_5000obs_ 			516-5160  failed; 5161 running
-	- 2k: 42    meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_2000obs_         	5161-5164 failed; 5165-6 running failed; 7-8 running.
 	- 1k: 50    meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_1000obs_475331      
-
+	- 2k: 52    meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_2000obs_         	
+	- 5k: 14    meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_5000obs_ 			516-5161  failed; 5162-4 running
 
 ################################################################################################################
 
