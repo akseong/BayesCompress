@@ -1,0 +1,78 @@
+
+
+To do:
+
+- add thank you to David Rossel as well in thesis
+- rerun HS2 and HS4 on original functions?
+  - check if mse calculations split data or scale data first
+  - make sure that meanfcns does splits first, pretty sure it does
+- check sample sizes for included plots from salary data
+- can I take out ages 18-22 for college / no college marginal effect, and from college plots?
+  - use %>% with(table(    ))    or magrittr %$%
+
+- edit dissertation abstract to include proposed corrections to inferential parameters
+
+
+
+
+
+
+Presentation outline
+
+# Principled Sparsity in Flexible Models: Bayesian Variable Selection in Generalize additive models and Deep Neural Newtworks
+
+# intro
+Comments: will spend less time on the first project, more on the 2nd since 1st covered in advancement
+	2 central problems: 
+		1) Can we tell not only IF but WHEN / WHERE a variable matters?
+		2) Can we recover principled variable selection in deep neural networks?
+
+
+# motiviating datasets - ECoG
+
+# motivating datasets - Salary
+
+
+
+
+# Local Null Testing:
+
+Need to choose slides
+ICAR prior - (improper) spatial prior that smooths across boundaries.  Issues with improper prior (mean unidentifiable) remedied with a sum to 0 constraint on the spatial effects
+
+- threshold PIP>0.95, ensures that BFDR < 0.05
+
+
+# BFDR control with horseshoe neural network:
+intro --- use first 2 slides from before (Louizos compression, matrix reduction)
+
+
+## Scale-mixture priors
+
+
+## Horseshoe prior
+specification
+
+## Variational Inference
+- alleviates need for MCMC at the cost of underestimating variance b/c of Mean Field assumption
+- evidence on prediction side that network depth mitigates this
+
+## ELBO
+
+
+## parameter corrections and rationale
+
+
+## simulation study
+
+
+## salary application
+
+
+
+
+
+
+
+
+
