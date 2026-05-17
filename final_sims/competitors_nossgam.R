@@ -436,7 +436,7 @@ apply(competitor_list$resarr_ss[, ,2], 2, sd)
 
 hshoe2det4_5k_50sims_ORIGfcns_competitors_nossgam_bfdrarr.Rdata
 
-load(here::here("final_sims", "compiled", "hshoe2det4_1k_50sims_MODfcns_competitors_ssgam_bfdrarr.Rdata"))
+load(here::here("final_sims", "compiled", "hshoe2det4_2k_50sims_origfcns_competitors_ssgam_bfdrarr.Rdata"))
 apply(competitor_list$resarr_ssgam[, ,2], 2, mean)
 apply(competitor_list$resarr_ssgam[, ,2], 2, sd)
 

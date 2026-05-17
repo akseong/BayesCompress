@@ -332,8 +332,8 @@ cat_color(paste0("results saved to ", compiled_fname))
 
 
 
-# #### plot ROC
-# 
+#### plot ROC
+
 load(here("final_sims", "compiled", "hshoe2det4_1k_50sims_origfcns_bfdrall_arr.Rdata"))
 
 # t(apply(res[[2]]$ksntc50k_bfdr_arr, c(2, 3), mean))
