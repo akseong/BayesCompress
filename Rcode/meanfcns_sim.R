@@ -58,10 +58,7 @@ meanfcn_Liang1.5 <- function(X, round_dig = NULL){
 }
 
 orig_fcns <- function(x, round_dig = NULL){
-  -cos(pi/1.5*x[,1]) + 
-    cos(pi*x[,2]) + sin(pi/1.2*x[,2]) +
-    abs(x[,3])^(.75) - 
-    x[,4]^2/4
+  -cos(pi/1.5*x[,1]) + cos(pi*x[,2]) + sin(pi/1.2*x[,2]) + abs(x[,3])^(.75) - x[,4]^2/4
 }
 
 
@@ -69,9 +66,9 @@ orig_fcns <- function(x, round_dig = NULL){
 save_mod_path_prestem <- here::here(
   "final_sims", 
   "results", 
-  "meanfssmallbias_5x16_origmodsupint_p100_mcor.5_"
+  "orig_redo_5x16_p100_mcor.5_"
 )
-n_obs <- 2000 # includes training and test
+n_obs <- 1000 # includes training and test
 d_in <- 108
 sim_desc <- c(
   "harder meanfcn nonlin regression example, 
@@ -91,10 +88,11 @@ sim_params <- list(
   "mut_corr" = 0.25,
   "ttsplit" = 4/5,        # Liang use 200 train, 300 test
   "genXfcn" = genX_mutualcorr,
-  "meanfcn" = meanfcn_orig_modsup_int,
+  # "meanfcn" = meanfcn_orig_modsup_int,
+  "meanfcn" = orig_fcns,
   "standardize" = TRUE,
   # sim params
-  "seed" = 5162,
+  "seed" = 516,
   "n_sims" = 10,           ##
   # network params / architecture
   "p_0frac" = 0.2,  ## expect about 1/10 covs to be included

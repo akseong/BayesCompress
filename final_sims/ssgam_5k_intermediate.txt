@@ -1,0 +1,1401 @@
+########################################################################################################
+########################################################################################################
+ORIG FCNS
+hshoe2det4_5k_50sims_origfcns_competitors_ssgam_bfdrarr
+########################################################################################################
+
+X generated using mutual corr =  0.5
+Model has  1041  coefficients in  209 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 23 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                 bfdr_0.01  bfdr_0.05   bfdr_0.1  bfdr_0.25
+test_mse        1.04815303 1.04815303 1.04815303 1.04815303
+fcn_mse         0.05695198 0.05695198 0.05695198 0.05695198
+time            4.28287819 4.28287819 4.28287819 4.28287819
+max_bfdr        0.01000000 0.05000000 0.10000000 0.25000000
+fdr             0.00000000 0.00000000 0.00000000 0.00000000
+bfdr            0.00000000 0.01200000 0.01200000 0.19700000
+FPR             0.00000000 0.00000000 0.00000000 0.00000000
+TPR_sens_recall 0.50000000 0.75000000 0.75000000 1.00000000
+FNR             0.50000000 0.25000000 0.25000000 0.00000000
+TNR_specificity 1.00000000 1.00000000 1.00000000 1.00000000
+f1              0.66666667 0.85714286 0.85714286 1.00000000
+ssgam: 
+simdat 1 finished; 
+working on hshoe2det4_5k_50sims_origfcns_competitors_ssgam_bfdrarr
+X generated using mutual corr =  0.5
+Model has  1041  coefficients in  209 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 23 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                   bfdr_0.01    bfdr_0.05     bfdr_0.1 bfdr_0.25
+test_mse        1.1204044200 1.1204044200 1.1204044200 1.1204044
+fcn_mse         0.0628253019 0.0628253019 0.0628253019 0.0628253
+time            3.6666586158 3.6666586158 3.6666586158 3.6666586
+max_bfdr        0.0100000000 0.0500000000 0.1000000000 0.2500000
+fdr             0.0000000000 0.0000000000 0.0000000000 0.0000000
+bfdr            0.0003333333 0.0003333333 0.0003333333 0.2257500
+FPR             0.0000000000 0.0000000000 0.0000000000 0.0000000
+TPR_sens_recall 0.7500000000 0.7500000000 0.7500000000 1.0000000
+FNR             0.2500000000 0.2500000000 0.2500000000 0.0000000
+TNR_specificity 1.0000000000 1.0000000000 1.0000000000 1.0000000
+f1              0.8571428571 0.8571428571 0.8571428571 1.0000000
+ssgam: 
+simdat 2 finished; 
+working on hshoe2det4_5k_50sims_origfcns_competitors_ssgam_bfdrarr
+X generated using mutual corr =  0.5
+Model has  1041  coefficients in  209 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 23 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                 bfdr_0.01  bfdr_0.05   bfdr_0.1  bfdr_0.25
+test_mse        1.09070586 1.09070586 1.09070586 1.09070586
+fcn_mse         0.05391929 0.05391929 0.05391929 0.05391929
+time            3.33120501 3.33120501 3.33120501 3.33120501
+max_bfdr        0.01000000 0.05000000 0.10000000 0.25000000
+fdr             0.00000000 0.00000000 0.00000000 0.00000000
+bfdr            0.00400000 0.00400000 0.09700000 0.09700000
+FPR             0.00000000 0.00000000 0.00000000 0.00000000
+TPR_sens_recall 0.75000000 0.75000000 1.00000000 1.00000000
+FNR             0.25000000 0.25000000 0.00000000 0.00000000
+TNR_specificity 1.00000000 1.00000000 1.00000000 1.00000000
+f1              0.85714286 0.85714286 1.00000000 1.00000000
+ssgam: 
+simdat 3 finished; 
+working on hshoe2det4_5k_50sims_origfcns_competitors_ssgam_bfdrarr
+X generated using mutual corr =  0.5
+Model has  1041  coefficients in  209 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 23 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                   bfdr_0.01    bfdr_0.05     bfdr_0.1 bfdr_0.25
+test_mse        1.0501092365 1.0501092365 1.0501092365 1.0501092
+fcn_mse         0.0591275954 0.0591275954 0.0591275954 0.0591276
+time            3.4941263480 3.4941263480 3.4941263480 3.4941263
+max_bfdr        0.0100000000 0.0500000000 0.1000000000 0.2500000
+fdr             0.0000000000 0.0000000000 0.0000000000 0.0000000
+bfdr            0.0003333333 0.0003333333 0.0003333333 0.2235000
+FPR             0.0000000000 0.0000000000 0.0000000000 0.0000000
+TPR_sens_recall 0.7500000000 0.7500000000 0.7500000000 1.0000000
+FNR             0.2500000000 0.2500000000 0.2500000000 0.0000000
+TNR_specificity 1.0000000000 1.0000000000 1.0000000000 1.0000000
+f1              0.8571428571 0.8571428571 0.8571428571 1.0000000
+ssgam: 
+simdat 4 finished; 
+working on hshoe2det4_5k_50sims_origfcns_competitors_ssgam_bfdrarr
+X generated using mutual corr =  0.5
+Model has  1041  coefficients in  209 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 23 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                 bfdr_0.01  bfdr_0.05   bfdr_0.1  bfdr_0.25
+test_mse        1.05222496 1.05222496 1.05222496 1.05222496
+fcn_mse         0.04459868 0.04459868 0.04459868 0.04459868
+time            3.35906902 3.35906902 3.35906902 3.35906902
+max_bfdr        0.01000000 0.05000000 0.10000000 0.25000000
+fdr             0.00000000 0.00000000 0.00000000 0.00000000
+bfdr            0.00300000 0.00300000 0.00300000 0.20550000
+FPR             0.00000000 0.00000000 0.00000000 0.00000000
+TPR_sens_recall 0.75000000 0.75000000 0.75000000 1.00000000
+FNR             0.25000000 0.25000000 0.25000000 0.00000000
+TNR_specificity 1.00000000 1.00000000 1.00000000 1.00000000
+f1              0.85714286 0.85714286 0.85714286 1.00000000
+ssgam: 
+simdat 5 finished; 
+working on hshoe2det4_5k_50sims_origfcns_competitors_ssgam_bfdrarr
+X generated using mutual corr =  0.5
+Model has  1041  coefficients in  209 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 23 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                 bfdr_0.01  bfdr_0.05   bfdr_0.1  bfdr_0.25
+test_mse        1.15714477 1.15714477 1.15714477 1.15714477
+fcn_mse         0.06519354 0.06519354 0.06519354 0.06519354
+time            3.45299263 3.45299263 3.45299263 3.45299263
+max_bfdr        0.01000000 0.05000000 0.10000000 0.25000000
+fdr             0.00000000 0.00000000 0.00000000 0.00000000
+bfdr            0.00000000 0.00000000 0.00000000 0.21750000
+FPR             0.00000000 0.00000000 0.00000000 0.00000000
+TPR_sens_recall 0.75000000 0.75000000 0.75000000 1.00000000
+FNR             0.25000000 0.25000000 0.25000000 0.00000000
+TNR_specificity 1.00000000 1.00000000 1.00000000 1.00000000
+f1              0.85714286 0.85714286 0.85714286 1.00000000
+ssgam: 
+simdat 6 finished; 
+working on hshoe2det4_5k_50sims_origfcns_competitors_ssgam_bfdrarr
+X generated using mutual corr =  0.5
+Model has  1041  coefficients in  209 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 23 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                 bfdr_0.01  bfdr_0.05   bfdr_0.1  bfdr_0.25
+test_mse        1.09621897 1.09621897 1.09621897 1.09621897
+fcn_mse         0.05388574 0.05388574 0.05388574 0.05388574
+time            3.33588565 3.33588565 3.33588565 3.33588565
+max_bfdr        0.01000000 0.05000000 0.10000000 0.25000000
+fdr             0.00000000 0.00000000 0.00000000 0.00000000
+bfdr            0.00100000 0.00100000 0.00100000 0.20600000
+FPR             0.00000000 0.00000000 0.00000000 0.00000000
+TPR_sens_recall 0.75000000 0.75000000 0.75000000 1.00000000
+FNR             0.25000000 0.25000000 0.25000000 0.00000000
+TNR_specificity 1.00000000 1.00000000 1.00000000 1.00000000
+f1              0.85714286 0.85714286 0.85714286 1.00000000
+ssgam: 
+simdat 7 finished; 
+working on hshoe2det4_5k_50sims_origfcns_competitors_ssgam_bfdrarr
+X generated using mutual corr =  0.5
+Model has  1041  coefficients in  209 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 23 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+########################################################################################################
+########################################################################################################
+MOD FCNS 5k
+hshoe2det4_5k_50sims_modfcns_competitors_ssgam_bfdrarr
+########################################################################################################
+hshoe2det4_5k_50sims_modfcns_competitors_ssgam_bfdrarr
+Model has  1081  coefficients in  217 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 24 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                bfdr_0.01 bfdr_0.05  bfdr_0.1 bfdr_0.25
+test_mse        2.7785867 2.7785867 2.7785867 2.7785867
+fcn_mse         1.7277960 1.7277960 1.7277960 1.7277960
+time            4.5361157 4.5361157 4.5361157 4.5361157
+max_bfdr        0.0100000 0.0500000 0.1000000 0.2500000
+fdr             0.0000000 0.0000000 0.0000000 0.0000000
+bfdr            0.0002500 0.0198000 0.0198000 0.1778333
+FPR             0.0000000 0.0000000 0.0000000 0.0000000
+TPR_sens_recall 0.5000000 0.6250000 0.6250000 0.7500000
+FNR             0.5000000 0.3750000 0.3750000 0.2500000
+TNR_specificity 1.0000000 1.0000000 1.0000000 1.0000000
+f1              0.6666667 0.7692308 0.7692308 0.8571429
+ssgam: 
+simdat 1 finished; 
+working on hshoe2det4_5k_50sims_modfcns_competitors_ssgam_bfdrarr
+
+Model has  1081  coefficients in  217 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 24 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                bfdr_0.01 bfdr_0.05  bfdr_0.1 bfdr_0.25
+test_mse        2.6616646 2.6616646 2.6616646 2.6616646
+fcn_mse         1.6903209 1.6903209 1.6903209 1.6903209
+time            3.8161033 3.8161033 3.8161033 3.8161033
+max_bfdr        0.0100000 0.0500000 0.1000000 0.2500000
+fdr             0.0000000 0.0000000 0.0000000 0.0000000
+bfdr            0.0000000 0.0282000 0.0282000 0.1841667
+FPR             0.0000000 0.0000000 0.0000000 0.0000000
+TPR_sens_recall 0.5000000 0.6250000 0.6250000 0.7500000
+FNR             0.5000000 0.3750000 0.3750000 0.2500000
+TNR_specificity 1.0000000 1.0000000 1.0000000 1.0000000
+f1              0.6666667 0.7692308 0.7692308 0.8571429
+ssgam: 
+simdat 2 finished; 
+working on hshoe2det4_5k_50sims_modfcns_competitors_ssgam_bfdrarr
+
+Model has  1081  coefficients in  217 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 24 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                bfdr_0.01 bfdr_0.05  bfdr_0.1 bfdr_0.25
+test_mse        2.7427746 2.7427746 2.7427746 2.7427746
+fcn_mse         1.6462813 1.6462813 1.6462813 1.6462813
+time            3.7526206 3.7526206 3.7526206 3.7526206
+max_bfdr        0.0100000 0.0500000 0.1000000 0.2500000
+fdr             0.0000000 0.0000000 0.0000000 0.0000000
+bfdr            0.0002500 0.0274000 0.0274000 0.1483333
+FPR             0.0000000 0.0000000 0.0000000 0.0000000
+TPR_sens_recall 0.5000000 0.6250000 0.6250000 0.7500000
+FNR             0.5000000 0.3750000 0.3750000 0.2500000
+TNR_specificity 1.0000000 1.0000000 1.0000000 1.0000000
+f1              0.6666667 0.7692308 0.7692308 0.8571429
+ssgam: 
+simdat 3 finished; 
+working on hshoe2det4_5k_50sims_modfcns_competitors_ssgam_bfdrarr
+
+Model has  1081  coefficients in  217 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 24 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                bfdr_0.01 bfdr_0.05  bfdr_0.1 bfdr_0.25
+test_mse        2.7693939 2.7693939 2.7693939 2.7693939
+fcn_mse         1.6342521 1.6342521 1.6342521 1.6342521
+time            3.6635895 3.6635895 3.6635895 3.6635895
+max_bfdr        0.0100000 0.0500000 0.1000000 0.2500000
+fdr             0.0000000 0.0000000 0.0000000 0.0000000
+bfdr            0.0002500 0.0228000 0.0228000 0.1790000
+FPR             0.0000000 0.0000000 0.0000000 0.0000000
+TPR_sens_recall 0.5000000 0.6250000 0.6250000 0.7500000
+FNR             0.5000000 0.3750000 0.3750000 0.2500000
+TNR_specificity 1.0000000 1.0000000 1.0000000 1.0000000
+f1              0.6666667 0.7692308 0.7692308 0.8571429
+ssgam: 
+simdat 4 finished; 
+working on hshoe2det4_5k_50sims_modfcns_competitors_ssgam_bfdrarr
+
+Model has  1081  coefficients in  217 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 24 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                bfdr_0.01 bfdr_0.05  bfdr_0.1 bfdr_0.25
+test_mse        2.7129608 2.7129608 2.7129608 2.7129608
+fcn_mse         1.7000257 1.7000257 1.7000257 1.7000257
+time            3.6565932 3.6565932 3.6565932 3.6565932
+max_bfdr        0.0100000 0.0500000 0.1000000 0.2500000
+fdr             0.0000000 0.0000000 0.0000000 0.0000000
+bfdr            0.0002500 0.0350000 0.0350000 0.1915000
+FPR             0.0000000 0.0000000 0.0000000 0.0000000
+TPR_sens_recall 0.5000000 0.6250000 0.6250000 0.7500000
+FNR             0.5000000 0.3750000 0.3750000 0.2500000
+TNR_specificity 1.0000000 1.0000000 1.0000000 1.0000000
+f1              0.6666667 0.7692308 0.7692308 0.8571429
+ssgam: 
+simdat 5 finished; 
+working on hshoe2det4_5k_50sims_modfcns_competitors_ssgam_bfdrarr
+
+Model has  1081  coefficients in  217 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 24 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                bfdr_0.01 bfdr_0.05  bfdr_0.1 bfdr_0.25
+test_mse        2.8503736 2.8503736 2.8503736 2.8503736
+fcn_mse         1.7283559 1.7283559 1.7283559 1.7283559
+time            3.7128677 3.7128677 3.7128677 3.7128677
+max_bfdr        0.0100000 0.0500000 0.1000000 0.2500000
+fdr             0.0000000 0.0000000 0.0000000 0.0000000
+bfdr            0.0002500 0.0002500 0.0716000 0.2185000
+FPR             0.0000000 0.0000000 0.0000000 0.0000000
+TPR_sens_recall 0.5000000 0.5000000 0.6250000 0.7500000
+FNR             0.5000000 0.5000000 0.3750000 0.2500000
+TNR_specificity 1.0000000 1.0000000 1.0000000 1.0000000
+f1              0.6666667 0.6666667 0.7692308 0.8571429
+ssgam: 
+simdat 6 finished; 
+working on hshoe2det4_5k_50sims_modfcns_competitors_ssgam_bfdrarr
+
+Model has  1081  coefficients in  217 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 24 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+########################################################################################################
+########################################################################################################
+ORIG FCNS 2k
+hshoe2det4_2k_50sims_origfcns_competitors_ssgam_bfdrarr
+########################################################################################################
+max_bfdr        0.0100000000 0.0500000000 0.1000000000 0.25000000
+fdr             0.0000000000 0.0000000000 0.0000000000 0.00000000
+bfdr            0.0006666667 0.0006666667 0.0006666667 0.18600000
+FPR             0.0000000000 0.0000000000 0.0000000000 0.00000000
+TPR_sens_recall 0.7500000000 0.7500000000 0.7500000000 1.00000000
+FNR             0.2500000000 0.2500000000 0.2500000000 0.00000000
+TNR_specificity 1.0000000000 1.0000000000 1.0000000000 1.00000000
+f1              0.8571428571 0.8571428571 0.8571428571 1.00000000
+ssgam: 
+simdat 18 finished; 
+working on hshoe2det4_2k_50sims_origfcns_competitors_ssgam_bfdrarr
+X generated using mutual corr =  0.5
+Model has  1042  coefficients in  209 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 23 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                 bfdr_0.01  bfdr_0.05   bfdr_0.1  bfdr_0.25
+test_mse        1.12307421 1.12307421 1.12307421 1.12307421
+fcn_mse         0.08115192 0.08115192 0.08115192 0.08115192
+time            1.15955848 1.15955848 1.15955848 1.15955848
+max_bfdr        0.01000000 0.05000000 0.10000000 0.25000000
+fdr             0.00000000 0.00000000 0.00000000 0.25000000
+bfdr            0.00000000 0.01133333 0.01133333 0.19350000
+FPR             0.00000000 0.00000000 0.00000000 0.01000000
+TPR_sens_recall 0.50000000 0.75000000 0.75000000 0.75000000
+FNR             0.50000000 0.25000000 0.25000000 0.25000000
+TNR_specificity 1.00000000 1.00000000 1.00000000 0.99000000
+f1              0.66666667 0.85714286 0.85714286 0.75000000
+ssgam: 
+simdat 19 finished; 
+working on hshoe2det4_2k_50sims_origfcns_competitors_ssgam_bfdrarr
+X generated using mutual corr =  0.5
+Model has  1041  coefficients in  209 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 23 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                   bfdr_0.01    bfdr_0.05     bfdr_0.1  bfdr_0.25
+test_mse         1.126863632  1.126863632  1.126863632  1.1268636
+fcn_mse          0.106091228  0.106091228  0.106091228  0.1060912
+time            59.613206732 59.613206732 59.613206732 59.6132067
+max_bfdr         0.010000000  0.050000000  0.100000000  0.2500000
+fdr              0.000000000  0.000000000  0.000000000  0.0000000
+bfdr             0.004333333  0.004333333  0.004333333  0.1950000
+FPR              0.000000000  0.000000000  0.000000000  0.0000000
+TPR_sens_recall  0.750000000  0.750000000  0.750000000  1.0000000
+FNR              0.250000000  0.250000000  0.250000000  0.0000000
+TNR_specificity  1.000000000  1.000000000  1.000000000  1.0000000
+f1               0.857142857  0.857142857  0.857142857  1.0000000
+ssgam: 
+simdat 20 finished; 
+working on hshoe2det4_2k_50sims_origfcns_competitors_ssgam_bfdrarr
+X generated using mutual corr =  0.5
+Model has  1041  coefficients in  209 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 23 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                  bfdr_0.01   bfdr_0.05    bfdr_0.1   bfdr_0.25
+test_mse         1.09273199  1.09273199  1.09273199  1.09273199
+fcn_mse          0.08504047  0.08504047  0.08504047  0.08504047
+time            53.45749267 53.45749267 53.45749267 53.45749267
+max_bfdr         0.01000000  0.05000000  0.10000000  0.25000000
+fdr              0.00000000  0.00000000  0.00000000  0.00000000
+bfdr             0.00100000  0.00100000  0.00100000  0.22525000
+FPR              0.00000000  0.00000000  0.00000000  0.00000000
+TPR_sens_recall  0.75000000  0.75000000  0.75000000  1.00000000
+FNR              0.25000000  0.25000000  0.25000000  0.00000000
+TNR_specificity  1.00000000  1.00000000  1.00000000  1.00000000
+f1               0.85714286  0.85714286  0.85714286  1.00000000
+ssgam: 
+simdat 21 finished; 
+working on hshoe2det4_2k_50sims_origfcns_competitors_ssgam_bfdrarr
+X generated using mutual corr =  0.5
+Model has  1041  coefficients in  209 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 23 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                  bfdr_0.01   bfdr_0.05    bfdr_0.1  bfdr_0.25
+test_mse        0.942173136 0.942173136 0.942173136 0.94217314
+fcn_mse         0.056207827 0.056207827 0.056207827 0.05620783
+time            1.709800428 1.709800428 1.709800428 1.70980043
+max_bfdr        0.010000000 0.050000000 0.100000000 0.25000000
+fdr             0.000000000 0.000000000 0.000000000 0.00000000
+bfdr            0.005333333 0.005333333 0.005333333 0.22025000
+FPR             0.000000000 0.000000000 0.000000000 0.00000000
+TPR_sens_recall 0.750000000 0.750000000 0.750000000 1.00000000
+FNR             0.250000000 0.250000000 0.250000000 0.00000000
+TNR_specificity 1.000000000 1.000000000 1.000000000 1.00000000
+f1              0.857142857 0.857142857 0.857142857 1.00000000
+ssgam: 
+simdat 22 finished; 
+working on hshoe2det4_2k_50sims_origfcns_competitors_ssgam_bfdrarr
+X generated using mutual corr =  0.5
+Model has  1041  coefficients in  209 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 23 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                bfdr_0.01 bfdr_0.05  bfdr_0.1 bfdr_0.25
+test_mse        1.0995305 1.0995305 1.0995305 1.0995305
+fcn_mse         0.1118565 0.1118565 0.1118565 0.1118565
+time            1.6158030 1.6158030 1.6158030 1.6158030
+max_bfdr        0.0100000 0.0500000 0.1000000 0.2500000
+fdr             0.0000000 0.0000000 0.0000000 0.0000000
+bfdr            0.0000000 0.0000000 0.0000000 0.1677500
+FPR             0.0000000 0.0000000 0.0000000 0.0000000
+TPR_sens_recall 0.7500000 0.7500000 0.7500000 1.0000000
+FNR             0.2500000 0.2500000 0.2500000 0.0000000
+TNR_specificity 1.0000000 1.0000000 1.0000000 1.0000000
+f1              0.8571429 0.8571429 0.8571429 1.0000000
+ssgam: 
+simdat 23 finished; 
+working on hshoe2det4_2k_50sims_origfcns_competitors_ssgam_bfdrarr
+X generated using mutual corr =  0.5
+Model has  1041  coefficients in  209 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 23 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                 bfdr_0.01  bfdr_0.05   bfdr_0.1  bfdr_0.25
+test_mse        1.11259199 1.11259199 1.11259199 1.11259199
+fcn_mse         0.07334528 0.07334528 0.07334528 0.07334528
+time            1.41255660 1.41255660 1.41255660 1.41255660
+max_bfdr        0.01000000 0.05000000 0.10000000 0.25000000
+fdr             0.00000000 0.00000000 0.00000000 0.00000000
+bfdr            0.00400000 0.00400000 0.00400000 0.12100000
+FPR             0.00000000 0.00000000 0.00000000 0.00000000
+TPR_sens_recall 0.75000000 0.75000000 0.75000000 1.00000000
+FNR             0.25000000 0.25000000 0.25000000 0.00000000
+TNR_specificity 1.00000000 1.00000000 1.00000000 1.00000000
+f1              0.85714286 0.85714286 0.85714286 1.00000000
+ssgam: 
+simdat 24 finished; 
+working on hshoe2det4_2k_50sims_origfcns_competitors_ssgam_bfdrarr
+X generated using mutual corr =  0.5
+Model has  1041  coefficients in  209 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 23 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                bfdr_0.01  bfdr_0.05   bfdr_0.1 bfdr_0.25
+test_mse        1.0765218 1.07652175 1.07652175  1.076522
+fcn_mse         0.1205890 0.12058902 0.12058902  0.120589
+time            1.6511233 1.65112331 1.65112331  1.651123
+max_bfdr        0.0100000 0.05000000 0.10000000  0.250000
+fdr             0.0000000 0.00000000 0.00000000  0.000000
+bfdr            0.0000000 0.04433333 0.04433333  0.209250
+FPR             0.0000000 0.00000000 0.00000000  0.000000
+TPR_sens_recall 0.5000000 0.75000000 0.75000000  1.000000
+FNR             0.5000000 0.25000000 0.25000000  0.000000
+TNR_specificity 1.0000000 1.00000000 1.00000000  1.000000
+f1              0.6666667 0.85714286 0.85714286  1.000000
+ssgam: 
+simdat 25 finished; 
+working on hshoe2det4_2k_50sims_origfcns_competitors_ssgam_bfdrarr
+X generated using mutual corr =  0.5
+Model has  1041  coefficients in  209 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 23 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                 bfdr_0.01  bfdr_0.05   bfdr_0.1  bfdr_0.25
+test_mse        1.07717023 1.07717023 1.07717023 1.07717023
+fcn_mse         0.07320342 0.07320342 0.07320342 0.07320342
+time            1.15719301 1.15719301 1.15719301 1.15719301
+max_bfdr        0.01000000 0.05000000 0.10000000 0.25000000
+fdr             0.00000000 0.00000000 0.00000000 0.00000000
+bfdr            0.00500000 0.00500000 0.00500000 0.12500000
+FPR             0.00000000 0.00000000 0.00000000 0.00000000
+TPR_sens_recall 0.75000000 0.75000000 0.75000000 1.00000000
+FNR             0.25000000 0.25000000 0.25000000 0.00000000
+TNR_specificity 1.00000000 1.00000000 1.00000000 1.00000000
+f1              0.85714286 0.85714286 0.85714286 1.00000000
+ssgam: 
+simdat 26 finished; 
+working on hshoe2det4_2k_50sims_origfcns_competitors_ssgam_bfdrarr
+X generated using mutual corr =  0.5
+Model has  1042  coefficients in  209 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 23 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                 bfdr_0.01  bfdr_0.05   bfdr_0.1  bfdr_0.25
+test_mse        0.99826865 0.99826865 0.99826865 0.99826865
+fcn_mse         0.08941204 0.08941204 0.08941204 0.08941204
+time            1.12712350 1.12712350 1.12712350 1.12712350
+max_bfdr        0.01000000 0.05000000 0.10000000 0.25000000
+fdr             0.00000000 0.00000000 0.00000000 0.00000000
+bfdr            0.00000000 0.01000000 0.01000000 0.24500000
+FPR             0.00000000 0.00000000 0.00000000 0.00000000
+TPR_sens_recall 0.50000000 0.75000000 0.75000000 1.00000000
+FNR             0.50000000 0.25000000 0.25000000 0.00000000
+TNR_specificity 1.00000000 1.00000000 1.00000000 1.00000000
+f1              0.66666667 0.85714286 0.85714286 1.00000000
+ssgam: 
+simdat 27 finished; 
+working on hshoe2det4_2k_50sims_origfcns_competitors_ssgam_bfdrarr
+X generated using mutual corr =  0.5
+Model has  1042  coefficients in  209 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 23 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                  bfdr_0.01   bfdr_0.05    bfdr_0.1 bfdr_0.25
+test_mse        1.077457591 1.077457591 1.077457591 1.0774576
+fcn_mse         0.102021749 0.102021749 0.102021749 0.1020217
+time            1.481901242 1.481901242 1.481901242 1.4819012
+max_bfdr        0.010000000 0.050000000 0.100000000 0.2500000
+fdr             0.000000000 0.000000000 0.000000000 0.0000000
+bfdr            0.001333333 0.001333333 0.001333333 0.1842500
+FPR             0.000000000 0.000000000 0.000000000 0.0000000
+TPR_sens_recall 0.750000000 0.750000000 0.750000000 1.0000000
+FNR             0.250000000 0.250000000 0.250000000 0.0000000
+TNR_specificity 1.000000000 1.000000000 1.000000000 1.0000000
+f1              0.857142857 0.857142857 0.857142857 1.0000000
+ssgam: 
+simdat 28 finished; 
+working on hshoe2det4_2k_50sims_origfcns_competitors_ssgam_bfdrarr
+X generated using mutual corr =  0.5
+Model has  1041  coefficients in  209 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 23 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                  bfdr_0.01   bfdr_0.05    bfdr_0.1 bfdr_0.25
+test_mse        1.157415468 1.157415468 1.157415468 1.1574155
+fcn_mse         0.174523853 0.174523853 0.174523853 0.1745239
+time            1.104656249 1.104656249 1.104656249 1.1046562
+max_bfdr        0.010000000 0.050000000 0.100000000 0.2500000
+fdr             0.000000000 0.000000000 0.000000000 0.0000000
+bfdr            0.003333333 0.003333333 0.003333333 0.2210000
+FPR             0.000000000 0.000000000 0.000000000 0.0000000
+TPR_sens_recall 0.750000000 0.750000000 0.750000000 1.0000000
+FNR             0.250000000 0.250000000 0.250000000 0.0000000
+TNR_specificity 1.000000000 1.000000000 1.000000000 1.0000000
+f1              0.857142857 0.857142857 0.857142857 1.0000000
+ssgam: 
+simdat 29 finished; 
+working on hshoe2det4_2k_50sims_origfcns_competitors_ssgam_bfdrarr
+X generated using mutual corr =  0.5
+Model has  1041  coefficients in  209 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 23 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                  bfdr_0.01   bfdr_0.05    bfdr_0.1  bfdr_0.25
+test_mse        1.114443915 1.114443915 1.114443915 1.11444391
+fcn_mse         0.073467510 0.073467510 0.073467510 0.07346751
+time            1.257909401 1.257909401 1.257909401 1.25790940
+max_bfdr        0.010000000 0.050000000 0.100000000 0.25000000
+fdr             0.000000000 0.000000000 0.000000000 0.00000000
+bfdr            0.005333333 0.005333333 0.005333333 0.17150000
+FPR             0.000000000 0.000000000 0.000000000 0.00000000
+TPR_sens_recall 0.750000000 0.750000000 0.750000000 1.00000000
+FNR             0.250000000 0.250000000 0.250000000 0.00000000
+TNR_specificity 1.000000000 1.000000000 1.000000000 1.00000000
+f1              0.857142857 0.857142857 0.857142857 1.00000000
+ssgam: 
+simdat 30 finished; 
+working on hshoe2det4_2k_50sims_origfcns_competitors_ssgam_bfdrarr
+X generated using mutual corr =  0.5
+Model has  1041  coefficients in  209 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 23 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                bfdr_0.01 bfdr_0.05  bfdr_0.1 bfdr_0.25
+test_mse        1.1365087 1.1365087 1.1365087 1.1365087
+fcn_mse         0.0931494 0.0931494 0.0931494 0.0931494
+time            1.4170857 1.4170857 1.4170857 1.4170857
+max_bfdr        0.0100000 0.0500000 0.1000000 0.2500000
+fdr             0.0000000 0.0000000 0.0000000 0.0000000
+bfdr            0.0040000 0.0040000 0.0040000 0.2167500
+FPR             0.0000000 0.0000000 0.0000000 0.0000000
+TPR_sens_recall 0.7500000 0.7500000 0.7500000 1.0000000
+FNR             0.2500000 0.2500000 0.2500000 0.0000000
+TNR_specificity 1.0000000 1.0000000 1.0000000 1.0000000
+f1              0.8571429 0.8571429 0.8571429 1.0000000
+ssgam: 
+simdat 31 finished; 
+working on hshoe2det4_2k_50sims_origfcns_competitors_ssgam_bfdrarr
+X generated using mutual corr =  0.5
+Model has  1041  coefficients in  209 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 23 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                  bfdr_0.01   bfdr_0.05    bfdr_0.1  bfdr_0.25
+test_mse        1.191479994 1.191479994 1.191479994 1.19147999
+fcn_mse         0.084370762 0.084370762 0.084370762 0.08437076
+time            1.105179587 1.105179587 1.105179587 1.10517959
+max_bfdr        0.010000000 0.050000000 0.100000000 0.25000000
+fdr             0.000000000 0.000000000 0.000000000 0.00000000
+bfdr            0.002333333 0.002333333 0.002333333 0.18200000
+FPR             0.000000000 0.000000000 0.000000000 0.00000000
+TPR_sens_recall 0.750000000 0.750000000 0.750000000 1.00000000
+FNR             0.250000000 0.250000000 0.250000000 0.00000000
+TNR_specificity 1.000000000 1.000000000 1.000000000 1.00000000
+f1              0.857142857 0.857142857 0.857142857 1.00000000
+ssgam: 
+simdat 32 finished; 
+working on hshoe2det4_2k_50sims_origfcns_competitors_ssgam_bfdrarr
+X generated using mutual corr =  0.5
+Model has  1042  coefficients in  209 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 23 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                  bfdr_0.01   bfdr_0.05    bfdr_0.1  bfdr_0.25
+test_mse        0.958356747 0.958356747 0.958356747 0.95835675
+fcn_mse         0.048089752 0.048089752 0.048089752 0.04808975
+time            1.357240907 1.357240907 1.357240907 1.35724091
+max_bfdr        0.010000000 0.050000000 0.100000000 0.25000000
+fdr             0.000000000 0.000000000 0.000000000 0.00000000
+bfdr            0.002666667 0.002666667 0.002666667 0.23350000
+FPR             0.000000000 0.000000000 0.000000000 0.00000000
+TPR_sens_recall 0.750000000 0.750000000 0.750000000 1.00000000
+FNR             0.250000000 0.250000000 0.250000000 0.00000000
+TNR_specificity 1.000000000 1.000000000 1.000000000 1.00000000
+f1              0.857142857 0.857142857 0.857142857 1.00000000
+ssgam: 
+simdat 33 finished; 
+working on hshoe2det4_2k_50sims_origfcns_competitors_ssgam_bfdrarr
+X generated using mutual corr =  0.5
+Model has  1041  coefficients in  209 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 23 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                  bfdr_0.01   bfdr_0.05    bfdr_0.1  bfdr_0.25
+test_mse        1.080473868 1.080473868 1.080473868 1.08047387
+fcn_mse         0.095903259 0.095903259 0.095903259 0.09590326
+time            1.335778932 1.335778932 1.335778932 1.33577893
+max_bfdr        0.010000000 0.050000000 0.100000000 0.25000000
+fdr             0.000000000 0.000000000 0.000000000 0.00000000
+bfdr            0.001666667 0.001666667 0.001666667 0.18650000
+FPR             0.000000000 0.000000000 0.000000000 0.00000000
+TPR_sens_recall 0.750000000 0.750000000 0.750000000 1.00000000
+FNR             0.250000000 0.250000000 0.250000000 0.00000000
+TNR_specificity 1.000000000 1.000000000 1.000000000 1.00000000
+f1              0.857142857 0.857142857 0.857142857 1.00000000
+ssgam: 
+simdat 34 finished; 
+working on hshoe2det4_2k_50sims_origfcns_competitors_ssgam_bfdrarr
+X generated using mutual corr =  0.5
+Model has  1041  coefficients in  209 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 23 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                 bfdr_0.01  bfdr_0.05   bfdr_0.1  bfdr_0.25
+test_mse        0.94220550 0.94220550 0.94220550 0.94220550
+fcn_mse         0.07542805 0.07542805 0.07542805 0.07542805
+time            1.15836756 1.15836756 1.15836756 1.15836756
+max_bfdr        0.01000000 0.05000000 0.10000000 0.25000000
+fdr             0.00000000 0.00000000 0.00000000 0.00000000
+bfdr            0.00400000 0.00400000 0.00400000 0.10700000
+FPR             0.00000000 0.00000000 0.00000000 0.00000000
+TPR_sens_recall 0.75000000 0.75000000 0.75000000 1.00000000
+FNR             0.25000000 0.25000000 0.25000000 0.00000000
+TNR_specificity 1.00000000 1.00000000 1.00000000 1.00000000
+f1              0.85714286 0.85714286 0.85714286 1.00000000
+ssgam: 
+simdat 35 finished; 
+working on hshoe2det4_2k_50sims_origfcns_competitors_ssgam_bfdrarr
+X generated using mutual corr =  0.5
+Model has  1042  coefficients in  209 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 23 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                  bfdr_0.01   bfdr_0.05    bfdr_0.1  bfdr_0.25
+test_mse        1.146883626 1.146883626 1.146883626 1.14688363
+fcn_mse         0.067212386 0.067212386 0.067212386 0.06721239
+time            1.362306118 1.362306118 1.362306118 1.36230612
+max_bfdr        0.010000000 0.050000000 0.100000000 0.25000000
+fdr             0.000000000 0.000000000 0.000000000 0.00000000
+bfdr            0.004333333 0.004333333 0.004333333 0.23450000
+FPR             0.000000000 0.000000000 0.000000000 0.00000000
+TPR_sens_recall 0.750000000 0.750000000 0.750000000 1.00000000
+FNR             0.250000000 0.250000000 0.250000000 0.00000000
+TNR_specificity 1.000000000 1.000000000 1.000000000 1.00000000
+f1              0.857142857 0.857142857 0.857142857 1.00000000
+ssgam: 
+simdat 36 finished; 
+working on hshoe2det4_2k_50sims_origfcns_competitors_ssgam_bfdrarr
+X generated using mutual corr =  0.5
+Model has  1041  coefficients in  209 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 23 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                 bfdr_0.01  bfdr_0.05   bfdr_0.1  bfdr_0.25
+test_mse        0.99712410 0.99712410 0.99712410 0.99712410
+fcn_mse         0.07061643 0.07061643 0.07061643 0.07061643
+time            1.26615906 1.26615906 1.26615906 1.26615906
+max_bfdr        0.01000000 0.05000000 0.10000000 0.25000000
+fdr             0.00000000 0.00000000 0.00000000 0.00000000
+bfdr            0.00700000 0.00700000 0.00700000 0.19350000
+FPR             0.00000000 0.00000000 0.00000000 0.00000000
+TPR_sens_recall 0.75000000 0.75000000 0.75000000 1.00000000
+FNR             0.25000000 0.25000000 0.25000000 0.00000000
+TNR_specificity 1.00000000 1.00000000 1.00000000 1.00000000
+f1              0.85714286 0.85714286 0.85714286 1.00000000
+ssgam: 
+simdat 37 finished; 
+working on hshoe2det4_2k_50sims_origfcns_competitors_ssgam_bfdrarr
+X generated using mutual corr =  0.5
+Model has  1043  coefficients in  209 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 23 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                  bfdr_0.01   bfdr_0.05    bfdr_0.1  bfdr_0.25
+test_mse        1.105313540 1.105313540 1.105313540 1.10531354
+fcn_mse         0.094654164 0.094654164 0.094654164 0.09465416
+time            1.192683936 1.192683936 1.192683936 1.19268394
+max_bfdr        0.010000000 0.050000000 0.100000000 0.25000000
+fdr             0.000000000 0.000000000 0.000000000 0.00000000
+bfdr            0.007666667 0.007666667 0.007666667 0.19600000
+FPR             0.000000000 0.000000000 0.000000000 0.00000000
+TPR_sens_recall 0.750000000 0.750000000 0.750000000 1.00000000
+FNR             0.250000000 0.250000000 0.250000000 0.00000000
+TNR_specificity 1.000000000 1.000000000 1.000000000 1.00000000
+f1              0.857142857 0.857142857 0.857142857 1.00000000
+ssgam: 
+simdat 38 finished; 
+working on hshoe2det4_2k_50sims_origfcns_competitors_ssgam_bfdrarr
+X generated using mutual corr =  0.5
+Model has  1042  coefficients in  209 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 23 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                bfdr_0.01 bfdr_0.05  bfdr_0.1 bfdr_0.25
+test_mse        1.0630603 1.0630603 1.0630603 1.0630603
+fcn_mse         0.1153171 0.1153171 0.1153171 0.1153171
+time            1.2613491 1.2613491 1.2613491 1.2613491
+max_bfdr        0.0100000 0.0500000 0.1000000 0.2500000
+fdr             0.0000000 0.0000000 0.0000000 0.0000000
+bfdr            0.0020000 0.0020000 0.0020000 0.2207500
+FPR             0.0000000 0.0000000 0.0000000 0.0000000
+TPR_sens_recall 0.7500000 0.7500000 0.7500000 1.0000000
+FNR             0.2500000 0.2500000 0.2500000 0.0000000
+TNR_specificity 1.0000000 1.0000000 1.0000000 1.0000000
+f1              0.8571429 0.8571429 0.8571429 1.0000000
+ssgam: 
+simdat 39 finished; 
+working on hshoe2det4_2k_50sims_origfcns_competitors_ssgam_bfdrarr
+X generated using mutual corr =  0.5
+Model has  1041  coefficients in  209 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 23 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                 bfdr_0.01  bfdr_0.05   bfdr_0.1  bfdr_0.25
+test_mse        1.07753897 1.07753897 1.07753897 1.07753897
+fcn_mse         0.06390759 0.06390759 0.06390759 0.06390759
+time            1.24476086 1.24476086 1.24476086 1.24476086
+max_bfdr        0.01000000 0.05000000 0.10000000 0.25000000
+fdr             0.00000000 0.00000000 0.00000000 0.00000000
+bfdr            0.00000000 0.01100000 0.01100000 0.16700000
+FPR             0.00000000 0.00000000 0.00000000 0.00000000
+TPR_sens_recall 0.50000000 0.75000000 0.75000000 1.00000000
+FNR             0.50000000 0.25000000 0.25000000 0.00000000
+TNR_specificity 1.00000000 1.00000000 1.00000000 1.00000000
+f1              0.66666667 0.85714286 0.85714286 1.00000000
+ssgam: 
+simdat 40 finished; 
+working on hshoe2det4_2k_50sims_origfcns_competitors_ssgam_bfdrarr
+X generated using mutual corr =  0.5
+Model has  1041  coefficients in  209 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 23 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                  bfdr_0.01   bfdr_0.05    bfdr_0.1  bfdr_0.25
+test_mse        1.046230451 1.046230451 1.046230451 1.04623045
+fcn_mse         0.067706623 0.067706623 0.067706623 0.06770662
+time            1.195745542 1.195745542 1.195745542 1.19574554
+max_bfdr        0.010000000 0.050000000 0.100000000 0.25000000
+fdr             0.000000000 0.000000000 0.000000000 0.00000000
+bfdr            0.002333333 0.002333333 0.002333333 0.12000000
+FPR             0.000000000 0.000000000 0.000000000 0.00000000
+TPR_sens_recall 0.750000000 0.750000000 0.750000000 1.00000000
+FNR             0.250000000 0.250000000 0.250000000 0.00000000
+TNR_specificity 1.000000000 1.000000000 1.000000000 1.00000000
+f1              0.857142857 0.857142857 0.857142857 1.00000000
+ssgam: 
+simdat 41 finished; 
+working on hshoe2det4_2k_50sims_origfcns_competitors_ssgam_bfdrarr
+X generated using mutual corr =  0.5
+Model has  1041  coefficients in  209 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 23 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+########################################################################################################
+########################################################################################################
+MOD FCNS 2k
+hshoe2det4_2k_50sims_modfcns_competitors_ssgam_bfdrarr
+########################################################################################################
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                bfdr_0.01 bfdr_0.05  bfdr_0.1 bfdr_0.25
+test_mse        3.1811855 3.1811855 3.1811855 3.1811855
+fcn_mse         1.8845402 1.8845402 1.8845402 1.8845402
+time            1.2540656 1.2540656 1.2540656 1.2540656
+max_bfdr        0.0100000 0.0500000 0.1000000 0.2500000
+fdr             0.0000000 0.0000000 0.0000000 0.0000000
+bfdr            0.0020000 0.0020000 0.0952000 0.2358333
+FPR             0.0000000 0.0000000 0.0000000 0.0000000
+TPR_sens_recall 0.5000000 0.5000000 0.6250000 0.7500000
+FNR             0.5000000 0.5000000 0.3750000 0.2500000
+TNR_specificity 1.0000000 1.0000000 1.0000000 1.0000000
+f1              0.6666667 0.6666667 0.7692308 0.8571429
+ssgam: 
+simdat 13 finished; 
+working on hshoe2det4_2k_50sims_modfcns_competitors_ssgam_bfdrarr
+
+Model has  1081  coefficients in  217 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 24 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                bfdr_0.01 bfdr_0.05  bfdr_0.1 bfdr_0.25
+test_mse        3.3125821 3.3125821 3.3125821 3.3125821
+fcn_mse         2.1154702 2.1154702 2.1154702 2.1154702
+time            1.2522596 1.2522596 1.2522596 1.2522596
+max_bfdr        0.0100000 0.0500000 0.1000000 0.2500000
+fdr             0.0000000 0.0000000 0.0000000 0.0000000
+bfdr            0.0010000 0.0010000 0.0010000 0.2478333
+FPR             0.0000000 0.0000000 0.0000000 0.0000000
+TPR_sens_recall 0.5000000 0.5000000 0.5000000 0.7500000
+FNR             0.5000000 0.5000000 0.5000000 0.2500000
+TNR_specificity 1.0000000 1.0000000 1.0000000 1.0000000
+f1              0.6666667 0.6666667 0.6666667 0.8571429
+ssgam: 
+simdat 14 finished; 
+working on hshoe2det4_2k_50sims_modfcns_competitors_ssgam_bfdrarr
+
+Model has  1081  coefficients in  217 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 24 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                bfdr_0.01 bfdr_0.05  bfdr_0.1 bfdr_0.25
+test_mse        3.4094971 3.4094971 3.4094971 3.4094971
+fcn_mse         2.2783529 2.2783529 2.2783529 2.2783529
+time            1.2383346 1.2383346 1.2383346 1.2383346
+max_bfdr        0.0100000 0.0500000 0.1000000 0.2500000
+fdr             0.0000000 0.0000000 0.0000000 0.1666667
+bfdr            0.0007500 0.0110000 0.0110000 0.1681667
+FPR             0.0000000 0.0000000 0.0000000 0.0100000
+TPR_sens_recall 0.5000000 0.6250000 0.6250000 0.6250000
+FNR             0.5000000 0.3750000 0.3750000 0.3750000
+TNR_specificity 1.0000000 1.0000000 1.0000000 0.9900000
+f1              0.6666667 0.7692308 0.7692308 0.7142857
+ssgam: 
+simdat 15 finished; 
+working on hshoe2det4_2k_50sims_modfcns_competitors_ssgam_bfdrarr
+
+Model has  1081  coefficients in  217 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 24 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                 bfdr_0.01  bfdr_0.05   bfdr_0.1  bfdr_0.25
+test_mse         2.6028881  2.6028881  2.6028881  2.6028881
+fcn_mse          1.7355223  1.7355223  1.7355223  1.7355223
+time            58.8719894 58.8719894 58.8719894 58.8719894
+max_bfdr         0.0100000  0.0500000  0.1000000  0.2500000
+fdr              0.0000000  0.0000000  0.0000000  0.1666667
+bfdr             0.0022500  0.0148000  0.0148000  0.1760000
+FPR              0.0000000  0.0000000  0.0000000  0.0100000
+TPR_sens_recall  0.5000000  0.6250000  0.6250000  0.6250000
+FNR              0.5000000  0.3750000  0.3750000  0.3750000
+TNR_specificity  1.0000000  1.0000000  1.0000000  0.9900000
+f1               0.6666667  0.7692308  0.7692308  0.7142857
+ssgam: 
+simdat 16 finished; 
+working on hshoe2det4_2k_50sims_modfcns_competitors_ssgam_bfdrarr
+
+Model has  1081  coefficients in  217 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 24 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                bfdr_0.01 bfdr_0.05  bfdr_0.1 bfdr_0.25
+test_mse        2.7805225 2.7805225 2.7805225 2.7805225
+fcn_mse         1.7563430 1.7563430 1.7563430 1.7563430
+time            1.1982580 1.1982580 1.1982580 1.1982580
+max_bfdr        0.0100000 0.0500000 0.1000000 0.2500000
+fdr             0.0000000 0.0000000 0.0000000 0.0000000
+bfdr            0.0030000 0.0030000 0.0030000 0.1560000
+FPR             0.0000000 0.0000000 0.0000000 0.0000000
+TPR_sens_recall 0.6250000 0.6250000 0.6250000 0.7500000
+FNR             0.3750000 0.3750000 0.3750000 0.2500000
+TNR_specificity 1.0000000 1.0000000 1.0000000 1.0000000
+f1              0.7692308 0.7692308 0.7692308 0.8571429
+ssgam: 
+simdat 17 finished; 
+working on hshoe2det4_2k_50sims_modfcns_competitors_ssgam_bfdrarr
+
+Model has  1081  coefficients in  217 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 24 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                bfdr_0.01 bfdr_0.05  bfdr_0.1 bfdr_0.25
+test_mse        2.8764857 2.8764857 2.8764857 2.8764857
+fcn_mse         1.7939224 1.7939224 1.7939224 1.7939224
+time            2.0140823 2.0140823 2.0140823 2.0140823
+max_bfdr        0.0100000 0.0500000 0.1000000 0.2500000
+fdr             0.0000000 0.0000000 0.0000000 0.0000000
+bfdr            0.0005000 0.0208000 0.0208000 0.1548333
+FPR             0.0000000 0.0000000 0.0000000 0.0000000
+TPR_sens_recall 0.5000000 0.6250000 0.6250000 0.7500000
+FNR             0.5000000 0.3750000 0.3750000 0.2500000
+TNR_specificity 1.0000000 1.0000000 1.0000000 1.0000000
+f1              0.6666667 0.7692308 0.7692308 0.8571429
+ssgam: 
+simdat 18 finished; 
+working on hshoe2det4_2k_50sims_modfcns_competitors_ssgam_bfdrarr
+
+Model has  1082  coefficients in  217 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 24 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                bfdr_0.01 bfdr_0.05  bfdr_0.1 bfdr_0.25
+test_mse        2.4987937 2.4987937 2.4987937 2.4987937
+fcn_mse         1.5657936 1.5657936 1.5657936 1.5657936
+time            1.5283046 1.5283046 1.5283046 1.5283046
+max_bfdr        0.0100000 0.0500000 0.1000000 0.2500000
+fdr             0.0000000 0.0000000 0.0000000 0.0000000
+bfdr            0.0005000 0.0388000 0.0388000 0.1818333
+FPR             0.0000000 0.0000000 0.0000000 0.0000000
+TPR_sens_recall 0.5000000 0.6250000 0.6250000 0.7500000
+FNR             0.5000000 0.3750000 0.3750000 0.2500000
+TNR_specificity 1.0000000 1.0000000 1.0000000 1.0000000
+f1              0.6666667 0.7692308 0.7692308 0.8571429
+ssgam: 
+simdat 19 finished; 
+working on hshoe2det4_2k_50sims_modfcns_competitors_ssgam_bfdrarr
+
+Model has  1081  coefficients in  217 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 24 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                bfdr_0.01 bfdr_0.05  bfdr_0.1 bfdr_0.25
+test_mse        2.8737499 2.8737499 2.8737499 2.8737499
+fcn_mse         1.9643280 1.9643280 1.9643280 1.9643280
+time            1.7106798 1.7106798 1.7106798 1.7106798
+max_bfdr        0.0100000 0.0500000 0.1000000 0.2500000
+fdr             0.0000000 0.0000000 0.0000000 0.0000000
+bfdr            0.0022500 0.0268000 0.0268000 0.1836667
+FPR             0.0000000 0.0000000 0.0000000 0.0000000
+TPR_sens_recall 0.5000000 0.6250000 0.6250000 0.7500000
+FNR             0.5000000 0.3750000 0.3750000 0.2500000
+TNR_specificity 1.0000000 1.0000000 1.0000000 1.0000000
+f1              0.6666667 0.7692308 0.7692308 0.8571429
+ssgam: 
+simdat 20 finished; 
+working on hshoe2det4_2k_50sims_modfcns_competitors_ssgam_bfdrarr
+
+Model has  1081  coefficients in  217 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 24 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                bfdr_0.01 bfdr_0.05  bfdr_0.1 bfdr_0.25
+test_mse        2.7916164 2.7916164 2.7916164 2.7916164
+fcn_mse         1.7668228 1.7668228 1.7668228 1.7668228
+time            1.4420065 1.4420065 1.4420065 1.4420065
+max_bfdr        0.0100000 0.0500000 0.1000000 0.2500000
+fdr             0.0000000 0.0000000 0.0000000 0.0000000
+bfdr            0.0005000 0.0182000 0.0182000 0.1736667
+FPR             0.0000000 0.0000000 0.0000000 0.0000000
+TPR_sens_recall 0.5000000 0.6250000 0.6250000 0.7500000
+FNR             0.5000000 0.3750000 0.3750000 0.2500000
+TNR_specificity 1.0000000 1.0000000 1.0000000 1.0000000
+f1              0.6666667 0.7692308 0.7692308 0.8571429
+ssgam: 
+simdat 21 finished; 
+working on hshoe2det4_2k_50sims_modfcns_competitors_ssgam_bfdrarr
+
+Model has  1081  coefficients in  217 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 24 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                bfdr_0.01 bfdr_0.05  bfdr_0.1 bfdr_0.25
+test_mse        2.6327243 2.6327243 2.6327243 2.6327243
+fcn_mse         1.7314344 1.7314344 1.7314344 1.7314344
+time            1.1453661 1.1453661 1.1453661 1.1453661
+max_bfdr        0.0100000 0.0500000 0.1000000 0.2500000
+fdr             0.0000000 0.0000000 0.0000000 0.1666667
+bfdr            0.0002500 0.0002500 0.0562000 0.2056667
+FPR             0.0000000 0.0000000 0.0000000 0.0100000
+TPR_sens_recall 0.5000000 0.5000000 0.6250000 0.6250000
+FNR             0.5000000 0.5000000 0.3750000 0.3750000
+TNR_specificity 1.0000000 1.0000000 1.0000000 0.9900000
+f1              0.6666667 0.6666667 0.7692308 0.7142857
+ssgam: 
+simdat 22 finished; 
+working on hshoe2det4_2k_50sims_modfcns_competitors_ssgam_bfdrarr
+
+Model has  1082  coefficients in  217 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 24 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                bfdr_0.01 bfdr_0.05  bfdr_0.1 bfdr_0.25
+test_mse        3.3923073 3.3923073 3.3923073 3.3923073
+fcn_mse         2.2852567 2.2852567 2.2852567 2.2852567
+time            1.5917150 1.5917150 1.5917150 1.5917150
+max_bfdr        0.0100000 0.0500000 0.1000000 0.2500000
+fdr             0.0000000 0.0000000 0.0000000 0.0000000
+bfdr            0.0017500 0.0308000 0.0308000 0.1860000
+FPR             0.0000000 0.0000000 0.0000000 0.0000000
+TPR_sens_recall 0.5000000 0.6250000 0.6250000 0.7500000
+FNR             0.5000000 0.3750000 0.3750000 0.2500000
+TNR_specificity 1.0000000 1.0000000 1.0000000 1.0000000
+f1              0.6666667 0.7692308 0.7692308 0.8571429
+ssgam: 
+simdat 23 finished; 
+working on hshoe2det4_2k_50sims_modfcns_competitors_ssgam_bfdrarr
+
+Model has  1081  coefficients in  217 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 24 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                bfdr_0.01 bfdr_0.05  bfdr_0.1 bfdr_0.25
+test_mse        3.4181473 3.4181473 3.4181473 3.4181473
+fcn_mse         2.1632653 2.1632653 2.1632653 2.1632653
+time            1.2225566 1.2225566 1.2225566 1.2225566
+max_bfdr        0.0100000 0.0500000 0.1000000 0.2500000
+fdr             0.0000000 0.0000000 0.0000000 0.1666667
+bfdr            0.0002500 0.0002500 0.0682000 0.2130000
+FPR             0.0000000 0.0000000 0.0000000 0.0100000
+TPR_sens_recall 0.5000000 0.5000000 0.6250000 0.6250000
+FNR             0.5000000 0.5000000 0.3750000 0.3750000
+TNR_specificity 1.0000000 1.0000000 1.0000000 0.9900000
+f1              0.6666667 0.6666667 0.7692308 0.7142857
+ssgam: 
+simdat 24 finished; 
+working on hshoe2det4_2k_50sims_modfcns_competitors_ssgam_bfdrarr
+
+Model has  1082  coefficients in  217 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 24 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                bfdr_0.01 bfdr_0.05  bfdr_0.1 bfdr_0.25
+test_mse        2.8354139 2.8354139 2.8354139 2.8354139
+fcn_mse         1.8575116 1.8575116 1.8575116 1.8575116
+time            1.3372471 1.3372471 1.3372471 1.3372471
+max_bfdr        0.0100000 0.0500000 0.1000000 0.2500000
+fdr             0.0000000 0.0000000 0.0000000 0.0000000
+bfdr            0.0020000 0.0020000 0.0020000 0.1661667
+FPR             0.0000000 0.0000000 0.0000000 0.0000000
+TPR_sens_recall 0.6250000 0.6250000 0.6250000 0.7500000
+FNR             0.3750000 0.3750000 0.3750000 0.2500000
+TNR_specificity 1.0000000 1.0000000 1.0000000 1.0000000
+f1              0.7692308 0.7692308 0.7692308 0.8571429
+ssgam: 
+simdat 25 finished; 
+working on hshoe2det4_2k_50sims_modfcns_competitors_ssgam_bfdrarr
+
+Model has  1082  coefficients in  217 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 24 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                bfdr_0.01 bfdr_0.05  bfdr_0.1 bfdr_0.25
+test_mse        2.8253474 2.8253474 2.8253474 2.8253474
+fcn_mse         1.9306940 1.9306940 1.9306940 1.9306940
+time            1.5169928 1.5169928 1.5169928 1.5169928
+max_bfdr        0.0100000 0.0500000 0.1000000 0.2500000
+fdr             0.0000000 0.0000000 0.0000000 0.1428571
+bfdr            0.0032500 0.0342000 0.0342000 0.2407143
+FPR             0.0000000 0.0000000 0.0000000 0.0100000
+TPR_sens_recall 0.5000000 0.6250000 0.6250000 0.7500000
+FNR             0.5000000 0.3750000 0.3750000 0.2500000
+TNR_specificity 1.0000000 1.0000000 1.0000000 0.9900000
+f1              0.6666667 0.7692308 0.7692308 0.8000000
+ssgam: 
+simdat 26 finished; 
+working on hshoe2det4_2k_50sims_modfcns_competitors_ssgam_bfdrarr
+
+Model has  1081  coefficients in  217 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 24 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                bfdr_0.01 bfdr_0.05  bfdr_0.1 bfdr_0.25
+test_mse        2.4768986 2.4768986 2.4768986 2.4768986
+fcn_mse         1.6589987 1.6589987 1.6589987 1.6589987
+time            1.2075245 1.2075245 1.2075245 1.2075245
+max_bfdr        0.0100000 0.0500000 0.1000000 0.2500000
+fdr             0.0000000 0.0000000 0.0000000 0.0000000
+bfdr            0.0030000 0.0122000 0.0122000 0.1733333
+FPR             0.0000000 0.0000000 0.0000000 0.0000000
+TPR_sens_recall 0.5000000 0.6250000 0.6250000 0.7500000
+FNR             0.5000000 0.3750000 0.3750000 0.2500000
+TNR_specificity 1.0000000 1.0000000 1.0000000 1.0000000
+f1              0.6666667 0.7692308 0.7692308 0.8571429
+ssgam: 
+simdat 27 finished; 
+working on hshoe2det4_2k_50sims_modfcns_competitors_ssgam_bfdrarr
+
+Model has  1081  coefficients in  217 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 24 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                bfdr_0.01 bfdr_0.05  bfdr_0.1 bfdr_0.25
+test_mse        2.8028728 2.8028728 2.8028728 2.8028728
+fcn_mse         1.8034948 1.8034948 1.8034948 1.8034948
+time            1.5136403 1.5136403 1.5136403 1.5136403
+max_bfdr        0.0100000 0.0500000 0.1000000 0.2500000
+fdr             0.0000000 0.0000000 0.0000000 0.1666667
+bfdr            0.0002500 0.0230000 0.0230000 0.1805000
+FPR             0.0000000 0.0000000 0.0000000 0.0100000
+TPR_sens_recall 0.5000000 0.6250000 0.6250000 0.6250000
+FNR             0.5000000 0.3750000 0.3750000 0.3750000
+TNR_specificity 1.0000000 1.0000000 1.0000000 0.9900000
+f1              0.6666667 0.7692308 0.7692308 0.7142857
+ssgam: 
+simdat 28 finished; 
+working on hshoe2det4_2k_50sims_modfcns_competitors_ssgam_bfdrarr
+
+Model has  1081  coefficients in  217 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 24 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                bfdr_0.01 bfdr_0.05  bfdr_0.1 bfdr_0.25
+test_mse        3.1964884 3.1964884 3.1964884 3.1964884
+fcn_mse         2.1329569 2.1329569 2.1329569 2.1329569
+time            1.3161272 1.3161272 1.3161272 1.3161272
+max_bfdr        0.0100000 0.0500000 0.1000000 0.2500000
+fdr             0.0000000 0.0000000 0.0000000 0.0000000
+bfdr            0.0052500 0.0052500 0.0586000 0.2063333
+FPR             0.0000000 0.0000000 0.0000000 0.0000000
+TPR_sens_recall 0.5000000 0.5000000 0.6250000 0.7500000
+FNR             0.5000000 0.5000000 0.3750000 0.2500000
+TNR_specificity 1.0000000 1.0000000 1.0000000 1.0000000
+f1              0.6666667 0.6666667 0.7692308 0.8571429
+ssgam: 
+simdat 29 finished; 
+working on hshoe2det4_2k_50sims_modfcns_competitors_ssgam_bfdrarr
+
+Model has  1081  coefficients in  217 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 24 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                bfdr_0.01 bfdr_0.05   bfdr_0.1 bfdr_0.25
+test_mse        2.7312093 2.7312093 2.73120934 2.7312093
+fcn_mse         1.8169400 1.8169400 1.81693998 1.8169400
+time            1.3351641 1.3351641 1.33516411 1.3351641
+max_bfdr        0.0100000 0.0500000 0.10000000 0.2500000
+fdr             0.0000000 0.0000000 0.00000000 0.0000000
+bfdr            0.0012500 0.0206000 0.08466667 0.2052857
+FPR             0.0000000 0.0000000 0.00000000 0.0000000
+TPR_sens_recall 0.5000000 0.6250000 0.75000000 0.8750000
+FNR             0.5000000 0.3750000 0.25000000 0.1250000
+TNR_specificity 1.0000000 1.0000000 1.00000000 1.0000000
+f1              0.6666667 0.7692308 0.85714286 0.9333333
+ssgam: 
+simdat 30 finished; 
+working on hshoe2det4_2k_50sims_modfcns_competitors_ssgam_bfdrarr
+
+Model has  1081  coefficients in  217 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 24 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                bfdr_0.01 bfdr_0.05  bfdr_0.1 bfdr_0.25
+test_mse        2.4867228 2.4867228 2.4867228 2.4867228
+fcn_mse         1.5769759 1.5769759 1.5769759 1.5769759
+time            1.4613524 1.4613524 1.4613524 1.4613524
+max_bfdr        0.0100000 0.0500000 0.1000000 0.2500000
+fdr             0.0000000 0.0000000 0.0000000 0.1666667
+bfdr            0.0047500 0.0264000 0.0264000 0.1826667
+FPR             0.0000000 0.0000000 0.0000000 0.0100000
+TPR_sens_recall 0.5000000 0.6250000 0.6250000 0.6250000
+FNR             0.5000000 0.3750000 0.3750000 0.3750000
+TNR_specificity 1.0000000 1.0000000 1.0000000 0.9900000
+f1              0.6666667 0.7692308 0.7692308 0.7142857
+ssgam: 
+simdat 31 finished; 
+working on hshoe2det4_2k_50sims_modfcns_competitors_ssgam_bfdrarr
+
+Model has  1081  coefficients in  217 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 24 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                bfdr_0.01 bfdr_0.05  bfdr_0.1 bfdr_0.25
+test_mse        2.9255331 2.9255331 2.9255331 2.9255331
+fcn_mse         1.9375256 1.9375256 1.9375256 1.9375256
+time            1.2953425 1.2953425 1.2953425 1.2953425
+max_bfdr        0.0100000 0.0500000 0.1000000 0.2500000
+fdr             0.0000000 0.0000000 0.0000000 0.0000000
+bfdr            0.0022500 0.0270000 0.0270000 0.1616667
+FPR             0.0000000 0.0000000 0.0000000 0.0000000
+TPR_sens_recall 0.5000000 0.6250000 0.6250000 0.7500000
+FNR             0.5000000 0.3750000 0.3750000 0.2500000
+TNR_specificity 1.0000000 1.0000000 1.0000000 1.0000000
+f1              0.6666667 0.7692308 0.7692308 0.8571429
+ssgam: 
+simdat 32 finished; 
+working on hshoe2det4_2k_50sims_modfcns_competitors_ssgam_bfdrarr
+
+Model has  1081  coefficients in  217 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 24 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                bfdr_0.01 bfdr_0.05  bfdr_0.1 bfdr_0.25
+test_mse        2.4401944 2.4401944 2.4401944 2.4401944
+fcn_mse         1.6734885 1.6734885 1.6734885 1.6734885
+time            1.3710027 1.3710027 1.3710027 1.3710027
+max_bfdr        0.0100000 0.0500000 0.1000000 0.2500000
+fdr             0.0000000 0.0000000 0.0000000 0.1666667
+bfdr            0.0002500 0.0290000 0.0290000 0.1825000
+FPR             0.0000000 0.0000000 0.0000000 0.0100000
+TPR_sens_recall 0.5000000 0.6250000 0.6250000 0.6250000
+FNR             0.5000000 0.3750000 0.3750000 0.3750000
+TNR_specificity 1.0000000 1.0000000 1.0000000 0.9900000
+f1              0.6666667 0.7692308 0.7692308 0.7142857
+ssgam: 
+simdat 33 finished; 
+working on hshoe2det4_2k_50sims_modfcns_competitors_ssgam_bfdrarr
+
+Model has  1082  coefficients in  217 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 24 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                bfdr_0.01 bfdr_0.05  bfdr_0.1 bfdr_0.25
+test_mse        2.4760907 2.4760907 2.4760907 2.4760907
+fcn_mse         1.6074674 1.6074674 1.6074674 1.6074674
+time            1.3641545 1.3641545 1.3641545 1.3641545
+max_bfdr        0.0100000 0.0500000 0.1000000 0.2500000
+fdr             0.0000000 0.0000000 0.0000000 0.1666667
+bfdr            0.0055000 0.0488000 0.0488000 0.1760000
+FPR             0.0000000 0.0000000 0.0000000 0.0100000
+TPR_sens_recall 0.5000000 0.6250000 0.6250000 0.6250000
+FNR             0.5000000 0.3750000 0.3750000 0.3750000
+TNR_specificity 1.0000000 1.0000000 1.0000000 0.9900000
+f1              0.6666667 0.7692308 0.7692308 0.7142857
+ssgam: 
+simdat 34 finished; 
+working on hshoe2det4_2k_50sims_modfcns_competitors_ssgam_bfdrarr
+
+Model has  1081  coefficients in  217 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 24 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                bfdr_0.01 bfdr_0.05  bfdr_0.1 bfdr_0.25
+test_mse        2.7405596 2.7405596 2.7405596 2.7405596
+fcn_mse         1.6589185 1.6589185 1.6589185 1.6589185
+time            1.2972096 1.2972096 1.2972096 1.2972096
+max_bfdr        0.0100000 0.0500000 0.1000000 0.2500000
+fdr             0.0000000 0.0000000 0.0000000 0.1666667
+bfdr            0.0002500 0.0492000 0.0492000 0.1873333
+FPR             0.0000000 0.0000000 0.0000000 0.0100000
+TPR_sens_recall 0.5000000 0.6250000 0.6250000 0.6250000
+FNR             0.5000000 0.3750000 0.3750000 0.3750000
+TNR_specificity 1.0000000 1.0000000 1.0000000 0.9900000
+f1              0.6666667 0.7692308 0.7692308 0.7142857
+ssgam: 
+simdat 35 finished; 
+working on hshoe2det4_2k_50sims_modfcns_competitors_ssgam_bfdrarr
+
+Model has  1081  coefficients in  217 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 24 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
+                bfdr_0.01 bfdr_0.05  bfdr_0.1 bfdr_0.25
+test_mse        2.5899021 2.5899021 2.5899021 2.5899021
+fcn_mse         1.6463835 1.6463835 1.6463835 1.6463835
+time            1.2437499 1.2437499 1.2437499 1.2437499
+max_bfdr        0.0100000 0.0500000 0.1000000 0.2500000
+fdr             0.0000000 0.0000000 0.0000000 0.0000000
+bfdr            0.0002500 0.0232000 0.0232000 0.1801667
+FPR             0.0000000 0.0000000 0.0000000 0.0000000
+TPR_sens_recall 0.5000000 0.6250000 0.6250000 0.7500000
+FNR             0.5000000 0.3750000 0.3750000 0.2500000
+TNR_specificity 1.0000000 1.0000000 1.0000000 1.0000000
+f1              0.6666667 0.7692308 0.7692308 0.8571429
+ssgam: 
+simdat 36 finished; 
+working on hshoe2det4_2k_50sims_modfcns_competitors_ssgam_bfdrarr

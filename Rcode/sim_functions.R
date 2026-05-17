@@ -1779,27 +1779,57 @@ sim_hshoe_det <- function(
     xdist = sim_params$xdist,
     xcov = sim_params$xcov,
     mut_corr = sim_params$mut_corr,
-    standardize = false_if_null(sim_params$standardize)
+    standardize = FALSE
   )
   if (sim_params$use_cuda){
     simdat$x <- simdat$x$to(device = "cuda")
     simdat$y <- simdat$y$to(device = "cuda")
   }
   
-  if (!is.null(sim_params$xjitter)){
-    simdat$x <- simdat$x + torch_randn_like(simdat$x)*1e-3
+  # if (!is.null(sim_params$xjitter)){
+  #   simdat$x <- simdat$x + torch_randn_like(simdat$x)*1e-3
+  # }
+  # 
+  # if (!is.null(sim_params$xshift) & is.numeric(sim_params$xshift)){
+  #   simdat$x = simdat$x + sim_params$xshift
+  #   if (simdat$standardized) {simdat$x_mean <- simdat$x_mean + sim_params$xshift}
+  # }
+  
+  ## SETUP test-train split and minibatching----
+  # ttsplit, minibatching ----
+  ttsplit_ind <- floor(sim_params$n_obs * sim_params$ttsplit)
+  x_train_raw <- simdat$x[1:ttsplit_ind, ] 
+  y_train_raw <- simdat$y[1:ttsplit_ind, ]
+  x_test_raw <- simdat$x[(ttsplit_ind+1):sim_params$n_obs, ] 
+  y_test_raw <- simdat$y[(ttsplit_ind+1):sim_params$n_obs, ]
+  
+  # minibatching
+  if (!is.null(sim_params$batch_size)){
+    num_batches <- ttsplit_ind %/% sim_params$batch_size
+    batch_inds_vec <- 1:ttsplit_ind
+    batch_size <- sim_params$batch_size
+  } else {
+    batch_size <- ttsplit_ind
   }
   
-  if (!is.null(sim_params$xshift) & is.numeric(sim_params$xshift)){
-    simdat$x = simdat$x + sim_params$xshift
-    if (simdat$standardized) {simdat$x_mean <- simdat$x_mean + sim_params$xshift}
-  }
+  # standardizing train data 
+  x_mean <- torch_mean(x_train_raw, dim = 1, keepdim = TRUE)
+  x_sd <- torch_std(x_train_raw, dim = 1, keepdim = TRUE)
+  y_mean <- torch_mean(y_train_raw, dim = 1, keepdim = TRUE)
+  y_sd <- torch_std(y_train_raw, dim = 1, keepdim = TRUE)
   
-  sim_params$train_sig <- ifelse(
-    simdat$standardized,
-    sim_params$err_sig / simdat$y_sd$item(),
-    sim_params$err_sig
-  )
+  x_train <- (x_train_raw - x_mean)/x_sd
+  y_train <- (y_train_raw - y_mean)/y_sd
+  x_test <- (x_test_raw - x_mean)/x_sd
+  y_test <- (y_test_raw - y_mean)/y_sd
+  
+  sim_params$x_mean <- x_mean
+  sim_params$x_sd <- x_sd
+  sim_params$y_mean <- y_mean
+  sim_params$y_sd <- y_sd
+  
+  # for tracking train progress
+  sim_params$train_sig <- sim_params$err_sig / y_sd$item()
   
   cat_color(paste0("mse target: ", round(sim_params$train_sig, 4), "\n"))
   
@@ -1905,23 +1935,7 @@ sim_hshoe_det <- function(
       sb_logvar_vec <- rep(NA, length(report_epochs))
   }
   
-  
-  ## SETUP test-train split and minibatching----
-  ttsplit_ind <- floor(sim_params$n_obs * sim_params$ttsplit)
-  x_train <- simdat$x[1:ttsplit_ind, ] 
-  y_train <- simdat$y[1:ttsplit_ind, ]
-  x_test <- simdat$x[(ttsplit_ind+1):sim_params$n_obs, ] 
-  y_test <- simdat$y[(ttsplit_ind+1):sim_params$n_obs, ]
-  
-  if (!is.null(sim_params$batch_size)){
-    num_batches <- ttsplit_ind %/% sim_params$batch_size
-    batch_inds_vec <- 1:ttsplit_ind
-    batch_size <- sim_params$batch_size
-  } else {
-    batch_size <- ttsplit_ind
-  }
-  
-  
+
   ## TRAINING LOOP ----
   ## initialize training params
   epoch <- 1
