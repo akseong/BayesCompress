@@ -1,0 +1,325 @@
+---
+title: "Bayesian Local Null Testing and Variable Selection in Semi-parametric models"
+subtitle: 
+author: "Arnold Seong"
+institute: "UC Irvine Department of Statistics"
+date: "2025-03-17 (updated: `r Sys.Date()`)"
+header-includes:
+  - \usepackage{bm}
+  - \usepackage{xcolor}
+  - \usepackage{amssymb}
+output:
+  xaringan::moon_reader:
+    css: [xaringan-themer.css, "ninjutsu"]
+    chakra: libs/remark-latest.min.js
+    self_contained: true
+    nature:
+      titleSlideClass: [middle, left, inverse]
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+      slideNumberFormat: "%current%"
+      ratio: 16:9
+---
+
+```{r setup, include=FALSE}
+library(here)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(xaringanthemer)
+library(gridExtra)
+library(kableExtra)
+
+knitr::opts_chunk$set(echo=TRUE)
+knitr::opts_chunk$set(fig.height=6, out.width="100%")
+library(ggplot2)
+# reveal lines up to `upto` and highlight lines `highlight`
+reveal <- function(name, upto, highlight) {
+  content <- knitr:::knit_code$get(name)
+  content[upto] <- gsub("+", "", content[upto], fixed=T)
+  content[highlight] <- paste(content[highlight], "#<<")
+  content[1:upto]
+} 
+
+if (!file.exists(here::here("presentations", "advancement", "libs", "remark-latest.min.js"))){
+  xaringan::summon_remark()
+}
+
+xaringanExtra::use_xaringan_extra(
+  c("tile_view", 
+    "animate_css", 
+    "panelset", 
+    "scribble", 
+    "freezeframe", 
+    "tachyons"
+  )
+)
+# xaringanExtra::use_progress_bar(color = "#0051BA", location = "top")
+xaringanExtra::use_animate_all("fade")
+xaringanExtra::use_extra_styles( # 
+  hover_code_line = TRUE,
+  mute_unhighlighted_code = TRUE
+)
+
+
+style_duo_accent(
+  primary_color = "#009dd1",
+  secondary_color = "#07628f",
+  text_bold_color = "#07628f",
+  title_slide_text_color = "#b1ebfc",
+  title_slide_background_image = here::here("presentations", "advancement", "figs", "web.jpg"),
+  colors = c(
+    pink = "#e63c80",
+    darkpink = "#c22975", 
+    red = "#e32929",
+    purple = "#8800d1",
+    blue = "#009dd1",
+    darkblue = "#2a4191",
+    teal = "#07628f",
+    orange = "#ff8811",
+    green = "#136f63",
+    white = "#FFFFFF"
+  )
+)
+
+# mykable function
+mykable <- function(tab, cap = NULL,
+                    latex_options=c("hold_position", "scale_down", "striped"), 
+                    bootstrap_options=c("striped", "hover", "condensed"), 
+                    full_width=F, position="center", ...){
+  # kable formatting conditional on latex or html output
+  # common additional unspecified args (...):
+  #     digits = 2
+  #     format.args = (list(big.mark = ","))
+  require(kableExtra)
+  if (is.null(getOption("knitr.in.progress"))){
+    print(tab)
+  } else if (knitr::is_latex_output()){
+    kable(x=tab, caption=cap, ...) %>%
+      kableExtra::kable_styling(latex_options = latex_options)
+  } else if (knitr::is_html_output()){
+    kable(x=tab, caption=cap, ...) %>%
+      kableExtra::kable_styling(bootstrap_options = bootstrap_options, full_width=full_width, position=position)
+  }
+}
+```
+
+class: inverse, left
+
+<style type="text/css">
+  blockquote{
+    background-color: #d5f2f5;
+    font-size: x-large;
+  }
+  
+  .attrib{
+    font-size: x-large;
+    width: 30%;
+    position: relative;
+    float: right;
+    padding-right: 5%;
+  }
+  
+  h1, h2, h3, h4, h5, h6{
+    margin-bottom: 0px;
+  }
+  
+  .lcode {
+    color: #777;
+    width: 38%;
+    height: 92%;
+    float: left;
+  }
+  .rplot {
+    width: 60%;
+    float: right;
+    padding-left: 1%;
+  }
+  
+  .middle2 {
+    margin: 0;
+    position: absolute;
+    top: 50%;
+  }
+  
+  .defn {
+  font-weight: bold;
+  font-style: strong;
+  font-size: xx-large;
+  color: #009dd1;
+  }
+  
+  .bpink { 
+  font-weight: bold;
+  color: var(--color-pink); 
+  }
+  
+  .remark-slide-content {
+    font-size: 25px;
+    padding: 1em 4em 1em 4em;
+  }
+
+.content-box { 
+    box-sizing: border-box;
+    background-color: #e2e2e2;
+}
+.content-box-blue,
+.content-box-gray,
+.content-box-grey,
+.content-box-army,
+.content-box-green,
+.content-box-purple,
+.content-box-red,
+.content-box-yellow {
+  box-sizing: border-box;
+  border-radius: 15px;
+  margin: 0 0 15px;
+  overflow: hidden;
+  padding: 0px 20px 0px 20px;
+  width: 100%;
+}
+.content-box-blue { background-color: #F0F8FF; }
+.content-box-gray { background-color: #e2e2e2; }
+.content-box-grey {	background-color: #F5F5F5; }
+.content-box-army {	background-color: #737a36; }
+.content-box-green { background-color: #d9edc2; }
+.content-box-purple { background-color: #e2e2f9; }
+.content-box-red { background-color: #ffcccc; }
+.content-box-yellow { background-color: #fef5c4; }
+.content-box-blue .remark-inline-code,
+.content-box-blue .remark-inline-code,
+.content-box-gray .remark-inline-code,
+.content-box-grey .remark-inline-code,
+.content-box-army .remark-inline-code,
+.content-box-green .remark-inline-code,
+.content-box-purple .remark-inline-code,
+.content-box-red .remark-inline-code,
+.content-box-yellow .remark-inline-code { 
+  background: none;
+}
+
+
+</style>
+
+
+
+---
+## Splines I
+
+![](figs/123bases.png)
+
+???
+linearize the VC model by projecting coordinates onto spline basis
+
+
+---
+## Splines II
+
+.lcode[
+![](figs/thin_spl.png)
+]
+
+.rplot[
+
+&nbsp;  
+
+&nbsp;  
+
+$\scriptsize z=\left(\begin{array}{c}-2.0 \\ -1.6 \\ -1.2 \\ -0.8 \\ -0.4 \\ 0.0 \\ 0.4 \\ 0.8 \\ 1.2 \\ 1.6 \\ 2.0\end{array}\right), \mathbf{B}=\left(\begin{array}{ccccccc}.166 & .666 & .166 & .000 & .000 & .000 & .000 \\ .036 & .538 & .414 & .010 & .000 & .000 & .000 \\ .001 & .282 & .630 & .085 & .000 & .000 & .000 \\ .000 & .085 & .630 & .282 & .001 & .000 & .000 \\ .000 & .010 & .414 & .538 & .036 & .000 & .000 \\ .000 & .000 & .166 & .666 & .166 & .000 & .000 \\ .000 & .000 & .036 & .538 & .414 & .010 & .000 \\ .000 & .000 & .001 & .282 & .630 & .085 & .000 \\ .000 & .000 & .000 & .085 & .630 & .282 & .001 \\ .000 & .000 & .000 & .010 & .414 & .538 & .036 \\ .000 & .000 & .000 & .000 & .166 & .666 & .166\end{array}\right)$
+]
+
+
+
+---
+## Splines III
+
+
+![](figs/thin_splfit.png)
+
+
+???
+thought we could just ID the regions were all the splines over it had coefs of 0
+
+
+
+
+---
+## Cut Orthog Basis
+
+![](figs\cut_W.JPG)
+
+---
+## Proof of $\eta^\star$
+
+Since $W_0$ and $W_1$ orthogonal, 
+![](figs\eta11_proof1.JPG)
+
+___
+
+Since $W_1$ is a cut basis, 
+![](figs\eta11_proof2.JPG)
+
+
+
+---
+# consistency & # knots
+.panelset[
+
+.panel[.panel-name[12 baseline, 8 local]
+
+![](figs\knots_number1.JPG)
+
+]
+
+.panel[.panel-name[20 baseline, 15 local]
+
+![](figs\knots_number2.JPG)
+
+]
+
+.panel[.panel-name[30 baseline, 30 local]
+
+![](figs\knots_number3.JPG)
+
+]
+
+]
+
+
+
+
+
+
+---
+## indep data sim
+![](figs\ind1_appendix.JPG)
+
+
+
+---
+# salary data: knot sensitivity
+.panelset[
+
+.panel[.panel-name[20 knots]
+
+![](figs\knot_sensitivity1.JPG)
+
+]
+
+.panel[.panel-name[30 knots]
+
+![](figs\knot_sensitivity2.JPG)
+
+]
+
+
+]
+
+??? important to note that don't have more high probability regions with 30 knots (our method is unlikely to get moer type 1 errors)
+
+
+
+
+
+

@@ -7,30 +7,6 @@ currently running (reverse order):
 2x meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_2000obs_ (should be last ones)
 4x ssgam - both settings, 1k and 2k.  1K might finish overnight.  2K might take 1-2 more days?
 
-
-
-
-
-salary_analysis_h2d4x16_nointspec
-salary_analysis_h2d4x16
-2x ssgam - 1k obs orig, mod - FUCKING FAILED
-meanfssmallbias_5x16_origmodsupint_p100_mcor.5_2000obs_ x4   516-5162
-
-competitors - modfcns 1k, 5k
-competitors - origfcns 1k, 2k, 5k
-
-
-run 11 meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_1000obs_    next
-
-
-5.75
-5.25
-
-7.9
-7.14
-
-
-
 nfdsmallbias prefix sims trained using newfcns_detlayers.R
 hshoesmallbias prefix sims traing using newfcns_hshoelayers.R
 meanfssmallbias prefix trained using meanfcns_sim.R

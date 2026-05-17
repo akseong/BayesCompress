@@ -1,0 +1,113 @@
+Contents slide -- dont need to mention that it took a while
+- want to find the main/underlying theme of your research and start with that
+- the example about salary data comes a bit out of nowhere
+
+p.9 - how would you write about 1st vs 2nd vs 3rd degree splines in notation
+
+p.13 - why do you think issues at large n vs. small n?
+
+p.15 - what are the "mild conditions"?
+
+p.15 - what is KL divergence?
+
+p.15 - does &quot;dense&quot; mean &#39;not sparse&#39;? then how is &#39;sparse&#39; defined?
+
+p.15 - Pr(Type 1 error) -&gt; 1 as n-&gt; infty
+
+Pr( Type 1 error ) as in type 1 error rate: Pr( reject null | null true )?
+
+p.16 - what does &quot;excellent&quot; mean? achieving nominal levels?
+
+at 10:42 &quot;got to our proposal&quot; at least 30 min into presentation
+
+p.20 - two figures look similar which may confuse the audience
+
+p.22 - &quot;so how do we get around this&quot; -- or how to fix the issue? or truly finding a
+different way/approach?
+
+p.22 - what do &quot;consistent asymptotics&quot; mean in the Bayesian paradigm?
+
+
+
+
+
+
+
+
+
+
+
+- overall research theme - 10 min
+- first proj - 20 min
+- 2nd proj - 10 min
+
+
+
+- don't talk so much about the projects before presenting
+- cut down on mathematical details (don't need their own slides)
+- keep backup slides
+
+
+- don't spend so much time on salary data
+
+
+- outlining application --> cubic splines & type I error --> fix
+- emphasize contribution
+
+
+- label plots more informatively
+
+- slide on variational inf in Appendix
+
+
+- trim down beginning
+
+- easy to get lost if going between slides
+
+- watch recording of your own talk
+
+
+
+- motivation slide - what does the plot show, what are you trying to estimate
+
+
+
+I did want to ask if I was answering the question about plot C (HFA vs time) adequately.  Did you have a different interpretation / were you looking for a different type of explanation?  
+
+
+
+
+
+
+
+emphasize contribution
+
+- overall research theme - 10 min
+  - using Bayesian Variable Selection in semi-parametric models to understand complex data
+    - flexible methods that
+       1. apply to variety of settings and data
+       2. use existing computational machinery
+       3. expressive but interpretable models 
+
+- first proj - 20 min
+- 2nd proj - 10 min
+
+
+
+
+
+
+What to say about BVS in DNN?
+
+- preliminary results with normal-jeffrey's prior & alpha parameter in high-dimensional linear regression
+- found convergence issues recently when using DNNs.  Pushing toward horseshoe model.
+  - work on these issues is primarily from a ML standpoint, with a focus on predictive accuracy, treatment of decision criteria as tuning parameters for inducing sparsity, little to no treatment of variable selection performance.
+    - formalize variable selection procedure and decision criteria via BFDR (specifying BFDR as a function of decision parameter)
+
+- horseshoe prior, non-local prior + normalizing flow - extend Adam's work by 
+  1) characterizing performance in DNN's, not just high-dimensional linear regression tasks
+  1) characterizing operating characteristics as a variable selection procedure, i.e. FDR, 
+
+
+
+

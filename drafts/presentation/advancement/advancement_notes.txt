@@ -1,0 +1,261 @@
+
+Date: Monday, March 17
+Time: 11am
+Zoom Info: https://uci.zoom.us/j/98051095058
+Committee: Babak Shahbaba (chair), Michele Guindani, Zhaoxia Yu, Veronica Berrocal, Aaron Bornstein 
+Title: Bayesian Local Null Testing and Variable Selection in Semi-parametric models
+Abstract: 
+
+It is often of interest to know not only whether something has an effect, but also when and where the effect is present.  Testing of local effects, however, poses major methodological difficulties, particularly when using expressive models able to capture non-linear relationships.  In the first portion of this talk, we adopt the additive model framework, in which non-linear function spaces are linearized via basis expansion, and develop the concept of an orthogonal cut basis which yields consistent local null tests.  We formalize local null testing as Bayesian model selection with an orthogonal cut basis, applying the method to brain imaging data in order to describe neural responses to stimuli.  The second portion of this talk discusses ongoing work in applying Bayesian variable selection methods to deep neural networks, increasing parsimony and interpretability while preserving the expressivity afforded by deep neural networks.
+
+
+
+
+
+
+
+
+LOCAL NULL TESTING:
+  - work with David Rossell, Michele Guindani
+  - not just IF, but WHEN or WHERE
+    - tend to think a lot more about marginalizing over categories vs. marginalizing over coordinates
+    - knowing IF is good, but even more useful would be knowing WHEN / WHERE
+      - more targeted interventions, e.g.
+         - middle school or high school
+         - early- or mid-career equity initiatives
+      - measuring how long it takes for the effect of a pharmaceutical to be felt; how long it takes to diminish.
+      - which regions of the brain are correlated with different stimuli
+        - e.g. before time 0 would be risk / anticipation; after time 0 might be reward / regret
+
+  - MOTIVATING EXAMPLES: electrocorticography data (Ignacio Saez), salary data
+    - ECoG data from Ignacio Saez ---- high-frequency, high spatial resolution brain data.  Also called intra-cranial EEG.  
+      - describe data --- gambling experiment, pre-op.  Reveal time-locked to 0
+      - want to ID neural correlates to stimulus --- win/loss, but also risk/anticipation, remorse
+      - non-linear, correlated data
+    - Salary data
+      - salary gap based on race, gender given years in job market
+      - simpler, independent obs case
+
+  - Goal: We want to be able to test whether $x_i \in \mathbb{R}^p$ is associated with outcome $y_i$ at coordinate $z_i \in \mathcal{R}^d$ ($z_i$ treated as continuous).
+    - salary gap based on race, gender
+    - brain region activity vs. patient covariates and gambling choices/outcomes at a given time $z_i$
+  - Difficulties: Our method needs to handle non-linearity.  
+    - outcome $y_i$ may be some function of $z_i$ (and possibly other covariates)
+    - conceptually, the very goal ---- to detect local regions of no effect --- requires this
+  
+
+  - ADDITIVE MODELS (semi-parametric models)
+    - E[y_i] = f_0(z_i) + f_1(z_i, x_i)
+    - typically modeled by projecting onto a basis
+  - Process / Difficulties
+    - Varying coefficient model
+    - Cubic B-Splines --- explanation
+      - mathematical explanation, visual explanation
+      - essentially, allows us to linearize the VC model by projecting coordinates onto spline basis
+      - thought could just identify regions where the spline coefficients were all 0.
+
+
+  - BUT LOCAL NULL TESTING HAS PROBLEMS
+    - just kept getting weird results.  Performed nominally well at low n, but poorly at very high n, or when taking error terms out of simulated data.
+    - we like to be able to SHARE information across observations.  BUT sharing information in this context is problematic.  Instead of "SHARING", estimation of an effect at active coordinates CONTAMINATES estimation of effect at null coordinates.
+  - (simulated example from paper)
+    - true for any basis that overlaps / shares information across coordinates, e.g. Gaussian processes, etc.
+    - we actually found that this kind of misspecification leads to $/Pr(\text{Type I error}) \rightarrow 1$ as $n \rightarrow \infty$
+    - this also is an argument for why we need to simulate data in ways that are different from our assumed model (didn't start off trying to do this.  Just happened because I started simulating data similar to our actual data)
+
+  - Alternatives:
+     - add more knots
+       - problem of inconsistency persists
+       - lower power
+       - model selection standpoint --- number of models grows exponentially with knots (each region is yes/no)
+     - tree-based methods
+       - VC-BART
+       - can be excellent for estimation and prediction
+       - controlling type I error is not straightforward
+
+  - MISSPECIFIED --> ORTHOGONAL CUT BASIS
+      - strikes balance between sharing information but also LOCALIZING information.
+      - for any choice of knots, prevents false positives
+      - can handle independent as well as correlated data
+      - can be extended to multivariate $z_i$
+      - orthogonal cut basis is a specific projection of the deisgn matrix.  Standard computational and inferential machinery is still available / applicable.
+
+  - The major advantages of using Bayesian machinery stem from being able to put a prior on models.
+       1. takes care of the multiple testing problem (Mueller reference)
+       1. allows multi-resolution analysis
+       1. even allows smoothing of estimates via Bayesian Model Averaging
+    
+  - Method
+    - Truth:
+      $$E_{\mathcal{F}}(y_i | z_i, x_i) = f_0(z_i) + f_1(x_i, z_i)$$
+      - f_0 is baseline, x_i is vector of covariates
+      - sum-to-zero identifiability condition on $f_1$, i.e. $f_1$ is the deviation from the baseline
+    - local null hypothesis for covariate $j$ at $z_i$: does $f_1(x_i, z_i)$ depend on $x_{ij}$?
+
+    - Model:
+      $E_\eta (y_i | z_i, x_i) = \beta_0 (z_i) + \sum_{j=1}^p \beta_{1j}(z_i)x_{ij} = w_{i0}^T (z_i) \eta_0 + \sum_{j=1}^p  w_{ij}^T (z_i)\eta_{1j} x_{ij}$
+      - varying coefficient model (citation - Tibshirani?)
+      - $w_{i0}^T (z_i)$ is a basis for $\beta_0 (z_i)$
+      - $w_{ij}^T (z_i)$ is a basis for $\beta_{1j} (z_i)$
+      Model-based local null: if $w_{ij}^T (z_i)\eta_{1j} = 0$, then $\beta_{1j}(z_i) = 0$, i.e. no effect of $x_{ij}$ on $y_i$ at $z_i$
+  
+  - if W_1 is NOT an orthogonal cut basis:
+    - y | Z, X \sim N(W_0 \eta_0 + W_1 \eta_1, \sigma^2 I)
+    - under mild conditions, $\hat{\eta}$ converges $\eta^\star$, the projection of the true $E_\mathcal{F}(y | Z, X)$ on $W$
+      - $$\eta^\star = \mathop{\arg \min}\limits_{\eta} E_\mathcal{F} \left[ (y - W \eta)^T (y - W\eta) | Z, X \right] = (W^T W)^{-1} W^T E_\mathcal{F}(y | Z, X)$$
+    
+    - entries in $\eta_1^\star$ associated with $z_i$ where $f_1(x, z) = 0$ can be non-zero.
+    - False positives: frequentist & Bayesian tests give $\beta_j(z) \neq 0$ with probability 1 as $n \rightarrow \infty$.
+
+  - ORTHOGONAL CUT BASIS:
+    Split $z$ into regions (assume given for now).  An orthogonal cut basis is a basis for $\beta_{1k}(z)$ that has support only in a particular region (**cut**) and is **orthogonal** to bases outside that region.
+    - in other words, entries in $\eta_1^\star$ are associated to only 1 region
+    - columns in $W$ coding for group effects are orthogonal across regions
+
+    LATEX FOR orthog cut basis
+    W_0 = (W_{01}, W_{02}, ... W_{0 |\mathcal{R}}|) (slide at 25 min in)
+
+    Lemma 1
+    
+
+
+
+
+
+    Let $\mathcal{R} = \{R_1, R_2, ..., R_{|\mathcal{R}}|} \}$ be a partition of $z$ into $|\mathcal{R}}|$ regions $R_1, R_2, ...$. 
+
+
+
+
+  - simulation study
+
+  - salary data
+
+  - ECoG data
+
+  - FUTURE DIRECTIONS:
+    - BMA across region sets
+    - multiple brain regions, multiple patients, clustering
+
+
+
+BVS in Deep Neural Networks
+
+
+
+
+
+
+
+
+
+
+BMA across region sets to get finer-grained posterior probs AND effect estimates --- 
+  - e.g. region set 1 = {  (0, 1], (1,2], (2, 3] }
+       - region set 2 = {  (0, 0.25], (0.25, 1.25], (1.25, 2.25], (2.25, 3] }
+       - region set 3 = {  (0, 0.5], (0.5, 1.5], (1.5, 2.5], (2.5, 3]  }
+       - region set 4 = {  (0, 0.75], (0.75, 1.75], (1.75, 2.75], (2.75, 3]  }
+- may be better ways to subdivide region sets, to hit both region size and start/end points
+
+Then calculate posterior probs and effect sizes POINT-WISE in Z as weighted averages using BMA
+
+
+
+
+
+
+
+BAYESIAN VARIABLE SELECTION IN DEEP NEURAL NETWORKS:
+
+- compression algorithm
+
+- variational inference
+
+
+
+
+
+OTHER PROJECTS
+
+- datagoboop
+
+
+
+TIMELINE
+- Spring quarter - finish work for 2nd project (BVS in DNN)
+- Summer
+  - write paper + package for 2nd project
+  - extend local null testing
+     - smoothing via multi-resolution analysis
+- Fall / Winter Q - defend
+
+
+
+
+
+
+OTHER:
+  - Sonification package
+  - Importance of mis-specifying simulation data
+
+
+
+
+
+
+55 min 
+
+
+
+
+BMS + posterior inclusion probabilities
+
+
+
+
+
+
+
+- overall research theme - 10 min
+- first proj - 20 min
+- 2nd proj - 10 min
+
+
+
+- don't talk so much about the projects before presenting
+- cut down on mathematical details (don't need their own slides)
+- keep backup slides
+
+
+- don't spend so much time on salary data
+
+
+- outlining application --> cubic splines & type I error --> fix
+- emphasize contribution
+
+
+- label plots more informatively
+
+- slide on variational inf in Appendix
+
+
+- trim down beginning
+
+- easy to get lost if going between slides
+
+- watch recording of your own talk
+
+
+
+- motivation slide - what does the plot show, what are you trying to estimate
+
+
+
+I did want to ask if I was answering the question about plot C (HFA vs time) adequately.  Did you have a different interpretation / were you looking for a different type of explanation?  
+
+
+
+
+
+
+

@@ -93,19 +93,19 @@ metrics_err_by_max_bfdr <- function(dropout_vec, true_vec, bfdr_vec){
 # hshoe4det1_5k_50sims_modfcns_bfdr_arr.Rdata        14 available:         meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_5000obs_
 
 
-stem <- here::here("final_sims", "results", "hshoesmallbias_mutcorr0.5_5x165000obs_")
+stem <- here::here("final_sims", "results", "meanfshshoesmallbias_5x16_origmodsupint_p100_mcor.5_5000obs_")
 modfcns_TF <- grepl("meanfs", stem)
 n_sims = 50 
-max_bfdrs <- 0:100/100
+max_bfdrs <- c(0.01, 0.05, 0.1, 0.25)
 
 if (modfcns_TF){
   true_vec <- rep(0, 108)
   true_vec[1:8] <- 1
-  fname_suffix <- "modfcns_bfdrall_arr"   
+  fname_suffix <- "modfcns_bfdr_arr"   
 } else {
   true_vec <- rep(0, 104)
   true_vec[1:4] <- 1
-  fname_suffix <- "origfcns_bfdrall_arr"
+  fname_suffix <- "origfcns_bfdr_arr"
 }
 
 # started off some with 5, some with 10.  Figure out which ones have 5, vs 10
