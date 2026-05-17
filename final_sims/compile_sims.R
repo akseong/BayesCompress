@@ -99,11 +99,11 @@ max_bfdrs <- c(0.01, 0.05, 0.1, 0.25)
 if (modfcns_TF){
   true_vec <- rep(0, 108)
   true_vec[1:8] <- 1
-  fname_suffix <- "modfcns_bfdrall_arr"   
+  fname_suffix <- "modfcns_bfdr_arr"   
 } else {
   true_vec <- rep(0, 104)
   true_vec[1:4] <- 1
-  fname_suffix <- "origfcns_bfdrall_arr"
+  fname_suffix <- "origfcns_bfdr_arr"
 }
 
 # started off some with 5, some with 10.  Figure out which ones have 5, vs 10
@@ -286,6 +286,8 @@ save(res, file = compiled_fname)
 cat_color(paste0("results saved to ", compiled_fname))
 
 
+load(compiled_fname)
+
 
 
 t(apply(ktc50k_bfdr_arr, c(2, 3), mean))
@@ -294,8 +296,8 @@ t(apply(ktc50k_bfdr_arr, c(2, 3), sd))
 t(apply(ksn50k_bfdr_arr, c(2, 3), mean))
 t(apply(ksn50k_bfdr_arr, c(2, 3), sd))
 
-t(apply(ksntc50k_bfdr_arr, c(2, 3), mean))
-t(apply(ksntc50k_bfdr_arr, c(2, 3), sd))
+t(apply(res[[2]]$ksntc50k_bfdr_arr, c(2, 3), mean))
+t(apply(res[[2]]$ksntc50k_bfdr_arr, c(2, 3), sd))
 
 
 t(apply(ktc_metrictest_bfdr_arr, c(2, 3), mean))
@@ -309,115 +311,115 @@ t(apply(ksntc_metrictest_bfdr_arr, c(2, 3), sd))
 
 
 
-#### plot ROC
-
-load(here("final_sims", "compiled", "hshoe2det4_1k_50sims_origfcns_bfdrall_arr.Rdata"))
-
-mat <- res[[2]]$ksntc50k_bfdr_arr
-#
-res[[2]]$ksntc50k_bfdr_arr[,,2]
-
-# column 4 is FPR, col 5 is TPR
-FPRs <- apply(res[[2]]$ksntc50k_bfdr_arr, 3, function(X) X[,4])
-TPRs <- apply(res[[2]]$ksntc50k_bfdr_arr, 3, function(X) X[,5])
-fdrs <- apply(res[[2]]$ksntc50k_bfdr_arr, 3, function(X) X[,2])
-bfdrs <- apply(res[[2]]$ksntc50k_bfdr_arr, 3, function(X) X[,3])
-
-
-
-
-FPR_mean <- apply(FPRs, 2, mean)
-TPR_mean <- apply(TPRs, 2, mean)
-FPR_sd <- apply(FPRs, 2, sd)
-TPR_sd <- apply(TPRs, 2, sd)
-
-fdr_mean <- apply(fdrs, 2, mean)
-bfdr_mean <- apply(bfdrs, 2, mean)
-fdr_sd <- apply(fdrs, 2, sd)
-bfdr_sd <- apply(bfdrs, 2, sd)
-plot(fdr_mean ~ bfdr_mean)
-
-bfdr_qtiles <-t(apply(bfdrs, 2, function(X) quantile(X, c(0.25, 0.975))))
-fdr_qtiles <- t(apply(fdrs, 2, function(X) quantile(X, c(0.25, 0.975))))
-fpr_qtiles <- t(apply(FPRs, 2, function(X) quantile(X, c(0.25, 0.975))))
-tpr_qtiles <- t(apply(TPRs, 2, function(X) quantile(X, c(0.25, 0.975))))
-
-bfdr_minmax <-t(apply(bfdrs, 2, range))
-fdr_minmax <- t(apply(fdrs, 2, range))
-fpr_minmax <- t(apply(FPRs, 2, range))
-tpr_minmax <- t(apply(TPRs, 2, range))
-
-
-
-
-round(t(fdrs[,50:60 ]), 2)
-max_bfdrs <- 0:100/100
-roc_df <- data.frame(
-  "bfdr_threshs" = max_bfdrs,
-  "FPR_mean" = FPR_mean,
-  "TPR_mean" = TPR_mean,
-  "FPR_lo" = fpr_qtiles[,1],
-  "FPR_hi" = fpr_qtiles[,2],
-  "TPR_lo" = tpr_qtiles[,1],
-  "TPR_hi" = tpr_qtiles[,2],
-  "fdr_mean" = fdr_mean,
-  "bfdr_mean" = bfdr_mean,
-  "fdr_lo" = fdr_minmax[, 1],
-  "fdr_hi" = fdr_minmax[, 2],
-  "bfdr_lo" = bfdr_minmax[, 1],
-  "bfdr_hi" = bfdr_minmax[, 2]
-)
-
-cbind(roc_df$bfdr_threshs, roc_df$fdr_hi)
-
-
-library(latex2exp)
-roc1k <- roc_df %>% 
-  ggplot() + 
-  geom_line(aes(y = TPR_mean, x = FPR_mean)) + 
-  geom_abline(intercept = 0, slope = 1, linetype = "dashed") + 
-  coord_fixed(ratio = 1) + 
-  theme(aspect.ratio = 1) +
-  scale_x_continuous(limits = c(0, 1), expand = c(0, 0)) +
-  scale_y_continuous(limits = c(0, 1), expand = c(0, 0)) +
-  labs(subtitle = TeX("ROC curve for HS-2, $n=1000$"),
-       y = "mean true positive rate",
-       x = "mean false positive rate")
-roc1k
-ggsave(roc1k, filename = here("final_sims", "figs", "roc_hs21k.png"))
-cbind(TPR_mean, FPR_mean)
-
-bfdr_calibration <- roc_df %>% 
-  ggplot() + 
-  geom_line(
-    aes(
-      x = bfdr_threshs, y = bfdr_mean
-    ), color = "blue"
-  ) + 
-  geom_ribbon(
-    aes(
-      x = bfdr_threshs, ymax = bfdr_hi, ymin = bfdr_lo
-    ), fill = "blue", alpha = 0.2
-  ) + 
-  geom_line(
-    aes(
-      x = bfdr_threshs, y = fdr_mean
-    ), color = "red"
-  ) + 
-  geom_ribbon(
-    aes(
-      x = bfdr_threshs, ymax = fdr_hi, ymin = fdr_lo
-    ), fill = "red", alpha = 0.2
-  ) + 
-  geom_abline(intercept = 0, slope = 1, linetype = "dashed") + 
-  labs(
-    subtitle = "BFDR calibration: BFDR (blue), FDR (red)",
-    x = "nominal BFDR maximum",
-    y = "realized BFDR/FDR"
-  )
-bfdr_calibration
-ggsave(bfdr_calibration, filename = here("final_sims", "figs", "bfdr_calib.png"))
-
+# #### plot ROC
+# 
+# load(here("final_sims", "compiled", "hshoe2det4_1k_50sims_origfcns_bfdrall_arr.Rdata"))
+# 
+# mat <- res[[2]]$ksntc50k_bfdr_arr
+# #
+# res[[2]]$ksntc50k_bfdr_arr[,,2]
+# 
+# # column 4 is FPR, col 5 is TPR
+# FPRs <- apply(res[[2]]$ksntc50k_bfdr_arr, 3, function(X) X[,4])
+# TPRs <- apply(res[[2]]$ksntc50k_bfdr_arr, 3, function(X) X[,5])
+# fdrs <- apply(res[[2]]$ksntc50k_bfdr_arr, 3, function(X) X[,2])
+# bfdrs <- apply(res[[2]]$ksntc50k_bfdr_arr, 3, function(X) X[,3])
+# 
+# 
+# 
+# 
+# FPR_mean <- apply(FPRs, 2, mean)
+# TPR_mean <- apply(TPRs, 2, mean)
+# FPR_sd <- apply(FPRs, 2, sd)
+# TPR_sd <- apply(TPRs, 2, sd)
+# 
+# fdr_mean <- apply(fdrs, 2, mean)
+# bfdr_mean <- apply(bfdrs, 2, mean)
+# fdr_sd <- apply(fdrs, 2, sd)
+# bfdr_sd <- apply(bfdrs, 2, sd)
+# plot(fdr_mean ~ bfdr_mean)
+# 
+# bfdr_qtiles <-t(apply(bfdrs, 2, function(X) quantile(X, c(0.25, 0.975))))
+# fdr_qtiles <- t(apply(fdrs, 2, function(X) quantile(X, c(0.25, 0.975))))
+# fpr_qtiles <- t(apply(FPRs, 2, function(X) quantile(X, c(0.25, 0.975))))
+# tpr_qtiles <- t(apply(TPRs, 2, function(X) quantile(X, c(0.25, 0.975))))
+# 
+# bfdr_minmax <-t(apply(bfdrs, 2, range))
+# fdr_minmax <- t(apply(fdrs, 2, range))
+# fpr_minmax <- t(apply(FPRs, 2, range))
+# tpr_minmax <- t(apply(TPRs, 2, range))
+# 
+# 
+# 
+# 
+# round(t(fdrs[,50:60 ]), 2)
+# max_bfdrs <- 0:100/100
+# roc_df <- data.frame(
+#   "bfdr_threshs" = max_bfdrs,
+#   "FPR_mean" = FPR_mean,
+#   "TPR_mean" = TPR_mean,
+#   "FPR_lo" = fpr_qtiles[,1],
+#   "FPR_hi" = fpr_qtiles[,2],
+#   "TPR_lo" = tpr_qtiles[,1],
+#   "TPR_hi" = tpr_qtiles[,2],
+#   "fdr_mean" = fdr_mean,
+#   "bfdr_mean" = bfdr_mean,
+#   "fdr_lo" = fdr_minmax[, 1],
+#   "fdr_hi" = fdr_minmax[, 2],
+#   "bfdr_lo" = bfdr_minmax[, 1],
+#   "bfdr_hi" = bfdr_minmax[, 2]
+# )
+# 
+# cbind(roc_df$bfdr_threshs, roc_df$fdr_hi)
+# 
+# 
+# library(latex2exp)
+# roc1k <- roc_df %>% 
+#   ggplot() + 
+#   geom_line(aes(y = TPR_mean, x = FPR_mean)) + 
+#   geom_abline(intercept = 0, slope = 1, linetype = "dashed") + 
+#   coord_fixed(ratio = 1) + 
+#   theme(aspect.ratio = 1) +
+#   scale_x_continuous(limits = c(0, 1), expand = c(0, 0)) +
+#   scale_y_continuous(limits = c(0, 1), expand = c(0, 0)) +
+#   labs(subtitle = TeX("ROC curve for HS-2, $n=1000$"),
+#        y = "mean true positive rate",
+#        x = "mean false positive rate")
+# roc1k
+# ggsave(roc1k, filename = here("final_sims", "figs", "roc_hs21k.png"))
+# cbind(TPR_mean, FPR_mean)
+# 
+# bfdr_calibration <- roc_df %>% 
+#   ggplot() + 
+#   geom_line(
+#     aes(
+#       x = bfdr_threshs, y = bfdr_mean
+#     ), color = "blue"
+#   ) + 
+#   geom_ribbon(
+#     aes(
+#       x = bfdr_threshs, ymax = bfdr_hi, ymin = bfdr_lo
+#     ), fill = "blue", alpha = 0.2
+#   ) + 
+#   geom_line(
+#     aes(
+#       x = bfdr_threshs, y = fdr_mean
+#     ), color = "red"
+#   ) + 
+#   geom_ribbon(
+#     aes(
+#       x = bfdr_threshs, ymax = fdr_hi, ymin = fdr_lo
+#     ), fill = "red", alpha = 0.2
+#   ) + 
+#   geom_abline(intercept = 0, slope = 1, linetype = "dashed") + 
+#   labs(
+#     subtitle = "BFDR calibration: BFDR (blue), FDR (red)",
+#     x = "nominal BFDR maximum",
+#     y = "realized BFDR/FDR"
+#   )
+# bfdr_calibration
+# ggsave(bfdr_calibration, filename = here("final_sims", "figs", "bfdr_calib.png"))
+# 
 
 
 

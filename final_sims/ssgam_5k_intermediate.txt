@@ -317,7 +317,27 @@ Blockwise sampling: alpha: 4  block(s); xi: 24 block(s).
 
 starting chain(s):
 using <parallel> in SOCKET mode -- no progress info available.
+                bfdr_0.01 bfdr_0.05  bfdr_0.1 bfdr_0.25
+test_mse        2.8492268 2.8492268 2.8492268 2.8492268
+fcn_mse         1.7203321 1.7203321 1.7203321 1.7203321
+time            3.5793218 3.5793218 3.5793218 3.5793218
+max_bfdr        0.0100000 0.0500000 0.1000000 0.2500000
+fdr             0.0000000 0.0000000 0.0000000 0.0000000
+bfdr            0.0034000 0.0034000 0.0034000 0.1515000
+FPR             0.0000000 0.0000000 0.0000000 0.0000000
+TPR_sens_recall 0.6250000 0.6250000 0.6250000 0.7500000
+FNR             0.3750000 0.3750000 0.3750000 0.2500000
+TNR_specificity 1.0000000 1.0000000 1.0000000 1.0000000
+f1              0.7692308 0.7692308 0.7692308 0.8571429
+ssgam: 
+simdat 7 finished; 
+working on hshoe2det4_5k_50sims_modfcns_competitors_ssgam_bfdrarr
 
+Model has  1081  coefficients in  217 model terms.
+Blockwise sampling: alpha: 4  block(s); xi: 24 block(s).
+
+starting chain(s):
+using <parallel> in SOCKET mode -- no progress info available.
 
 
 
