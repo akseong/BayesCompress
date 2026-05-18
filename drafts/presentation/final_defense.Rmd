@@ -1227,7 +1227,7 @@ $$\kappa_j = \frac{1}{1 + \lambda_j^2 \tau^2} \;\in\; (0, 1)$$
 - we'll have to recover this interpretation from the NN setting.
 
 ---
-## Shrinkage Profile
+### Shrinkage Profile
 
 .lcode[
 
@@ -1243,7 +1243,7 @@ $$\kappa_j = \frac{1}{1 + \lambda_j^2 \tau^2} \;\in\; (0, 1)$$
 ]
 
 ---
-## BMA and pseudo-PIPs
+### BMA and pseudo-PIPs
 
 _Bhadra et al 2019_ show that in a linear regression context, asymptotically, 
 
@@ -1253,15 +1253,25 @@ $$\mathbb{E}[\beta_j \mid \mathbf{y}]    \;\approx\;   \bigl(1 - \mathbb{E}[\kap
 
 - Can be interpreted as a "pseudo"-Posterior Inclusion Probability ($PIP_j$) for variable $x_j$ (_Carvalho, Polson, Scott 2010_)
 
+___
+
+--
+
+
+_Piironen & Vehtari 2017_ also use $\kappa_j$ to describe the __"effective number of coefficients"__ in a model:
+$$m_\text{eff} = \sum_j (1 - \kappa_j)$$
 
 
 ???
 
 - __important to note (if haven't yet)__ Discrete Spike-and-Slab considered the gold standard for Bayesian Variable Selection --- posterior Bernoulli probabilities are the posterior inclusion probabilities
 
+- We can use these PIPs to control the BFDR $\rightarrow$ if PIPs well-calibrated $\rightarrow$ control the FDR!
 
-$1 - \mathbb{E}[\kappa_j \mid \mathbf{y}]$ is essentially the weight assigned to OLS estimate in Bayesian Model Averaging
+- $1 - \mathbb{E}[\kappa_j \mid \mathbf{y}]$ is essentially the weight assigned to OLS estimate in Bayesian Model Averaging
 
+
+- effective number of coefs will come back!!
 
 
 ---
@@ -1273,20 +1283,19 @@ $1 - \mathbb{E}[\kappa_j \mid \mathbf{y}]$ is essentially the weight assigned to
 
 $$y_i \sim N \left( f^\star (\mathbf{x}_i), \sigma_\varepsilon^2 \right).$$
 
-___
+<!-- ___ -->
 
---
+<!-- -- -->
 
-We choose to model $f^\star(x_i)$ with a feedforward neural network $f(\mathbf{x}_i, \{\mathbf{W}^{(\ell)}\}^L_{l=1})$
+<!-- We choose to model $f^\star(x_i)$ with a feedforward neural network $f(\mathbf{x}_i, \{\mathbf{W}^{(\ell)}\}^L_{l=1})$ -->
 
-- $\{\mathbf{W}^{(\ell)}\}^L_{l=1}$ denotes the collection of $L$ weight matrices
+<!-- - $\{\mathbf{W}^{(\ell)}\}^L_{l=1}$ denotes the collection of $L$ weight matrices -->
 
 
 ---
-## NN representtion
+## NN representation
 
-We propose to model $f^\star(\mathbf{x}_i)$ using a feedforward neural network, denoted $f(\mathbf{x}_i, \{\mathbf{W}^{(\ell)}\}^L_{\ell=1})$, with $\ell$ layers each containing 
-$d_1, \ldots, d_\ell$ nodes, and scalar output such that
+We propose modeling $f^\star(\mathbf{x}_i)$ using a feedforward neural network with $L$ layers, denoted $f(\mathbf{x}_i, \{\mathbf{W}^{(\ell)}\}^L_{\ell=1})$, each layer containing $d_1, \ldots, d_\ell$ nodes:
 
 $$\begin{aligned}
     \hat{y}_i 
@@ -1312,6 +1321,8 @@ $$\begin{aligned}
 ---
 ## Bayesian model: Grouped Horseshoe
 
+Our Bayesian model for the weight distributions use a _structured_ Horseshoe prior:
+
 $$\begin{aligned}
         y_i | \mathbf{x}_i, \{\mathbf{W}^{(\ell)}\}^L_{l=1}
           & \sim N\left( f(\mathbf{x}_i, \{\mathbf{W}^{(\ell)}\}^L_{l=1} ), \sigma_\varepsilon^2 \right)
@@ -1336,41 +1347,178 @@ $$\begin{aligned}
 
 
 ???
-- skippable if needed
+
+- mostly spend time on second line
+
 - assigning each weight its own $\lambda_{j,k}$ would lead to __unstructured__ sparsity.  Instead, every weight in a row (i.e. same coef in each layer unit) shares the same local scale parameter induces __input__ sparsity.
+
+
+
+
+
+
+---
+### reparameterization
+
+__Cauchy decomposition:__
+- Cauchy is hard to approximate with standard exponential families (helpful for VI).  
+
+
+$$\begin{aligned}
+    &\lambda_j^2 = \alpha\beta;  
+        &\quad \alpha_j \sim \text{Gamma} (1/2, 1); 
+        &\quad \beta_j \sim \text{inv-Gamma} (1/2, 1)
+    \\
+    &\tau^2 = a b;
+        &\quad a \sim \text{Gamma} (1/2, \tau_0^2); 
+        &\quad b \sim \text{inv-Gamma} (1/2, 1)
+\end{aligned}$$
+
+___
+
+--
+__uncentered parameterization:__
+
+- individual weight distribution: $w_{j,k} \sim N(w_{j,k} | 0, \lambda^2_{j} \tau^2)$ 
+
+- can be rewritten as $w_{j,k} = \tilde{w}_{j,k} \lambda_j \tau$, where $\tilde{w} \sim N(0,1)$
+
+--
+
+$$w_{j,k} = \tilde{w}_{j, k} \sqrt{\alpha_{j} \beta_{j} a b}$$
+
+---
+## Calibration of $\tau_0$
+
+Recall the prior for the global scale parameter: $$\tau^{(\ell)} \sim C^+ (0, \tau_0)$$
+
+--
+
+- global scale parameter in linear models governs overall sparsity level, effectively a prior over model size
+
+- _Piironen & Vehtari 2017_ indicate that the default $\tau_0 = 1$ is typically orders of magnitude too large.  We use their suggestion of (notation modified for our context)
+
+$$\tau^{(l)}_0 = \dfrac{p_0}{d_{\ell-1} - p_0} \dfrac{\hat{\sigma}_\varepsilon}{\sqrt{n}}$$
+
+- $p_0$ = prior guess at number of active coefficients
+- $d_{\ell-1}$ = input dimension
+- $\hat{\sigma_\varepsilon}$ response standard deviation
+
+
+???
+Mention this in context of calibrating prior on $\tau$, but also to lead into next slide's discussion
+
+- Piironen & Vehtari's suggestion is in context of standard linear regression models, but (just as they do when applying it to other models) we found this to lead to lower training times and better results
+
+- calibration most important for us in 1st layer (we set $p_0 = d / 10$); for secondary layers, use an agnostic $p_0 = d/2$
+
+
+---
+## Other problems with $\tau$
+
+
+In linear models, $\tau$ controls the overall sparsity 
+--
+_in a vector of coefficients, each corresponding to an $x_j$._
+
+--
+
+And the contribution of $x_j$ to $y$ is encapsulated by $\beta_j x_j$, i.e. fully described by the coefficient.
+
+--
+
+This isn't the case for us.  
+  
+- We have a __matrix__ of coefficients, with $d_\ell$ of them corresponding to a single $x_j$.  Each of the $d_l$ nodes captures __a different representation__ of the input variables.
+--
+Output of layer is also shrunk by horseshoe in next layer.
+
+--
+
+- The contribution to $y$ of each covariate $x_j$ is __not fully described__ by that matrix.  Subsequent layers can amplify or attenuate that contribution. 
+
+???
+
+- I don't think there is a problem inherent in that $d_l$ coef's correspond to each $x_j$, since the _proportion_ of coefs corresponding to each $x_j$ to the overall number of coefs is the same.  The bigger problem is that each of the $d_l$ nodes are _trying to capture different characteristics_ (why DNNs can predict so well), and thus giving the $d_l$ coefs different weightings.  Furthermore, 2nd layer shrinks some nodes as well!
+
+- Also, shrinkage from the 2nd layer is arguably helpful, reducing overall dimension, providing sparser representations, mitigating identifiability issues.
+
+
+- Instead, output from the first layer (which supplies the parameters for inference on variable selection) has to travel through the rest of the network.
+
+
+---
+## $\tau^{(1)}$ correction $m^{(2)}_\text{eff}$
+
+In order to use $\kappa_j$ as a posterior inclusion probability, we need to recover an interpretation of $\tau^{(1)}$ as controlling the overall __input__ sparsity. 
+
+--
+
+One way to estimate the effect of the __global__ sparsity induced by $\tau^{(1)}$ is to ignore the local shrinkage (set all $\lambda_j = 1$).  Then we might call
+
+$$g_\text{eff} = \sum_{j=1}^p \sum_{k=1}^{d_1} \left( 1 - \frac{1}{1 + \tau^2} \right) = d_1 \times p \times \left( 1 - \frac{1}{1 + \tau^2} \right)$$
+the _effective number of weights_ in $\mathbf{W}^{(1)}$ that are attributable to $\tau^{(1)}$
+
+--
+
+Rearrangement yields $\tau^{(1)} = \sqrt{\dfrac{g_\text{eff}}{d_1 \times p - g_\text{eff}}}$
+
+
+???
+Essentially, we need to separate $\tau^{(1)}$'s contribution to global sparsity in the matrix $\mathbf{W}^{(1)}$ into input (row) and representation (column) sparsity.
+
+
+
+---
+### Separating out representation sparsity
+
+- 2nd layer provides __representation__ sparsity by shrinking layer 1 node outputs.
+
+- We can estimate the _effective number of inputs_ to layer $\ell$ using
+$$m^{(\ell)}_\text{eff} = \sum_{j=1}^{d_{\ell-1}} (1-\kappa^{(\ell)}_j)$$
+--
+
+- Since inputs to layer $\ell$ come from the nodes of layer $\ell-1$, it is equivalently the _effective number of nodes in layer $\ell-1$_
+
+--
+
+Thus the portion of $g_\text{eff}$ attributable to __input sparsity__ is 
+$$m^{(2)}_\text{eff} \times p \times \left( 1 - \frac{1}{1 + \tau^2} \right).$$
+
+
+
+???
+Now we have an estimate of the global sparsity.  How to separate input and representation sparsity?
+
+recall the idea of the effective number of coefficients from Piironen & Vehtari 2017 $m_\text{eff} = \sum_j (1 - \kappa_j)$
+
+---
+### $m_\text{eff}^{(2)}$ correction
+
+Thus we would like some correction $c$ such that $\tau^{(1)} \times c = \sqrt{\dfrac{g_\text{eff}}{m_\text{eff}^{(2)} \times p - g_\text{eff}}}$
+
+--
+
+Rearrangement gives $c = \sqrt{ \dfrac{d_1\times p - g_\text{eff}}{m^{(2)}_\text{eff} \times p - g_\text{eff}}}$.  
+
+Assuming a high global sparsity level (i.e. $g_\text{eff}$ small) yields $c \approx \sqrt{\dfrac{d_1}{m^{(2)}_\text{eff}}}$
 
 
 --
 
-And therefore, for one fully-connected layer, we have:
+Thus we propose correcting $\tau^{(1)}$ when composing $\kappa_j$ and using
 
-$$\begin{align} 
-  p(W, \mathbf{z}) 
-  &= \prod_i \frac{1}{|z_i|}\prod_{i,j} N(w_{ij} | 0, z_{i}^2)
-\end{align}$$
-
-
+$$\tau_{m_\text{eff}}^{(1)} = \tau^{(1)} \times \sqrt{\dfrac{d_1}{m^{(2)}_\text{eff}}}$$
 
 
 ---
-## reparameterization: Cauchy decomposition
+## Mo $\tau$ Mo Problems:
 
 
 
+???
 
----
-## reparameterization: uncentered parameterization
-
-
-
-
-
----
-## $\tau$ correction $m_\text{eff}$
-
-
-
-
+- The best Biggie song
 
 
 ---
