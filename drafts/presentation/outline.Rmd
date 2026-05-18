@@ -179,7 +179,7 @@ Comments: will spend less time on the first project, more on the 2nd since 1st c
 ???
 Comments
 
-## motivating datasets - Salary
+## motivating datasets --- Salary
 
 
 # Local Null Testing:
@@ -219,7 +219,7 @@ where I first encountered this idea
 
 - I want to repurpose for variable selection (input feature selection), BUT RETAIN control over BFDR and FDR
 
-## matrix reduction = variable selection
+## matrix reduction $\rightarrow$ variable selection
 
 (matrix reduction example)
 
@@ -239,7 +239,7 @@ Actually has a long history
 Last slide of the three: 
 - Bayesian Compression (Louizos, Ullrich, Welling) - follow variational dropout tradition (Normal-Jeffrey's), though they do also try the HShoe.
 
-  - Hron et al next year show that NJ prior induces pathologies in training.  Dropout params all go to 0.
+
 
 
 ## Scale-mixture priors
@@ -251,21 +251,22 @@ basic formulation: $\beta | \lambda \sim N(\beta | 0, \lambda^2); \qquad \lambda
 
 Canonical $p(\lambda)$ choices:
 
-- Bernoulli($\pi$) --> Spike-and-Slab
-- Double-Exp   --> Bayesian LASSO
-- improper $p(\lambda) \propto 1/\lambda$ --> Normal-Jeffrey's
-- Half-Cauchy --> Horseshoe
+- Bernoulli($\pi$) $\rightarrow$ Spike-and-Slab
+- Double-Exp   $\rightarrow$ Bayesian LASSO
+- improper $p(\lambda) \propto 1/\lambda$ $\rightarrow$ Normal-Jeffrey's
+- Half-Cauchy $\rightarrow$ Horseshoe
 
 
 ??? Comments:
-- skippable if needed
-- innocuous, but placing structure on $p(\lambda)$ --> marginal prior dist'ns for $\beta$ with more __mass at 0 and in tails__ --> bias posterior $\beta$'s to be either very small or large.
 
-- e.g. Bernoulli prior on $\lambda$ --> Spike-and-Slab
+- skippable if needed  
+- seems innocuous / conventional / unthreatening, but placing structure on $p(\lambda)$ $\rightarrow$ marginal prior dist'ns for $\beta$ with more __mass at 0 and in tails__ $\rightarrow$ bias posterior $\beta$'s to be either very small or large.  
 
-- Bayesian LASSO --- MAP (maximum a posteriori or posterior mode) estimate equivalent to Freq.y LASSO
+- e.g. Bernoulli prior on $\lambda$ $\rightarrow$ Spike-and-Slab  
 
-- problems with Normal-Jeffrey's
+- Bayesian LASSO --- MAP (maximum a posteriori or posterior mode) estimate equivalent to Freq.y LASSO  
+
+- problems with Normal-Jeffrey's --- Hron et al next year show that NJ prior induces pathologies in training.  Dropout params all go to 0.
 
 
 
@@ -285,7 +286,8 @@ $$\kappa_j = \frac{1}{1 + \lambda_j^2 \tau^2} \;\in\; (0, 1)$$
 
 
 ???
-Comment: 
+Comment:  
+
 - important to remember these interp.s are __predicated on linear model setting__:  
   - $\lambda_j$ applies to the coefficient for $x_j$
   - $\tau$ applies to the coefficient vector
@@ -322,7 +324,9 @@ BMA estimator: $1 - \mathbb{E}[\kappa_j \mid \mathbf{y}]$ weight assigned to OLS
 
 
 -- 
+
 - cauchy decomp
+
 - uncentered parameterization
 
 -- 
@@ -338,17 +342,19 @@ BMA estimator: $1 - \mathbb{E}[\kappa_j \mid \mathbf{y}]$ weight assigned to OLS
 
 
 ???
-- shrinkage from 2nd layer helps mitigate seesawing/nonidentifiability of coefs via REPRESENTATION SPARSITY
-- difference between INPUT sparsity and REPRESENTATION sparsity
+comments:  
+- shrinkage from 2nd layer helps mitigate seesawing/nonidentifiability of coefs via REPRESENTATION SPARSITY  
+- difference between INPUT sparsity and REPRESENTATION sparsity  
 
 
 
 ## parameter correction: composite spectral norm
 
 ???
-- spectral norm of each layer is __very__ loose maximum bound for the amplification
-- composited SN of each layer is still a maximum bound, but much less loose
-  - still an approximation: RELU nonlinearity sets elements of the realizations of the matrices as data passes through network to 0.
+comments:  
+- spectral norm of each layer is __very__ loose maximum bound for the amplification  
+- composited SN of each layer is still a maximum bound, but much less loose  
+  - still an approximation: RELU nonlinearity sets elements of the realizations of the matrices as data passes through network to 0.  
 
 
 
@@ -358,23 +364,28 @@ BMA estimator: $1 - \mathbb{E}[\kappa_j \mid \mathbf{y}]$ weight assigned to OLS
 - MCMC untenable in NN setting
 
 ???
-- skippable if needed
-- alleviates need for MCMC at the cost of underestimating variance b/c of Mean Field assumption
-- evidence on prediction side that network depth mitigates this
+comments:  
+- skippable if needed  
+- alleviates need for MCMC at the cost of underestimating variance b/c of Mean Field assumption 
+- evidence on prediction side that network depth mitigates this  
 
 
 ## ELBO
 
 
 ???
-- skippable if needed
+comments:  
+- skippable if needed  
 
 ## simulation results
 
 ### combination with deterministic layers
 
+
 ### function recovery
 
+- good coverage when variable is selected; uncertainty quantification in line with expectations
+- 
 
 
 ### BFDR calibration
@@ -382,10 +393,25 @@ BMA estimator: $1 - \mathbb{E}[\kappa_j \mid \mathbf{y}]$ weight assigned to OLS
 
 ### Comparison against methods
 ???
+- note that SS-GAM results at $n=5k$ are on 25 replicates b/c takes 4 hours to run and not very parallelizable.
+
 - main takeaways:
 
   - VarSel: SoftBART's advantage shrinks
   - MSE and fMSE: 
+  - __HS-2 has competitive performance for n > 1k, balancing predictive performance with VarSel performance (sensitivity), and learns from more data__
+
+If have to choose modeling method:  
+  - if prediction/varsel both important:
+    - if sure that model is correctly specified and have relatively small $n$, use SS-GAM.  Also if have very specific question to answer (e.g. question is only about MAIN EFFECT of $x_j$, i.e. separate from interactions between $x_j$ and $x_k$)
+    - If unsure, or have large $n$, use ours.
+  - if variable selection most important:
+    - if sure model is correctly specified, etc., use SS-GAM.
+    - At low $n$, use SoftBART
+    - At moderate-large $n$, use ours.
+  - if prediction most important:
+    - at low $n$, use SS-GAM.
+    - else use ours
 
 
 ## salary application
@@ -393,6 +419,12 @@ BMA estimator: $1 - \mathbb{E}[\kappa_j \mid \mathbf{y}]$ weight assigned to OLS
 
 
 
+
+
+# Appendix: BFDR calibration without corrections
+
+
+# Appendix: 
 
 
 
