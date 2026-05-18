@@ -407,8 +407,9 @@ save(competitor_list, file = fname)
 cat_color(paste0("results saved to ", fname))
 
 
-
-
+# load("C:/Users/ArnoldSeong/Github/Classes/BayesCompress/final_sims/compiled/hshoe2det4_2k_50sims_modfcns_competitors_ssgam_bfdrarr.Rdata")
+# apply(competitor_list$resarr_ssgam[, ,2], 2, mean)
+# apply(competitor_list$resarr_ssgam[, ,2], 2, sd)
 
 
 
