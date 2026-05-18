@@ -160,46 +160,44 @@ class: inverse, left
     padding: 1em 4em 1em 4em;
   }
 
-.content-box { 
+  .content-box { 
+      box-sizing: border-box;
+      background-color: #e2e2e2;
+  }
+  .content-box-blue,
+  .content-box-gray,
+  .content-box-grey,
+  .content-box-army,
+  .content-box-green,
+  .content-box-purple,
+  .content-box-red,
+  .content-box-yellow {
     box-sizing: border-box;
-    background-color: #e2e2e2;
-}
-.content-box-blue,
-.content-box-gray,
-.content-box-grey,
-.content-box-army,
-.content-box-green,
-.content-box-purple,
-.content-box-red,
-.content-box-yellow {
-  box-sizing: border-box;
-  border-radius: 15px;
-  margin: 0 0 15px;
-  overflow: hidden;
-  padding: 0px 20px 0px 20px;
-  width: 100%;
-}
-.content-box-blue { background-color: #F0F8FF; }
-.content-box-gray { background-color: #e2e2e2; }
-.content-box-grey {	background-color: #F5F5F5; }
-.content-box-army {	background-color: #737a36; }
-.content-box-green { background-color: #d9edc2; }
-.content-box-purple { background-color: #e2e2f9; }
-.content-box-red { background-color: #ffcccc; }
-.content-box-yellow { background-color: #fef5c4; }
-.content-box-blue .remark-inline-code,
-.content-box-blue .remark-inline-code,
-.content-box-gray .remark-inline-code,
-.content-box-grey .remark-inline-code,
-.content-box-army .remark-inline-code,
-.content-box-green .remark-inline-code,
-.content-box-purple .remark-inline-code,
-.content-box-red .remark-inline-code,
-.content-box-yellow .remark-inline-code { 
-  background: none;
-}
-
-
+    border-radius: 15px;
+    margin: 0 0 15px;
+    overflow: hidden;
+    padding: 0px 20px 0px 20px;
+    width: 100%;
+  }
+  .content-box-blue { background-color: #F0F8FF; }
+  .content-box-gray { background-color: #e2e2e2; }
+  .content-box-grey {	background-color: #F5F5F5; }
+  .content-box-army {	background-color: #737a36; }
+  .content-box-green { background-color: #d9edc2; }
+  .content-box-purple { background-color: #e2e2f9; }
+  .content-box-red { background-color: #ffcccc; }
+  .content-box-yellow { background-color: #fef5c4; }
+  .content-box-blue .remark-inline-code,
+  .content-box-blue .remark-inline-code,
+  .content-box-gray .remark-inline-code,
+  .content-box-grey .remark-inline-code,
+  .content-box-army .remark-inline-code,
+  .content-box-green .remark-inline-code,
+  .content-box-purple .remark-inline-code,
+  .content-box-red .remark-inline-code,
+  .content-box-yellow .remark-inline-code { 
+    background: none;
+  }
 </style>
 
 <!-- # Contents -->
@@ -828,44 +826,6 @@ class: inverse, left
 
 
 <!-- --- -->
-<!-- ## Salary data -->
-
-<!-- - multiresolution analysis: 4, 10, 15 and 20 regions (12-year bins to 2.5-year bins) -->
-
-<!-- - examined effects of race, gender, college degree, government-employed, self-employed -->
-
-<!-- - included occupational sector as adjustment variable (no selection) -->
-
-
-
-<!-- ??? -->
-
-<!-- - conditioned on occupational sector -->
-<!-- - highest post prob was for 10-yr bins -->
-
-
-
-<!-- --- -->
-<!-- ## Salary data results -->
-
-<!-- ![](figs\salary_rs.JPG) -->
-
-
-<!-- ??? -->
-
-<!-- - blackness, gender and college education have posterior prob near 1 for any age -->
-<!--   - estimated to be smaller below age 30 -->
-
-<!-- - less evidence of salary gap associated with identifying as Hispanic _for recent entrants to workforce_, but strong evidence at other ages. -->
-
-
-<!-- - for reference,  -->
-<!-- 10^-0.05 ~ 0.891 -->
-<!-- 10^-0.1 ~ 0.794 -->
-<!-- 10^-0.16 ~ 0.708 -->
-
-
-<!-- --- -->
 <!-- ## ECoG data -->
 
 <!-- Considered 4 covariates related to game outcomes: -->
@@ -919,6 +879,47 @@ class: inverse, left
 
 <!-- --- -->
 
+
+
+<!-- --- -->
+<!-- ## Salary data -->
+
+<!-- - multiresolution analysis: 4, 10, 15 and 20 regions (12-year bins to 2.5-year bins) -->
+
+<!-- - examined effects of race, gender, college degree, government-employed, self-employed -->
+
+<!-- - included occupational sector as adjustment variable (no selection) -->
+
+
+
+<!-- ??? -->
+
+<!-- - conditioned on occupational sector -->
+<!-- - highest post prob was for 10-yr bins -->
+
+
+
+<!-- --- -->
+<!-- ## Salary data results -->
+
+<!-- ![](figs\salary_rs.JPG) -->
+
+
+<!-- ??? -->
+
+<!-- - blackness, gender and college education have posterior prob near 1 for any age -->
+<!--   - estimated to be smaller below age 30 -->
+
+<!-- - less evidence of salary gap associated with identifying as Hispanic _for recent entrants to workforce_, but strong evidence at other ages. -->
+
+
+<!-- - for reference,  -->
+<!-- 10^-0.05 ~ 0.891 -->
+<!-- 10^-0.1 ~ 0.794 -->
+<!-- 10^-0.16 ~ 0.708 -->
+
+
+
 <!-- ![](figs\ecog_all.JPG) -->
 
 
@@ -932,21 +933,120 @@ class: inverse, left
 
 
 
+<!-- Local null testing found strong evidence of wage gaps (if all other characteristics the same) for   -->
+<!-- - black vs non-black workers,   -->
+<!-- - female vs male workers,   -->
+<!-- - college degree holders vs. non-college degree holders,   -->
+<!-- - government vs. wage/salary private sector workers ages 30-40 ;   -->
+
+<!-- And little evidence of wage gaps for -->
+<!-- - self-employed vs wage/salary private sector workers across ages, -->
+<!-- - Hispanic vs non-Hispanic workers below age 30. -->
+
+
+
+
 ---
 class: left, inverse, middle
 
 
-# BVS in Deep Neural Networks
+# BVS with Horseshoe Deep Neural Networks
 
 
 ---
+## Motivation:
 
+Local null testing is great at capturing whether local effects exist, but not so great at modeling varying, non-linear trends.
+
+
+--
+
+__Desiderata:__
+
+- Still want to be able to identify active variables;  
+
+- Flexibly model varying, non-linear relationships;  
+
+- Ability to model these _granularly_, i.e. capture differing forms within subcategories;  
+
+- Control over BFDR and FDR.  
+
+
+---
+## DNNs
+
+DNNs map inputs $\mathbf{x} \in \mathbb{R}^p$ to output $\hat{y}$ via composition of affine transformations and non-linearities:
+
+$$f(\mathbf{x}) = \sigma_{L-1}\left(\,\sigma_{L-2}\!\left(\cdots       \sigma_1(\mathbf{x}W_1  + \mathbf{b}_1') \cdots     \right)W_{L-1} + \mathbf{b}_{L-1}'\right)W_L + b_L'$$
+- $L$ = number of layers
+- $W_\ell \in \mathbb{R}^{d_{\ell-1} \times d_{\ell}}$, weight matrix in layer $\ell$;  
+- $\mathbf{b}_\ell \in \mathbb{R}^{d_\ell}$ bias vector at layer $\ell$
+- $\sigma_\ell(\cdot)$ the nonlinear activation function applied in layer $\ell$ 
+
+___
+
+--
+
+- Extremely flexible (universal function approximator property)
+
+- Discover interactions / patterns without manual specification
+
+
+???
+- $d_0 = p$  
+
+- DNN as attractive choice for non-parametric modeling
+
+- trees are not as scalable, and, as we will see, overfits training data with larger $n$
+
+---
+## Deterministic vs. Bayesian NN's
+
+.pull-left[
+__Deterministic NN:__
+
+- Network parameters are the weights in each layer $\{w_{j,k}\} = W$, which are __point estimates__ $\rightarrow$ __no uncertainty quantification.__
+]
+
+.pull-right[
+__Bayesian NN:__
+
+- Network parameters are the __parameters of the weights' distributions__, i.e. if $w_{j,k} \sim N(\mu_{w_{j,k}}, \sigma^2_{w_{j,k}}$), the network parameters are $\mu_{w_{j,k}}, \sigma_{w_{j,k}}$
+]
+
+--
+
+.pull-left[
+
+- Prone to overfitting
+
+- Variable selection?
+
+]
+
+.pull-right[
+- Built-in regularization via priors
+
+- Variable selection via prior specification
+]
+
+
+???
+- Bayesian NNs perform the same mapping as before, BUT
+
+- uncertainty quantification can be obtained (most common method is dropout) --- but might as well be Bayesian then (Kingma 2015, Gal & Gahramani 2016) show dropout can be formulated as special cases of Bayesian regularization.
+
+- can apply regularization and variable selection methods to deterministic methods, such as LASSO (LASSOnet), but suffers the same issues as regular LASSO (uncertainty quantification not direct, tends to suffer under correlated variables).
+
+
+
+---
 ## Bayesian Compression algorithm
 
 .lcode[
 - Louizos, Ullrich, Welling (2017) apply Bayesian group sparsity prior to __rows__ of neural network weights
 
-- their goal: substantially reduce matrix size for edge computing
+- their goal: reduce matrix size for edge computing
 
 ]
 
@@ -956,29 +1056,39 @@ class: left, inverse, middle
 ]
 
 ???
+- where I first encountered this idea
+  - their focus, as in most ML literature dealing with any kind of selection, is on architecture selection and compression.
+
+I want to repurpose for variable selection (input feature selection), BUT RETAIN control over BFDR and FDR
 - precursors:
   - ARD (automatic relevance determination) of Neal and MacKay (90s) - basically, one-scale continuous shrinkage, dropout parameter
-  - dropout (random 0 of weights) and variational dropout
+  - dropout (random zeroing out of weights) and variational dropout
   - combining the two leads to Bayesian formulation for __structured__ sparsity
 
 
 ---
-## Variable Selection!
+## matrix reduction $\rightarrow$ variable selection
 
 - eliminating rows in the input layer yields variable selection:
 
 
-$$\scriptsize    \underset{\mathbf{X}_{n \times p}}  {  \begin{array}{ccccc}         \square \square \square \square \\         \square \square \square \square \\       \end{array}}     \times   
+$$\underset{\mathbf{X}_{n \times p}}  {  \begin{array}{ccccc}         \square \square \square \square \\         \square \square \square \square \\       \end{array}}     \times   
 \underset{\mathbf{W}_{p \times d_1}} {   \begin{array}{ccccc}         \square \square \square \square \square \square \square\\         \square \square \square \square \square \square \square\\         \square \square \square \square \square \square \square\\         \square \square \square \square \square \square \square\\       \end{array} }     + \mathbf{b'_{d_1}}     = \underset{\mathbf{H}} {  \begin{array}{ccccc}         \square \square \square \square \square \square \square\\         \square \square \square \square \square \square \square\\     \end{array}}$$
+
+???
+- so if we eliminate the third row of weights....
+
+- Departing from usual CS / ML convention flipping x and W. (WHY DO THEY DO THIS? CAUSES SO MUCH CONFUSION) - because I like to think of these as essentially a stack of linear models
+
 
 
 ---
-## Variable Selection!
+## matrix reduction $\rightarrow$ variable selection
 
 - eliminating rows in the input layer yields variable selection:
 
 
-$$\scriptsize     \underset{\mathbf{X}_{n \times p}}  {  \begin{array}{ccccc}         \square \square \square \square \\         \square \square \square \square \\       \end{array}}     \times     \underset{\mathbf{W}_{p \times d_1}} {   \begin{array}{ccccc}         \square \square \square \square \square \square \square\\         \square \square \square \square \square \square \square\\         \blacksquare \blacksquare \blacksquare \blacksquare \blacksquare \blacksquare \blacksquare\\         \square \square \square \square \square \square \square\\       \end{array} }     + \mathbf{b'_{d_1}}     = \underset{\mathbf{H}} {  \begin{array}{ccccc}         \square \square \square \square \square \square \square\\         \square \square \square \square \square \square \square\\     \end{array}}$$
+$$\underset{\mathbf{X}_{n \times p}}  {  \begin{array}{ccccc}         \square \square \square \square \\         \square \square \square \square \\       \end{array}}     \times     \underset{\mathbf{W}_{p \times d_1}} {   \begin{array}{ccccc}         \square \square \square \square \square \square \square\\         \square \square \square \square \square \square \square\\         \blacksquare \blacksquare \blacksquare \blacksquare \blacksquare \blacksquare \blacksquare\\         \square \square \square \square \square \square \square\\       \end{array} }     + \mathbf{b'_{d_1}}     = \underset{\mathbf{H}} {  \begin{array}{ccccc}         \square \square \square \square \square \square \square\\         \square \square \square \square \square \square \square\\     \end{array}}$$
 
 <!-- $$\scriptsize      -->
 <!-- \underset{\mathbf{X}_{n \times p}}  { -->
@@ -1001,51 +1111,146 @@ $$\scriptsize     \underset{\mathbf{X}_{n \times p}}  {  \begin{array}{ccccc}   
 <!--     \square \square \square \square \square \square \square\\      -->
 <!-- \end{array}}$$ -->
 
-
+???
+Then we eliminate the 3rd input column (i.e. covariate $x_3$)
 
 
 ---
 count: false
-## Variable Selection!
+## matrix reduction $\rightarrow$ variable selection
 
 - eliminating rows in the input layer yields variable selection:
 
 
-$$\scriptsize     \underset{\mathbf{X}_{n \times p}}  {  \begin{array}{ccccc}         \square \square \blacksquare \square \\         \square \square \blacksquare \square \\       \end{array}}     \times     \underset{\mathbf{W}_{p \times d_1}} {   \begin{array}{ccccc}         \square \square \square \square \square \square \square\\         \square \square \square \square \square \square \square\\         \blacksquare \blacksquare \blacksquare \blacksquare \blacksquare \blacksquare \blacksquare\\         \square \square \square \square \square \square \square\\       \end{array} }     + \mathbf{b'_{d_1}}     = \underset{\mathbf{H}} {  \begin{array}{ccccc}         \square \square \square \square \square \square \square\\         \square \square \square \square \square \square \square\\     \end{array}}$$
+$$\underset{\mathbf{X}_{n \times p}}  {  \begin{array}{ccccc}         \square \square \blacksquare \square \\         \square \square \blacksquare \square \\       \end{array}}     \times     \underset{\mathbf{W}_{p \times d_1}} {   \begin{array}{ccccc}         \square \square \square \square \square \square \square\\         \square \square \square \square \square \square \square\\         \blacksquare \blacksquare \blacksquare \blacksquare \blacksquare \blacksquare \blacksquare\\         \square \square \square \square \square \square \square\\       \end{array} }     + \mathbf{b'_{d_1}}     = \underset{\mathbf{H}} {  \begin{array}{ccccc}         \square \square \square \square \square \square \square\\         \square \square \square \square \square \square \square\\     \end{array}}$$
+???
+
+This idea (matrix reduction = variable selection) actually has a long history
+
+- Radford Neal 90’s ARD: scale-mixture shrinkage, single parameter estimated via Empirical Bayes (likelihood maximization).  
+
+  - HAD STRUCTURE — applied to the weights tied to inputs, like us  
+  
+  - variational dropout - not necessarily structured like this, but makes ARD scalable with VI  
+  
 
 
 ---
 count: false
-## Variable Selection!
+## matrix reduction $\rightarrow$ variable selection
+
+- eliminating rows in the input layer yields variable selection:
+
+
+$$\underset{\mathbf{X}_{n \times p}}  {     \begin{array}{ccccc}            \square \square \blacksquare \square \\             \square \square \blacksquare \square \\           \end{array}}        \times       
+\underset{\mathbf{W}_{p \times d_1}} {      \begin{array}{ccccc}            \square \square \square {\blacksquare} {\blacksquare} \square \square\\             \square \square \square {\blacksquare} {\blacksquare}  \square \square\\            \blacksquare \blacksquare \blacksquare {\blacksquare} {\blacksquare} \blacksquare   \blacksquare\\            \square \square \square {\blacksquare} {\blacksquare} \square \square\\           \end{array} }         + \mathbf{b'_{d_1}}         = \underset{\mathbf{H}} {     \begin{array}{ccccc}            \square \square \square {\blacksquare} {\blacksquare}\square \square\\            \square \square \square {\blacksquare} {\blacksquare}\square \square\\        \end{array}}$$
+
 
 - eliminating rows in the next layer yields _column_ sparsity:
 
 
 
-$$\scriptsize     
-\underset{\mathbf{X}_{n \times p}}  {
-  \begin{array}{ccccc}     
-    \square \square \blacksquare \square \\     
-    \square \square \blacksquare \square \\     
-  \end{array}}     
-\times     
-\underset{\mathbf{W}_{p \times d_1}} { 
-  \begin{array}{ccccc}     
-    \square \square \square {\blacksquare} {\blacksquare} \square \square\\     
-    \square \square \square {\blacksquare} {\blacksquare}  \square \square\\     
-    \blacksquare \blacksquare \blacksquare {\blacksquare} {\blacksquare} \blacksquare \blacksquare\\     
-    \square \square \square {\blacksquare} {\blacksquare} \square \square\\     
-  \end{array} }     
-+ \mathbf{b'_{d_1}}     
-= \underset{\mathbf{H}} {
-  \begin{array}{ccccc}     
-    \square \square \square {\blacksquare} {\blacksquare}\square \square \square\\     
-    \square \square \square {\blacksquare} {\blacksquare}\square \square \square\\     
-\end{array}}$$
-
 
 ???
 even more sparsity --- good, parsimonious model, easier to interpret
+
+  - Bayesian Compression (Louizos, Ullrich, Welling) - follow variational dropout tradition (Normal-Jeffrey’s), though they do also try the HShoe.
+
+
+
+
+---
+## Scale-Mixture priors
+
+One way to formulate variable selection is by using a scale-mixture prior:
+
+$$\beta_j | \lambda_j \sim N(\beta | 0, \lambda_j^2); \qquad \lambda_j \sim p(\lambda_j) $$
+
+--
+
+Canonical choices for $p(\lambda_j)$:
+
+- Bernoulli($\pi_j$) $\rightarrow$ Discrete Spike-and-Slab (the "gold standard" for variable selection)
+
+- Double-Exponential $\rightarrow$ Bayesian LASSO
+
+- improper $p(\lambda) \propto 1/\lambda$ $\rightarrow$ Normal-Jeffrey's
+
+- __Half-Cauchy $\rightarrow$ Horseshoe__
+
+
+???
+- skippable if needed  
+
+- seems innocuous / conventional / unthreatening, but placing structure on $p(\lambda)$ $\rightarrow$ marginal prior dist'ns for $\beta$ with more __mass at 0 and in tails__ $\rightarrow$ bias posterior $\beta$'s to be either very small or large.  
+
+- e.g. Bernoulli prior on $\lambda$ $\rightarrow$ Spike-and-Slab  
+
+- __important to note (if haven't yet)__ Discrete Spike-and-Slab considered the gold standard for Bayesian Variable Selection --- posterior Bernoulli probabilities are the posterior inclusion probabilities
+
+- Bayesian LASSO --- MAP (maximum a posteriori or posterior mode) estimate equivalent to Freq.y LASSO  
+
+- problems with Normal-Jeffrey's --- Hron et al next year show that NJ prior induces pathologies in training.  Dropout params all go to 0.
+
+
+
+---
+## Horseshoe Prior
+
+
+$\beta_j | \lambda_j, \tau \sim N(0, \lambda_j^2 \tau_j^2), \qquad  \lambda_j \sim C^+(0, 1), \qquad \tau \sim C^+(0, \tau_0)$
+
+- $\lambda_j > 0$ is _local_ scale for $j$'th coefficient
+
+- $\tau > 0$ is _global_ scale governing overall sparsity level
+
+    
+&nbsp;
+___
+
+
+--
+
+
+A key summary statistic is the __shrinkage weight__ $\kappa_j$
+$$\kappa_j = \frac{1}{1 + \lambda_j^2 \tau^2} \;\in\; (0, 1)$$
+
+
+???
+- important to remember these interp.s are __predicated on linear model setting__:  
+
+  - $\lambda_j$ applies to the coefficient for $x_j$
+  
+  - $\tau$ applies to the coefficient vector
+
+- we'll have to recover this interpretation from the NN setting.
+
+
+
+
+
+---
+## Nice properties of the Horseshoe:
+
+_Bhadra et al 2019_ show that in a linear regression context, asymptotically, 
+
+$$\mathbb{E}[\beta_j \mid \mathbf{y}]    \;\approx\;   \bigl(1 - \mathbb{E}[\kappa_j \mid \mathbf{y}]\bigr)\,    \hat{\beta}_j^{\mathrm{OLS}}$$
+
+- $1 - \mathbb{E}[\kappa_j \mid \mathbf{y}]$ performs similarly to BMA weight under discrete spike-and-slab; can be interpreted as a "pseudo"-Posterior Inclusion Probability for variable $x_j$ (_Carvalho, Polson, Scott 2010_)
+
+
+
+???
+
+- __important to note (if haven't yet)__ Discrete Spike-and-Slab considered the gold standard for Bayesian Variable Selection --- posterior Bernoulli probabilities are the posterior inclusion probabilities
+
+
+$1 - \mathbb{E}[\kappa_j \mid \mathbf{y}]$ is essentially the weight assigned to OLS estimate in Bayesian Model Averaging
+
+
+
+
+
 
 
 

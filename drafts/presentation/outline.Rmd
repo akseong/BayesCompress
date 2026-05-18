@@ -393,7 +393,11 @@ comments:
 
 ### Comparison against methods
 ???
-- note that SS-GAM results at $n=5k$ are on 25 replicates b/c takes 4 hours to run and not very parallelizable.
+Comments:
+- note that SS-GAM results at $n=5k$ are on 25 replicates b/c takes 4 hours to run and not very parallelizable.  
+  - time complexity for most recent Spike-and-Slab implementations is O()
+
+  
 
 - main takeaways:
 
