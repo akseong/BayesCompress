@@ -11,7 +11,7 @@
 
 <meta name="author" content="Arnie Seong" />
 
-<meta name="date" content="2026-05-17" />
+<meta name="date" content="2026-05-18" />
 
 <title>Defense Outline</title>
 
@@ -3880,7 +3880,7 @@ font-size: 0.95em;
 
 <h1 class="title toc-ignore">Defense Outline</h1>
 <h4 class="author">Arnie Seong</h4>
-<h4 class="date">17 May 2026</h4>
+<h4 class="date">18 May 2026</h4>
 
 </div>
 
@@ -3895,9 +3895,9 @@ top: 0
 }
 </style>
 <p>Presentation outline</p>
-<div id="principled-sparsity-in-flexible-models-bayesian-variable-selection-in-generalize-additive-models-and-deep-neural-newtworks" class="section level1">
+<div id="principled-sparsity-in-flexible-models-bayesian-variable-selection-in-generalize-additive-models-and-deep-neural-networks" class="section level1">
 <h1>Principled Sparsity in Flexible Models: Bayesian Variable Selection
-in Generalize Additive Models and Deep Neural Newtworks</h1>
+in Generalize Additive Models and Deep Neural Networks</h1>
 <p>??? - goal:</p>
 <ul>
 <li><p>principled VarSel — meaning control over BFDR, and matching / not
@@ -3929,8 +3929,8 @@ networks?</li>
 <h2>motiviating datasets - ECoG</h2>
 <p>??? Comments</p>
 </div>
-<div id="motivating-datasets---salary" class="section level2">
-<h2>motivating datasets - Salary</h2>
+<div id="motivating-datasets-salary" class="section level2">
+<h2>motivating datasets — Salary</h2>
 </div>
 </div>
 <div id="local-null-testing" class="section level1">
@@ -3978,8 +3978,9 @@ selection, is on architecture selection and compression.</p></li>
 selection), BUT RETAIN control over BFDR and FDR</p></li>
 </ul>
 </div>
-<div id="matrix-reduction-variable-selection" class="section level2">
-<h2>matrix reduction = variable selection</h2>
+<div id="matrix-reduction-rightarrow-variable-selection" class="section level2">
+<h2>matrix reduction <span class="math inline">\(\rightarrow\)</span>
+variable selection</h2>
 <p>(matrix reduction example)</p>
 <p>??? - Departing from usual CS / ML convention flipping x and W. (WHY
 DO THEY DO THIS? CAUSES SO MUCH CONFUSION) - because I like to think of
@@ -3996,10 +3997,6 @@ estimated via Empirical Bayes (likelihood maximization).
 <p>Last slide of the three: - Bayesian Compression (Louizos, Ullrich,
 Welling) - follow variational dropout tradition (Normal-Jeffrey’s),
 though they do also try the HShoe.</p>
-<ul>
-<li>Hron et al next year show that NJ prior induces pathologies in
-training. Dropout params all go to 0.</li>
-</ul>
 </div>
 <div id="scale-mixture-priors" class="section level2">
 <h2>Scale-mixture priors</h2>
@@ -4009,26 +4006,35 @@ N(\beta | 0, \lambda^2); \qquad \lambda \sim p(\lambda)\)</span></p>
 <p>Canonical <span class="math inline">\(p(\lambda)\)</span>
 choices:</p>
 <ul>
-<li>Bernoulli(<span class="math inline">\(\pi\)</span>) –&gt;
-Spike-and-Slab</li>
-<li>Double-Exp –&gt; Bayesian LASSO</li>
+<li>Bernoulli(<span class="math inline">\(\pi\)</span>) <span class="math inline">\(\rightarrow\)</span> Spike-and-Slab</li>
+<li>Double-Exp <span class="math inline">\(\rightarrow\)</span> Bayesian
+LASSO</li>
 <li>improper <span class="math inline">\(p(\lambda) \propto
-1/\lambda\)</span> –&gt; Normal-Jeffrey’s</li>
-<li>Half-Cauchy –&gt; Horseshoe</li>
+1/\lambda\)</span> <span class="math inline">\(\rightarrow\)</span>
+Normal-Jeffrey’s</li>
+<li>Half-Cauchy <span class="math inline">\(\rightarrow\)</span>
+Horseshoe</li>
 </ul>
-<p>??? Comments: - innocuous, but placing structure on <span class="math inline">\(p(\lambda)\)</span> –&gt; marginal prior dist’ns
-for <span class="math inline">\(\beta\)</span> with more <strong>mass at
-0 and in tails</strong> –&gt; bias posterior <span class="math inline">\(\beta\)</span>’s to be either very small or
-large.</p>
+<p>??? Comments:</p>
 <ul>
-<li><p>e.g. Bernoulli prior on <span class="math inline">\(\lambda\)</span> –&gt; Spike-and-Slab</p></li>
+<li><p>skippable if needed<br />
+</p></li>
+<li><p>seems innocuous / conventional / unthreatening, but placing
+structure on <span class="math inline">\(p(\lambda)\)</span> <span class="math inline">\(\rightarrow\)</span> marginal prior dist’ns for
+<span class="math inline">\(\beta\)</span> with more <strong>mass at 0
+and in tails</strong> <span class="math inline">\(\rightarrow\)</span>
+bias posterior <span class="math inline">\(\beta\)</span>’s to be either
+very small or large.</p></li>
+<li><p>e.g. Bernoulli prior on <span class="math inline">\(\lambda\)</span> <span class="math inline">\(\rightarrow\)</span> Spike-and-Slab</p></li>
 <li><p>Bayesian LASSO — MAP (maximum a posteriori or posterior mode)
 estimate equivalent to Freq.y LASSO</p></li>
-<li><p>problems with Normal-Jeffrey’s</p></li>
+<li><p>problems with Normal-Jeffrey’s — Hron et al next year show that
+NJ prior induces pathologies in training. Dropout params all go to
+0.</p></li>
 </ul>
 </div>
-<div id="horseshoe-prior-reparameterization" class="section level2">
-<h2>Horseshoe prior + reparameterization</h2>
+<div id="horseshoe-prior" class="section level2">
+<h2>Horseshoe prior</h2>
 <p><span class="math inline">\(\beta_j | \lambda_j, \tau \sim N(0,
 \lambda_j^2 \tau_j^2), \qquad  \lambda_j \sim C^+(0, 1), \qquad \tau
 \sim C^+(0, \tau_0)\)</span></p>
@@ -4043,12 +4049,16 @@ coefficient</p></li>
 <p>A key summary statistic is the <strong>shrinkage weight</strong>
 <span class="math inline">\(\kappa_j\)</span> <span class="math display">\[\kappa_j = \frac{1}{1 + \lambda_j^2 \tau^2}
 \;\in\; (0, 1)\]</span></p>
-<p>??? Comment: - important to remember these interp.s are
-<strong>predicated on linear model setting</strong>:<br />
-- <span class="math inline">\(\lambda_j\)</span> applies to the
-coefficient for <span class="math inline">\(x_j\)</span> - <span class="math inline">\(\tau\)</span> applies to the coefficient
-vector</p>
+<p>??? Comment:</p>
 <ul>
+<li>important to remember these interp.s are <strong>predicated on
+linear model setting</strong>:
+<ul>
+<li><span class="math inline">\(\lambda_j\)</span> applies to the
+coefficient for <span class="math inline">\(x_j\)</span></li>
+<li><span class="math inline">\(\tau\)</span> applies to the coefficient
+vector</li>
+</ul></li>
 <li>we’ll have to recover this interpretation from the NN setting.</li>
 </ul>
 </div>
@@ -4074,30 +4084,104 @@ Inclusion Probability for variable <span class="math inline">\(x_j\)</span> (<sp
 \mathbb{E}[\kappa_j \mid \mathbf{y}]\)</span> weight assigned to OLS
 estimate</p>
 </div>
-<div id="nn-version-of-horseshoe" class="section level2">
-<h2>NN version of Horseshoe</h2>
+<div id="horseshoe-prior-our-version-reparameterization" class="section level2">
+<h2>Horseshoe Prior: our version + reparameterization</h2>
+<p>–</p>
+<ul>
+<li><p>cauchy decomp</p></li>
+<li><p>uncentered parameterization</p></li>
+</ul>
+<p>–</p>
 </div>
-<div id="variational-inference" class="section level2">
-<h2>Variational Inference</h2>
+<div id="parameter-correction-m_texteff" class="section level2">
+<h2>parameter correction: <span class="math inline">\(m_\text{eff}\)</span></h2>
+<ul>
+<li><span class="math inline">\(m_\text{eff}\)</span> correction</li>
+<li><span class="math inline">\(g_\text{eff}\)</span> rationale</li>
+</ul>
+<p>??? comments:<br />
+- shrinkage from 2nd layer helps mitigate seesawing/nonidentifiability
+of coefs via REPRESENTATION SPARSITY<br />
+- difference between INPUT sparsity and REPRESENTATION sparsity</p>
+</div>
+<div id="parameter-correction-composite-spectral-norm" class="section level2">
+<h2>parameter correction: composite spectral norm</h2>
+<p>??? comments:<br />
+- spectral norm of each layer is <strong>very</strong> loose maximum
+bound for the amplification<br />
+- composited SN of each layer is still a maximum bound, but much less
+loose<br />
+- still an approximation: RELU nonlinearity sets elements of the
+realizations of the matrices as data passes through network to 0.</p>
+</div>
+<div id="variational-inference-kls" class="section level2">
+<h2>Variational Inference &amp; KLs</h2>
 <ul>
 <li>MCMC untenable in NN setting</li>
 </ul>
-<p>??? - alleviates need for MCMC at the cost of underestimating
-variance b/c of Mean Field assumption - evidence on prediction side that
-network depth mitigates this</p>
+<p>??? comments:<br />
+- skippable if needed<br />
+- alleviates need for MCMC at the cost of underestimating variance b/c
+of Mean Field assumption - evidence on prediction side that network
+depth mitigates this</p>
 </div>
 <div id="elbo" class="section level2">
 <h2>ELBO</h2>
+<p>??? comments:<br />
+- skippable if needed</p>
 </div>
-<div id="parameter-corrections-and-rationale" class="section level2">
-<h2>parameter corrections and rationale</h2>
+<div id="simulation-results" class="section level2">
+<h2>simulation results</h2>
+<div id="combination-with-deterministic-layers" class="section level3">
+<h3>combination with deterministic layers</h3>
 </div>
-<div id="simulation-study" class="section level2">
-<h2>simulation study</h2>
+<div id="function-recovery" class="section level3">
+<h3>function recovery</h3>
+<ul>
+<li>good coverage when variable is selected; uncertainty quantification
+in line with expectations</li>
+<li></li>
+</ul>
+</div>
+<div id="bfdr-calibration" class="section level3">
+<h3>BFDR calibration</h3>
+</div>
+<div id="comparison-against-methods" class="section level3">
+<h3>Comparison against methods</h3>
+<p>??? Comments: - note that SS-GAM results at <span class="math inline">\(n=5k\)</span> are on 25 replicates b/c takes 4
+hours to run and not very parallelizable.<br />
+- time complexity for most recent Spike-and-Slab implementations is
+O()</p>
+<ul>
+<li><p>main takeaways:</p>
+<ul>
+<li>VarSel: SoftBART’s advantage shrinks</li>
+<li>MSE and fMSE:</li>
+<li><strong>HS-2 has competitive performance for n &gt; 1k, balancing
+predictive performance with VarSel performance (sensitivity), and learns
+from more data</strong></li>
+</ul></li>
+</ul>
+<p>If have to choose modeling method:<br />
+- if prediction/varsel both important: - if sure that model is correctly
+specified and have relatively small <span class="math inline">\(n\)</span>, use SS-GAM. Also if have very specific
+question to answer (e.g. question is only about MAIN EFFECT of <span class="math inline">\(x_j\)</span>, i.e. separate from interactions
+between <span class="math inline">\(x_j\)</span> and <span class="math inline">\(x_k\)</span>) - If unsure, or have large <span class="math inline">\(n\)</span>, use ours. - if variable selection most
+important: - if sure model is correctly specified, etc., use SS-GAM. -
+At low <span class="math inline">\(n\)</span>, use SoftBART - At
+moderate-large <span class="math inline">\(n\)</span>, use ours. - if
+prediction most important: - at low <span class="math inline">\(n\)</span>, use SS-GAM. - else use ours</p>
+</div>
 </div>
 <div id="salary-application" class="section level2">
 <h2>salary application</h2>
 </div>
+</div>
+<div id="appendix-bfdr-calibration-without-corrections" class="section level1">
+<h1>Appendix: BFDR calibration without corrections</h1>
+</div>
+<div id="appendix" class="section level1">
+<h1>Appendix:</h1>
 </div>
 
 

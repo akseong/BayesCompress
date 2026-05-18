@@ -153,6 +153,7 @@ Presentation outline
 # Principled Sparsity in Flexible Models: Bayesian Variable Selection in Generalize Additive Models and Deep Neural Networks
 
 
+
 ???
 - goal: 
 

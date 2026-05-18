@@ -1248,7 +1248,9 @@ _Bhadra et al 2019_ show that in a linear regression context, asymptotically,
 
 $$\mathbb{E}[\beta_j \mid \mathbf{y}]    \;\approx\;   \bigl(1 - \mathbb{E}[\kappa_j \mid \mathbf{y}]\bigr)\,    \hat{\beta}_j^{\mathrm{OLS}}$$
 
-- $1 - \mathbb{E}[\kappa_j \mid \mathbf{y}]$ performs similarly to BMA weight under discrete spike-and-slab; can be interpreted as a "pseudo"-Posterior Inclusion Probability for variable $x_j$ (_Carvalho, Polson, Scott 2010_)
+- $1 - \mathbb{E}[\kappa_j \mid \mathbf{y}]$ performs similarly to BMA weight under discrete spike-and-slab
+
+- Can be interpreted as a "pseudo"-Posterior Inclusion Probability ($PIP_j$) for variable $x_j$ (_Carvalho, Polson, Scott 2010_)
 
 
 
@@ -1258,10 +1260,6 @@ $$\mathbb{E}[\beta_j \mid \mathbf{y}]    \;\approx\;   \bigl(1 - \mathbb{E}[\kap
 
 
 $1 - \mathbb{E}[\kappa_j \mid \mathbf{y}]$ is essentially the weight assigned to OLS estimate in Bayesian Model Averaging
-
-
-
-
 
 
 
