@@ -200,6 +200,7 @@ class: inverse, left
   }
 </style>
 
+
 <!-- # Contents -->
 
 <!-- 1. Bayesian Local Null Testing -->
@@ -1242,13 +1243,13 @@ $$\kappa_j = \frac{1}{1 + \lambda_j^2 \tau^2} \;\in\; (0, 1)$$
 ]
 
 ---
-## Nice properties of the Horseshoe:
+## BMA and pseudo-PIPs
 
 _Bhadra et al 2019_ show that in a linear regression context, asymptotically, 
 
 $$\mathbb{E}[\beta_j \mid \mathbf{y}]    \;\approx\;   \bigl(1 - \mathbb{E}[\kappa_j \mid \mathbf{y}]\bigr)\,    \hat{\beta}_j^{\mathrm{OLS}}$$
 
-- $1 - \mathbb{E}[\kappa_j \mid \mathbf{y}]$ performs similarly to BMA weight under discrete spike-and-slab
+- $1 - \mathbb{E}[\kappa_j \mid \mathbf{y}]$ is analogous to BMA weight under discrete spike-and-slab
 
 - Can be interpreted as a "pseudo"-Posterior Inclusion Probability ($PIP_j$) for variable $x_j$ (_Carvalho, Polson, Scott 2010_)
 
@@ -1263,30 +1264,81 @@ $1 - \mathbb{E}[\kappa_j \mid \mathbf{y}]$ is essentially the weight assigned to
 
 
 
-
 ---
 ## Model
 
+- We assume the data-generating truth relates the outcome $\mathbf{y} = (y_1, \ldots, y_n)^\top \in \mathbb{R}^n$ to some active subset of covariates $\mathbf{X}^\star \subseteq \mathbf{X} \in \mathbb{R}^p$ through an unknown function $f^\star$.
+
+- Assuming i.i.d. normally-distributed noise, the model is
+
+$$y_i \sim N \left( f^\star (\mathbf{x}_i), \sigma_\varepsilon^2 \right).$$
+
+___
+
+--
+
+We choose to model $f^\star(x_i)$ with a feedforward neural network $f(\mathbf{x}_i, \{\mathbf{W}^{(\ell)}\}^L_{l=1})$
+
+- $\{\mathbf{W}^{(\ell)}\}^L_{l=1}$ denotes the collection of $L$ weight matrices
+
+
+---
+## NN representtion
+
+We propose to model $f^\star(\mathbf{x}_i)$ using a feedforward neural network, denoted $f(\mathbf{x}_i, \{\mathbf{W}^{(\ell)}\}^L_{\ell=1})$, with $\ell$ layers each containing 
+$d_1, \ldots, d_\ell$ nodes, and scalar output such that
+
+$$\begin{aligned}
+    \hat{y}_i 
+        & = f(\mathbf{x}_i, \{\mathbf{W}^{(\ell)}\}^L_{\ell=1}) \\
+        & = \mathbf{h}_i^{(\ell-1)} \mathbf{W}^{(\ell)} + \mathbf{b}^{(\ell)},
+        \qquad
+        & {\mathbf{h}}_i^{(\ell)}
+        = \sigma^{(\ell-1)}\!\left({\mathbf{h}}_i^{(\ell-1)} \mathbf{W}^{(\ell)} + \mathbf{b}^{(\ell)} \right),  
+\end{aligned}$$
+
+- $\mathbf{h}_i^{(\ell)} \in \mathbb{R}^{d_\ell}$ is the output vector of activations for layer $\ell$ 
+(and $\mathbf{h}_i^{(\ell=0)} = \mathbf{x}_i$), 
+
+- $W^{(\ell)} \in \mathbb{R}^{d_{\ell-1} \times d_{\ell}}$ and $\mathbf{b}^{(\ell)} \in \mathbb{R}^{d_\ell}$ the weight matrix and bias vector at layer $\ell$
+
+- $\sigma^{(\ell)}(\cdot)$ denotes the layer activation function (RELU).
+
+???
+- skippable if needed
 
 
 
+---
+## Bayesian model: Grouped Horseshoe
 
-
+$$\begin{aligned}
+        y_i | \mathbf{x}_i, \{\mathbf{W}^{(\ell)}\}^L_{l=1}
+          & \sim N\left( f(\mathbf{x}_i, \{\mathbf{W}^{(\ell)}\}^L_{l=1} ), \sigma_\varepsilon^2 \right)
+        \\
+        \{\mathbf{W}^{(\ell)}\}^L_{l=1}  | \lambda, \tau
+          & \sim 
+          \prod_{\ell \in \{1, 2, ..., L\}}
+          \prod_{
+          \substack{
+            j \in \{1, 2, .., d_{\ell-1}\}, \\ 
+            k \in \{1, 2, ... d_\ell\}}
+          } 
+          N(w^{(\ell)}_{j,k} | 0, \lambda^{(\ell)2}_{j} \tau^{(\ell)2})
+        \\
+        \lambda^{(\ell)}_j 
+          & \sim C^+ (0, 1), \qquad
+        \\
+        \tau^{(\ell)} 
+          & \sim C^+ (0, \tau_0)
+  \end{aligned}$$
 
 
 
 ???
-- we depart from
+- skippable if needed
+- assigning each weight its own $\lambda_{j,k}$ would lead to __unstructured__ sparsity.  Instead, every weight in a row (i.e. same coef in each layer unit) shares the same local scale parameter induces __input__ sparsity.
 
-
-
-Under this formulation, the Bayesian model is:
-
-$$\begin{align} 
-  p(z_{i}) &\propto |z_{i}|^{-1}
-  \\
-  p(w_{ij} | z_{i}) &= N(w_{ij} | 0, z_{i}^2)
-\end{align}$$
 
 --
 
@@ -1297,6 +1349,32 @@ $$\begin{align}
   &= \prod_i \frac{1}{|z_i|}\prod_{i,j} N(w_{ij} | 0, z_{i}^2)
 \end{align}$$
 
+
+
+
+---
+## reparameterization: Cauchy decomposition
+
+
+
+
+---
+## reparameterization: uncentered parameterization
+
+
+
+
+
+---
+## $\tau$ correction $m_\text{eff}$
+
+
+
+
+
+
+---
+## $\tau$ correction: Composite Spectral Norm
 
 
 
