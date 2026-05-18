@@ -1,0 +1,409 @@
+---
+title: "Defense Outline"
+author: "Arnie Seong"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+header-includes:
+  - \usepackage{bm}
+  - \usepackage{xcolor}
+  - \usepackage{amssymb}
+output: 
+  html_document:
+    df_print: paged
+    theme: cerulean
+    highlight: tango
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
+    code_fold: show
+urlcolor: blue
+params:
+  retrain: FALSE
+  seed: 314
+editor_options: 
+  chunk_output_type: console
+---
+<style>
+  .panel-tabs{
+    opacity: 1;
+    background-color: #2fa4e7;
+    color: #ffffff;
+    position: sticky;
+    top: 0
+  }
+</style>
+
+```{r setup, include=FALSE, message=F, echo=F, warning=F}
+# LIBRARIES----
+
+#### plotting:
+library(ggplot2)
+library(gridExtra)
+
+# #### Misc:
+library(here)
+library(tidyr)
+library(knitr)
+library(kableExtra)
+library(dplyr)
+
+# model packages
+library(torch)
+
+# DOCUMENT SETUP ----
+# detect pdf/html output, set chunk options, sci.notation 
+latex_out <- knitr::is_latex_output()
+knitr::opts_chunk$set(
+  cache = FALSE, 
+  message = FALSE, 
+  echo = !knitr::is_latex_output(), 
+  warning = FALSE
+)
+
+
+if (knitr::is_latex_output()) {
+  knitr::opts_chunk$set(fig.height=4, 
+                        fig.width=6)
+} else {
+  knitr::opts_chunk$set(out.width = "100%")
+}
+
+options(scipen=10)
+
+# PANELSET
+xaringanExtra::use_panelset()
+xaringanExtra::style_panelset_tabs(font_family = "inherit")
+
+
+
+# TEXT/TABLE FORMATTING----
+
+custom_purple <- ifelse(
+  knitr::is_latex_output(),
+  "purple",
+  "#b51ced"
+)
+
+custom_blue <- ifelse(
+  knitr::is_latex_output(),
+  "blue",
+  "#11579e"
+)
+
+colorize <- function(x, color=custom_purple) {
+  # text color conditional on latex/html output
+  # from rmarkdown cookbook
+  if (knitr::is_latex_output()) {
+    sprintf("\\textcolor{ %s}{ %s}", color, x)
+  } else if (knitr::is_html_output()) {
+    sprintf("<span style='color: %s;'>%s</span>", color, x)
+  } else x
+}
+
+cat_color <- function(txt, style = 1, color = 36){
+  cat(
+    paste0(
+      "\033[0;",
+      style, ";",
+      color, "m",
+      txt,
+      "\033[0m","\n"
+    )
+  )  
+}
+
+# kable NA handling
+options(knitr.kable.NA = '')
+
+# mykable function
+mykable <- function(tab, cap,
+                    latex_options=c("hold_position", "scale_down", "striped"), 
+                    bootstrap_options=c("striped", "hover", "condensed"), 
+                    full_width=F, position="center", ...){
+  # kable formatting conditional on latex or html output
+  if (is.null(getOption("knitr.in.progress"))){
+    print(tab)
+  } else if (knitr::is_latex_output()){
+    kable(x=tab, caption=cap, ...) %>%
+      kableExtra::kable_styling(latex_options = latex_options)
+  } else if (knitr::is_html_output()){
+    kable(x=tab, caption=cap, ...) %>%
+      kableExtra::kable_styling(bootstrap_options = bootstrap_options, full_width=full_width, position=position)
+  }
+}
+
+# notin
+`%notin%` <- Negate(`%in%`)
+
+source(here("Rcode", "torch_horseshoe_klcorrected.R"))
+source(here("Rcode", "sim_functions.R"))
+source(here("Rcode", "analysis_fcns.R"))
+```
+
+
+
+
+
+
+
+
+Presentation outline
+
+# Principled Sparsity in Flexible Models: Bayesian Variable Selection in Generalize Additive Models and Deep Neural Networks
+
+
+???
+- goal: 
+
+  - principled VarSel --- meaning control over BFDR, and matching / not exceeding FDR 
+  
+  - flexible models --- ability to model __functional__ relationships between covariates and response.  Best if we don't have to specify too much and can model this non-parametrically
+  
+  - semi-parametric settings --- need parametric portion of model for variable selection
+
+## intro
+
+??? 
+Comments: will spend less time on the first project, more on the 2nd since 1st covered in advancement
+
+-	2 central problems: 
+
+	- 1) Can we tell not only IF but WHEN / WHERE a variable matters?
+	
+	- 2) Can we recover principled variable selection in deep neural networks?
+
+
+## motiviating datasets - ECoG
+
+???
+Comments
+
+## motivating datasets - Salary
+
+
+# Local Null Testing:
+
+Need to choose slides
+
+ICAR prior - (improper) spatial prior that smooths across boundaries.  Issues with improper prior (mean unidentifiable) remedied with a sum to 0 constraint on the spatial effects
+
+- threshold PIP>0.95, ensures that BFDR < 0.05
+
+
+
+
+
+
+
+# BFDR control with horseshoe neural network:
+
+## NNs vs BNN 
+
+- mathematical formulation of Deterministic NN
+  - why it doesn't work for us: 
+    - uncertainty quantification tends to be an afterthought --- both predictive AND VarSel  
+
+- BNNs --- NN parameters are given _distributions_  
+  - NN parameters are the layer weights $\{w_{i,j}\} = W$  
+  - BNN parameters are the distribution parameters $\mu_{w_{i,j}}, \sigma_{w_{i,j}}$  
+
+
+## "Bayesian Compression" -- Louizos, Ullrich, Welling 2017
+- use first 2 slides from before (Louizos compression, matrix reduction)
+
+???
+where I first encountered this idea
+
+- their focus, as in most ML literature dealing with any kind of selection, is on architecture selection and compression.  
+
+- I want to repurpose for variable selection (input feature selection), BUT RETAIN control over BFDR and FDR
+
+## matrix reduction = variable selection
+
+(matrix reduction example)
+
+???
+- Departing from usual CS / ML convention flipping x and W.  (WHY DO THEY DO THIS?  CAUSES SO MUCH CONFUSION)
+- because I like to think of these as essentially a stack of linear models
+
+
+Actually has a long history
+
+- Radford Neal 90's ARD: scale-mixture shrinkage, single parameter estimated via Empirical Bayes (likelihood maximization).  
+  - HAD STRUCTURE --- applied to the weights tied to inputs, like us
+
+- variational dropout - makes ARD scalable with VI
+
+
+Last slide of the three: 
+- Bayesian Compression (Louizos, Ullrich, Welling) - follow variational dropout tradition (Normal-Jeffrey's), though they do also try the HShoe.
+
+  - Hron et al next year show that NJ prior induces pathologies in training.  Dropout params all go to 0.
+
+
+## Scale-mixture priors
+
+basic formulation: $\beta | \lambda \sim N(\beta | 0, \lambda^2); \qquad \lambda \sim p(\lambda)$
+
+-- 
+
+
+Canonical $p(\lambda)$ choices:
+
+- Bernoulli($\pi$) --> Spike-and-Slab
+- Double-Exp   --> Bayesian LASSO
+- improper $p(\lambda) \propto 1/\lambda$ --> Normal-Jeffrey's
+- Half-Cauchy --> Horseshoe
+
+
+??? Comments:
+- skippable if needed
+- innocuous, but placing structure on $p(\lambda)$ --> marginal prior dist'ns for $\beta$ with more __mass at 0 and in tails__ --> bias posterior $\beta$'s to be either very small or large.
+
+- e.g. Bernoulli prior on $\lambda$ --> Spike-and-Slab
+
+- Bayesian LASSO --- MAP (maximum a posteriori or posterior mode) estimate equivalent to Freq.y LASSO
+
+- problems with Normal-Jeffrey's
+
+
+
+
+## Horseshoe prior
+
+$\beta_j | \lambda_j, \tau \sim N(0, \lambda_j^2 \tau_j^2), \qquad  \lambda_j \sim C^+(0, 1), \qquad \tau \sim C^+(0, \tau_0)$
+
+- $\lambda_j > 0$ is _local_ scale for $j$'th coefficient
+
+- $\tau > 0$ is _global_ scale governing overall sparsity level
+
+-- 
+
+A key summary statistic is the __shrinkage weight__ $\kappa_j$
+$$\kappa_j = \frac{1}{1 + \lambda_j^2 \tau^2} \;\in\; (0, 1)$$
+
+
+???
+Comment: 
+- important to remember these interp.s are __predicated on linear model setting__:  
+  - $\lambda_j$ applies to the coefficient for $x_j$
+  - $\tau$ applies to the coefficient vector
+
+- we'll have to recover this interpretation from the NN setting.
+
+
+
+
+## Nice properties of Horseshoe prior
+
+- Bayesian model averaging estimator
+
+\begin{aligned}
+\mathbb{E}[\beta_j \mid \mathbf{y}]
+  & \;\approx\;
+    \bigl(1 - \mathbb{E}[\kappa_j \mid \mathbf{y}]\bigr)\,
+    \hat{\beta}_j^{\mathrm{OLS}}
+  && (3.5)
+\end{aligned}
+
+
+
+- $1 - \mathbb{E}[\kappa_j \mid \mathbf{y}]$ can be interpreted as a "pseudo"-Posterior Inclusion Probability for variable $x_j$ ($PIP_j$)
+
+- we can use this for control over BFDR
+
+???
+BMA estimator: $1 - \mathbb{E}[\kappa_j \mid \mathbf{y}]$ weight assigned to OLS estimate
+
+
+
+## Horseshoe Prior: our version + reparameterization
+
+
+-- 
+- cauchy decomp
+- uncentered parameterization
+
+-- 
+
+
+
+
+## parameter correction: $m_\text{eff}$
+
+- $m_\text{eff}$ correction
+- $g_\text{eff}$ rationale
+
+
+
+???
+- shrinkage from 2nd layer helps mitigate seesawing/nonidentifiability of coefs via REPRESENTATION SPARSITY
+- difference between INPUT sparsity and REPRESENTATION sparsity
+
+
+
+## parameter correction: composite spectral norm
+
+???
+- spectral norm of each layer is __very__ loose maximum bound for the amplification
+- composited SN of each layer is still a maximum bound, but much less loose
+  - still an approximation: RELU nonlinearity sets elements of the realizations of the matrices as data passes through network to 0.
+
+
+
+
+## Variational Inference & KLs
+
+- MCMC untenable in NN setting
+
+???
+- skippable if needed
+- alleviates need for MCMC at the cost of underestimating variance b/c of Mean Field assumption
+- evidence on prediction side that network depth mitigates this
+
+
+## ELBO
+
+
+???
+- skippable if needed
+
+## simulation results
+
+### combination with deterministic layers
+
+### function recovery
+
+
+
+### BFDR calibration
+
+
+### Comparison against methods
+???
+- main takeaways:
+
+  - VarSel: SoftBART's advantage shrinks
+  - MSE and fMSE: 
+
+
+## salary application
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

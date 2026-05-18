@@ -3,9 +3,6 @@
 To do:
 
 - add thank you to David Rossel as well in thesis
-- rerun HS2 and HS4 on original functions?
-  - check if mse calculations split data or scale data first
-  - make sure that meanfcns does splits first, pretty sure it does
 - check sample sizes for included plots from salary data
 - can I take out ages 18-22 for college / no college marginal effect, and from college plots?
   - use %>% with(table(    ))    or magrittr %$%
@@ -43,19 +40,47 @@ ICAR prior - (improper) spatial prior that smooths across boundaries.  Issues wi
 - threshold PIP>0.95, ensures that BFDR < 0.05
 
 
+
+
+
+
+
+
+
+
+
+
 # BFDR control with horseshoe neural network:
+- NNs vs BNN 
+- BNN 
+
 intro --- use first 2 slides from before (Louizos compression, matrix reduction)
+
+
 
 
 ## Scale-mixture priors
 
 
-## Horseshoe prior
-specification
+
+??? problems with Normal-Jeffrey's
+
+
+## Horseshoe prior + reparameterization
+- specification
+
+
 
 ## Variational Inference
+
+- MCMC untenable in NN setting
+
+???
 - alleviates need for MCMC at the cost of underestimating variance b/c of Mean Field assumption
 - evidence on prediction side that network depth mitigates this
+
+
+
 
 ## ELBO
 

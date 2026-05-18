@@ -42,7 +42,7 @@ reveal <- function(name, upto, highlight) {
   content[1:upto]
 } 
 
-if (!file.exists(here::here("presentations", "advancement", "libs", "remark-latest.min.js"))){
+if (!file.exists(here::here("drafts", "presentation", "libs", "remark-latest.min.js"))){
   xaringan::summon_remark()
 }
 
@@ -68,7 +68,7 @@ style_duo_accent(
   secondary_color = "#07628f",
   text_bold_color = "#07628f",
   title_slide_text_color = "#b1ebfc",
-  title_slide_background_image = here::here("presentations", "advancement", "figs", "web.jpg"),
+  title_slide_background_image = here::here("drafts", "presentation", "figs", "web.jpg"),
   colors = c(
     pink = "#e63c80",
     darkpink = "#c22975", 
@@ -202,730 +202,730 @@ class: inverse, left
 
 </style>
 
-# Contents
+<!-- # Contents -->
 
-1. Bayesian Local Null Testing
+<!-- 1. Bayesian Local Null Testing -->
 
-  - misspecification & the cut orthogonal basis
-  
-  - Bayesian model selection
-  
-1. BVS in Deep Neural Networks
+<!--   - misspecification & the cut orthogonal basis -->
 
-  - compression algorithm
-  
-  - preliminary results & next steps
-  
-1. Timeline to defense
+<!--   - Bayesian model selection -->
 
-1. Other projects
+<!-- 1. BVS in Deep Neural Networks -->
 
-  - $\color{white}{\texttt{datagoboop}}$
+<!--   - compression algorithm -->
 
+<!--   - preliminary results & next steps -->
 
-???
-- overall research theme
-  - Bayesian Variable Selection in semi-parametric models
-    - developing flexible methods that apply to a variety of settings - that's the semi-parametric part
-    - and applying BVS to enhance the interpretability of these expressive models.
+<!-- 1. Timeline to defense -->
 
-Another contribution I want to discuss today is not directly about BVS, but about delineating a common type of misspecification in local null testing
-  - not discussed before
+<!-- 1. Other projects -->
 
+<!--   - $\color{white}{\texttt{datagoboop}}$ -->
 
----
 
-class: inverse, left, middle
+<!-- ??? -->
+<!-- - overall research theme -->
+<!--   - Bayesian Variable Selection in semi-parametric models -->
+<!--     - developing flexible methods that apply to a variety of settings - that's the semi-parametric part -->
+<!--     - and applying BVS to enhance the interpretability of these expressive models. -->
 
-# Bayesian Local Null testing
+<!-- Another contribution I want to discuss today is not directly about BVS, but about delineating a common type of misspecification in local null testing -->
+<!--   - not discussed before -->
 
-???
-- Michele Guindani (now at UCLA)
-- David Rossell (Universitat Pompeu Fabra in Barcelona)
-- inspired by data from Ignacio Saez (then a neuroscientist at UC Davis, now at Mt Sinai)
 
-- First exposure to additive models, BVS/BMS, 
-  - learned lessons about 
-    - simulating data NOT according to model
+<!-- --- -->
 
+<!-- class: inverse, left, middle -->
 
----
-## Motivation: ECoG
+<!-- # Bayesian Local Null testing -->
 
-![](figs/ecogoverview.JPG)
+<!-- ??? -->
+<!-- - Michele Guindani (now at UCLA) -->
+<!-- - David Rossell (Universitat Pompeu Fabra in Barcelona) -->
+<!-- - inspired by data from Ignacio Saez (then a neuroscientist at UC Davis, now at Mt Sinai) -->
 
-__Question of interest:__ Are game-level covariates associated with brain region activation (HF band) and, if so, _at what times_.
+<!-- - First exposure to additive models, BVS/BMS,  -->
+<!--   - learned lessons about  -->
+<!--     - simulating data NOT according to model -->
 
-???
-- gambling behaviors represented in brain, create a kind of neural profile
 
-- 11 epileptic patients undergoing surgery; 
+<!-- --- -->
+<!-- ## Motivation: ECoG -->
 
-+ high temporal and spatial resolution
+<!-- ![](figs/ecogoverview.JPG) -->
 
-+ quick (3 seconds) gambling game, ~ 200 rounds
+<!-- __Question of interest:__ Are game-level covariates associated with brain region activation (HF band) and, if so, _at what times_. -->
 
-+ interested in whether high-frequency activity (power) is correlated with task requirements/outcomes (e.g. risk/reward calculation, win/loss)
+<!-- ??? -->
+<!-- - gambling behaviors represented in brain, create a kind of neural profile -->
 
-+ windowed measurements (200ms windows, 50ms increments)
+<!-- - 11 epileptic patients undergoing surgery;  -->
 
-+ from Ignacio Saez, then neuroscience prof at UC Davis, now at Mount Sinai
+<!-- + high temporal and spatial resolution -->
 
+<!-- + quick (3 seconds) gambling game, ~ 200 rounds -->
 
----
-## Motivation: Salary
+<!-- + interested in whether high-frequency activity (power) is correlated with task requirements/outcomes (e.g. risk/reward calculation, win/loss) -->
 
-- 2019 Current Population Survey (Flood et al, 2020)
+<!-- + windowed measurements (200ms windows, 50ms increments) -->
 
-- n = 36,308 single-race individuals, ages 18-65, employed full-time, non-military
+<!-- + from Ignacio Saez, then neuroscience prof at UC Davis, now at Mount Sinai -->
 
-- response variable is log-10 annual work income
 
-- Covariates: race, gender, possession of university degree, government-employed, self-employed.
+<!-- --- -->
+<!-- ## Motivation: Salary -->
 
-- Question: are disparities in salary associated with covariates such as race and gender at different times in people's careers
+<!-- - 2019 Current Population Survey (Flood et al, 2020) -->
 
+<!-- - n = 36,308 single-race individuals, ages 18-65, employed full-time, non-military -->
 
+<!-- - response variable is log-10 annual work income -->
 
-???
-simpler data (cross-sectional), independent obs
+<!-- - Covariates: race, gender, possession of university degree, government-employed, self-employed. -->
 
----
-## Goal: not just if, but when or where
+<!-- - Question: are disparities in salary associated with covariates such as race and gender at different times in people's careers -->
 
-We want to be able to test whether $x_i \in \mathbb{R}^p$ is associated with outcome $y_i$ at coordinate $z_i \in \mathcal{R}^d$.
 
-___
 
-- **Electrocorticography (ECoG) data**
-  - brain region activity ($y$) vs. covariates ($x$) at given time ($z$)
-    - win/loss, risk, remorse, expected earning
-  - multiple time points recorded for each subject-electrode-trial combination: non-linear, correlated data
-  
-- **Salary data**
-  - Question: are disparities in salary associated with covariates such as race and gender ($x$) at different times ($z$) in people's careers
-  - cross-sectional data: simpler, independent observations
+<!-- ??? -->
+<!-- simpler data (cross-sectional), independent obs -->
 
+<!-- --- -->
+<!-- ## Goal: not just if, but when or where -->
 
+<!-- We want to be able to test whether $x_i \in \mathbb{R}^p$ is associated with outcome $y_i$ at coordinate $z_i \in \mathcal{R}^d$. -->
 
-???
-- extendable to multi-dim z
+<!-- ___ -->
 
-- knowing IF is good, but even more useful would be knowing WHEN / WHERE
-  - does the salary gap always exist?  does it start after a certain time, or end at a certain time?
-  - more targeted interventions, e.g.
-     - early- or mid-career equity initiatives
-     - **WHICH interventions are effective WHEN**
-  - which regions of the brain are correlated with different stimuli, how long is effect felt for
-    - e.g. before time 0 would be risk / anticipation; after time 0 might be reward / regret
+<!-- - **Electrocorticography (ECoG) data** -->
+<!--   - brain region activity ($y$) vs. covariates ($x$) at given time ($z$) -->
+<!--     - win/loss, risk, remorse, expected earning -->
+<!--   - multiple time points recorded for each subject-electrode-trial combination: non-linear, correlated data -->
 
-  - measuring how long it takes for the effect of a pharmaceutical to be felt; how long it takes to diminish.
+<!-- - **Salary data** -->
+<!--   - Question: are disparities in salary associated with covariates such as race and gender ($x$) at different times ($z$) in people's careers -->
+<!--   - cross-sectional data: simpler, independent observations -->
 
 
----
 
-## Goal: not just if, but when or where
+<!-- ??? -->
+<!-- - extendable to multi-dim z -->
 
-We want to be able to test whether $x_i \in \mathbb{R}^p$ is associated with outcome $y_i$ at coordinate $z_i \in \mathcal{R}^d$.
+<!-- - knowing IF is good, but even more useful would be knowing WHEN / WHERE -->
+<!--   - does the salary gap always exist?  does it start after a certain time, or end at a certain time? -->
+<!--   - more targeted interventions, e.g. -->
+<!--      - early- or mid-career equity initiatives -->
+<!--      - **WHICH interventions are effective WHEN** -->
+<!--   - which regions of the brain are correlated with different stimuli, how long is effect felt for -->
+<!--     - e.g. before time 0 would be risk / anticipation; after time 0 might be reward / regret -->
 
-___
+<!--   - measuring how long it takes for the effect of a pharmaceutical to be felt; how long it takes to diminish. -->
 
-### Challenges:
-- Outcome $y_i$ at baseline is some unknown function of $z_i$.  We want to be able to model this flexibly.
-- many $x_i$'s, including covariates not undergoing selection
 
-**Semi-parametric models**, additive models in particular, are a natural fit:
-- flexible, ease of interpretation & computation
+<!-- --- -->
 
+<!-- ## Goal: not just if, but when or where -->
 
-???
-- Our method needs to handle non-linearity.  
-- conceptually, the very enterprise / goal ---- to detect local regions of no effect --- requires this
+<!-- We want to be able to test whether $x_i \in \mathbb{R}^p$ is associated with outcome $y_i$ at coordinate $z_i \in \mathcal{R}^d$. -->
 
----
-## Setup
+<!-- ___ -->
 
-__Notation:__
-- $F$ the true, unknown data-generating density.  
-- $x_{i1} \in \{1, ..., K \}$ a single covariate defining K distinct groups.
+<!-- ### Challenges: -->
+<!-- - Outcome $y_i$ at baseline is some unknown function of $z_i$.  We want to be able to model this flexibly. -->
+<!-- - many $x_i$'s, including covariates not undergoing selection -->
 
---
+<!-- **Semi-parametric models**, additive models in particular, are a natural fit: -->
+<!-- - flexible, ease of interpretation & computation -->
 
-$$E_F[y_i] = \underset{\text{baseline}}{\underbrace{f_0(z_i)}} + \underset{\text{deviation}}{\underbrace{f_1(x_{i1}, z_i)}}$$
-- sum-to-zero identifiability condition on $f_1$, i.e. $\sum_{k=1}^K f_1(k, z) = 0$, i.e. $f_1$ describes the deviation from baseline
 
---
+<!-- ??? -->
+<!-- - Our method needs to handle non-linearity.   -->
+<!-- - conceptually, the very enterprise / goal ---- to detect local regions of no effect --- requires this -->
 
-The objective of local variable selection is to assess the local null hypothesis:
+<!-- --- -->
+<!-- ## Setup -->
 
-$$f_1(1, z) = f_1(2, z) = ... = f_1(K, z) = 0$$
+<!-- __Notation:__ -->
+<!-- - $F$ the true, unknown data-generating density.   -->
+<!-- - $x_{i1} \in \{1, ..., K \}$ a single covariate defining K distinct groups. -->
 
-for specific values of $z$
+<!-- -- -->
 
+<!-- $$E_F[y_i] = \underset{\text{baseline}}{\underbrace{f_0(z_i)}} + \underset{\text{deviation}}{\underbrace{f_1(x_{i1}, z_i)}}$$ -->
+<!-- - sum-to-zero identifiability condition on $f_1$, i.e. $\sum_{k=1}^K f_1(k, z) = 0$, i.e. $f_1$ describes the deviation from baseline -->
 
-???
-for now, assume independent obs and no other covariates
+<!-- -- -->
 
+<!-- The objective of local variable selection is to assess the local null hypothesis: -->
 
----
-## Model
+<!-- $$f_1(1, z) = f_1(2, z) = ... = f_1(K, z) = 0$$ -->
 
-A typical way to estimate $f_0$ and $f_1$ is via the __Varying Coefficient model__ (Hastie & Tibshirani 1993)
+<!-- for specific values of $z$ -->
 
-$$E_\eta \left( y_i | z_i, x_{i1} = k  \right)    = \beta_0 (z_i) + \beta_{1k} (z_i) = w_{i0}^T \eta_0 + w_{ik}^T \eta_{1k}$$
---
 
-- the coefficients $\beta_0 (z_i) + \beta_{1k} (z_i)$ are functions of $z$
-- the coefficients are approximated via basis functions $w_{i0} = w_{i0}(z_i) \in \mathbb{R}^{l_0}$ and $w_{ik} = w_{ik}(z_i) \in \mathbb{R}^{l_1}$, e.g. cubic splines, and coefficients $(\eta_0, \eta_{1k})$
-- projecting coordinates onto a basis lets us linearize the VC model
+<!-- ??? -->
+<!-- for now, assume independent obs and no other covariates -->
 
 
---
-___
+<!-- --- -->
+<!-- ## Model -->
 
-Assuming Gaussian errors, we can write this as:
-$$y | Z, X \sim N(W_0\eta_0 + W_1 \eta_1, \Sigma)$$
-- $W_0$ is a $n \times l_0$ matrix ($i^{\text{th}}$ row given by $w_{i0}$)
-- $W_1$ is a $n \times l_1K$ matrix ($i^{\text{th}}$ row given by $(w_{i1}, ..., w_{iK})$)
+<!-- A typical way to estimate $f_0$ and $f_1$ is via the __Varying Coefficient model__ (Hastie & Tibshirani 1993) -->
 
+<!-- $$E_\eta \left( y_i | z_i, x_{i1} = k  \right)    = \beta_0 (z_i) + \beta_{1k} (z_i) = w_{i0}^T \eta_0 + w_{ik}^T \eta_{1k}$$ -->
+<!-- -- -->
 
----
-## Model-based testing
+<!-- - the coefficients $\beta_0 (z_i) + \beta_{1k} (z_i)$ are functions of $z$ -->
+<!-- - the coefficients are approximated via basis functions $w_{i0} = w_{i0}(z_i) \in \mathbb{R}^{l_0}$ and $w_{ik} = w_{ik}(z_i) \in \mathbb{R}^{l_1}$, e.g. cubic splines, and coefficients $(\eta_0, \eta_{1k})$ -->
+<!-- - projecting coordinates onto a basis lets us linearize the VC model -->
 
-__Local Null Hypothesis__ testing if group membership $k$ has an effect at $z$: 
 
-$$f_{11}(z) = f_{12}(z) = ... = f_{1K}(z) = 0$$
---
+<!-- -- -->
+<!-- ___ -->
 
-__Model-based local null test__: 
+<!-- Assuming Gaussian errors, we can write this as: -->
+<!-- $$y | Z, X \sim N(W_0\eta_0 + W_1 \eta_1, \Sigma)$$ -->
+<!-- - $W_0$ is a $n \times l_0$ matrix ($i^{\text{th}}$ row given by $w_{i0}$) -->
+<!-- - $W_1$ is a $n \times l_1K$ matrix ($i^{\text{th}}$ row given by $(w_{i1}, ..., w_{iK})$) -->
 
 
-$$E_\eta \left( y_i | z_i, x_{i1} = k  \right)    = \beta_0 (z_i) + \beta_{1k} (z_i) = w_{i0}^T \eta_0 + w_{ik}^T \eta_{1k}$$
+<!-- --- -->
+<!-- ## Model-based testing -->
 
+<!-- __Local Null Hypothesis__ testing if group membership $k$ has an effect at $z$:  -->
 
-- if $w_{ik}^T (z_i)\eta_{1k} = 0$, then $\beta_{1k}(z_i) = 0$, i.e. no effect of $x_{i1k}$ on $y_i$ at $z_i$
+<!-- $$f_{11}(z) = f_{12}(z) = ... = f_{1K}(z) = 0$$ -->
+<!-- -- -->
 
-- So: 
-$$\eta_{11z} = \eta_{12z} = ... = \eta_{1Kz} = 0$$
-(abusing notation to let subscript $z$ indicate the portion of the $l_1$-length vector $\eta_{1k}$ corresponding to bases covering a specific $z$)
+<!-- __Model-based local null test__:  -->
 
 
-???
-are the coefficients associated with this basis all 0 or not?
+<!-- $$E_\eta \left( y_i | z_i, x_{i1} = k  \right)    = \beta_0 (z_i) + \beta_{1k} (z_i) = w_{i0}^T \eta_0 + w_{ik}^T \eta_{1k}$$ -->
 
 
----
-## Misspecification
-.pull-left[
-![](figs/misspec.JPG)
-]
+<!-- - if $w_{ik}^T (z_i)\eta_{1k} = 0$, then $\beta_{1k}(z_i) = 0$, i.e. no effect of $x_{i1k}$ on $y_i$ at $z_i$ -->
 
-.pull-right[
+<!-- - So:  -->
+<!-- $$\eta_{11z} = \eta_{12z} = ... = \eta_{1Kz} = 0$$ -->
+<!-- (abusing notation to let subscript $z$ indicate the portion of the $l_1$-length vector $\eta_{1k}$ corresponding to bases covering a specific $z$) -->
 
-- $x_{i1}$ is a binary covariate defining two groups
 
-- group means are equal for $z \leq 0$, different for $z > 0$
+<!-- ??? -->
+<!-- are the coefficients associated with this basis all 0 or not? -->
 
-- solid black lines are the projection of the true group means onto a cubic B-spline basis, .bpink[i.e. the best approximation possible] as $n \rightarrow \infty$
 
-]
+<!-- --- -->
+<!-- ## Misspecification -->
+<!-- .pull-left[ -->
+<!-- ![](figs/misspec.JPG) -->
+<!-- ] -->
 
+<!-- .pull-right[ -->
 
-???
+<!-- - $x_{i1}$ is a binary covariate defining two groups -->
 
-- just kept getting weird results.  
-- Performed nominally well at low n, but poorly at very high n, or when taking error terms out of simulated data.
+<!-- - group means are equal for $z \leq 0$, different for $z > 0$ -->
 
+<!-- - solid black lines are the projection of the true group means onto a cubic B-spline basis, .bpink[i.e. the best approximation possible] as $n \rightarrow \infty$ -->
 
+<!-- ] -->
 
----
-## Misspecification
-.pull-left[
-![](figs/misspec.JPG)
-]
 
-.pull-right[
+<!-- ??? -->
 
+<!-- - just kept getting weird results.   -->
+<!-- - Performed nominally well at low n, but poorly at very high n, or when taking error terms out of simulated data. -->
 
-- problem arises from __overlap__ of bases / __sharing__ information.  
 
-- each interval between consecutive knots in a $l$-degree B-spline is represented by $l+1$ coefficients.
 
-- this also means that each $l$-degree B-spline covers $l+1$ regions
+<!-- --- -->
+<!-- ## Misspecification -->
+<!-- .pull-left[ -->
+<!-- ![](figs/misspec.JPG) -->
+<!-- ] -->
 
-- i.e. estimation of the mean function in one region uses information from other regions
+<!-- .pull-right[ -->
 
-- not only other regions, but the baseline function as well!
 
-]
+<!-- - problem arises from __overlap__ of bases / __sharing__ information.   -->
 
+<!-- - each interval between consecutive knots in a $l$-degree B-spline is represented by $l+1$ coefficients. -->
 
+<!-- - this also means that each $l$-degree B-spline covers $l+1$ regions -->
 
-???
-- If the baseline mean function can only be _approximated_ by the chosen basis, the other group's mean function approximation will try to improve on it.
+<!-- - i.e. estimation of the mean function in one region uses information from other regions -->
 
-- we like to be able to SHARE information across observations.  BUT sharing information in this context is problematic.  Instead of "SHARING", estimation of an effect at active coordinates CONTAMINATES estimation of effect at null coordinates.
-  - true for any basis that overlaps / shares information across coordinates, e.g. Gaussian processes, etc.
+<!-- - not only other regions, but the baseline function as well! -->
 
+<!-- ] -->
 
-__SIDENOTE__ this also highlights the importance of NOT SIMULATING DATA ACCORDING TO YOUR MODEL.
 
----
 
-## Model Misspecification and testing
+<!-- ??? -->
+<!-- - If the baseline mean function can only be _approximated_ by the chosen basis, the other group's mean function approximation will try to improve on it. -->
 
-<!-- - Under mild conditions, most estimators $\hat\eta = (\hat \eta_0, \eta_1)$ converge to the values minimizing the Kullback-Leibler divergence. -->
+<!-- - we like to be able to SHARE information across observations.  BUT sharing information in this context is problematic.  Instead of "SHARING", estimation of an effect at active coordinates CONTAMINATES estimation of effect at null coordinates. -->
+<!--   - true for any basis that overlaps / shares information across coordinates, e.g. Gaussian processes, etc. -->
 
-- In the independent error case, the optimal value $\eta^\star$ minimizing mean-squared prediction error under $F$ is:
 
-$$\begin{align}
-\eta^\star 
-&= 
-\underset{\eta}{\arg \min}~ E_F \left[  (y - W\eta)^T(y-W\eta) |Z, X   \right] \\
-&=\left( W^T W \right)^{-1} W^T E_F (y | Z, X)
-\end{align}$$
+<!-- __SIDENOTE__ this also highlights the importance of NOT SIMULATING DATA ACCORDING TO YOUR MODEL. -->
 
---
+<!-- --- -->
 
-- if $\left( W^T W \right)^{-1} W^T$ is not sparse, it is likely that the optimal coefficient values in $\eta_{1k}^\star$ associated with a specific region will be non-zero even when the group means are equal in that region.
+<!-- ## Model Misspecification and testing -->
 
---
+<!-- <!-- - Under mild conditions, most estimators $\hat\eta = (\hat \eta_0, \eta_1)$ converge to the values minimizing the Kullback-Leibler divergence. --> -->
 
-- in the case above with cubic splines, $\Pr(\text{T1 error}) \rightarrow 1$ as $n \rightarrow \infty$
+<!-- - In the independent error case, the optimal value $\eta^\star$ minimizing mean-squared prediction error under $F$ is: -->
 
+<!-- $$\begin{align} -->
+<!-- \eta^\star  -->
+<!-- &=  -->
+<!-- \underset{\eta}{\arg \min}~ E_F \left[  (y - W\eta)^T(y-W\eta) |Z, X   \right] \\ -->
+<!-- &=\left( W^T W \right)^{-1} W^T E_F (y | Z, X) -->
+<!-- \end{align}$$ -->
 
+<!-- -- -->
 
+<!-- - if $\left( W^T W \right)^{-1} W^T$ is not sparse, it is likely that the optimal coefficient values in $\eta_{1k}^\star$ associated with a specific region will be non-zero even when the group means are equal in that region. -->
 
+<!-- -- -->
 
----
-## Alternatives
+<!-- - in the case above with cubic splines, $\Pr(\text{T1 error}) \rightarrow 1$ as $n \rightarrow \infty$ -->
 
-- add more knots
-  - problem of inconsistency persists
-  - lower power  
-  - number of models grows exponentially with knots
 
 
-- Gaussian processes, other bases
-  - problem of inconsistency persists
 
 
-- tree-based methods
- - e.g. VC-BART (Deshpande et al, 2020)
- - good at estimation and prediction
- - controlling type I error is not straightforward
+<!-- --- -->
+<!-- ## Alternatives -->
 
---
+<!-- - add more knots -->
+<!--   - problem of inconsistency persists -->
+<!--   - lower power   -->
+<!--   - number of models grows exponentially with knots -->
 
-___
 
-- Model-based tests can lead to incorrect conclusions when the mean
-model is misspecified, i.e. the approximation does not perfectly capture the true mean
+<!-- - Gaussian processes, other bases -->
+<!--   - problem of inconsistency persists -->
 
-- not a Bayesian or Frequentist issue
 
+<!-- - tree-based methods -->
+<!--  - e.g. VC-BART (Deshpande et al, 2020) -->
+<!--  - good at estimation and prediction -->
+<!--  - controlling type I error is not straightforward -->
 
-???
+<!-- -- -->
 
-asymptotic consistency  ---- get the right answer when $n \rightarrow \infty$ seems like a basic requirement for a stat method.
+<!-- ___ -->
 
-Gaussian processes --- Kernel function is going to share info across regions
-IWT of Pini & Vantini 2017 --- distribution on area between curves.  Still runs into problem of asymptotic inconsistency.
+<!-- - Model-based tests can lead to incorrect conclusions when the mean -->
+<!-- model is misspecified, i.e. the approximation does not perfectly capture the true mean -->
 
+<!-- - not a Bayesian or Frequentist issue -->
 
----
 
-## Our proposal: Orthogonal Cut Basis
+<!-- ??? -->
 
+<!-- asymptotic consistency  ---- get the right answer when $n \rightarrow \infty$ seems like a basic requirement for a stat method. -->
 
+<!-- Gaussian processes --- Kernel function is going to share info across regions -->
+<!-- IWT of Pini & Vantini 2017 --- distribution on area between curves.  Still runs into problem of asymptotic inconsistency. -->
 
-.content-box-blue[
 
-__Def'n:__
+<!-- --- -->
 
-An __Orthogonal Cut Basis__ is  a basis for $\beta_{1k}(z)$ that 
+<!-- ## Our proposal: Orthogonal Cut Basis -->
 
-1. has support only in a single region $R_b$ (hence a _cut_ basis)
-1. is __orthogonal__ to bases outside that region.
 
-]
 
+<!-- .content-box-blue[ -->
 
-- note that it is not required for $\beta_0(z)$
+<!-- __Def'n:__ -->
 
-- balances sharing and localizing information.
-  - for any choice of knots, prevents false positives
-  - can handle independent as well as correlated data
-  - can be extended to multivariate $z_i$
-  - orthogonal cut basis is a specific projection of the design matrix.  Standard computational and inferential machinery is still available / applicable.
+<!-- An __Orthogonal Cut Basis__ is  a basis for $\beta_{1k}(z)$ that  -->
 
----
-## Procedure:
+<!-- 1. has support only in a single region $R_b$ (hence a _cut_ basis) -->
+<!-- 1. is __orthogonal__ to bases outside that region. -->
 
-- Partition $z$ into a set of regions $\mathcal{R} = \{R_1, R_2, ..., R_{|\mathcal{R}|} \}$  regions (for now, assume given)
+<!-- ] -->
 
 
-- create a basis $W = (W_0, W_1)$, where rows $(y_b, W_{0b}, W_{1b})$ in $(y, W_0, W_1)$ represent observations in $R_b$, using a __cut__ basis $W_1$ for group effects $\beta_{1k}(z)$.
+<!-- - note that it is not required for $\beta_0(z)$ -->
 
+<!-- - balances sharing and localizing information. -->
+<!--   - for any choice of knots, prevents false positives -->
+<!--   - can handle independent as well as correlated data -->
+<!--   - can be extended to multivariate $z_i$ -->
+<!--   - orthogonal cut basis is a specific projection of the design matrix.  Standard computational and inferential machinery is still available / applicable. -->
 
-- orthogonalize $W_{1b}$ so that $W_{1b}^T W_{0b} = 0$, i.e.:
-  - start with a __cut__ basis $\tilde{W}_{1b}$, then use 
-  $$W_{1b} = \left[  I - W_{0b} (W_{0b}^TW_{0b})^{-1} W_{0b}   \right] \tilde{W}_{1b}$$
-  
+<!-- --- -->
+<!-- ## Procedure: -->
 
-Then $\eta^\star$ contains 0's when truly no group differences in a region.
-  
+<!-- - Partition $z$ into a set of regions $\mathcal{R} = \{R_1, R_2, ..., R_{|\mathcal{R}|} \}$  regions (for now, assume given) -->
 
 
+<!-- - create a basis $W = (W_0, W_1)$, where rows $(y_b, W_{0b}, W_{1b})$ in $(y, W_0, W_1)$ represent observations in $R_b$, using a __cut__ basis $W_1$ for group effects $\beta_{1k}(z)$. -->
 
 
-???
-complicated name for simple idea
+<!-- - orthogonalize $W_{1b}$ so that $W_{1b}^T W_{0b} = 0$, i.e.: -->
+<!--   - start with a __cut__ basis $\tilde{W}_{1b}$, then use  -->
+<!--   $$W_{1b} = \left[  I - W_{0b} (W_{0b}^TW_{0b})^{-1} W_{0b}   \right] \tilde{W}_{1b}$$ -->
 
----
-## The Fix
 
-![](figs/cubic_and_cut.JPG)
+<!-- Then $\eta^\star$ contains 0's when truly no group differences in a region. -->
 
----
 
-## Correlated data setting
 
-If $\Sigma \neq \sigma^2 I$, then asymptotic solution becomes
 
-$$\begin{align}
-\tilde\eta^\star
-&= 
-\underset{\eta}{\arg \min} E_F \left[  (y - W\eta)^T \Sigma^{-1} (y-W\eta) |Z, X   \right] \\
-&=\left( W^T \Sigma^{-1} W \right)^{-1} W^T \Sigma^{-1} E_F (y | Z, X)  \\
-&= \eta^\star + \left( W^T \Sigma^{-1} W \right)^{-1} W^T \Sigma^{-1} \left[ E_F (y | Z, X) - W \eta^\star \right]
-\end{align}$$
 
---
+<!-- ??? -->
+<!-- complicated name for simple idea -->
 
+<!-- --- -->
+<!-- ## The Fix -->
 
-- 2nd term unlikely to be 0, so $\tilde \eta^\star \neq \eta^\star$
+<!-- ![](figs/cubic_and_cut.JPG) -->
 
+<!-- --- -->
 
-- we can't ignore correlated errors!
+<!-- ## Correlated data setting -->
 
+<!-- If $\Sigma \neq \sigma^2 I$, then asymptotic solution becomes -->
 
----
-## Accounting for Dependence
+<!-- $$\begin{align} -->
+<!-- \tilde\eta^\star -->
+<!-- &=  -->
+<!-- \underset{\eta}{\arg \min} E_F \left[  (y - W\eta)^T \Sigma^{-1} (y-W\eta) |Z, X   \right] \\ -->
+<!-- &=\left( W^T \Sigma^{-1} W \right)^{-1} W^T \Sigma^{-1} E_F (y | Z, X)  \\ -->
+<!-- &= \eta^\star + \left( W^T \Sigma^{-1} W \right)^{-1} W^T \Sigma^{-1} \left[ E_F (y | Z, X) - W \eta^\star \right] -->
+<!-- \end{align}$$ -->
 
-Estimate $\hat\Sigma$, and coerce a block-diagonal structure.  
+<!-- -- -->
 
-- reasonable when long-range dependence is weak
 
-Then modify:
+<!-- - 2nd term unlikely to be 0, so $\tilde \eta^\star \neq \eta^\star$ -->
 
-$$\tilde{y} | Z, X, \hat\Sigma  \sim  N(\tilde W_0 \eta_0 + \tilde W_1 \eta_1, \sigma^2 I)$$
-Where 
-- $\tilde y = \hat \Sigma ^{-1/2}y$
-- $\tilde W_0 = \hat \Sigma ^{-1/2} W_0$
-- $\tilde W_1 = \hat \Sigma ^{-1/2} W_1$
 
+<!-- - we can't ignore correlated errors! -->
 
 
+<!-- --- -->
+<!-- ## Accounting for Dependence -->
 
-???
-found first order autoregressive or moving average models typically worked well, selecting preferred model based on BIC
+<!-- Estimate $\hat\Sigma$, and coerce a block-diagonal structure.   -->
 
+<!-- - reasonable when long-range dependence is weak -->
 
----
+<!-- Then modify: -->
 
-## Bayesian framework for local null testing
+<!-- $$\tilde{y} | Z, X, \hat\Sigma  \sim  N(\tilde W_0 \eta_0 + \tilde W_1 \eta_1, \sigma^2 I)$$ -->
+<!-- Where  -->
+<!-- - $\tilde y = \hat \Sigma ^{-1/2}y$ -->
+<!-- - $\tilde W_0 = \hat \Sigma ^{-1/2} W_0$ -->
+<!-- - $\tilde W_1 = \hat \Sigma ^{-1/2} W_1$ -->
 
-- testing the effect of covariate $j$ in region $R_b, b \in \{ 1, ..., |\mathcal{R}| \}$ is equivalent to testing $\eta_{1jb} \neq 0$, resulting in a total of $p \times |\mathcal{R}|$ tests.
 
-- we employ model vectors $\gamma = \{ \gamma_{jb} \}$, where $\gamma_{jb} = I(\eta_{jb} = 0)$
 
-- The goal is then to select the optimal model $\gamma^\star$ where $\eta^\star$ is chosen to minimize MSPE under $F$
 
-- $\gamma^\star$ represents the optimal model among those under consideration.  
+<!-- ??? -->
+<!-- found first order autoregressive or moving average models typically worked well, selecting preferred model based on BIC -->
 
-  - "optimal" = smallest among those models that are KL closest to $F$ (Rossell, 2022)
 
-- under mild regularity conditions, $p(\gamma^\star | y) \rightarrow 1$ as $n \rightarrow \infty$
+<!-- --- -->
 
-???
-thus the marginal posterior concentrates on $\gamma_{bj}^\star}$ uniformly across pairs (j,b).
+<!-- ## Bayesian framework for local null testing -->
 
----
-## Model probabilities & PIPs
+<!-- - testing the effect of covariate $j$ in region $R_b, b \in \{ 1, ..., |\mathcal{R}| \}$ is equivalent to testing $\eta_{1jb} \neq 0$, resulting in a total of $p \times |\mathcal{R}|$ tests. -->
 
-By placing a proper prior on models, we obtain valid posterior inference even though we are considering many models:
-  
-  - the posterior probabilty of model $\gamma$ is:
-  
-$$p(\gamma| y) = \frac{  p(y| \gamma) p(\gamma)  }{  \sum_{\gamma'} p(y| \gamma') p(\gamma')  }$$
-  - we then obtain the __marginal posterior inclusion probabilities__ for each region: $$p(\gamma_{jb} = 1 | y) = \sum_{\gamma: \gamma_{jb} = 1} p(\gamma | y)$$
+<!-- - we employ model vectors $\gamma = \{ \gamma_{jb} \}$, where $\gamma_{jb} = I(\eta_{jb} = 0)$ -->
 
+<!-- - The goal is then to select the optimal model $\gamma^\star$ where $\eta^\star$ is chosen to minimize MSPE under $F$ -->
 
-???
+<!-- - $\gamma^\star$ represents the optimal model among those under consideration.   -->
 
-The major advantages of using Bayesian machinery stem from being able to put a prior on models.
+<!--   - "optimal" = smallest among those models that are KL closest to $F$ (Rossell, 2022) -->
 
+<!-- - under mild regularity conditions, $p(\gamma^\star | y) \rightarrow 1$ as $n \rightarrow \infty$ -->
 
-posterior probabilities adjust for multiplicities (Mueller, Parmigiani, Rice 2006)
+<!-- ??? -->
+<!-- thus the marginal posterior concentrates on $\gamma_{bj}^\star}$ uniformly across pairs (j,b). -->
 
+<!-- --- -->
+<!-- ## Model probabilities & PIPs -->
 
----
-## Priors
+<!-- By placing a proper prior on models, we obtain valid posterior inference even though we are considering many models: -->
 
-### $\eta$
-- for independent data, Normal shrinkage prior works fine: 
-$$p(\eta_\gamma | \gamma) = N \left(\eta_\gamma | 0, g \cdot \text{diag}(W_\gamma^T W_\gamma/n) ^ {-1} \right)$$
-  - $g>0$ prior dispersion parameter.  By default, $g = 1$, yielding the unit information prior.
+<!--   - the posterior probabilty of model $\gamma$ is: -->
 
---
+<!-- $$p(\gamma| y) = \frac{  p(y| \gamma) p(\gamma)  }{  \sum_{\gamma'} p(y| \gamma') p(\gamma')  }$$ -->
+<!--   - we then obtain the __marginal posterior inclusion probabilities__ for each region: $$p(\gamma_{jb} = 1 | y) = \sum_{\gamma: \gamma_{jb} = 1} p(\gamma | y)$$ -->
 
-- for dependent data, a group pMOM prior (Rossell, 2021) used.  
-  - non-local prior pushes sparsity a bit better.
-  - penalizes groups with small contributions relative to model size
 
-???
-also considered ICAR prior (Besag 1974) - intrinsic conditionally auto-regressive prior 
-- but similar results
+<!-- ??? -->
 
+<!-- The major advantages of using Bayesian machinery stem from being able to put a prior on models. -->
 
 
----
-## Priors
+<!-- posterior probabilities adjust for multiplicities (Mueller, Parmigiani, Rice 2006) -->
 
-### $\gamma$: Model prior: 
 
-__Complexity prior__ (Castillo, 2015)
+<!-- --- -->
+<!-- ## Priors -->
 
-$$p(\gamma) = \frac{C}{q^{c |\gamma|_0}} \times {q \choose |\gamma|_0}^{-1} I( |\gamma|_0 \in \{ 0, ..., \bar q\}$$
+<!-- ### $\eta$ -->
+<!-- - for independent data, Normal shrinkage prior works fine:  -->
+<!-- $$p(\eta_\gamma | \gamma) = N \left(\eta_\gamma | 0, g \cdot \text{diag}(W_\gamma^T W_\gamma/n) ^ {-1} \right)$$ -->
+<!--   - $g>0$ prior dispersion parameter.  By default, $g = 1$, yielding the unit information prior. -->
 
-- $q$ is the total number of parameters
-- $c \geq 0$ is a hyperparameter, $C$ is the normalizing constant.  
-  - $c$ = 0 $\rightarrow$ Betabinomial prior (discrete uniform on model size)
-  - $c > 0$, prior probabilities decay with model size.
+<!-- -- -->
 
+<!-- - for dependent data, a group pMOM prior (Rossell, 2021) used.   -->
+<!--   - non-local prior pushes sparsity a bit better. -->
+<!--   - penalizes groups with small contributions relative to model size -->
 
----
-## Multi-resolution Analysis
+<!-- ??? -->
+<!-- also considered ICAR prior (Besag 1974) - intrinsic conditionally auto-regressive prior  -->
+<!-- - but similar results -->
 
-.pull-left[
-Bayesian Model Averaging provides a natural framework to consider multiple resolutions
 
-- just need to place a prior on the resolutions
 
-- Posterior probabilities of an effect at $z$:
+<!-- --- -->
+<!-- ## Priors -->
 
-$$\begin{align}
-&p(\beta_j(z) \neq 0 | y) = \\
-&\sum_{l=1}^L p(\beta_j(z) \neq 0 | y, \mathcal{R}_l) p(\mathcal{R}_l | y)
-\end{align}$$
+<!-- ### $\gamma$: Model prior:  -->
 
-]
+<!-- __Complexity prior__ (Castillo, 2015) -->
 
-.pull-right[
-![](figs/multires.JPG)
-]
+<!-- $$p(\gamma) = \frac{C}{q^{c |\gamma|_0}} \times {q \choose |\gamma|_0}^{-1} I( |\gamma|_0 \in \{ 0, ..., \bar q\}$$ -->
 
+<!-- - $q$ is the total number of parameters -->
+<!-- - $c \geq 0$ is a hyperparameter, $C$ is the normalizing constant.   -->
+<!--   - $c$ = 0 $\rightarrow$ Betabinomial prior (discrete uniform on model size) -->
+<!--   - $c > 0$, prior probabilities decay with model size. -->
 
-???
-computation can be done in parallel across different resolutions
 
----
+<!-- --- -->
+<!-- ## Multi-resolution Analysis -->
 
-## Simulation results: Independent errors
+<!-- .pull-left[ -->
+<!-- Bayesian Model Averaging provides a natural framework to consider multiple resolutions -->
 
-- comparison of Gaussian shrinkage prior and ICAR prior with cut orthogonal splines, VC_BART, and the `gam` function from mgcv (additive model with generalized cross-validation; provides simultaneous 95% confidence bands; 12 and 24 knots)
+<!-- - just need to place a prior on the resolutions -->
 
-- p = 10 covariates, cubic B-spline with 20 knots for the baseline, and a multi-resolution analysis involving 7, 9, and 11 knots to evaluate covariate effects
+<!-- - Posterior probabilities of an effect at $z$: -->
 
-- covariate $x_{i1}$ is a binary group indicator with equal group sizes
+<!-- $$\begin{align} -->
+<!-- &p(\beta_j(z) \neq 0 | y) = \\ -->
+<!-- &\sum_{l=1}^L p(\beta_j(z) \neq 0 | y, \mathcal{R}_l) p(\mathcal{R}_l | y) -->
+<!-- \end{align}$$ -->
 
-- covariates 2-10 are $x_{ij} \sim N(x_{i1}, 1)$ (inducing correlation between covariates)
+<!-- ] -->
 
-- expected outcome depends truly only on the first covariate
+<!-- .pull-right[ -->
+<!-- ![](figs/multires.JPG) -->
+<!-- ] -->
 
-- 100 replicates
 
+<!-- ??? -->
+<!-- computation can be done in parallel across different resolutions -->
 
----
-## Simulation results: Independent errors
+<!-- --- -->
 
-![](figs/ind1.JPG)
- 
+<!-- ## Simulation results: Independent errors -->
 
-???
+<!-- - comparison of Gaussian shrinkage prior and ICAR prior with cut orthogonal splines, VC_BART, and the `gam` function from mgcv (additive model with generalized cross-validation; provides simultaneous 95% confidence bands; 12 and 24 knots) -->
 
-- for Covariate 1, before time 0 = Type 1 error, after time 1 = power
-- everything else is type 1 error
+<!-- - p = 10 covariates, cubic B-spline with 20 knots for the baseline, and a multi-resolution analysis involving 7, 9, and 11 knots to evaluate covariate effects -->
 
+<!-- - covariate $x_{i1}$ is a binary group indicator with equal group sizes -->
 
+<!-- - covariates 2-10 are $x_{ij} \sim N(x_{i1}, 1)$ (inducing correlation between covariates) -->
 
+<!-- - expected outcome depends truly only on the first covariate -->
 
----
-## Simulation results: Independent errors
+<!-- - 100 replicates -->
 
 
-.panelset[
-  .panel[.panel-name[n100]
-    ![](figs/ind_pow1.JPG)
-  ]
+<!-- --- -->
+<!-- ## Simulation results: Independent errors -->
 
-  .panel[.panel-name[n1000]
-    ![](figs/ind_pow2.JPG)
-  ]
-]
+<!-- ![](figs/ind1.JPG) -->
 
 
-???
-type 1 error in VC-BART
+<!-- ??? -->
 
+<!-- - for Covariate 1, before time 0 = Type 1 error, after time 1 = power -->
+<!-- - everything else is type 1 error -->
 
 
----
-## Simulation results: Independent errors
 
-![](figs/ind_rmse.JPG)
 
-![](figs/ind_time.JPG)
+<!-- --- -->
+<!-- ## Simulation results: Independent errors -->
 
 
----
-## Simulation results: Dependent errors
+<!-- .panelset[ -->
+<!--   .panel[.panel-name[n100] -->
+<!--     ![](figs/ind_pow1.JPG) -->
+<!--   ] -->
 
-- comparison to the tensor model method of Paulon et al 2022, Interval Testing procedure (IT; Pini and Vantini 2016), and VC_BART.
+<!--   .panel[.panel-name[n1000] -->
+<!--     ![](figs/ind_pow2.JPG) -->
+<!--   ] -->
+<!-- ] -->
 
-- grid of 100 time points for 50 individuals, $p$ = 10.
 
-- strongly correlated errors 
-  - errors drawn from mean 0, unit variance Gaussian process with autocorrelation $\text{cov}(\epsilon_{it}, \epsilon_{it'}) = 0.99^{|t - t'|}$
+<!-- ??? -->
+<!-- type 1 error in VC-BART -->
 
 
 
-???
+<!-- --- -->
+<!-- ## Simulation results: Independent errors -->
 
-Bayesian Semiparametric Hidden Markov Tensor Models for Time Varying Random Partitions with Local Variable Selection
-Giorgio Paulon, Peter Müller, Abhra Sarkar
+<!-- ![](figs/ind_rmse.JPG) -->
 
+<!-- ![](figs/ind_time.JPG) -->
 
----
-## Simulation: Dependent errors (univariate)
 
+<!-- --- -->
+<!-- ## Simulation results: Dependent errors -->
 
-![](figs\dep1.JPG)
+<!-- - comparison to the tensor model method of Paulon et al 2022, Interval Testing procedure (IT; Pini and Vantini 2016), and VC_BART. -->
 
+<!-- - grid of 100 time points for 50 individuals, $p$ = 10. -->
 
----
-## Simulation: Dependent errors (multiple covariates)
+<!-- - strongly correlated errors  -->
+<!--   - errors drawn from mean 0, unit variance Gaussian process with autocorrelation $\text{cov}(\epsilon_{it}, \epsilon_{it'}) = 0.99^{|t - t'|}$ -->
 
-![](figs\dep_multi.JPG)
 
 
-???
+<!-- ??? -->
 
-  - LFMM had type 1 error > 0.5 for multiple covariates simulation
-  - IT procedure can handle only a single covariate
+<!-- Bayesian Semiparametric Hidden Markov Tensor Models for Time Varying Random Partitions with Local Variable Selection -->
+<!-- Giorgio Paulon, Peter Müller, Abhra Sarkar -->
 
 
+<!-- --- -->
+<!-- ## Simulation: Dependent errors (univariate) -->
 
----
-## Salary data
 
-- multiresolution analysis: 4, 10, 15 and 20 regions (12-year bins to 2.5-year bins)
+<!-- ![](figs\dep1.JPG) -->
 
-- examined effects of race, gender, college degree, government-employed, self-employed
 
-- included occupational sector as adjustment variable (no selection)
+<!-- --- -->
+<!-- ## Simulation: Dependent errors (multiple covariates) -->
 
+<!-- ![](figs\dep_multi.JPG) -->
 
 
-???
+<!-- ??? -->
 
-- conditioned on occupational sector
-- highest post prob was for 10-yr bins
+<!--   - LFMM had type 1 error > 0.5 for multiple covariates simulation -->
+<!--   - IT procedure can handle only a single covariate -->
 
 
 
----
-## Salary data results
+<!-- --- -->
+<!-- ## Salary data -->
 
-![](figs\salary_rs.JPG)
+<!-- - multiresolution analysis: 4, 10, 15 and 20 regions (12-year bins to 2.5-year bins) -->
 
+<!-- - examined effects of race, gender, college degree, government-employed, self-employed -->
 
-???
+<!-- - included occupational sector as adjustment variable (no selection) -->
 
-- blackness, gender and college education have posterior prob near 1 for any age
-  - estimated to be smaller below age 30
-  
-- less evidence of salary gap associated with identifying as Hispanic _for recent entrants to workforce_, but strong evidence at other ages.
 
 
-- for reference, 
-10^-0.05 ~ 0.891
-10^-0.1 ~ 0.794
-10^-0.16 ~ 0.708
+<!-- ??? -->
 
+<!-- - conditioned on occupational sector -->
+<!-- - highest post prob was for 10-yr bins -->
 
----
-## ECoG data
 
-Considered 4 covariates related to game outcomes:
 
-1. choosing to gamble 
+<!-- --- -->
+<!-- ## Salary data results -->
 
-2. win/loss
+<!-- ![](figs\salary_rs.JPG) -->
 
-3. reward prediction error (RPE)
 
-4. regret
+<!-- ??? -->
 
-- additional covariates regarding previous round
+<!-- - blackness, gender and college education have posterior prob near 1 for any age -->
+<!--   - estimated to be smaller below age 30 -->
 
-- multi-resolution analysis: 10, 20, 30, 37 knots
+<!-- - less evidence of salary gap associated with identifying as Hispanic _for recent entrants to workforce_, but strong evidence at other ages. -->
 
-???
-37 knots ---> 50 ms
-RPE - difference between obtained reward/loss and expected value of the gamble
-- Here, we present results from one brain region from one patient (p5 e29)
 
+<!-- - for reference,  -->
+<!-- 10^-0.05 ~ 0.891 -->
+<!-- 10^-0.1 ~ 0.794 -->
+<!-- 10^-0.16 ~ 0.708 -->
 
 
----
-## ECoG data
+<!-- --- -->
+<!-- ## ECoG data -->
 
-.panelset[
+<!-- Considered 4 covariates related to game outcomes: -->
 
-.panel[.panel-name[Win/Loss & RPE]
+<!-- 1. choosing to gamble  -->
 
-![](figs\ecog_sep_split1.JPG)
+<!-- 2. win/loss -->
 
-]
+<!-- 3. reward prediction error (RPE) -->
 
-.panel[.panel-name[Regret & Gamble]
+<!-- 4. regret -->
 
-![](figs\ecog_sep_split2.JPG)
+<!-- - additional covariates regarding previous round -->
 
-]
- 
-]
+<!-- - multi-resolution analysis: 10, 20, 30, 37 knots -->
 
+<!-- ??? -->
+<!-- 37 knots ---> 50 ms -->
+<!-- RPE - difference between obtained reward/loss and expected value of the gamble -->
+<!-- - Here, we present results from one brain region from one patient (p5 e29) -->
 
-???
 
-Model effect of each covariate separately:
-- found increases in HFA activity associated with game wins, higher RPE, and regret
-- not with the choice to gamble
 
+<!-- --- -->
+<!-- ## ECoG data -->
 
+<!-- .panelset[ -->
 
----
+<!-- .panel[.panel-name[Win/Loss & RPE] -->
 
-![](figs\ecog_all.JPG)
+<!-- ![](figs\ecog_sep_split1.JPG) -->
 
+<!-- ] -->
 
-???
-analyzed together; only regret has high inclusion probability
+<!-- .panel[.panel-name[Regret & Gamble] -->
 
-- overall, findings support that this brain region is associated with outcome-related covariates (gamble win, regret) rather than choice-related process (gamble choice)
+<!-- ![](figs\ecog_sep_split2.JPG) -->
+
+<!-- ] -->
+
+<!-- ] -->
+
+
+<!-- ??? -->
+
+<!-- Model effect of each covariate separately: -->
+<!-- - found increases in HFA activity associated with game wins, higher RPE, and regret -->
+<!-- - not with the choice to gamble -->
+
+
+
+<!-- --- -->
+
+<!-- ![](figs\ecog_all.JPG) -->
+
+
+<!-- ??? -->
+<!-- analyzed together; only regret has high inclusion probability -->
+
+<!-- - overall, findings support that this brain region is associated with outcome-related covariates (gamble win, regret) rather than choice-related process (gamble choice) -->
 
 
 
@@ -955,7 +955,11 @@ class: left, inverse, middle
 ![](figs/weight0_e.gif)  ![](figs/weight1_e.gif) 
 ]
 
-
+???
+- precursors:
+  - ARD (automatic relevance determination) of Neal and MacKay (90s) - basically, one-scale continuous shrinkage, dropout parameter
+  - dropout (random 0 of weights) and variational dropout
+  - combining the two leads to Bayesian formulation for __structured__ sparsity
 
 
 ---
@@ -963,7 +967,40 @@ class: left, inverse, middle
 
 - eliminating rows in the input layer yields variable selection:
 
-$$\scriptsize     \underset{\mathbf{X}}  {\begin{array}{ccccc}     \square \square \square \square \\     \square \square \square \square \\     \end{array}}     \times     \underset{\mathbf{W}} { \begin{array}{ccccc}     \square \square \square \square \square \square \square\\     \square \square \square \square \square \square \square\\     \square \square \square \square \square \square \square\\     \square \square \square \square \square \square \square\\     \end{array} }     + \mathbf{b}     = \underset{\mathbf{H}} {\begin{array}{ccccc}     \square \square \square \square \square \square \square\\     \square \square \square \square \square \square \square\\     \end{array}}$$
+
+$$\scriptsize    \underset{\mathbf{X}_{n \times p}}  {  \begin{array}{ccccc}         \square \square \square \square \\         \square \square \square \square \\       \end{array}}     \times   
+\underset{\mathbf{W}_{p \times d_1}} {   \begin{array}{ccccc}         \square \square \square \square \square \square \square\\         \square \square \square \square \square \square \square\\         \square \square \square \square \square \square \square\\         \square \square \square \square \square \square \square\\       \end{array} }     + \mathbf{b'_{d_1}}     = \underset{\mathbf{H}} {  \begin{array}{ccccc}         \square \square \square \square \square \square \square\\         \square \square \square \square \square \square \square\\     \end{array}}$$
+
+
+---
+## Variable Selection!
+
+- eliminating rows in the input layer yields variable selection:
+
+
+$$\scriptsize     \underset{\mathbf{X}_{n \times p}}  {  \begin{array}{ccccc}         \square \square \square \square \\         \square \square \square \square \\       \end{array}}     \times     \underset{\mathbf{W}_{p \times d_1}} {   \begin{array}{ccccc}         \square \square \square \square \square \square \square\\         \square \square \square \square \square \square \square\\         \blacksquare \blacksquare \blacksquare \blacksquare \blacksquare \blacksquare \blacksquare\\         \square \square \square \square \square \square \square\\       \end{array} }     + \mathbf{b'_{d_1}}     = \underset{\mathbf{H}} {  \begin{array}{ccccc}         \square \square \square \square \square \square \square\\         \square \square \square \square \square \square \square\\     \end{array}}$$
+
+<!-- $$\scriptsize      -->
+<!-- \underset{\mathbf{X}_{n \times p}}  { -->
+<!--   \begin{array}{ccccc}      -->
+<!--     \square \square \blacksquare \square \\      -->
+<!--     \square \square \blacksquare \square \\      -->
+<!--   \end{array}}      -->
+<!-- \times      -->
+<!-- \underset{\mathbf{W}_{p \times d_1}} {  -->
+<!--   \begin{array}{ccccc}      -->
+<!--     \square \square \square \square \square \square \square\\      -->
+<!--     \square \square \square \square \square \square \square\\      -->
+<!--     \square \square \square \square \square \square \square\\      -->
+<!--     \square \square \square \square \square \square \square\\      -->
+<!--   \end{array} }      -->
+<!-- + \mathbf{b'_{d_1}}      -->
+<!-- = \underset{\mathbf{H}} { -->
+<!--   \begin{array}{ccccc}      -->
+<!--     \square \square \square \square \square \square \square\\      -->
+<!--     \square \square \square \square \square \square \square\\      -->
+<!-- \end{array}}$$ -->
+
 
 
 
@@ -974,19 +1011,37 @@ count: false
 - eliminating rows in the input layer yields variable selection:
 
 
-
-$$\scriptsize       \underset{\mathbf{X}}  {\begin{array}{ccccc}       \square \blacksquare \blacksquare \square \\      \square \blacksquare \blacksquare \square \\      \end{array}}      \times      \underset{\mathbf{W}} { \begin{array}{ccccc}       \square \square \square \square \square \square \square\\      \blacksquare \blacksquare \blacksquare \blacksquare \blacksquare \blacksquare      \blacksquare\\      \blacksquare \blacksquare \blacksquare \blacksquare \blacksquare \blacksquare      \blacksquare\\      \square \square \square \square \square \square \square\\      \end{array} }      + \mathbf{b}       = \underset{\mathbf{H}} {\begin{array}{ccccc}       \square \square \square \square \square \square \square\\      \square \square \square \square \square \square \square\\      \end{array}}$$
+$$\scriptsize     \underset{\mathbf{X}_{n \times p}}  {  \begin{array}{ccccc}         \square \square \blacksquare \square \\         \square \square \blacksquare \square \\       \end{array}}     \times     \underset{\mathbf{W}_{p \times d_1}} {   \begin{array}{ccccc}         \square \square \square \square \square \square \square\\         \square \square \square \square \square \square \square\\         \blacksquare \blacksquare \blacksquare \blacksquare \blacksquare \blacksquare \blacksquare\\         \square \square \square \square \square \square \square\\       \end{array} }     + \mathbf{b'_{d_1}}     = \underset{\mathbf{H}} {  \begin{array}{ccccc}         \square \square \square \square \square \square \square\\         \square \square \square \square \square \square \square\\     \end{array}}$$
 
 
 ---
 count: false
 ## Variable Selection!
 
-- eliminating rows in the next layer yields even more sparsity:
+- eliminating rows in the next layer yields _column_ sparsity:
 
 
 
-$$\scriptsize       \underset{\mathbf{X}}  {\begin{array}{ccccc}       \square \blacksquare \blacksquare \square \\      \square \blacksquare \blacksquare \square \\      \end{array}}      \times      \underset{\mathbf{W}} { \begin{array}{ccccc}       \square \square \square \blacksquare \square \blacksquare \square\\           \blacksquare \blacksquare \blacksquare \blacksquare \blacksquare \blacksquare      \blacksquare\\      \blacksquare \blacksquare \blacksquare \blacksquare \blacksquare \blacksquare      \blacksquare\\      \square \square \square \blacksquare \square \blacksquare \square\\     \end{array} }      + \mathbf{b}       = \underset{\mathbf{H}} {\begin{array}{ccccc}       \square \square \square \blacksquare \square \blacksquare \square\\      \square \square \square \blacksquare \square \blacksquare \square\\      \end{array}}$$
+$$\scriptsize     
+\underset{\mathbf{X}_{n \times p}}  {
+  \begin{array}{ccccc}     
+    \square \square \blacksquare \square \\     
+    \square \square \blacksquare \square \\     
+  \end{array}}     
+\times     
+\underset{\mathbf{W}_{p \times d_1}} { 
+  \begin{array}{ccccc}     
+    \square \square \square {\blacksquare} {\blacksquare} \square \square\\     
+    \square \square \square {\blacksquare} {\blacksquare}  \square \square\\     
+    \blacksquare \blacksquare \blacksquare {\blacksquare} {\blacksquare} \blacksquare \blacksquare\\     
+    \square \square \square {\blacksquare} {\blacksquare} \square \square\\     
+  \end{array} }     
++ \mathbf{b'_{d_1}}     
+= \underset{\mathbf{H}} {
+  \begin{array}{ccccc}     
+    \square \square \square {\blacksquare} {\blacksquare}\square \square \square\\     
+    \square \square \square {\blacksquare} {\blacksquare}\square \square \square\\     
+\end{array}}$$
 
 
 ???
@@ -997,9 +1052,18 @@ even more sparsity --- good, parsimonious model, easier to interpret
 ---
 ## Model
 
-LUW 2017 use a log-uniform prior for $z$, corresponding to a continuous relaxation of the spike-and-slab.  
 
---
+
+
+
+
+
+
+
+???
+- we depart from
+
+
 
 Under this formulation, the Bayesian model is:
 
@@ -1115,144 +1179,144 @@ non-local prior with normalizing flows ---- Adam (Yadong) Lu.
 - Multi-layer performance not studied in both cases
 
 
----
+<!-- --- -->
 
-class: inverse, left, middle
+<!-- class: inverse, left, middle -->
 
-# Path to Degree
+<!-- # Path to Degree -->
 
----
+<!-- --- -->
 
-## Planned timeline:
+<!-- ## Planned timeline: -->
 
-- Spring/Summer 2025: finish code and simulations for 2nd project on Bayesian Variable Selection with DNN's
+<!-- - Spring/Summer 2025: finish code and simulations for 2nd project on Bayesian Variable Selection with DNN's -->
 
-- Summer 2025: 2nd project paper draft & submissions
+<!-- - Summer 2025: 2nd project paper draft & submissions -->
 
-- Fall-Winter quarters: possible extensions of projects:
-    - Project 1 extension: BMA for smoother time-point-by-time-point estimates and PIPs
-    - Project 2 extension: application to other types of neural networks, e.g. convolutional layers for image classification
+<!-- - Fall-Winter quarters: possible extensions of projects: -->
+<!--     - Project 1 extension: BMA for smoother time-point-by-time-point estimates and PIPs -->
+<!--     - Project 2 extension: application to other types of neural networks, e.g. convolutional layers for image classification -->
 
 
 
----
-class:inverse, left, middle
+<!-- --- -->
+<!-- class:inverse, left, middle -->
 
-# Appendix
+<!-- # Appendix -->
 
----
-## Splines I
+<!-- --- -->
+<!-- ## Splines I -->
 
-![](figs/123bases.png)
+<!-- ![](figs/123bases.png) -->
 
-???
-linearize the VC model by projecting coordinates onto spline basis
+<!-- ??? -->
+<!-- linearize the VC model by projecting coordinates onto spline basis -->
 
 
----
-## Splines II
+<!-- --- -->
+<!-- ## Splines II -->
 
-.lcode[
-![](figs/thin_spl.png)
-]
+<!-- .lcode[ -->
+<!-- ![](figs/thin_spl.png) -->
+<!-- ] -->
 
-.rplot[
+<!-- .rplot[ -->
 
-&nbsp;  
+<!-- &nbsp;   -->
 
-&nbsp;  
+<!-- &nbsp;   -->
 
-$\scriptsize z=\left(\begin{array}{c}-2.0 \\ -1.6 \\ -1.2 \\ -0.8 \\ -0.4 \\ 0.0 \\ 0.4 \\ 0.8 \\ 1.2 \\ 1.6 \\ 2.0\end{array}\right), \mathbf{B}=\left(\begin{array}{ccccccc}.166 & .666 & .166 & .000 & .000 & .000 & .000 \\ .036 & .538 & .414 & .010 & .000 & .000 & .000 \\ .001 & .282 & .630 & .085 & .000 & .000 & .000 \\ .000 & .085 & .630 & .282 & .001 & .000 & .000 \\ .000 & .010 & .414 & .538 & .036 & .000 & .000 \\ .000 & .000 & .166 & .666 & .166 & .000 & .000 \\ .000 & .000 & .036 & .538 & .414 & .010 & .000 \\ .000 & .000 & .001 & .282 & .630 & .085 & .000 \\ .000 & .000 & .000 & .085 & .630 & .282 & .001 \\ .000 & .000 & .000 & .010 & .414 & .538 & .036 \\ .000 & .000 & .000 & .000 & .166 & .666 & .166\end{array}\right)$
-]
+<!-- $\scriptsize z=\left(\begin{array}{c}-2.0 \\ -1.6 \\ -1.2 \\ -0.8 \\ -0.4 \\ 0.0 \\ 0.4 \\ 0.8 \\ 1.2 \\ 1.6 \\ 2.0\end{array}\right), \mathbf{B}=\left(\begin{array}{ccccccc}.166 & .666 & .166 & .000 & .000 & .000 & .000 \\ .036 & .538 & .414 & .010 & .000 & .000 & .000 \\ .001 & .282 & .630 & .085 & .000 & .000 & .000 \\ .000 & .085 & .630 & .282 & .001 & .000 & .000 \\ .000 & .010 & .414 & .538 & .036 & .000 & .000 \\ .000 & .000 & .166 & .666 & .166 & .000 & .000 \\ .000 & .000 & .036 & .538 & .414 & .010 & .000 \\ .000 & .000 & .001 & .282 & .630 & .085 & .000 \\ .000 & .000 & .000 & .085 & .630 & .282 & .001 \\ .000 & .000 & .000 & .010 & .414 & .538 & .036 \\ .000 & .000 & .000 & .000 & .166 & .666 & .166\end{array}\right)$ -->
+<!-- ] -->
 
 
 
----
-## Splines III
+<!-- --- -->
+<!-- ## Splines III -->
 
 
-![](figs/thin_splfit.png)
+<!-- ![](figs/thin_splfit.png) -->
 
 
-???
-thought we could just ID the regions were all the splines over it had coefs of 0
+<!-- ??? -->
+<!-- thought we could just ID the regions were all the splines over it had coefs of 0 -->
 
 
 
 
----
-## Cut Orthog Basis
+<!-- --- -->
+<!-- ## Cut Orthog Basis -->
 
-![](figs\cut_W.JPG)
+<!-- ![](figs\cut_W.JPG) -->
 
----
-## Proof of $\eta^\star$
+<!-- --- -->
+<!-- ## Proof of $\eta^\star$ -->
 
-Since $W_0$ and $W_1$ orthogonal, 
-![](figs\eta11_proof1.JPG)
+<!-- Since $W_0$ and $W_1$ orthogonal,  -->
+<!-- ![](figs\eta11_proof1.JPG) -->
 
-___
+<!-- ___ -->
 
-Since $W_1$ is a cut basis, 
-![](figs\eta11_proof2.JPG)
+<!-- Since $W_1$ is a cut basis,  -->
+<!-- ![](figs\eta11_proof2.JPG) -->
 
 
 
----
-# consistency & # knots
-.panelset[
+<!-- --- -->
+<!-- # consistency & # knots -->
+<!-- .panelset[ -->
 
-.panel[.panel-name[12 baseline, 8 local]
+<!-- .panel[.panel-name[12 baseline, 8 local] -->
 
-![](figs\knots_number1.JPG)
+<!-- ![](figs\knots_number1.JPG) -->
 
-]
+<!-- ] -->
 
-.panel[.panel-name[20 baseline, 15 local]
+<!-- .panel[.panel-name[20 baseline, 15 local] -->
 
-![](figs\knots_number2.JPG)
+<!-- ![](figs\knots_number2.JPG) -->
 
-]
+<!-- ] -->
 
-.panel[.panel-name[30 baseline, 30 local]
+<!-- .panel[.panel-name[30 baseline, 30 local] -->
 
-![](figs\knots_number3.JPG)
+<!-- ![](figs\knots_number3.JPG) -->
 
-]
+<!-- ] -->
 
-]
+<!-- ] -->
 
 
 
 
 
 
----
-## indep data sim
-![](figs\ind1_appendix.JPG)
+<!-- --- -->
+<!-- ## indep data sim -->
+<!-- ![](figs\ind1_appendix.JPG) -->
 
 
 
----
-# salary data: knot sensitivity
-.panelset[
+<!-- --- -->
+<!-- # salary data: knot sensitivity -->
+<!-- .panelset[ -->
 
-.panel[.panel-name[20 knots]
+<!-- .panel[.panel-name[20 knots] -->
 
-![](figs\knot_sensitivity1.JPG)
+<!-- ![](figs\knot_sensitivity1.JPG) -->
 
-]
+<!-- ] -->
 
-.panel[.panel-name[30 knots]
+<!-- .panel[.panel-name[30 knots] -->
 
-![](figs\knot_sensitivity2.JPG)
+<!-- ![](figs\knot_sensitivity2.JPG) -->
 
-]
+<!-- ] -->
 
 
-]
+<!-- ] -->
 
-??? important to note that don't have more high probability regions with 30 knots (our method is unlikely to get moer type 1 errors)
+<!-- ??? important to note that don't have more high probability regions with 30 knots (our method is unlikely to get moer type 1 errors) -->
 
 
 

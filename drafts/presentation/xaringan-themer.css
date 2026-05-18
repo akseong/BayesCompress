@@ -151,7 +151,7 @@ a, a > code {
 }
 .title-slide {
   background-color: var(--title-slide-background-color);
-  background-image: url("C:/Users/ArnoldSeong/Github/personal/presentations/advancement/figs/web.jpg");
+  background-image: url("C:/Users/ArnoldSeong/Github/Classes/BayesCompress/drafts/presentation/figs/web.jpg");
   background-size: cover;
 }
 .title-slide .remark-slide-number {
