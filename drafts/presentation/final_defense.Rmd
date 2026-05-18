@@ -1225,9 +1225,21 @@ $$\kappa_j = \frac{1}{1 + \lambda_j^2 \tau^2} \;\in\; (0, 1)$$
 
 - we'll have to recover this interpretation from the NN setting.
 
+---
+## Shrinkage Profile
 
+.lcode[
 
+- shrinkage profiles for $\kappa_j$ under different priors
 
+- horseshoe exerts strong pressure for $\kappa_j \rightarrow 0$ or $1$
+
+- image from Carvalho, Polson, Scott 2009, "Handling Sparsity via the Horseshoe"
+]
+
+.rplot[
+<img src="figs/shrinkage_profiles.jpg" alt="Your Description" style="width:75%; height:auto;">
+]
 
 ---
 ## Nice properties of the Horseshoe:
