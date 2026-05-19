@@ -1381,40 +1381,94 @@ __uncentered parameterization:__
 
 - individual weight distribution: $w_{j,k} \sim N(w_{j,k} | 0, \lambda^2_{j} \tau^2)$ 
 
-- can be rewritten as $w_{j,k} = \tilde{w}_{j,k} \lambda_j \tau$, where $\tilde{w} \sim N(0,1)$
+- can be rewritten as $w_{j,k} = \tilde{w}_{j,k} \lambda_j \tau = \tilde{w}_{j, k} \sqrt{\alpha_{j} \beta_{j} a b}$, where $\tilde{w} \sim N(0,1)$
 
 --
 
-$$w_{j,k} = \tilde{w}_{j, k} \sqrt{\alpha_{j} \beta_{j} a b}$$
-
----
-## Calibration of $\tau_0$
-
-Recall the prior for the global scale parameter: $$\tau^{(\ell)} \sim C^+ (0, \tau_0)$$
-
---
-
-- global scale parameter in linear models governs overall sparsity level, effectively a prior over model size
-
-- _Piironen & Vehtari 2017_ indicate that the default $\tau_0 = 1$ is typically orders of magnitude too large.  We use their suggestion of (notation modified for our context)
-
-$$\tau^{(l)}_0 = \dfrac{p_0}{d_{\ell-1} - p_0} \dfrac{\hat{\sigma}_\varepsilon}{\sqrt{n}}$$
-
-- $p_0$ = prior guess at number of active coefficients
-- $d_{\ell-1}$ = input dimension
-- $\hat{\sigma_\varepsilon}$ response standard deviation
 
 
 ???
-Mention this in context of calibrating prior on $\tau$, but also to lead into next slide's discussion
+- prep for VI: Thick tails of Cauchy resist approximation by standard exponential families
 
-- Piironen & Vehtari's suggestion is in context of standard linear regression models, but (just as they do when applying it to other models) we found this to lead to lower training times and better results
-
-- calibration most important for us in 1st layer (we set $p_0 = d / 10$); for secondary layers, use an agnostic $p_0 = d/2$
+- sampling $w_{j,k}$ conditional on tau and lambda in MCMC is known (Michael Betancourt, one of the developoers of STAN) to lead to funnel-shaped posterior geometries (trapping the MCMC).  In MCMC, posterior dependence arrives via the likelihood.  In VI, we also avoid conditional sampling and can just draw each of these independently of each other.
 
 
 ---
-## Other problems with $\tau$
+## Variational Inference
+
+In Variational Inference (VI), the (often intractable, difficult to sample) posterior $p(W | D)$ is approximated by the variational distributions $q_\phi(W)$.  
+
+--
+
+- The goal is to minimize the (reverse) Kulback-Leibler Divergence (KL)
+
+$$KL \left(q_\phi(W) || p(W|D) \right) = E_{q_{\phi}(W)}\left[ \log\left(\frac{q_\phi(W)}{p(W|D)} \right)  \right]$$
+
+--
+
+In practice, we maximize the Evidence Lower Bound (ELBO):
+$$\mathcal{L}(\phi) =    \mathbb{E}_{q_\phi} \left[ \log p(\mathcal{D}|\mathbf{W}) \right]      - KL \left( q_\phi(\mathbf{W})||p(\mathbf{W}) \right)$$
+
+because the marginal log likelihood of the data (also called the __model evidence__) is
+
+$$\log p(D) = \mathcal{L}(\phi) + KL \left(q_\phi(W) || p(W|D) \right)$$
+
+
+
+???
+$\phi$ are the VI parameters.
+
+- __IF TIME:__ one nice interpretation of the KL comes from information theory, where the negative log-density can be thought of the "information content", or how surprised we should be to see a random variable take on a particular value.  I.E. $\log\left(\frac{q_\phi(W)}{p(W|D)} \right)$ is how surprised we would be by a value of W arising from the posterior if we think that the actual distribution is $q_\phi(W)$.  Then we take the expectation of this surprise over $q_\phi(W)$. 
+
+- calculating the KL requires knowing $p(W|D)$, which is precisely the thing we're saying is hard.  So....
+
+
+- ELBO terms: 
+  - Expected log-likelihood of the data under the variational distribution (which we use samples for) minus the "distance" between the variational posterior approximation $q_phi(W)$ and the prior $p(W)$ 
+
+- Easy to derive expression for marginal evidence by starting from KL(q||p(W|D)) and applying Bayes' Rule to p(W|D)
+
+- __notice that the variational posterior distributions stay independent of each other.  For this reason VI is known to underestimate posterior variance.__
+
+---
+### Variational parameterization
+
+Our (decomposed, uncentered) model for one layer can be written:
+
+$$\begin{aligned}
+  \tilde{w}_{j, k} & \sim N(0,1); &\{\mathbf W\} &= \left \{w_{i,j} = \tilde{w}_{j, k} \sqrt{\alpha_{j} \beta_{j} a b} \right \} 
+  \\
+  \alpha_j &\sim \text{Gamma} (1/2, 1); 
+            &\beta_j &\sim \text{inv-Gamma} (1/2, 1) 
+  \\
+  a &\sim \text{Gamma} (1/2, \tau_0^2); 
+            & b &\sim \text{inv-Gamma} (1/2, 1) 
+\end{aligned}$$
+
+--
+
+We assign a Normal variational distribution to $\tilde{w}_{j,k}$ and log-Normal variational distributions to $\alpha_j, \beta_j, a, b$.
+
+$$\begin{aligned}
+  q_\phi\left(a, b, \tilde{\mathbf W}_{j,k}\right)
+    &= 
+        \mathcal{LN}\!\left(a | \mu_{a},\, \sigma_{a}^2\right)
+        \mathcal{LN}\!\left(b | \mu_{b},\, \sigma_{b}^2\right)
+        \prod_{j,k}^{d_{\ell-1}, d_\ell}\mathcal{N}\!\left(\tilde{w}_{j, k} | \mu_{j,k},\, \sigma_{j,k}^2\right)
+    \label{eq: abw-dists}
+    \\
+  q_\phi(\mathbf{\alpha}, \mathbf{\beta})
+    &= 
+        \prod_{j}^{d_{\ell-1}}
+            \mathcal{LN}\!\left(\beta_j | \mu_{\alpha_j},\, \sigma_{\alpha_j}^2\right)
+            \mathcal{LN}\!\left(\alpha_j | \mu_{\beta_j},\, \sigma_{\beta_j}^2\right)
+\end{aligned}$$
+
+???
+$\phi$ = the $\mu$'s and $\sigma$'s of the variational distributions.
+
+---
+## Corrections for Inference: problems with $\tau$
 
 
 In linear models, $\tau$ controls the overall sparsity 
@@ -1441,14 +1495,13 @@ Output of layer is also shrunk by horseshoe in next layer.
 
 - I don't think there is a problem inherent in that $d_l$ coef's correspond to each $x_j$, since the _proportion_ of coefs corresponding to each $x_j$ to the overall number of coefs is the same.  The bigger problem is that each of the $d_l$ nodes are _trying to capture different characteristics_ (why DNNs can predict so well), and thus giving the $d_l$ coefs different weightings.  Furthermore, 2nd layer shrinks some nodes as well!
 
-- Also, shrinkage from the 2nd layer is arguably helpful, reducing overall dimension, providing sparser representations, mitigating identifiability issues.
-
+- Also, shrinkage from the 2nd layer exacerbates the previous point, i.e. some nodes are contributing less than others.  Overall, shrinkage from the 2nd layer is arguably helpful, reducing overall dimension, providing sparser representations, mitigating identifiability issues.  __It also offers a solution,__ as we will see. 
 
 - Instead, output from the first layer (which supplies the parameters for inference on variable selection) has to travel through the rest of the network.
 
 
 ---
-## $\tau^{(1)}$ correction $m^{(2)}_\text{eff}$
+### $\tau^{(1)}$ correction $m^{(2)}_\text{eff}$
 
 In order to use $\kappa_j$ as a posterior inclusion probability, we need to recover an interpretation of $\tau^{(1)}$ as controlling the overall __input__ sparsity. 
 
@@ -1506,7 +1559,7 @@ Assuming a high global sparsity level (i.e. $g_\text{eff}$ small) yields $c \app
 
 --
 
-Thus we propose correcting $\tau^{(1)}$ when composing $\kappa_j$ and using
+Thus we propose correcting $\tau^{(1)}$ when composing $\kappa_j$ for inference:
 
 $$\tau_{m_\text{eff}}^{(1)} = \tau^{(1)} \times \sqrt{\dfrac{d_1}{m^{(2)}_\text{eff}}}$$
 
@@ -1514,61 +1567,189 @@ $$\tau_{m_\text{eff}}^{(1)} = \tau^{(1)} \times \sqrt{\dfrac{d_1}{m^{(2)}_\text{
 ---
 ## Mo $\tau$ Mo Problems:
 
+If we expand  the uncentered parameterization, we can see a clear problem: $\tau^{\ell)}$ is only weakly identifiable.
 
+--
+
+Letting $\Lambda^{(\ell)} = \text{diag} (\lambda_1, \lambda_2, ...., \lambda_{d_{\ell-1}})$, and expanding the expression for the 3rd layer activation:
+
+<img src="figs/tau_weakident.jpg" alt="Your Description" style="width:100%; height:auto;">
 
 ???
+- __skippable if running short on time__
 
 - The best Biggie song
+
+- this problem (weak identifiability of $\tau$) is addressed by the 2nd correction
+
+- since it's scalar, $\tau$ can move across the RELU activation with little impediment. 
+
+  - Only the intervening biases --- usually assigned very weakly informative priors --- have to change.  We partially mitigate this by assigning more informative priors N(0, .01) to the biases.
+
+- as a side-note, this should make it clear that we can view the shrinkage parameters $\lambda$ and $\tau$ as applying to the weights / coefs just as much as the inputs
+
 
 
 ---
 ## $\tau$ correction: Composite Spectral Norm
 
+One way to measure the "size" of a matrix $M$ is via its __spectral norm__, denoted $||M||_2$, or its largest singular value, measuring the maximum "stretch" of a unit-norm vector by $M$.
+
+--
+
+At inference time, we propose further correcting $\tau_{m_\text{eff}}$ by the __composite spectral norm__:
+
+$$\tau_{\text{snm}}^{(1)} 
+    = \tau_{m_\text{eff}}^{(1)} \times
+        \left\| 
+            \prod_{\ell=2}^L  \mathbf{W}^{(\ell)}
+        \right\|_2 
+    = \tau_{m_\text{eff}}^{(1)} \times       
+        \left\|
+            \prod_{\ell=2}^L
+            \tau^{(\ell)} \mathbf{\Lambda}^{(\ell)} \tilde{\mathbf{W}}^{(\ell)}
+        \right\|_2,$$
+
+
+--
+
+This addresses
+
+- weak identifiability of $\tau^{(1)}$ 
+
+- amplification of a $x_j$'s contribution to $\hat{y}$ by subsequent layers
+
+
+
+???
+Is it a $\tau$ correction?  Maybe not (amplification argument applies equally to $\lambda_j$ and $\tau$)  It's a scalar though, and it does help with the identifiability issue for $\tau$.  
+- Plus I get to call it the SNM correction
 
 
 ---
-## Variational Bayes
+## simulation results
 
-We can add more layers.  But to avoid MCMC on a potentially very large number of parameters $w_{ij}$, they use variational Bayes to train the network (maximize the ELBO to minimize KL distance).  
-
-Following earlier work (Kingma, Salimans, Welling 2015 & Molchanov, Ashukha, Vetrov 2017), they use the variational distribution 
-
-$$\begin{align}
-  q(W, z) 
-  &=  \prod_{i} N \left(z_{i} | \mu_{z_{i}}, \mu_{z_{i} }^2 \alpha_{i} \right)
-      \prod_{i,j} N \left( w_{ij} | z_{i} \mu_{ij}, z_{i}^2 \sigma_{ij}^2 \right)
-\end{align}$$
-
-
----
-count: false
-## Variational Bayes
-
-We can add more layers.  But to avoid MCMC on a potentially very large number of parameters $w_{ij}$, they use variational Bayes to train the network (maximize the ELBO to minimize KL distance).  
-
-Following earlier work (Kingma, Salimans, Welling 2015 & Molchanov, Ashukha, Vetrov 2017), they use the variational distribution 
-
-
-$$\begin{align}
-  q(W, z) 
-  &=  \prod_{i} N \left(z_{i} | \mu_{z_{i}}, {\color{red}{\sigma_{z_i}^2}~~} \right)
-      \prod_{i,j} N \left( w_{ij} | z_{i} \mu_{ij}, z_{i}^2 \sigma_{ij}^2 \right)
-\end{align}$$
-
-and $$\alpha_{i} = \dfrac{\color{red}{\sigma_{z_i}^2}}{\mu_{z_i}^2}$$
 
 
 
 ---
-## Dropout parameter $\alpha$
+### combination with deterministic layers
 
-- notice that the (now implied) parameter $\alpha_{i} = \frac{\sigma_{z_i}^2}{\mu_{z_i}^2}$
-  - is large when $\mu_{z_i}$ is near 0 or $\sigma_{z_i}^2$ is large
-  - and small when $\mu_{z_i}$ is far from 0 or $\sigma_{z_i}^2$ is small.
 
-- Louizos, Ulrich, Welling 2017 treat $\alpha$ as a tuning parameter.  
 
-- What if we use it as the inclusion criterion instead? 
+
+---
+### function recovery
+
+- good coverage when variable is selected; uncertainty quantification in line with expectations
+- 
+
+
+---
+### BFDR calibration
+
+
+
+---
+### Comparison against methods
+???
+Comments:
+- note that SS-GAM results at $n=5k$ are on 25 replicates b/c takes 4 hours to run and not very parallelizable.  
+  - time complexity for most recent Spike-and-Slab implementations is O()
+
+  
+
+- main takeaways:
+
+  - VarSel: SoftBART's advantage shrinks
+  - MSE and fMSE: 
+  - __HS-2 has competitive performance for n > 1k, balancing predictive performance with VarSel performance (sensitivity), and learns from more data__
+
+If have to choose modeling method:  
+  - if prediction/varsel both important:
+    - if sure that model is correctly specified and have relatively small $n$, use SS-GAM.  Also if have very specific question to answer (e.g. question is only about MAIN EFFECT of $x_j$, i.e. separate from interactions between $x_j$ and $x_k$)
+    - If unsure, or have large $n$, use ours.
+  - if variable selection most important:
+    - if sure model is correctly specified, etc., use SS-GAM.
+    - At low $n$, use SoftBART
+    - At moderate-large $n$, use ours.
+  - if prediction most important:
+    - at low $n$, use SS-GAM.
+    - else use ours
+
+
+
+---
+## salary application
+
+
+
+
+
+
+
+
+
+---
+# Appendix: 
+
+
+---
+## Derivation of $$\log p(D) = \mathcal{L}(\phi) + KL \left(q_\phi(W) || p(W|D) \right)$$
+
+$$\begin{aligned}
+  KL \left( q_\phi(\mathbf{W}) || p(\mathbf{W}|\mathcal{D}) \right) 
+  & =  \mathbb{E}_{q_\phi} 
+    \left[ \log \frac{q_\phi(\mathbf{W})}{p(\mathbf{W}|\mathcal{D})} \right] 
+  \\
+  & =  \mathbb{E}_{q_\phi} 
+    \left[ \log \left(
+      q_\phi(\mathbf{W}) 
+      \frac{p(\mathcal{D})}{p(\mathcal{D}|\mathbf{W})p(\mathbf{W})} 
+    \right) \right]
+  \\
+  & = \log p(\mathcal{D})
+  - \mathbb{E}_{q_\phi} \left[\log p(\mathcal{D} | \mathbf{W}) \right]
+  + \mathbb{E}_{q_\phi} \left[ \log \frac{q_\phi(\mathbf{W})}{p(\mathbf{W})} \right]
+  \\
+  & = \log p(\mathcal{D}) - \mathcal{L}(\phi)
+\end{aligned}$$
+
+
+---
+## Calibration of $\tau_0$
+
+Recall the prior for the global scale parameter: $$\tau^{(\ell)} \sim C^+ (0, \tau_0)$$
+
+--
+
+- global scale parameter in linear models governs overall sparsity level, effectively a prior over model size
+
+- _Piironen & Vehtari 2017_ indicate that the default $\tau_0 = 1$ is typically orders of magnitude too large.  We use their suggestion of (notation modified for our context)
+
+$$\tau^{(l)}_0 = \dfrac{p_0}{d_{\ell-1} - p_0} \dfrac{\hat{\sigma}_\varepsilon}{\sqrt{n}}$$
+
+- $p_0$ = prior guess at number of active coefficients
+- $d_{\ell-1}$ = input dimension
+- $\hat{\sigma_\varepsilon}$ response standard deviation
+
+
+???
+Mention this in context of calibrating prior on $\tau$, but also to lead into next slide's discussion
+
+- Piironen & Vehtari's suggestion is in context of standard linear regression models, but (just as they do when applying it to other models) we found this to lead to lower training times and better results
+
+- calibration most important for us in 1st layer (we set $p_0 = d / 10$); for secondary layers, use an agnostic $p_0 = d/2$
+
+
+
+
+
+
+
+
+
+
 
 
 
