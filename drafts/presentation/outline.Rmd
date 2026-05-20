@@ -333,6 +333,23 @@ BMA estimator: $1 - \mathbb{E}[\kappa_j \mid \mathbf{y}]$ weight assigned to OLS
 -- 
 
 
+## Variational Inference & KLs
+
+- MCMC untenable in NN setting
+
+???
+comments:  
+- skippable if needed  
+- alleviates need for MCMC at the cost of underestimating variance b/c of Mean Field assumption 
+- evidence on prediction side that network depth mitigates this  
+
+
+## ELBO
+
+
+???
+comments:  
+- skippable if needed  
 
 
 ## parameter correction: $m_\text{eff}$
@@ -360,23 +377,6 @@ comments:
 
 
 
-## Variational Inference & KLs
-
-- MCMC untenable in NN setting
-
-???
-comments:  
-- skippable if needed  
-- alleviates need for MCMC at the cost of underestimating variance b/c of Mean Field assumption 
-- evidence on prediction side that network depth mitigates this  
-
-
-## ELBO
-
-
-???
-comments:  
-- skippable if needed  
 
 ## simulation results
 

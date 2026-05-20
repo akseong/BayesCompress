@@ -2,16 +2,35 @@ TO DO:
 
 
 Today:
-- salary data analysis
-	- while runnings:
-		- copy paste results, minor edits
-		- fcn recovery while salary data running
-		- edit intro data section, related work, experiments description
+- keep ssgam and hs4 sims running
+- Appendices - proof of Cauchy decomposition (p74), KL divergences (p75).  BFDR calibration for uncorrected, meff, compsn corrected tau in appendix.
+- look over SEMIPAR
+- Outline presentation; try to finish actual presentation by Monday
 
-announcement
-future work
-Finish dissertation draft by Wed.  OK if some results not ready by then, but should just be plug-in.
-Outline presentation on Wed.  Presentation draft by Sat.  
+
+
+
+
+Waiting on announcement
+
+
+
+
+
+S - Scribble
+O - Overview(tile view)
+Alt+F - Fit to screen
+
+c - Clone slides
+p - Presenter view
+
+h - help menu
+
+
+
+
+
+
 
 
 
@@ -247,3 +266,113 @@ Salary data
   - go ahead and plot.
 
 - specifying age interaction: fc2sn kappas thinks everything matters; local kappas: 8 college at .09; 16 occeducation 0.05, 18 occfarming 0.08, 20 occfood 0.04, 24 occmaintenance 0.04, 25 occmanagement 0.09, 27occpersonalcare 0.05
+
+
+
+
+
+
+
+
+
+Date: Wednesday, May 20
+Time: 3pm
+Zoom Info: https://uci.zoom.us/j/98146146902
+Committee: Veronica Berrocal (chair), Michele Guindani, Weining Shen, Tianchen Qian
+Title: Principled Sparsity in Flexible Models: Bayesian Variable Selection in Generalized Additive Models and Deep Neural Networks
+
+Abstract:
+Variable selection is the task of identifying the subset of predictors that are truly relevant to an outcome and represents a central challenge in modern statistics. Classical penalized-likelihood approaches such as the LASSO provide computationally efficient solutions in parametric settings, but face fundamental obstacles when the model space under scrutiny is large or the form of the relationships between predictors and response are not fully specified. This dissertation develops
+Bayesian approaches to variable selection in two complementary semi-parametric settings. The first contribution addresses local variable selection in generalized additive models under possible model misspecification. We show that standard basis-expansion methods fail to achieve asymptotically consistent selection of localized functional effects, as the overlapping basis functions widely used in such analyses contaminate one another’s estimates. We resolve this by constructing an orthogonalized basis that eliminates basis overlap, and pair it with a model-complexity prior allowing us to frame the problem of local null testing and effect detection as a Bayesian variable selection problem. The resulting procedure attains selection consistency for localized effects and is shown to be robust under misspecification. The method is validated on wage data and electrocorticography (ECoG) recordings. The second contribution introduces a Bayesian neural network framework for variable selection based on the horseshoe prior. By embedding a continuous global-local shrinkage prior at the input layer of a deep network, the method inherits the expressive capacity of neural networks while retaining the interpretability and uncertainty quantification of principled Bayesian inference on variable selection. Simulation studies and real-data analyses demonstrate that the approach achieves sparse, stable input-variable selection even in the presence of complex, nonlinear response surfaces.
+
+
+
+
+
+It is often of interest to know not only whether something has an effect, but also when and where the effect is present.  Testing of local effects, however, poses major methodological difficulties, particularly when using expressive models able to capture non-linear relationships.  In the first portion of this talk, we adopt the additive model framework, in which non-linear function spaces are linearized via basis expansion, and develop the concept of an orthogonal cut basis which yields consistent local null tests.  We formalize local null testing as Bayesian model selection with an orthogonal cut basis, applying the method to brain imaging data in order to describe neural responses to stimuli.  The second portion of this talk discusses ongoing work in applying Bayesian variable selection methods to deep neural networks, increasing parsimony and interpretability while preserving the expressivity afforded by deep neural networks.
+
+
+
+
+
+
+
+I will copy/paste an updated version of my chapter 3.  Now I need to draft a Future Work chapter and would like your help.  It can be somewhat short; I can provide an outline in the next message. 
+
+
+
+- summarize key ideas / points from chapters 2 and 3 briefly (should not be too technical / mathy)
+
+
+# Horseshoe BNN Refinements and applications 
+
+- application of horsehoe BNN to local testing via combination with cut basis
+
+- tying scale parameter variational dist.s together to allow modeling dependency rather than in weights as in Ghosh and doshi-velez, as mentioned in last paragraph of Chapter 3, to improve variational posterior.  Could tie together within each layer; slightly more complex endeavor would be tying all together across layers, but might provide an additional avenue for correcting global scale parameter tau
+
+- extend to VC models.  
+\paragraph{Varying-coefficient extensions.}
+The horseshoe BNN can be extended to the varying-coefficient setting
+in the spirit of VC-BART \citep{deshpande:2024} by modeling responses
+of the form
+\begin{equation}
+  y_i = \sum_{j=1}^{p} f_j(\bm{z}_i)\, x_{ij} + \varepsilon_i,
+  \label{eq:ch3-vcm}
+\end{equation}
+where the effect of each predictor $x_j$ is modulated by an
+auxiliary coordinate vector $\bm{z}_i$ (e.g., spatial or temporal
+indices) through a smooth modulator $f_j(\cdot)$.  One natural
+architecture fits a single horseshoe BNN that takes $\bm{z}_i$ as
+input and outputs a vector
+$(\hat{f}_1(\bm{z}_i), \ldots, \hat{f}_p(\bm{z}_i))^\top$, whose
+final layer is then multiplied elementwise by $\bx_i$ under a
+grouped horseshoe prior on the $\bx$-side of the product;
+alternatively, each $f_j$ can be modelled by its own sub-network
+with shared horseshoe-prior-based selection.  This extension would
+bring the expressive capacity of deep networks to bear on problems
+that have so far been the domain of tree-based varying-coefficient
+methods \citep{deshpande:2024, ghosh_fitting_2025}.
+
+- application of horseshoe BNN to other types of layers or in / alongside other neural network architectures.  E.G. incorporation of LSTMs for time series, application to convolutional filters for images.  
+
+
+
+# Other approaches to variable selection in NNs:
+
+\paragraph{Discrete spike-and-slab priors with normalizing flows.}
+A qualitatively different avenue is to replace the continuous
+horseshoe shrinkage with a discrete spike-and-slab prior on the
+row-groups of $\bW^{(1)}$, using non-local slabs \citep{rossell:2017} to improve inclusion
+probability separation, coupled with the concrete relaxation of the Bernoulli mixing parameter, and using normalizing flows \citep{huang_neural_2018}
+as the variational family.  This would yield exact PIPs rather than
+pseudo-PIPs at the cost of a more complex variational optimization.
+
+\paragraph{Knockoff hybrids and variational dropout rates.}
+The empirical Bayes perspective of \citet{kingma_variational_2015}
+furnishes an alternative relevance summary: the inverse coefficient
+of variation of the posterior local scale,
+$\alpha_j = \mathbb{E}^2[\lambda_j^{(1)}]\,/\,\mathrm{Var}[\lambda_j^{(1)}]$,
+can be interpreted as a per-input variational dropout rate.
+Combined with a knockoff filter \citep{barber_controlling_2015,
+candes_panning_2018}, this statistic could provide finite-sample FDR
+control while sidestepping the $\tau^{(1)}$ corrections altogether,
+at the cost of the assumptions on the covariate distribution
+required by model-X knockoffs.  
+
+# Theory
+- theory for both corrections to tau proposed in chapter 3
+
+
+
+
+
+
+Summary of contributions - draw a bit more from the last sections of chapter 3 ----
+
+- local null testing method good at local null testing, but the orthogonal cut bases are not so great at prediction / modeling actual shape of data.
+
+
+
+
+
+
