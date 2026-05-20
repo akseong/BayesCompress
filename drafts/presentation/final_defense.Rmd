@@ -149,13 +149,6 @@ class: inverse, left
     padding-left: 1%;
   }
   
-  
-  
-  
-  
-  
-  
-  
   .middle2 {
     margin: 0;
     position: absolute;
@@ -239,13 +232,20 @@ class: inverse, left
 1. Appendices
 
 ???
-- overall research theme
-  - Bayesian Variable Selection in semi-parametric models
-    - developing flexible methods that apply to a variety of settings - that's the semi-parametric part
-    - and applying BVS to enhance the interpretability of these expressive models.
 
-Another contribution I want to discuss today is not directly about BVS, but about delineating a common type of misspecification in local null testing
-  - not discussed before
+- Thank you for being here today
+
+- excited to share work on Bayesian variable selection in semi-parametric models
+
+- main interest: combine __BVS__ with __flexible models__ to analyze complex, nonlinear data, to figure out what matters and when.
+
+<!-- - overall research theme -->
+<!--   - Bayesian Variable Selection in semi-parametric models -->
+<!--     - developing flexible methods that apply to a variety of settings - that's the semi-parametric part -->
+<!--     - and applying BVS to enhance the interpretability of these expressive models. -->
+
+<!-- Another contribution I want to discuss today is not directly about BVS, but about delineating a common type of misspecification in local null testing -->
+<!--   - not discussed before -->
 
 
 ---
@@ -255,14 +255,14 @@ class: inverse, left, middle
 # Bayesian Local Null testing
 
 ???
-- Michele Guindani (now at UCLA)
+Joint work with 
 - David Rossell (Universitat Pompeu Fabra in Barcelona)
 - inspired by data from Ignacio Saez (then a neuroscientist at UC Davis, now at Mt Sinai)
+- Michele Guindani (now at UCLA)
 
-- First exposure to additive models, BVS/BMS,
-  - learned lessons about
-    - simulating data NOT according to model
-
+- __Basic ideas__: 2 obstacles:
+  - Misspecification: basis expansions commonly used to model functional data are misspecified for local testing
+  - Multiplicity: properly specified prior over the model space $\rightarrow$ posterior probability of variable inclusion already accounts for multiplicity
 
 ---
 ## Motivation: ECoG
@@ -278,7 +278,7 @@ __Question of interest:__ Are game-level covariates associated with brain region
 
 + high temporal and spatial resolution
 
-+ quick (3 seconds) gambling game, ~ 200 rounds
++ quick (3 seconds) gambling game, ~ 200 rounds (10)
 
 + interested in whether high-frequency activity (power) is correlated with task requirements/outcomes (e.g. risk/reward calculation, win/loss)
 
@@ -314,7 +314,7 @@ ___
 
 - **Electrocorticography (ECoG) data**
   - brain region activity ($y$) vs. covariates ($x$) at given time ($z$)
-    - win/loss, risk, remorse, expected earning
+    - win/loss, risk, regret, expected earning
   - multiple time points recorded for each subject-electrode-trial combination: non-linear, correlated data
 
 - **Salary data**
@@ -388,6 +388,28 @@ for now, assume independent obs and no other covariates
 A typical way to estimate $f_0$ and $f_1$ is via the __Varying Coefficient model__ (Hastie & Tibshirani 1993)
 
 $$E_\eta \left( y_i | z_i, x_{i1} = k  \right)    = \beta_0 (z_i) + \beta_{1k} (z_i) = w_{i0}^T \eta_0 + w_{ik}^T \eta_{1k}$$
+---
+
+<img src="figs/thin_splfit.png" alt="spline basis example" style="width:auto; height:auto;">
+
+
+???
+- sine curve fit using (penalized) splines
+
+- grey dotted lines are the individual basis functions
+
+- data is projected onto basis functions
+
+- colored bumps are basis functions multiplied by $\eta$.  Added up to produce the long curves.
+
+
+
+---
+## Model
+
+A typical way to estimate $f_0$ and $f_1$ is via the __Varying Coefficient model__ (Hastie & Tibshirani 1993)
+
+$$E_\eta \left( y_i | z_i, x_{i1} = k  \right)    = \beta_0 (z_i) + \beta_{1k} (z_i) = w_{i0}^T \eta_0 + w_{ik}^T \eta_{1k}$$
 --
 
 - the coefficients $\beta_0 (z_i) + \beta_{1k} (z_i)$ are functions of $z$
@@ -404,30 +426,8 @@ $$y | Z, X \sim N(W_0\eta_0 + W_1 \eta_1, \Sigma)$$
 - $W_1$ is a $n \times l_1K$ matrix ($i^{\text{th}}$ row given by $(w_{i1}, ..., w_{iK})$)
 
 
----
-## Model-based testing
-
-__Local Null Hypothesis__ testing if group membership $k$ has an effect at $z$:
-
-$$f_{11}(z) = f_{12}(z) = ... = f_{1K}(z) = 0$$
---
-
-__Model-based local null test__:
-
-
-$$E_\eta \left( y_i | z_i, x_{i1} = k  \right)    = \beta_0 (z_i) + \beta_{1k} (z_i) = w_{i0}^T \eta_0 + w_{ik}^T \eta_{1k}$$
-
-
-- if $w_{ik}^T (z_i)\eta_{1k} = 0$, then $\beta_{1k}(z_i) = 0$, i.e. no effect of $x_{i1k}$ on $y_i$ at $z_i$
-
-- So:
-$$\eta_{11z} = \eta_{12z} = ... = \eta_{1Kz} = 0$$
-(abusing notation to let subscript $z$ indicate the portion of the $l_1$-length vector $\eta_{1k}$ corresponding to bases covering a specific $z$)
-
-
 ???
-are the coefficients associated with this basis all 0 or not?
-
+__so local null testing might amount to testing whether the coefficients $\eta$ for bases covering a region are 0 or not.__
 
 ---
 ## Misspecification
@@ -502,7 +502,7 @@ $$\begin{align}
 
 --
 
-- if $\left( W^T W \right)^{-1} W^T$ is not sparse, it is likely that the optimal coefficient values in $\eta_{1k}^\star$ associated with a specific region will be non-zero even when the group means are equal in that region.
+- if $\left( W^T W \right)^{-1} W^T$ is not sparse, (essentially, block diagonal across the regions) it is likely that the optimal coefficient values in $\eta_{1k}^\star$ associated with a specific region will be non-zero even when the group means are equal in that region.
 
 --
 
@@ -544,8 +544,9 @@ model is misspecified, i.e. the approximation does not perfectly capture the tru
 
 asymptotic consistency  ---- get the right answer when $n \rightarrow \infty$ seems like a basic requirement for a stat method.
 
-Gaussian processes --- Kernel function is going to share info across regions
-IWT of Pini & Vantini 2017 --- distribution on area between curves.  Still runs into problem of asymptotic inconsistency.
+- Gaussian processes --- Kernel function is going to share info across regions
+
+- Interval-Wise Testing of Pini & Vantini 2017 --- distribution on area between curves.  Still runs into problem of asymptotic inconsistency.
 
 
 ---
@@ -574,28 +575,10 @@ An __Orthogonal Cut Basis__ is  a basis for $\beta_{1k}(z)$ that
   - can be extended to multivariate $z_i$
   - orthogonal cut basis is a specific projection of the design matrix.  Standard computational and inferential machinery is still available / applicable.
 
----
-## Procedure:
-
-- Partition $z$ into a set of regions $\mathcal{R} = \{R_1, R_2, ..., R_{|\mathcal{R}|} \}$  regions (for now, assume given)
-
-
-- create a basis $W = (W_0, W_1)$, where rows $(y_b, W_{0b}, W_{1b})$ in $(y, W_0, W_1)$ represent observations in $R_b$, using a __cut__ basis $W_1$ for group effects $\beta_{1k}(z)$.
-
-
-- orthogonalize $W_{1b}$ so that $W_{1b}^T W_{0b} = 0$, i.e.:
-  - start with a __cut__ basis $\tilde{W}_{1b}$, then use
-  $$W_{1b} = \left[  I - W_{0b} (W_{0b}^TW_{0b})^{-1} W_{0b}   \right] \tilde{W}_{1b}$$
-
-
-Then $\eta^\star$ contains 0's when truly no group differences in a region.
-
-
-
-
 
 ???
-complicated name for simple idea
+- does not overlap, are orthogonal to each other
+
 
 ---
 ## The Fix
@@ -663,8 +646,16 @@ found first order autoregressive or moving average models typically worked well,
 
 - under mild regularity conditions, $p(\gamma^\star | y) \rightarrow 1$ as $n \rightarrow \infty$
 
+
+
 ???
+The next step is variable selection
+
+- paper describes theoretical results showing that the our method's posterior gamma concentrates around the optimal gamma
+
 thus the marginal posterior concentrates on $\gamma_{bj}^\star}$ uniformly across pairs (j,b).
+
+
 
 ---
 ## Model probabilities & PIPs
@@ -720,36 +711,12 @@ $$p(\gamma) = \frac{C}{q^{c |\gamma|_0}} \times {q \choose |\gamma|_0}^{-1} I( |
   - $c > 0$, prior probabilities decay with model size.
 
 
----
-## Multi-resolution Analysis
-
-.pull-left[
-Bayesian Model Averaging provides a natural framework to consider multiple resolutions
-
-- just need to place a prior on the resolutions
-
-- Posterior probabilities of an effect at $z$:
-
-$$\begin{align}
-&p(\beta_j(z) \neq 0 | y) = \\
-&\sum_{l=1}^L p(\beta_j(z) \neq 0 | y, \mathcal{R}_l) p(\mathcal{R}_l | y)
-\end{align}$$
-
-]
-
-.pull-right[
-![](figs/multires.JPG)
-]
-
-
-???
-computation can be done in parallel across different resolutions
 
 ---
 
 ## Simulation results: Independent errors
 
-- comparison of Gaussian shrinkage prior and ICAR prior with cut orthogonal splines, VC_BART, and the `gam` function from mgcv (additive model with generalized cross-validation; provides simultaneous 95% confidence bands; 12 and 24 knots)
+- comparison of Gaussian shrinkage prior and Intrinsic Conditionally Autoregressive (ICAR) prior with cut orthogonal splines, VC_BART, and the `gam` function from mgcv (additive model with generalized cross-validation; provides simultaneous 95% confidence bands; 12 and 24 knots)
 
 - p = 10 covariates, cubic B-spline with 20 knots for the baseline, and a multi-resolution analysis involving 7, 9, and 11 knots to evaluate covariate effects
 
@@ -761,6 +728,8 @@ computation can be done in parallel across different resolutions
 
 - 100 replicates
 
+???
+ICAR prior - Intrinsic Conditional Autoregressive Prior (spatial prior) penalizing differences between neighboring regions
 
 ---
 ## Simulation results: Independent errors
@@ -776,32 +745,6 @@ computation can be done in parallel across different resolutions
 
 
 
----
-## Simulation results: Independent errors
-
-
-.panelset[
-  .panel[.panel-name[n100]
-    ![](figs/ind_pow1.JPG)
-  ]
-
-  .panel[.panel-name[n1000]
-    ![](figs/ind_pow2.JPG)
-  ]
-]
-
-
-???
-type 1 error in VC-BART
-
-
-
----
-## Simulation results: Independent errors
-
-![](figs/ind_rmse.JPG)
-
-![](figs/ind_time.JPG)
 
 
 ---
@@ -861,7 +804,9 @@ Considered 4 covariates related to game outcomes:
 
 ???
 37 knots ---> 50 ms
+
 RPE - difference between obtained reward/loss and expected value of the gamble
+
 - Here, we present results from one brain region from one patient (p5 e29)
 
 
@@ -871,13 +816,13 @@ RPE - difference between obtained reward/loss and expected value of the gamble
 
 .panelset[
 
-.panel[.panel-name[Win/Loss & RPE]
+.panel[.panel-name[Win/Loss & Regret]
 
 ![](figs\ecog_sep_split1.JPG)
 
 ]
 
-.panel[.panel-name[Regret & Gamble]
+.panel[.panel-name[RPE & Gamble]
 
 ![](figs\ecog_sep_split2.JPG)
 
@@ -888,15 +833,15 @@ RPE - difference between obtained reward/loss and expected value of the gamble
 
 ???
 
-Model effect of each covariate separately:
+__Model effect of each covariate separately:__
+
 - found increases in HFA activity associated with game wins, higher RPE, and regret
+
 - not with the choice to gamble
 
+__When all analyzed together;__ only regret has high inclusion probability
 
-
----
-
-
+- overall, findings support that this brain region is associated with outcome-related covariates (gamble win, regret) rather than choice-related process (gamble choice)
 
 ---
 ## Salary data
@@ -941,10 +886,6 @@ Model effect of each covariate separately:
 
 
 ???
-analyzed together; only regret has high inclusion probability
-
-- overall, findings support that this brain region is associated with outcome-related covariates (gamble win, regret) rather than choice-related process (gamble choice)
-
 
 
 Local null testing found strong evidence of wage gaps (if all other characteristics the same) for
@@ -997,7 +938,7 @@ __We want a more flexible modeling approach that captures the varying effect of 
 
 
 ---
-## DNNs
+## Deep NNs
 
 DNNs map inputs $\mathbf{x} \in \mathbb{R}^p$ to output $\hat{y} = f(\mathbf x)$ via composition of affine transformations and non-linearities:
 
@@ -1187,7 +1128,7 @@ Canonical choices for $p(\lambda_j)$:
 ???
 - skippable if needed  
 
-- seems innocuous / conventional / unthreatening, but placing structure on $p(\lambda)$ $\rightarrow$ marginal prior dist'ns for $\beta$ with more __mass at 0 and in tails__ $\rightarrow$ bias posterior $\beta$'s to be either very small or large.  
+- seems innocuous / conventional / unthreatening, but __placing structure__ on $p(\lambda)$ $\rightarrow$ marginal prior dist'ns for $\beta$ with more __mass at 0 and in tails__ $\rightarrow$ bias posterior $\beta$'s to be either very small or large.  
 
 - e.g. Bernoulli prior on $\lambda$ $\rightarrow$ Spike-and-Slab  
 
@@ -1245,6 +1186,9 @@ $$\kappa_j = \frac{1}{1 + \lambda_j^2 \tau^2} \;\in\; (0, 1)$$
 .rplot[
 <img src="figs/shrinkage_profiles.jpg" alt="Your Description" style="width:75%; height:auto;">
 ]
+
+???
+shrinkage profile __under the prior__
 
 ---
 ### $\kappa_j$ as pseudo-PIPs
@@ -1406,7 +1350,7 @@ In Variational Inference (VI), the (often intractable, difficult to sample) post
 
 --
 
-- The goal is to minimize the (reverse) Kulback-Leibler Divergence (KL)
+- The goal is to minimize the (reverse) Kullback-Leibler Divergence (KL)
 
 $$KL \left(q_\phi(W) || p(W|D) \right) = E_{q_{\phi}(W)}\left[ \log\left(\frac{q_\phi(W)}{p(W|D)} \right)  \right].$$
 
@@ -1551,7 +1495,7 @@ This isn't the case for us.
 ---
 ### $\tau^{(1)}$ correction $m^{(2)}_\text{eff}$
 
-In order to use $\kappa_j$ as a posterior inclusion probability, we need to recover an interpretation of $\tau^{(1)}$ as controlling the overall __input__ sparsity. 
+In order to construct $1-\kappa_j$ as a posterior inclusion probability, we need to recover an interpretation of $\tau^{(1)}$ as controlling the overall __input__ sparsity. 
 
 --
 
@@ -1586,6 +1530,8 @@ Rearrangement yields $\tau^{(1)} = \sqrt{\dfrac{g_\text{eff}}{d_1 \times p - g_\
 - So we have an estimate of the global sparsity. 
 
 - Now we need to separate this into __input__ and __representation__ sparsity, or row/column sparsity.
+
+- __call attention to $d_1$ in expression for $\tau$__
 
 ---
 ### Separating out representation sparsity
@@ -1682,7 +1628,7 @@ This addresses
 
 - amplification of a $x_j$'s contribution to $\hat{y}$ by subsequent layer
 
-- also __general__, i.e. can apply to downstream deterministic layers
+- also __general__, i.e. can apply to downstream _deterministic_ layers
 
 
 ???
@@ -1699,7 +1645,7 @@ This addresses
 
 Using $\hat{\kappa}_j   =   \frac{1}{S} \sum_{s=1}^{S} \frac{1}{1 + \lambda_j^{(s)2} \tau_{\text{snm}}^{(s)2 }}   =   \hat{\mathbb{E}}_{q_\phi}\!\left[\frac{1}{1 + \lambda_j^{2} \tau_{\text{snm}}^{2 }}\right],$
 
-we test our method using the optimal BFDR control procedure of _Muller et al 2007_:
+we select acive covariates using the optimal BFDR control procedure of _Muller et al 2007_:
 
 $$\begin{aligned}
 \widehat{BFDR}(\eta)
@@ -1754,7 +1700,8 @@ $$\hat{\kappa}_j < 1-t, \qquad t = \frac{c_1}{c_1 + c_2}$$
 - basically, if price for FPs is extremely high, then $t \rightarrow 1$.
 - if price for FNs is very high, then $t \rightarrow 0$
 
-
+???
+additionally for __scientific applications__ where different costs...
 
 ---
 ## Simulation design:
@@ -2092,9 +2039,24 @@ Recall the stated desiderata:
 
 ???
 
+- our analysis does indicate a marginal effect < age 30 of being Hispanic
+
 
 ---
-### Gender gap among health workers:
+### Marginal effects as %: `college`, `goverment`, `self-employed`
+
+<img src="figs/sal/marg_pct_wrk.png" alt="Your Description" style="width:100%; height:125%;">
+
+- difference in real income __marginalized across all other covariates__
+
+???
+
+- supports previous finding of little effect of being self-employed
+
+
+
+---
+### Gender gap among salaried health workers:
 
 .pull-left[
 <img src="figs/sal/health_coll.png" alt="Your Description" style="width:100%; height:auto;">
@@ -2106,7 +2068,10 @@ Recall the stated desiderata:
 
 
 ???
-- 
+- interestingly, college degree appears to close gender gap for Black males/females, but not for those identifying as non-Black.
+
+- black healthcare workers with college degrees appear to earn about the same (~ $55 k) as non-Hispanic, non-Black males without college degrees
+
 
 - next slide is gender gap among office workers (unique trajectories)
 
@@ -2114,7 +2079,7 @@ Recall the stated desiderata:
 
 
 ---
-### Gender gap among office workers:
+### Gender gap among salaried office workers:
 
 .pull-left[
 <img src="figs/sal/office_coll.png" alt="Your Description" style="width:100%; height:auto;">
@@ -2126,19 +2091,55 @@ Recall the stated desiderata:
 
 ???
 
+- chose to look particularly at health and office workers because had some of the largest $n$ (for each subcategory) out of occupations
+
 - trajectories unique within every subcategory
 
+- college appears to lessen gender wage gap overall
+
+- gender wage gap highest among non-Hispanic, non-Black. peaking around age 45
+
+- gender wage gap smaller with college among everyone except non-Hispanic, non-Black
+
+- also interesting to males across all categories tend to experience marked declines in wage around age 50, while women's wages in many groups are still climbing.  (this effect not nearly as prominent among health care workers)
 
 
 
 ---
 ## Summary
 
+- combine the flexible modeling and expressive power of deep neural networks with well-calibrated BFDR-control
+
+- less risk due to misspecification of mean model
+
+  - but also perhaps harder to answer specific questions via variable selection
+
+- method leverages more data effectively without overfitting, exhibiting steady decreases in predictive error and increases in sensitivity
+
+- develop corrections to inferential quantities that can be estimated both in purely Bayesian and partially Bayesian NNs
 
 
 ---
-## Future Work
+## Possible directions for future work
 
+- combining horseshoe BNN with the cut basis
+
+- joint scale parameter VI specification
+
+- other methods for variable selection with neural networks
+
+- theoretical support for corrections
+
+???
+- Ghosh and doshi-velez use low-rank matrix normal approximation for weights; we could use multivariate normal for scale parameters
+
+- discrete spike-slab with concrete relaxation of Bernoulli; normalizing flow approximations for non-local priors
+
+- theory: Polson Rockova pocterior conentraion for S-S RELU networks, Liu develops BvM theorems for BNN functionals
+
+---
+class:inverse, left, middle
+# Thank you!!
 
 
 
@@ -2185,7 +2186,52 @@ $\scriptsize z=\left(\begin{array}{c}-2.0 \\ -1.6 \\ -1.2 \\ -0.8 \\ -0.4 \\ 0.0
 thought we could just ID the regions were all the splines over it had coefs of 0
 
 
+---
+## Model-based testing
 
+__Local Null Hypothesis__ testing if group membership $k$ has an effect at $z$:
+
+$$f_{11}(z) = f_{12}(z) = ... = f_{1K}(z) = 0$$
+--
+
+__Model-based local null test__:
+
+
+$$E_\eta \left( y_i | z_i, x_{i1} = k  \right)    = \beta_0 (z_i) + \beta_{1k} (z_i) = w_{i0}^T \eta_0 + w_{ik}^T \eta_{1k}$$
+
+
+- if $w_{ik}^T (z_i)\eta_{1k} = 0$, then $\beta_{1k}(z_i) = 0$, i.e. no effect of $x_{i1k}$ on $y_i$ at $z_i$
+
+- So:
+$$\eta_{11z} = \eta_{12z} = ... = \eta_{1Kz} = 0$$
+(abusing notation to let subscript $z$ indicate the portion of the $l_1$-length vector $\eta_{1k}$ corresponding to bases covering a specific $z$)
+
+
+???
+are the coefficients associated with this basis all 0 or not?
+
+---
+## Procedure:
+
+- Partition $z$ into a set of regions $\mathcal{R} = \{R_1, R_2, ..., R_{|\mathcal{R}|} \}$  regions (for now, assume given)
+
+
+- create a basis $W = (W_0, W_1)$, where rows $(y_b, W_{0b}, W_{1b})$ in $(y, W_0, W_1)$ represent observations in $R_b$, using a __cut__ basis $W_1$ for group effects $\beta_{1k}(z)$.
+
+
+- orthogonalize $W_{1b}$ so that $W_{1b}^T W_{0b} = 0$, i.e.:
+  - start with a __cut__ basis $\tilde{W}_{1b}$, then use
+  $$W_{1b} = \left[  I - W_{0b} (W_{0b}^TW_{0b})^{-1} W_{0b}   \right] \tilde{W}_{1b}$$
+
+
+Then $\eta^\star$ contains 0's when truly no group differences in a region.
+
+
+
+
+
+???
+complicated name for simple idea
 
 ---
 ## Cut Orthog Basis
@@ -2204,6 +2250,30 @@ Since $W_1$ is a cut basis,
 ![](figs\eta11_proof2.JPG)
 
 
+---
+## Multi-resolution Analysis
+
+.pull-left[
+Bayesian Model Averaging provides a natural framework to consider multiple resolutions
+
+- just need to place a prior on the resolutions
+
+- Posterior probabilities of an effect at $z$:
+
+$$\begin{align}
+&p(\beta_j(z) \neq 0 | y) = \\
+&\sum_{l=1}^L p(\beta_j(z) \neq 0 | y, \mathcal{R}_l) p(\mathcal{R}_l | y)
+\end{align}$$
+
+]
+
+.pull-right[
+![](figs/multires.JPG)
+]
+
+
+???
+computation can be done in parallel across different resolutions
 
 ---
 ## consistency & # knots
@@ -2238,6 +2308,35 @@ Since $W_1$ is a cut basis,
 ## indep data sim
 ![](figs\ind1_appendix.JPG)
 
+
+
+
+---
+## Simulation results: Independent errors
+
+
+.panelset[
+  .panel[.panel-name[n100]
+    ![](figs/ind_pow1.JPG)
+  ]
+
+  .panel[.panel-name[n1000]
+    ![](figs/ind_pow2.JPG)
+  ]
+]
+
+
+???
+type 1 error in VC-BART
+
+
+
+---
+## Simulation results: Independent errors
+
+![](figs/ind_rmse.JPG)
+
+![](figs/ind_time.JPG)
 
 
 ---
