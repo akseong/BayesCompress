@@ -2126,6 +2126,8 @@ Recall the stated desiderata:
 
 - joint scale parameter VI specification
 
+- application to other types of models, e.g. VC model using sub-networks
+
 - other methods for variable selection with neural networks
 
 - theoretical support for corrections
